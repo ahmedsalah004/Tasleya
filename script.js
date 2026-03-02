@@ -2,6 +2,8 @@ const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
 const CATEGORIES_TO_SELECT = 5;
 const POINT_ROWS_COUNT = 5;
+const POINT_LEVELS = [100, 200, 300, 400, 500];
+const USED_STORAGE_KEY = "tasleya_used_v1";
 
 const el = {
   board: document.getElementById("board"),
@@ -12,6 +14,7 @@ const el = {
   team2Card: document.getElementById("team2Card"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
+  clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionText: document.getElementById("questionText"),
@@ -43,6 +46,7 @@ const state = {
   currentTeam: 1,
   lifelineUsed: false,
   activeTile: null,
+  usedHistory: {},
 };
 
 function showError(message) {
@@ -53,6 +57,10 @@ function showError(message) {
 function clearError() {
   el.errorBanner.textContent = "";
   el.errorBanner.classList.add("hidden");
+}
+
+function normalizeCell(value) {
+  return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
 
 function parseCSV(text) {
@@ -76,7 +84,7 @@ function parseCSV(text) {
     }
 
     if (char === "," && !inQuotes) {
-      row.push(value.trim());
+      row.push(normalizeCell(value));
       value = "";
       continue;
     }
@@ -85,7 +93,7 @@ function parseCSV(text) {
       if (char === "\r" && next === "\n") {
         i += 1;
       }
-      row.push(value.trim());
+      row.push(normalizeCell(value));
       value = "";
       if (row.some((cell) => cell !== "")) {
         rows.push(row);
@@ -98,7 +106,7 @@ function parseCSV(text) {
   }
 
   if (value.length || row.length) {
-    row.push(value.trim());
+    row.push(normalizeCell(value));
     if (row.some((cell) => cell !== "")) {
       rows.push(row);
     }
@@ -108,8 +116,7 @@ function parseCSV(text) {
 }
 
 function normalizeHeader(header) {
-  return String(header || "")
-    .replace(/^\uFEFF/, "")
+  return normalizeCell(header)
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_");
@@ -128,13 +135,16 @@ function rowsToQuestions(rows) {
     .map((row, index) => {
       const q = {};
       mapHeaders.forEach((key, i) => {
-        q[key] = String(row[i] || "").trim();
+        q[key] = normalizeCell(row[i]);
       });
+
+      const difficulty = Number.parseInt(String(q.difficulty ?? "").replace(/[^\d]/g, ""), 10);
+      const computedPoints = toPoints(q) ?? (difficulty >= 1 && difficulty <= 5 ? difficulty * 100 : null);
 
       return {
         id: q.id || String(index + 1),
         category: q.category || "",
-        points: toPoints(q),
+        points: computedPoints,
         question: q.question || "",
         answer: q.answer || "",
         type: (q.type || "text").toLowerCase(),
@@ -148,15 +158,44 @@ function rowsToQuestions(rows) {
     .filter((q) => q.question && q.answer && q.category);
 }
 
-function derivePointLevels(questions) {
-  const unique = new Set();
-  questions.forEach((q) => {
-    if (Number.isFinite(q.points)) {
-      unique.add(q.points);
+function loadUsedHistory() {
+  try {
+    const raw = localStorage.getItem(USED_STORAGE_KEY);
+    if (!raw) {
+      return {};
     }
-  });
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    console.warn("Failed to read used history:", error);
+    return {};
+  }
+}
 
-  return [...unique].sort((a, b) => a - b).slice(0, POINT_ROWS_COUNT);
+function saveUsedHistory() {
+  localStorage.setItem(USED_STORAGE_KEY, JSON.stringify(state.usedHistory));
+}
+
+function ensureBucket(category, points) {
+  if (!state.usedHistory[category]) {
+    state.usedHistory[category] = {};
+  }
+  const key = String(points);
+  if (!Array.isArray(state.usedHistory[category][key])) {
+    state.usedHistory[category][key] = [];
+  }
+  return state.usedHistory[category][key];
+}
+
+function markQuestionAsUsed(category, points, questionId) {
+  if (!questionId) {
+    return;
+  }
+  const bucket = ensureBucket(category, points);
+  if (!bucket.includes(questionId)) {
+    bucket.push(questionId);
+    saveUsedHistory();
+  }
 }
 
 function shuffle(input) {
@@ -207,16 +246,29 @@ async function fetchQuestions() {
 }
 
 function getQuestionForTile(category, points, usedIds) {
-  const candidates = state.allQuestions.filter(
-    (q) => q.category === category && q.points === points && !usedIds.has(q.id),
-  );
-
+  const candidates = state.allQuestions.filter((q) => q.category === category && q.points === points);
   if (!candidates.length) {
     return null;
   }
 
-  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  const bucket = ensureBucket(category, points);
+  const unusedAcrossGames = candidates.filter((q) => !bucket.includes(q.id));
+  const scopedCandidates = (unusedAcrossGames.length ? unusedAcrossGames : candidates).filter(
+    (q) => !usedIds.has(q.id),
+  );
+
+  if (!unusedAcrossGames.length) {
+    state.usedHistory[category][String(points)] = [];
+    saveUsedHistory();
+  }
+
+  if (!scopedCandidates.length) {
+    return null;
+  }
+
+  const chosen = scopedCandidates[Math.floor(Math.random() * scopedCandidates.length)];
   usedIds.add(chosen.id);
+  markQuestionAsUsed(category, points, chosen.id);
   return chosen;
 }
 
@@ -348,6 +400,7 @@ function closeModal() {
 function resetGameState() {
   state.selectedCategories = [];
   state.boardTiles = [];
+  state.pointLevels = [...POINT_LEVELS];
   state.assignedQuestionIds = new Set();
   state.scores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
@@ -507,10 +560,17 @@ function startGameFromSelection() {
   state.currentTeam = 1;
   state.lifelineUsed = false;
   state.activeTile = null;
+  clearError();
 
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
+}
+
+function clearRepeatHistory() {
+  localStorage.removeItem(USED_STORAGE_KEY);
+  state.usedHistory = {};
+  window.alert("تم مسح سجل التكرار بنجاح.");
 }
 
 async function startNewGame() {
@@ -530,10 +590,8 @@ async function startNewGame() {
       throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
     }
 
-    state.pointLevels = derivePointLevels(state.allQuestions);
-    if (state.pointLevels.length < POINT_ROWS_COUNT) {
-      throw new Error("يلزم وجود 5 مستويات نقاط رقمية مختلفة على الأقل في ملف CSV.");
-    }
+    state.pointLevels = [...POINT_LEVELS];
+    state.usedHistory = loadUsedHistory();
 
     state.boardTiles = [];
     renderBoard();
@@ -554,6 +612,7 @@ async function startNewGame() {
 }
 
 el.newGameBtn.addEventListener("click", startNewGame);
+el.clearHistoryBtn?.addEventListener("click", clearRepeatHistory);
 el.closeModalBtn.addEventListener("click", closeModal);
 el.revealBtn.addEventListener("click", revealAnswer);
 el.correctBtn.addEventListener("click", () => applyScore(true));
