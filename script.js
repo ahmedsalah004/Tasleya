@@ -15,7 +15,6 @@ const el = {
   team2Card: document.getElementById("team2Card"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
-  clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionText: document.getElementById("questionText"),
@@ -553,8 +552,12 @@ function applyScore(isCorrect) {
     return;
   }
 
-  const delta = isCorrect ? tile.points : -tile.points;
-  state.scores[state.currentTeam] += delta;
+  if (isCorrect) {
+    state.scores[state.currentTeam] += tile.points;
+  }
+
+  state.scores[1] = Math.max(0, state.scores[1]);
+  state.scores[2] = Math.max(0, state.scores[2]);
   tile.used = true;
 
   state.currentTeam = state.currentTeam === 1 ? 2 : 1;
@@ -661,12 +664,6 @@ function startGameFromSelection() {
   renderBoard();
 }
 
-function clearRepeatHistory() {
-  localStorage.removeItem(USED_STORAGE_KEY);
-  state.usedHistory = {};
-  window.alert("تم مسح سجل التكرار بنجاح.");
-}
-
 async function startNewGame() {
   try {
     resetGameState();
@@ -706,7 +703,6 @@ async function startNewGame() {
 }
 
 el.newGameBtn.addEventListener("click", startNewGame);
-el.clearHistoryBtn?.addEventListener("click", clearRepeatHistory);
 el.closeModalBtn.addEventListener("click", closeModal);
 el.revealBtn.addEventListener("click", revealAnswer);
 el.correctBtn.addEventListener("click", () => applyScore(true));
