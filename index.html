@@ -3,51 +3,58 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لعبة الكويز</title>
+    <title>تساليا - لوحة سين جيم</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app">
-      <aside class="scoreboard" aria-label="لوحة النقاط">
-        <h1>🎯 لعبة الكويز</h1>
+      <aside class="sidebar" aria-label="لوحة النقاط">
+        <h1>🎯 تساليا - سين جيم</h1>
+
         <div class="team-card" id="team1Card">
           <h2>الفريق الأول</h2>
           <p class="score" id="team1Score">0</p>
         </div>
+
         <div class="team-card" id="team2Card">
           <h2>الفريق الثاني</h2>
           <p class="score" id="team2Score">0</p>
         </div>
-        <div class="status-box">
-          <p>الدور الحالي</p>
-          <p class="current-team" id="currentTeam">الفريق الأول</p>
+
+        <div class="status-card">
+          <p>الدور الحالي:</p>
+          <p id="currentTurn">الفريق الأول</p>
         </div>
-        <div class="status-box">
-          <p>السؤال</p>
-          <p class="counter" id="questionCounter">0 / 0</p>
-        </div>
+
+        <button id="newGameBtn" class="primary-btn">لعبة جديدة</button>
       </aside>
 
-      <main class="quiz-area">
-        <header class="quiz-header">
-          <div class="meta" id="metaInfo">الفئة: — | الصعوبة: — | النقاط: —</div>
-          <div class="timer" id="timer" aria-live="polite">30</div>
-        </header>
-
-        <section class="question-box">
-          <img id="questionImage" alt="صورة السؤال" hidden />
-          <h2 id="questionText">اضغط "لعبة جديدة" للبدء.</h2>
-          <div id="choices" class="choices"></div>
-          <p id="answerText" class="answer" hidden></p>
+      <main>
+        <section class="board-wrap">
+          <div id="board" class="board" aria-live="polite"></div>
         </section>
-
-        <footer class="controls">
-          <button id="revealBtn" disabled>إظهار الإجابة</button>
-          <button id="correctBtn" disabled>إجابة صحيحة (+نقاط)</button>
-          <button id="nextBtn" disabled>السؤال التالي</button>
-          <button id="newGameBtn">لعبة جديدة</button>
-        </footer>
       </main>
+    </div>
+
+    <div id="questionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="questionText">
+      <div class="modal-content">
+        <button id="closeModalBtn" class="ghost-btn" type="button">إغلاق</button>
+        <h2 id="questionText">السؤال</h2>
+        <img id="questionImage" alt="صورة السؤال" hidden />
+        <p id="answerText" class="answer hidden"></p>
+
+        <div id="choicesBox" class="choices-box hidden">
+          <h3>اختيارات المساعدة</h3>
+          <div id="choicesList" class="choices-list"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="lifelineBtn" class="secondary-btn" type="button">مساعدة (اختيارات)</button>
+          <button id="revealBtn" class="secondary-btn" type="button">إظهار الإجابة</button>
+          <button id="correctBtn" class="success-btn" type="button">إجابة صحيحة (+points)</button>
+          <button id="wrongBtn" class="danger-btn" type="button">إجابة خاطئة (-points)</button>
+        </div>
+      </div>
     </div>
 
     <script src="script.js"></script>
