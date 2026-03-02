@@ -1,14 +1,6 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const POINT_VALUES = [200, 400, 600, 800, 1000];
-const DIFFICULTY_TO_POINTS = {
-  easy: 200,
-  medium: 600,
-  hard: 1000,
-  سهل: 200,
-  متوسط: 600,
-  صعب: 1000,
-};
+const POINT_VALUES = [100, 200, 300, 400, 500];
 
 const el = {
   board: document.getElementById("board"),
@@ -106,17 +98,15 @@ function parseCSV(text) {
 }
 
 function normalizeHeader(header) {
-  return header.toLowerCase().trim().replace(/\s+/g, "_");
+  return header.replace(/^\uFEFF/, "").toLowerCase().trim().replace(/\s+/g, "_");
 }
 
 function toPoints(question) {
-  const explicit = Number(String(question.points || "").replace(/[^\d]/g, ""));
+  const explicit = Number.parseInt(String(question.points || "").replace(/[^\d]/g, ""), 10);
   if (POINT_VALUES.includes(explicit)) {
     return explicit;
   }
-
-  const difficulty = String(question.difficulty || "").trim().toLowerCase();
-  return DIFFICULTY_TO_POINTS[difficulty] || 200;
+  return null;
 }
 
 function rowsToQuestions(rows) {
@@ -132,8 +122,7 @@ function rowsToQuestions(rows) {
 
       return {
         id: q.id || String(index + 1),
-        category: q.category || "عام",
-        difficulty: q.difficulty || "",
+        category: q.category || "",
         points: toPoints(q),
         question: q.question || "",
         answer: q.answer || "",
@@ -177,9 +166,11 @@ async function fetchQuestions() {
 
     return rowsToQuestions(rows);
   } catch (error) {
-    const fetchStatusMatch = String(error.message || "").match(/CSV fetch failed:\s*(\d+)/);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("CSV fetch error:", error);
+    const fetchStatusMatch = message.match(/CSV fetch failed:\s*(\d+)/);
     const finalStatus = fetchStatusMatch?.[1] || statusCode;
-    throw new Error(`تعذّر تحميل ملف CSV من Google Sheets. الحالة: ${finalStatus}`);
+    throw new Error(`تعذّر تحميل ملف CSV من Google Sheets. الحالة: ${finalStatus}. التفاصيل: ${message}`);
   }
 }
 
@@ -425,9 +416,7 @@ async function startNewGame() {
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
 
-    if (!state.allQuestions.length) {
-      state.allQuestions = await fetchQuestions();
-    }
+    state.allQuestions = await fetchQuestions();
 
     if (state.allQuestions.length === 0) {
       throw new Error("لا توجد أسئلة صالحة في الملف.");
@@ -441,7 +430,9 @@ async function startNewGame() {
     state.boardTiles = [];
     closeModal();
     updateScoreboard();
-    showError(error.message || "حدث خطأ غير متوقع أثناء تحميل البيانات.");
+    const message = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء تحميل البيانات.";
+    showError(message);
+    console.error("Failed to start new game:", error);
     el.board.innerHTML = "";
   } finally {
     el.newGameBtn.disabled = false;
