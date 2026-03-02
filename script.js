@@ -1,312 +1,414 @@
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-
-const state = {
-  allQuestions: [],
-  sessionQuestions: [],
-  index: 0,
-  currentTeam: 1,
-  teamScores: { 1: 0, 2: 0 },
-  timer: 30,
-  timerHandle: null,
-  answerRevealed: false,
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/REPLACE_WITH_YOUR_SHEET/pub?output=csv";
+const POINT_VALUES = [200, 400, 600, 800, 1000];
+const DIFFICULTY_TO_POINTS = {
+  easy: 200,
+  medium: 600,
+  hard: 1000,
+  سهل: 200,
+  متوسط: 600,
+  صعب: 1000,
 };
 
 const el = {
-  questionText: document.getElementById("questionText"),
-  answerText: document.getElementById("answerText"),
-  choices: document.getElementById("choices"),
-  questionImage: document.getElementById("questionImage"),
-  timer: document.getElementById("timer"),
-  metaInfo: document.getElementById("metaInfo"),
-  questionCounter: document.getElementById("questionCounter"),
-  currentTeam: document.getElementById("currentTeam"),
+  board: document.getElementById("board"),
   team1Score: document.getElementById("team1Score"),
   team2Score: document.getElementById("team2Score"),
   team1Card: document.getElementById("team1Card"),
   team2Card: document.getElementById("team2Card"),
+  currentTurn: document.getElementById("currentTurn"),
+  newGameBtn: document.getElementById("newGameBtn"),
+  modal: document.getElementById("questionModal"),
+  closeModalBtn: document.getElementById("closeModalBtn"),
+  questionText: document.getElementById("questionText"),
+  questionImage: document.getElementById("questionImage"),
+  answerText: document.getElementById("answerText"),
   revealBtn: document.getElementById("revealBtn"),
   correctBtn: document.getElementById("correctBtn"),
-  nextBtn: document.getElementById("nextBtn"),
-  newGameBtn: document.getElementById("newGameBtn"),
+  wrongBtn: document.getElementById("wrongBtn"),
+  lifelineBtn: document.getElementById("lifelineBtn"),
+  choicesBox: document.getElementById("choicesBox"),
+  choicesList: document.getElementById("choicesList"),
 };
 
-function parseCSV(csvText) {
+const state = {
+  allQuestions: [],
+  categories: [],
+  boardTiles: [],
+  scores: { 1: 0, 2: 0 },
+  currentTeam: 1,
+  lifelineUsed: false,
+  activeTile: null,
+};
+
+function parseCSV(text) {
   const rows = [];
   let row = [];
-  let cell = "";
+  let value = "";
   let inQuotes = false;
 
-  for (let i = 0; i < csvText.length; i += 1) {
-    const char = csvText[i];
-    const next = csvText[i + 1];
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
 
     if (char === '"') {
       if (inQuotes && next === '"') {
-        cell += '"';
+        value += '"';
         i += 1;
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (char === "," && !inQuotes) {
-      row.push(cell.trim());
-      cell = "";
-    } else if ((char === "\n" || char === "\r") && !inQuotes) {
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(value.trim());
+      value = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
       if (char === "\r" && next === "\n") {
         i += 1;
       }
-      row.push(cell.trim());
-      if (row.length > 1 || row[0] !== "") {
+      row.push(value.trim());
+      value = "";
+      if (row.some((cell) => cell !== "")) {
         rows.push(row);
       }
       row = [];
-      cell = "";
-    } else {
-      cell += char;
+      continue;
     }
+
+    value += char;
   }
 
-  if (cell.length > 0 || row.length > 0) {
-    row.push(cell.trim());
-    rows.push(row);
+  if (value.length || row.length) {
+    row.push(value.trim());
+    if (row.some((cell) => cell !== "")) {
+      rows.push(row);
+    }
   }
 
   return rows;
 }
 
 function normalizeHeader(header) {
-  return header
-    .toLowerCase()
-    .trim()
-    .replace(/\ufeff/g, "")
-    .replace(/\s+/g, "_");
+  return header.toLowerCase().trim().replace(/\s+/g, "_");
+}
+
+function toPoints(question) {
+  const explicit = Number(String(question.points || "").replace(/[^\d]/g, ""));
+  if (POINT_VALUES.includes(explicit)) {
+    return explicit;
+  }
+
+  const difficulty = String(question.difficulty || "").trim().toLowerCase();
+  return DIFFICULTY_TO_POINTS[difficulty] || 200;
 }
 
 function rowsToQuestions(rows) {
-  const [headerRow, ...dataRows] = rows;
-  const headers = headerRow.map(normalizeHeader);
+  const [headers, ...dataRows] = rows;
+  const mapHeaders = headers.map(normalizeHeader);
 
   return dataRows
-    .map((columns, idx) => {
-      const map = Object.fromEntries(headers.map((h, i) => [h, columns[i] ?? ""]));
-      const points = Number.parseInt(map.points, 10);
+    .map((row, index) => {
+      const q = {};
+      mapHeaders.forEach((key, i) => {
+        q[key] = (row[i] || "").trim();
+      });
 
-      return {
-        id: map.id || String(idx + 1),
-        category: map.category || "عام",
-        difficulty: map.difficulty || "—",
-        question: map.question || "",
-        answer: map.answer || "",
-        type: map.type || "text",
-        image_url: map.image_url || "",
-        choice_a: map.choice_a || "",
-        choice_b: map.choice_b || "",
-        choice_c: map.choice_c || "",
-        choice_d: map.choice_d || "",
-        points: Number.isFinite(points) ? points : 1,
+      const normalized = {
+        id: q.id || String(index + 1),
+        category: q.category || "عام",
+        difficulty: q.difficulty || "",
+        points: toPoints(q),
+        question: q.question || "",
+        answer: q.answer || "",
+        type: (q.type || "text").toLowerCase(),
+        image_url: q.image_url || "",
+        choice_a: q.choice_a || "",
+        choice_b: q.choice_b || "",
+        choice_c: q.choice_c || "",
+        choice_d: q.choice_d || "",
       };
+
+      return normalized;
     })
-    .filter((q) => q.question && q.answer);
+    .filter((q) => q.question && q.answer && q.category);
 }
 
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i -= 1) {
+function shuffle(input) {
+  const arr = [...input];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  return array;
+  return arr;
 }
 
 async function fetchQuestions() {
-  const response = await fetch(CSV_URL, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error("فشل تحميل ملف الأسئلة.");
+  const res = await fetch(CSV_URL, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("تعذّر تحميل ملف CSV من Google Sheets.");
   }
 
-  const csvText = await response.text();
-  const rows = parseCSV(csvText);
-  if (!rows.length) {
-    throw new Error("ملف CSV فارغ أو غير صالح.");
+  const csv = await res.text();
+  const rows = parseCSV(csv);
+  if (rows.length < 2) {
+    throw new Error("ملف CSV لا يحتوي بيانات كافية.");
   }
-
   return rowsToQuestions(rows);
 }
 
-function resetTimer() {
-  if (state.timerHandle) {
-    clearInterval(state.timerHandle);
-  }
-
-  state.timer = 30;
-  renderTimer();
-
-  state.timerHandle = setInterval(() => {
-    state.timer -= 1;
-    renderTimer();
-
-    if (state.timer <= 0) {
-      clearInterval(state.timerHandle);
-      state.timerHandle = null;
-      revealAnswer();
-      el.correctBtn.disabled = true;
+function pickCategories(questions) {
+  const unique = [];
+  questions.forEach((q) => {
+    if (!unique.includes(q.category)) {
+      unique.push(q.category);
     }
-  }, 1000);
+  });
+  return unique.slice(0, 5);
 }
 
-function renderTimer() {
-  el.timer.textContent = String(state.timer);
-  el.timer.classList.toggle("warning", state.timer <= 10 && state.timer > 5);
-  el.timer.classList.toggle("danger", state.timer <= 5);
+function getQuestionForTile(category, points, usedIds) {
+  const candidates = state.allQuestions.filter(
+    (q) => q.category === category && q.points === points && !usedIds.has(q.id),
+  );
+
+  if (!candidates.length) {
+    return null;
+  }
+
+  const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+  usedIds.add(chosen.id);
+  return chosen;
+}
+
+function buildBoardAssignment() {
+  const usedIds = new Set();
+  const tiles = [];
+
+  state.categories.forEach((category) => {
+    POINT_VALUES.forEach((points) => {
+      const question = getQuestionForTile(category, points, usedIds);
+      tiles.push({
+        id: `${category}-${points}`,
+        category,
+        points,
+        question,
+        used: !question,
+        missing: !question,
+      });
+    });
+  });
+
+  state.boardTiles = tiles;
 }
 
 function updateScoreboard() {
-  el.team1Score.textContent = state.teamScores[1];
-  el.team2Score.textContent = state.teamScores[2];
-  el.currentTeam.textContent = state.currentTeam === 1 ? "الفريق الأول" : "الفريق الثاني";
+  el.team1Score.textContent = String(state.scores[1]);
+  el.team2Score.textContent = String(state.scores[2]);
+  const currentText = state.currentTeam === 1 ? "الفريق الأول" : "الفريق الثاني";
+  el.currentTurn.textContent = currentText;
   el.team1Card.classList.toggle("active", state.currentTeam === 1);
   el.team2Card.classList.toggle("active", state.currentTeam === 2);
 }
 
-function currentQuestion() {
-  return state.sessionQuestions[state.index];
+function renderBoard() {
+  el.board.innerHTML = "";
+
+  state.categories.forEach((category) => {
+    const header = document.createElement("div");
+    header.className = "board-cell category";
+    header.textContent = category;
+    el.board.appendChild(header);
+  });
+
+  POINT_VALUES.forEach((points) => {
+    state.categories.forEach((category) => {
+      const tile = state.boardTiles.find((t) => t.category === category && t.points === points);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "board-cell tile";
+      btn.dataset.tileId = tile.id;
+
+      if (tile.missing) {
+        btn.textContent = "نقص أسئلة";
+        btn.disabled = true;
+        btn.classList.add("missing", "used");
+      } else if (tile.used) {
+        btn.textContent = "";
+        btn.disabled = true;
+        btn.classList.add("used");
+      } else {
+        btn.textContent = String(points);
+        btn.disabled = false;
+      }
+
+      btn.addEventListener("click", () => openQuestion(tile.id));
+      el.board.appendChild(btn);
+    });
+  });
 }
 
-function hasChoices(question) {
-  return [question.choice_a, question.choice_b, question.choice_c, question.choice_d].some(Boolean);
+function getActiveQuestion() {
+  return state.activeTile?.question || null;
 }
 
-function renderQuestion() {
-  const q = currentQuestion();
-  if (!q) {
-    finishGame();
+function openQuestion(tileId) {
+  const tile = state.boardTiles.find((t) => t.id === tileId);
+  if (!tile || tile.used || !tile.question) {
     return;
   }
 
-  state.answerRevealed = false;
-  el.questionText.textContent = q.question;
-  el.answerText.hidden = true;
-  el.answerText.textContent = `الإجابة: ${q.answer}`;
-  el.metaInfo.textContent = `الفئة: ${q.category} | الصعوبة: ${q.difficulty} | النقاط: ${q.points}`;
-  el.questionCounter.textContent = `${state.index + 1} / ${state.sessionQuestions.length}`;
+  state.activeTile = tile;
+  const q = tile.question;
 
-  if (q.image_url) {
+  el.questionText.textContent = q.question;
+  el.answerText.textContent = `الإجابة: ${q.answer}`;
+  el.answerText.classList.add("hidden");
+  el.choicesBox.classList.add("hidden");
+  el.choicesList.innerHTML = "";
+
+  const basePath = window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/";
+  if (q.type === "image" && q.image_url) {
     el.questionImage.hidden = false;
-    el.questionImage.src = q.image_url;
+    el.questionImage.src = encodeURI(basePath + q.image_url);
   } else {
     el.questionImage.hidden = true;
     el.questionImage.removeAttribute("src");
   }
 
-  renderChoices(q);
-  el.revealBtn.disabled = false;
-  el.correctBtn.disabled = true;
-  el.nextBtn.disabled = true;
-  resetTimer();
-  updateScoreboard();
+  el.lifelineBtn.disabled = state.lifelineUsed;
+  el.modal.classList.remove("hidden");
 }
 
-function renderChoices(q) {
-  el.choices.innerHTML = "";
-
-  const choices = [q.choice_a, q.choice_b, q.choice_c, q.choice_d].filter(Boolean);
-  if (!choices.length) {
-    return;
-  }
-
-  choices.forEach((choice) => {
-    const btn = document.createElement("button");
-    btn.className = "choice-btn";
-    btn.type = "button";
-    btn.textContent = choice;
-    btn.addEventListener("click", () => {
-      [...el.choices.children].forEach((node) => {
-        node.disabled = true;
-        node.style.borderColor = "#3a446b";
-      });
-      btn.style.borderColor = "#7b9cff";
-      revealAnswer();
-    });
-    el.choices.appendChild(btn);
-  });
+function closeModal() {
+  el.modal.classList.add("hidden");
+  state.activeTile = null;
 }
 
 function revealAnswer() {
-  if (state.answerRevealed) {
+  if (!getActiveQuestion()) {
+    return;
+  }
+  el.answerText.classList.remove("hidden");
+}
+
+function uniqueByText(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = item.trim();
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+function generateChoices(question) {
+  const direct = [question.choice_a, question.choice_b, question.choice_c, question.choice_d].filter(Boolean);
+  if (direct.length === 4) {
+    return shuffle(direct);
+  }
+
+  const sameCategoryWrong = state.allQuestions
+    .filter((q) => q.category === question.category && q.id !== question.id)
+    .map((q) => q.answer);
+  const allWrong = state.allQuestions.filter((q) => q.id !== question.id).map((q) => q.answer);
+
+  const wrongPool = uniqueByText([...sameCategoryWrong, ...allWrong]).filter((ans) => ans !== question.answer);
+  const wrongChoices = shuffle(wrongPool).slice(0, 3);
+  const built = uniqueByText([question.answer, ...wrongChoices]);
+
+  while (built.length < 4) {
+    built.push(`خيار ${built.length + 1}`);
+  }
+
+  return shuffle(built.slice(0, 4));
+}
+
+function useLifeline() {
+  const question = getActiveQuestion();
+  if (!question || state.lifelineUsed) {
     return;
   }
 
-  state.answerRevealed = true;
-  el.answerText.hidden = false;
-  el.revealBtn.disabled = true;
-  el.correctBtn.disabled = false;
-  el.nextBtn.disabled = false;
+  const options = generateChoices(question);
+  el.choicesList.innerHTML = "";
 
-  if (state.timerHandle) {
-    clearInterval(state.timerHandle);
-    state.timerHandle = null;
-  }
+  options.forEach((option) => {
+    const div = document.createElement("div");
+    div.className = "choice-item";
+    div.textContent = option;
+    el.choicesList.appendChild(div);
+  });
+
+  state.lifelineUsed = true;
+  el.lifelineBtn.disabled = true;
+  el.choicesBox.classList.remove("hidden");
 }
 
-function awardPointsToCurrentTeam() {
-  const q = currentQuestion();
-  if (!q || !state.answerRevealed) {
+function applyScore(isCorrect) {
+  const tile = state.activeTile;
+  if (!tile || tile.used || !tile.question) {
     return;
   }
 
-  state.teamScores[state.currentTeam] += q.points;
-  updateScoreboard();
-  el.correctBtn.disabled = true;
-}
+  const delta = isCorrect ? tile.points : -tile.points;
+  state.scores[state.currentTeam] += delta;
+  tile.used = true;
 
-function nextQuestion() {
   state.currentTeam = state.currentTeam === 1 ? 2 : 1;
-  state.index += 1;
-  renderQuestion();
+  updateScoreboard();
+  renderBoard();
+  closeModal();
 }
 
-function finishGame() {
-  if (state.timerHandle) {
-    clearInterval(state.timerHandle);
-    state.timerHandle = null;
-  }
+function resetGameState() {
+  state.scores = { 1: 0, 2: 0 };
+  state.currentTeam = 1;
+  state.lifelineUsed = false;
+  state.activeTile = null;
 
-  el.questionText.textContent = "انتهت اللعبة! اضغط لعبة جديدة لإعادة التشغيل.";
-  el.answerText.hidden = true;
-  el.choices.innerHTML = "";
-  el.questionImage.hidden = true;
-  el.metaInfo.textContent = "الفئة: — | الصعوبة: — | النقاط: —";
-  el.revealBtn.disabled = true;
-  el.correctBtn.disabled = true;
-  el.nextBtn.disabled = true;
-  el.questionCounter.textContent = `${state.sessionQuestions.length} / ${state.sessionQuestions.length}`;
+  state.categories = pickCategories(state.allQuestions);
+  buildBoardAssignment();
+  updateScoreboard();
+  renderBoard();
 }
 
 async function startNewGame() {
   try {
     el.newGameBtn.disabled = true;
-    el.questionText.textContent = "جارٍ تحميل الأسئلة...";
-
     if (!state.allQuestions.length) {
       state.allQuestions = await fetchQuestions();
     }
 
-    state.sessionQuestions = shuffle([...state.allQuestions]);
-    state.index = 0;
-    state.currentTeam = 1;
-    state.teamScores = { 1: 0, 2: 0 };
-    updateScoreboard();
-    renderQuestion();
+    if (state.allQuestions.length === 0) {
+      throw new Error("لا توجد أسئلة صالحة في الملف.");
+    }
+
+    resetGameState();
   } catch (error) {
-    el.questionText.textContent = `حدث خطأ: ${error.message}`;
+    el.board.innerHTML = `<div class="board-cell missing" style="grid-column: 1/-1; min-height: 120px;">${error.message}</div>`;
   } finally {
     el.newGameBtn.disabled = false;
   }
 }
 
-el.revealBtn.addEventListener("click", revealAnswer);
-el.correctBtn.addEventListener("click", awardPointsToCurrentTeam);
-el.nextBtn.addEventListener("click", nextQuestion);
 el.newGameBtn.addEventListener("click", startNewGame);
+el.closeModalBtn.addEventListener("click", closeModal);
+el.revealBtn.addEventListener("click", revealAnswer);
+el.correctBtn.addEventListener("click", () => applyScore(true));
+el.wrongBtn.addEventListener("click", () => applyScore(false));
+el.lifelineBtn.addEventListener("click", useLifeline);
+
+el.modal.addEventListener("click", (event) => {
+  if (event.target === el.modal) {
+    closeModal();
+  }
+});
 
 updateScoreboard();
-renderTimer();
+renderBoard();
