@@ -1,49 +1,48 @@
-# Tasleya - لوحة سين جيم
+# تسلية - سين جيم
 
-لعبة أسئلة بنمط **Seen Jeem** (لوحة 5×5) بواجهة عربية RTL، مناسبة للنشر على GitHub Pages.
+لعبة **Seen Jeem** بواجهة عربية RTL (لوحة 5 فئات × 5 صفوف نقاط)، مبنية بـ **HTML/CSS/JS** بدون أي إطار عمل، ومجهزة للنشر على GitHub Pages تحت المسار `/Tasleya/`.
 
-## طريقة تجهيز ملف Google Sheet
+## إعداد بنك الأسئلة من Google Sheets
 
-1. أنشئ Google Sheet بالأعمدة التالية (يفضل نفس الأسماء):
-   - `id`
-   - `category`
-   - `difficulty` (اختياري)
-   - `points` (اختياري، القيم المفضلة: 200/400/600/800/1000)
-   - `question`
-   - `answer`
-   - `type` (`text` أو `image`)
-   - `image_url`
-   - `choice_a`
-   - `choice_b`
-   - `choice_c`
-   - `choice_d`
+استخدم هذه الأعمدة في الورقة (يفضل بنفس الأسماء):
 
-2. أضف الأسئلة. لو لم تضع `points` يمكن استخدام `difficulty` (سهل/متوسط/صعب أو easy/medium/hard).
+- `id`
+- `category`
+- `difficulty` (اختياري)
+- `points` (اختياري، القيم القياسية: 200 / 400 / 600 / 800 / 1000)
+- `question`
+- `answer`
+- `type` (`text` أو `image`)
+- `image_url`
+- `choice_a`
+- `choice_b`
+- `choice_c`
+- `choice_d`
 
-## نشر Google Sheet كـ CSV
+## نشر الورقة كـ CSV
 
-1. من Google Sheet اختر: **File → Share → Publish to web**.
-2. اختر الورقة المطلوبة ثم الصيغة **CSV**.
-3. انسخ الرابط الناتج.
-4. افتح `script.js` وعدّل الثابت:
+1. افتح Google Sheet.
+2. اختر **File → Share → Publish to web**.
+3. اختر الشيت المطلوب والنوع **CSV**.
+4. انسخ رابط CSV المنشور.
 
-```js
-const CSV_URL = "PUT_YOUR_PUBLISHED_CSV_URL_HERE";
-```
+المشروع يستخدم ثابت `CSV_URL` داخل `script.js`، ويمكن استبداله برابطك المنشور عند الحاجة.
 
-## الصور داخل GitHub Pages
+## رفع الصور داخل المستودع
 
-- ضع الصور داخل المستودع (مثال: `assets/flags/saudi arabia.png`).
-- في عمود `image_url` اكتب المسار النسبي داخل المشروع، مثل:
-  - `assets/flags/saudi arabia.png`
-- الكود يحدد مسار GitHub Pages تلقائياً (`/Tasleya/`) ويستخدم `encodeURI` حتى تعمل الأسماء التي تحتوي مسافات.
+ارفع الصور داخل مجلدات المشروع، مثل:
 
-## ملاحظات اللعبة
+- `assets/flags`
+- `assets/maps`
+- `assets/famous`
 
-- اللوحة تتكون من 5 فئات × 5 صفوف نقاط (200 إلى 1000).
-- كل خانة تُستخدم مرة واحدة فقط.
-- زر **مساعدة (اختيارات)** متاح مرة واحدة فقط لكل اللعبة.
-- زر **لعبة جديدة** يعيد:
-  - توزيع الأسئلة بشكل عشوائي على الخانات
-  - تصفير النقاط
-  - إعادة تفعيل المساعدة
+مثال على مسار في عمود `image_url` داخل الشيت:
+
+- `assets/flags/nepal.jpeg`
+- `assets/maps/Italy map.svg`
+
+## ملاحظة مهمة عن المسافات في أسماء الملفات
+
+إذا كان اسم الملف يحتوي مسافات، اتركه كما هو في `image_url` (مثال: `assets/maps/Italy map.svg`).
+
+الكود يستخدم `encodeURI` عند تحميل الصور، لذلك المسافات والأحرف الخاصة سيتم ترميزها تلقائياً بشكل صحيح على GitHub Pages.

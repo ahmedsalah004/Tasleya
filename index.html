@@ -3,13 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>تساليا - لوحة سين جيم</title>
+    <title>تسلية - سين جيم</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <div class="app">
       <aside class="sidebar" aria-label="لوحة النقاط">
-        <h1>🎯 تساليا - سين جيم</h1>
+        <h1>تسلية</h1>
+
+        <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
         <div class="team-card" id="team1Card">
           <h2>الفريق الأول</h2>
@@ -30,7 +32,7 @@
       </aside>
 
       <main>
-        <section class="board-wrap">
+        <section class="board-wrap" aria-label="لوحة سين جيم">
           <div id="board" class="board" aria-live="polite"></div>
         </section>
       </main>
