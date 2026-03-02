@@ -1,7 +1,7 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const POINT_VALUES = [100, 200, 300, 400, 500];
 const CATEGORIES_TO_SELECT = 5;
+const POINT_ROWS_COUNT = 5;
 
 const el = {
   board: document.getElementById("board"),
@@ -36,6 +36,8 @@ const state = {
   allCategories: [],
   selectedCategories: [],
   boardTiles: [],
+  pointLevels: [],
+  assignedQuestionIds: new Set(),
   dataLoadFailed: false,
   scores: { 1: 0, 2: 0 },
   currentTeam: 1,
@@ -106,15 +108,16 @@ function parseCSV(text) {
 }
 
 function normalizeHeader(header) {
-  return header.replace(/^\uFEFF/, "").toLowerCase().trim().replace(/\s+/g, "_");
+  return String(header || "")
+    .replace(/^\uFEFF/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
 }
 
 function toPoints(question) {
-  const explicit = Number.parseInt(String(question.points || "").replace(/[^\d]/g, ""), 10);
-  if (POINT_VALUES.includes(explicit)) {
-    return explicit;
-  }
-  return null;
+  const explicit = Number.parseInt(String(question.points ?? "").replace(/[^\d]/g, ""), 10);
+  return Number.isFinite(explicit) ? explicit : null;
 }
 
 function rowsToQuestions(rows) {
@@ -125,7 +128,7 @@ function rowsToQuestions(rows) {
     .map((row, index) => {
       const q = {};
       mapHeaders.forEach((key, i) => {
-        q[key] = (row[i] || "").trim();
+        q[key] = String(row[i] || "").trim();
       });
 
       return {
@@ -143,6 +146,17 @@ function rowsToQuestions(rows) {
       };
     })
     .filter((q) => q.question && q.answer && q.category);
+}
+
+function derivePointLevels(questions) {
+  const unique = new Set();
+  questions.forEach((q) => {
+    if (Number.isFinite(q.points)) {
+      unique.add(q.points);
+    }
+  });
+
+  return [...unique].sort((a, b) => a - b).slice(0, POINT_ROWS_COUNT);
 }
 
 function shuffle(input) {
@@ -207,12 +221,12 @@ function getQuestionForTile(category, points, usedIds) {
 }
 
 function buildBoardAssignment() {
-  const usedIds = new Set();
+  state.assignedQuestionIds = new Set();
   const tiles = [];
 
   state.selectedCategories.forEach((category) => {
-    POINT_VALUES.forEach((points) => {
-      const question = getQuestionForTile(category, points, usedIds);
+    state.pointLevels.forEach((points) => {
+      const question = getQuestionForTile(category, points, state.assignedQuestionIds);
       tiles.push({
         id: `${category}-${points}`,
         category,
@@ -237,7 +251,11 @@ function updateScoreboard() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed || state.selectedCategories.length !== CATEGORIES_TO_SELECT) {
+  if (
+    state.dataLoadFailed ||
+    state.selectedCategories.length !== CATEGORIES_TO_SELECT ||
+    state.pointLevels.length === 0
+  ) {
     el.board.innerHTML = "";
     return;
   }
@@ -251,9 +269,13 @@ function renderBoard() {
     el.board.appendChild(header);
   });
 
-  POINT_VALUES.forEach((points) => {
+  state.pointLevels.forEach((points) => {
     state.selectedCategories.forEach((category) => {
       const tile = state.boardTiles.find((t) => t.category === category && t.points === points);
+      if (!tile) {
+        return;
+      }
+
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "board-cell tile";
@@ -290,6 +312,9 @@ function openQuestion(tileId) {
 
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || !tile.question) {
+    if (tile && tile.missing) {
+      showError("نقص أسئلة");
+    }
     return;
   }
 
@@ -318,6 +343,21 @@ function openQuestion(tileId) {
 function closeModal() {
   el.modal.classList.add("hidden");
   state.activeTile = null;
+}
+
+function resetGameState() {
+  state.selectedCategories = [];
+  state.boardTiles = [];
+  state.assignedQuestionIds = new Set();
+  state.scores = { 1: 0, 2: 0 };
+  state.currentTeam = 1;
+  state.lifelineUsed = false;
+  state.activeTile = null;
+  closeModal();
+  closeCategoryPicker();
+  clearError();
+  updateScoreboard();
+  renderBoard();
 }
 
 function revealAnswer() {
@@ -475,9 +515,7 @@ function startGameFromSelection() {
 
 async function startNewGame() {
   try {
-    clearError();
-    closeModal();
-    closeCategoryPicker();
+    resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
 
@@ -492,6 +530,11 @@ async function startNewGame() {
       throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
     }
 
+    state.pointLevels = derivePointLevels(state.allQuestions);
+    if (state.pointLevels.length < POINT_ROWS_COUNT) {
+      throw new Error("يلزم وجود 5 مستويات نقاط رقمية مختلفة على الأقل في ملف CSV.");
+    }
+
     state.boardTiles = [];
     renderBoard();
     openCategoryPicker();
@@ -499,13 +542,10 @@ async function startNewGame() {
     state.dataLoadFailed = true;
     state.allQuestions = [];
     state.allCategories = [];
-    state.selectedCategories = [];
-    state.boardTiles = [];
-    closeModal();
-    closeCategoryPicker();
-    updateScoreboard();
+    state.pointLevels = [];
+    resetGameState();
     const message = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء تحميل البيانات.";
-    showError(message);
+    showError(`تعذّر بدء لعبة جديدة. ${message}`);
     console.error("Failed to start new game:", error);
     el.board.innerHTML = "";
   } finally {
