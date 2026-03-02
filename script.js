@@ -4,6 +4,7 @@ const CATEGORIES_TO_SELECT = 5;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
+const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const el = {
@@ -13,6 +14,12 @@ const el = {
   team2Score: document.getElementById("team2Score"),
   team1Card: document.getElementById("team1Card"),
   team2Card: document.getElementById("team2Card"),
+  team1NameInput: document.getElementById("team1NameInput"),
+  team2NameInput: document.getElementById("team2NameInput"),
+  team1PlusBtn: document.getElementById("team1PlusBtn"),
+  team1MinusBtn: document.getElementById("team1MinusBtn"),
+  team2PlusBtn: document.getElementById("team2PlusBtn"),
+  team2MinusBtn: document.getElementById("team2MinusBtn"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
   modal: document.getElementById("questionModal"),
@@ -32,6 +39,11 @@ const el = {
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
   cancelCategoryBtn: document.getElementById("cancelCategoryBtn"),
+  podiumModal: document.getElementById("podiumModal"),
+  podiumTitle: document.getElementById("podiumTitle"),
+  podiumSubtitle: document.getElementById("podiumSubtitle"),
+  podiumBoard: document.getElementById("podiumBoard"),
+  podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
 };
 
 const state = {
@@ -43,6 +55,7 @@ const state = {
   assignedQuestionIds: new Set(),
   dataLoadFailed: false,
   scores: { 1: 0, 2: 0 },
+  teamNames: { 1: "الفريق الأول", 2: "الفريق الثاني" },
   currentTeam: 1,
   lifelineUsed: false,
   activeTile: null,
@@ -175,6 +188,32 @@ function loadUsedHistory() {
 
 function saveUsedHistory() {
   localStorage.setItem(USED_STORAGE_KEY, JSON.stringify(state.usedHistory));
+}
+
+function loadTeamNames() {
+  try {
+    const raw = localStorage.getItem(TEAM_NAMES_STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      const team1 = normalizeCell(parsed[1] ?? parsed.team1);
+      const team2 = normalizeCell(parsed[2] ?? parsed.team2);
+      if (team1) {
+        state.teamNames[1] = team1;
+      }
+      if (team2) {
+        state.teamNames[2] = team2;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to read team names:", error);
+  }
+}
+
+function saveTeamNames() {
+  localStorage.setItem(TEAM_NAMES_STORAGE_KEY, JSON.stringify(state.teamNames));
 }
 
 function ensureBucket(category, points) {
@@ -329,10 +368,88 @@ function animateScoreValue(team, target) {
 function updateScoreboard() {
   animateScoreValue(1, state.scores[1]);
   animateScoreValue(2, state.scores[2]);
-  const currentText = state.currentTeam === 1 ? "الفريق الأول" : "الفريق الثاني";
+  const currentText = state.teamNames[state.currentTeam];
   el.currentTurn.textContent = currentText;
+  el.team1NameInput.value = state.teamNames[1];
+  el.team2NameInput.value = state.teamNames[2];
   el.team1Card.classList.toggle("active", state.currentTeam === 1);
   el.team2Card.classList.toggle("active", state.currentTeam === 2);
+}
+
+function animateButtonClick(button) {
+  if (!button || prefersReducedMotion) {
+    return;
+  }
+  button.classList.remove("click-pop");
+  void button.offsetWidth;
+  button.classList.add("click-pop");
+}
+
+function adjustScore(team, delta, triggerButton) {
+  if (!(team in state.scores)) {
+    return;
+  }
+  state.scores[team] = Math.max(0, state.scores[team] + delta);
+  animateButtonClick(triggerButton);
+  updateScoreboard();
+}
+
+function setTeamName(team, value) {
+  const normalized = normalizeCell(value) || (team === 1 ? "الفريق الأول" : "الفريق الثاني");
+  state.teamNames[team] = normalized;
+  saveTeamNames();
+  updateScoreboard();
+}
+
+function hasPlayableTiles() {
+  return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question);
+}
+
+function closePodiumModal() {
+  el.podiumModal.classList.add("hidden");
+  el.podiumModal.classList.remove("is-open");
+}
+
+function buildPodiumColumn(name, score, label, placeClass) {
+  return `
+    <div class="podium-column ${placeClass}">
+      <p class="podium-label">${label}</p>
+      <p class="podium-team-name">${name}</p>
+      <p class="podium-score">${score}</p>
+      <div class="podium-step"></div>
+    </div>
+  `;
+}
+
+function showPodiumModal() {
+  const score1 = state.scores[1];
+  const score2 = state.scores[2];
+  const team1 = state.teamNames[1];
+  const team2 = state.teamNames[2];
+
+  if (score1 === score2) {
+    el.podiumTitle.textContent = "تعادل!";
+    el.podiumSubtitle.textContent = "منافسة قوية.. استمروا";
+    el.podiumBoard.innerHTML =
+      buildPodiumColumn(team1, score1, "نتيجة الفريق", "tie") + buildPodiumColumn(team2, score2, "نتيجة الفريق", "tie");
+  } else {
+    const winnerTeam = score1 > score2 ? 1 : 2;
+    const loserTeam = winnerTeam === 1 ? 2 : 1;
+    el.podiumTitle.textContent = "نهاية اللعبة";
+    el.podiumSubtitle.textContent = "النتائج النهائية";
+    el.podiumBoard.innerHTML =
+      buildPodiumColumn(state.teamNames[winnerTeam], state.scores[winnerTeam], "سعادة الباشا", "winner") +
+      buildPodiumColumn(state.teamNames[loserTeam], state.scores[loserTeam], "إشتغل علي نفسك", "loser");
+  }
+
+  el.podiumModal.classList.remove("hidden");
+  requestAnimationFrame(() => el.podiumModal.classList.add("is-open"));
+}
+
+function checkEndOfGame() {
+  if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
+    showPodiumModal();
+  }
 }
 
 function renderBoard() {
@@ -474,6 +591,7 @@ function resetGameState() {
   state.activeTile = null;
   closeModal();
   closeCategoryPicker();
+  closePodiumModal();
   clearError();
   updateScoreboard();
   renderBoard();
@@ -564,6 +682,7 @@ function applyScore(isCorrect) {
   updateScoreboard();
   renderBoard();
   closeModal();
+  checkEndOfGame();
 }
 
 function updateCategoryPickerUI() {
@@ -662,6 +781,7 @@ function startGameFromSelection() {
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
+  checkEndOfGame();
 }
 
 async function startNewGame() {
@@ -711,6 +831,17 @@ el.lifelineBtn.addEventListener("click", useLifeline);
 el.startGameBtn.addEventListener("click", startGameFromSelection);
 el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
 el.cancelCategoryBtn.addEventListener("click", closeCategoryPicker);
+el.podiumNewGameBtn.addEventListener("click", startNewGame);
+
+el.team1NameInput.addEventListener("change", () => setTeamName(1, el.team1NameInput.value));
+el.team2NameInput.addEventListener("change", () => setTeamName(2, el.team2NameInput.value));
+el.team1NameInput.addEventListener("blur", () => setTeamName(1, el.team1NameInput.value));
+el.team2NameInput.addEventListener("blur", () => setTeamName(2, el.team2NameInput.value));
+
+el.team1PlusBtn.addEventListener("click", () => adjustScore(1, 100, el.team1PlusBtn));
+el.team1MinusBtn.addEventListener("click", () => adjustScore(1, -100, el.team1MinusBtn));
+el.team2PlusBtn.addEventListener("click", () => adjustScore(2, 100, el.team2PlusBtn));
+el.team2MinusBtn.addEventListener("click", () => adjustScore(2, -100, el.team2MinusBtn));
 
 el.modal.addEventListener("click", (event) => {
   if (event.target === el.modal) {
@@ -724,5 +855,7 @@ el.categoryModal.addEventListener("click", (event) => {
   }
 });
 
+updateScoreboard();
+loadTeamNames();
 updateScoreboard();
 startNewGame();
