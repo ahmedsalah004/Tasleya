@@ -59,6 +59,20 @@
       </div>
     </div>
 
+    <div id="categoryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
+      <div class="modal-content category-modal-content">
+        <h2 id="categoryModalTitle">اختر 5 فئات لبدء اللعبة</h2>
+        <p id="categoryCounter" class="category-counter">المحدد: 0 / 5</p>
+        <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
+
+        <div class="modal-actions">
+          <button id="startGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
+          <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي (5)</button>
+          <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
     <script src="script.js"></script>
   </body>
 </html>
