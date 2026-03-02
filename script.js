@@ -36,6 +36,7 @@ const state = {
   allQuestions: [],
   categories: [],
   boardTiles: [],
+  dataLoadFailed: false,
   scores: { 1: 0, 2: 0 },
   currentTeam: 1,
   lifelineUsed: false,
@@ -157,17 +158,29 @@ function shuffle(input) {
 }
 
 async function fetchQuestions() {
-  const res = await fetch(CSV_URL, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error("تعذّر تحميل ملف CSV من Google Sheets.");
-  }
+  let statusCode = "غير متاح";
 
-  const csv = await res.text();
-  const rows = parseCSV(csv);
-  if (rows.length < 2) {
-    throw new Error("ملف CSV لا يحتوي بيانات كافية.");
+  try {
+    const csvUrl = `${CSV_URL}${CSV_URL.includes("?") ? "&" : "?"}t=${Date.now()}`;
+    const res = await fetch(csvUrl, { cache: "no-store" });
+    statusCode = String(res.status);
+
+    if (!res.ok) {
+      throw new Error(`CSV fetch failed: ${res.status} ${res.statusText}`);
+    }
+
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) {
+      throw new Error("ملف CSV لا يحتوي بيانات كافية.");
+    }
+
+    return rowsToQuestions(rows);
+  } catch (error) {
+    const fetchStatusMatch = String(error.message || "").match(/CSV fetch failed:\s*(\d+)/);
+    const finalStatus = fetchStatusMatch?.[1] || statusCode;
+    throw new Error(`تعذّر تحميل ملف CSV من Google Sheets. الحالة: ${finalStatus}`);
   }
-  return rowsToQuestions(rows);
 }
 
 function pickCategories(questions) {
@@ -225,6 +238,11 @@ function updateScoreboard() {
 }
 
 function renderBoard() {
+  if (state.dataLoadFailed) {
+    el.board.innerHTML = "";
+    return;
+  }
+
   el.board.innerHTML = "";
 
   state.categories.forEach((category) => {
@@ -266,6 +284,11 @@ function getActiveQuestion() {
 }
 
 function openQuestion(tileId) {
+  if (state.dataLoadFailed) {
+    showError("تعذّر فتح السؤال لأن تحميل ملف CSV فشل. اضغط على لعبة جديدة بعد إصلاح الرابط.");
+    return;
+  }
+
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || !tile.question) {
     return;
@@ -377,6 +400,10 @@ function applyScore(isCorrect) {
 }
 
 function resetGameState() {
+  if (state.dataLoadFailed) {
+    throw new Error("لا يمكن بدء اللعبة قبل تحميل CSV بنجاح.");
+  }
+
   state.scores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   state.lifelineUsed = false;
@@ -396,6 +423,7 @@ async function startNewGame() {
   try {
     clearError();
     el.newGameBtn.disabled = true;
+    state.dataLoadFailed = false;
 
     if (!state.allQuestions.length) {
       state.allQuestions = await fetchQuestions();
@@ -407,6 +435,12 @@ async function startNewGame() {
 
     resetGameState();
   } catch (error) {
+    state.dataLoadFailed = true;
+    state.allQuestions = [];
+    state.categories = [];
+    state.boardTiles = [];
+    closeModal();
+    updateScoreboard();
     showError(error.message || "حدث خطأ غير متوقع أثناء تحميل البيانات.");
     el.board.innerHTML = "";
   } finally {
