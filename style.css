@@ -137,6 +137,7 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(5, minmax(120px, 1fr));
   gap: 0.5rem;
+  grid-auto-rows: minmax(88px, auto);
 }
 
 .board-cell {
