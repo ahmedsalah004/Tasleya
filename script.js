@@ -1,4 +1,5 @@
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/REPLACE_WITH_YOUR_SHEET/pub?output=csv";
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
 const POINT_VALUES = [200, 400, 600, 800, 1000];
 const DIFFICULTY_TO_POINTS = {
   easy: 200,
@@ -11,6 +12,7 @@ const DIFFICULTY_TO_POINTS = {
 
 const el = {
   board: document.getElementById("board"),
+  errorBanner: document.getElementById("errorBanner"),
   team1Score: document.getElementById("team1Score"),
   team2Score: document.getElementById("team2Score"),
   team1Card: document.getElementById("team1Card"),
@@ -39,6 +41,16 @@ const state = {
   lifelineUsed: false,
   activeTile: null,
 };
+
+function showError(message) {
+  el.errorBanner.textContent = message;
+  el.errorBanner.classList.remove("hidden");
+}
+
+function clearError() {
+  el.errorBanner.textContent = "";
+  el.errorBanner.classList.add("hidden");
+}
 
 function parseCSV(text) {
   const rows = [];
@@ -117,7 +129,7 @@ function rowsToQuestions(rows) {
         q[key] = (row[i] || "").trim();
       });
 
-      const normalized = {
+      return {
         id: q.id || String(index + 1),
         category: q.category || "عام",
         difficulty: q.difficulty || "",
@@ -131,8 +143,6 @@ function rowsToQuestions(rows) {
         choice_c: q.choice_c || "",
         choice_d: q.choice_d || "",
       };
-
-      return normalized;
     })
     .filter((q) => q.question && q.answer && q.category);
 }
@@ -373,6 +383,10 @@ function resetGameState() {
   state.activeTile = null;
 
   state.categories = pickCategories(state.allQuestions);
+  if (state.categories.length < 5) {
+    throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
+  }
+
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
@@ -380,7 +394,9 @@ function resetGameState() {
 
 async function startNewGame() {
   try {
+    clearError();
     el.newGameBtn.disabled = true;
+
     if (!state.allQuestions.length) {
       state.allQuestions = await fetchQuestions();
     }
@@ -391,7 +407,8 @@ async function startNewGame() {
 
     resetGameState();
   } catch (error) {
-    el.board.innerHTML = `<div class="board-cell missing" style="grid-column: 1/-1; min-height: 120px;">${error.message}</div>`;
+    showError(error.message || "حدث خطأ غير متوقع أثناء تحميل البيانات.");
+    el.board.innerHTML = "";
   } finally {
     el.newGameBtn.disabled = false;
   }
@@ -411,4 +428,4 @@ el.modal.addEventListener("click", (event) => {
 });
 
 updateScoreboard();
-renderBoard();
+startNewGame();
