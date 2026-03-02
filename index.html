@@ -18,13 +18,23 @@
         <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
         <div class="team-card" id="team1Card">
-          <h2>الفريق الأول</h2>
+          <label for="team1NameInput" class="team-name-label">اسم الفريق 1</label>
+          <input id="team1NameInput" class="team-name-input" type="text" value="الفريق الأول" maxlength="30" />
           <p class="score" id="team1Score">0</p>
+          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الأول">
+            <button id="team1PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
+            <button id="team1MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+          </div>
         </div>
 
         <div class="team-card" id="team2Card">
-          <h2>الفريق الثاني</h2>
+          <label for="team2NameInput" class="team-name-label">اسم الفريق 2</label>
+          <input id="team2NameInput" class="team-name-input" type="text" value="الفريق الثاني" maxlength="30" />
           <p class="score" id="team2Score">0</p>
+          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثاني">
+            <button id="team2PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
+            <button id="team2MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+          </div>
         </div>
 
         <div class="status-card">
@@ -74,6 +84,15 @@
           <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي (5)</button>
           <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
         </div>
+      </div>
+    </div>
+
+    <div id="podiumModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="podiumTitle">
+      <div class="modal-content podium-content">
+        <h2 id="podiumTitle">نهاية اللعبة</h2>
+        <p id="podiumSubtitle" class="podium-subtitle"></p>
+        <div id="podiumBoard" class="podium-board"></div>
+        <button id="podiumNewGameBtn" class="primary-btn" type="button">لعبة جديدة</button>
       </div>
     </div>
 
