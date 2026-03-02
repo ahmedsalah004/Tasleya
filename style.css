@@ -440,6 +440,12 @@ button:disabled {
   width: min(640px, 100%);
 }
 
+.category-team-inputs {
+  display: grid;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+}
+
 .category-counter {
   margin: 0;
   color: var(--muted);

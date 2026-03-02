@@ -36,6 +36,8 @@ const el = {
   choicesList: document.getElementById("choicesList"),
   categoryModal: document.getElementById("categoryModal"),
   categoryList: document.getElementById("categoryList"),
+  categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
+  categoryTeam2NameInput: document.getElementById("categoryTeam2NameInput"),
   categoryCounter: document.getElementById("categoryCounter"),
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
@@ -412,6 +414,11 @@ function setTeamName(team, value, { commit = false } = {}) {
   updateScoreboard();
 }
 
+function setTeamNamesFromCategoryModal() {
+  setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
+  setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
+}
+
 function hasPlayableTiles() {
   return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question);
 }
@@ -742,6 +749,8 @@ function renderCategoryOptions() {
 
 function openCategoryPicker() {
   state.selectedCategories = [];
+  el.categoryTeam1NameInput.value = "";
+  el.categoryTeam2NameInput.value = "";
   renderCategoryOptions();
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => {
@@ -780,6 +789,8 @@ function startGameFromSelection() {
   if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) {
     return;
   }
+
+  setTeamNamesFromCategoryModal();
 
   closeCategoryPicker();
   state.scores = { 1: 0, 2: 0 };
