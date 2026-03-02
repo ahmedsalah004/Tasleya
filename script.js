@@ -1,6 +1,7 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
 const POINT_VALUES = [100, 200, 300, 400, 500];
+const CATEGORIES_TO_SELECT = 5;
 
 const el = {
   board: document.getElementById("board"),
@@ -22,11 +23,18 @@ const el = {
   lifelineBtn: document.getElementById("lifelineBtn"),
   choicesBox: document.getElementById("choicesBox"),
   choicesList: document.getElementById("choicesList"),
+  categoryModal: document.getElementById("categoryModal"),
+  categoryList: document.getElementById("categoryList"),
+  categoryCounter: document.getElementById("categoryCounter"),
+  startGameBtn: document.getElementById("startGameBtn"),
+  randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
+  cancelCategoryBtn: document.getElementById("cancelCategoryBtn"),
 };
 
 const state = {
   allQuestions: [],
-  categories: [],
+  allCategories: [],
+  selectedCategories: [],
   boardTiles: [],
   dataLoadFailed: false,
   scores: { 1: 0, 2: 0 },
@@ -146,6 +154,16 @@ function shuffle(input) {
   return arr;
 }
 
+function getUniqueCategories(questions) {
+  const unique = [];
+  questions.forEach((q) => {
+    if (!unique.includes(q.category)) {
+      unique.push(q.category);
+    }
+  });
+  return unique;
+}
+
 async function fetchQuestions() {
   let statusCode = "غير متاح";
 
@@ -174,16 +192,6 @@ async function fetchQuestions() {
   }
 }
 
-function pickCategories(questions) {
-  const unique = [];
-  questions.forEach((q) => {
-    if (!unique.includes(q.category)) {
-      unique.push(q.category);
-    }
-  });
-  return unique.slice(0, 5);
-}
-
 function getQuestionForTile(category, points, usedIds) {
   const candidates = state.allQuestions.filter(
     (q) => q.category === category && q.points === points && !usedIds.has(q.id),
@@ -202,7 +210,7 @@ function buildBoardAssignment() {
   const usedIds = new Set();
   const tiles = [];
 
-  state.categories.forEach((category) => {
+  state.selectedCategories.forEach((category) => {
     POINT_VALUES.forEach((points) => {
       const question = getQuestionForTile(category, points, usedIds);
       tiles.push({
@@ -229,14 +237,14 @@ function updateScoreboard() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed) {
+  if (state.dataLoadFailed || state.selectedCategories.length !== CATEGORIES_TO_SELECT) {
     el.board.innerHTML = "";
     return;
   }
 
   el.board.innerHTML = "";
 
-  state.categories.forEach((category) => {
+  state.selectedCategories.forEach((category) => {
     const header = document.createElement("div");
     header.className = "board-cell category";
     header.textContent = category;
@@ -244,7 +252,7 @@ function renderBoard() {
   });
 
   POINT_VALUES.forEach((points) => {
-    state.categories.forEach((category) => {
+    state.selectedCategories.forEach((category) => {
       const tile = state.boardTiles.find((t) => t.category === category && t.points === points);
       const btn = document.createElement("button");
       btn.type = "button";
@@ -390,20 +398,75 @@ function applyScore(isCorrect) {
   closeModal();
 }
 
-function resetGameState() {
-  if (state.dataLoadFailed) {
-    throw new Error("لا يمكن بدء اللعبة قبل تحميل CSV بنجاح.");
+function updateCategoryPickerUI() {
+  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${CATEGORIES_TO_SELECT}`;
+  el.startGameBtn.disabled = state.selectedCategories.length !== CATEGORIES_TO_SELECT;
+
+  const checkedSet = new Set(state.selectedCategories);
+  const reachedMax = checkedSet.size >= CATEGORIES_TO_SELECT;
+  el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
+    checkbox.checked = checkedSet.has(checkbox.value);
+    checkbox.disabled = !checkbox.checked && reachedMax;
+  });
+}
+
+function renderCategoryOptions() {
+  el.categoryList.innerHTML = "";
+
+  state.allCategories.forEach((category) => {
+    const label = document.createElement("label");
+    label.className = "category-option";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = category;
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        if (state.selectedCategories.length < CATEGORIES_TO_SELECT) {
+          state.selectedCategories.push(category);
+        }
+      } else {
+        state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
+      }
+      updateCategoryPickerUI();
+    });
+
+    const span = document.createElement("span");
+    span.textContent = category;
+
+    label.appendChild(checkbox);
+    label.appendChild(span);
+    el.categoryList.appendChild(label);
+  });
+
+  updateCategoryPickerUI();
+}
+
+function openCategoryPicker() {
+  state.selectedCategories = [];
+  renderCategoryOptions();
+  el.categoryModal.classList.remove("hidden");
+}
+
+function closeCategoryPicker() {
+  el.categoryModal.classList.add("hidden");
+}
+
+function pickRandomCategories() {
+  state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT);
+  updateCategoryPickerUI();
+}
+
+function startGameFromSelection() {
+  if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) {
+    return;
   }
 
+  closeCategoryPicker();
   state.scores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   state.lifelineUsed = false;
   state.activeTile = null;
-
-  state.categories = pickCategories(state.allQuestions);
-  if (state.categories.length < 5) {
-    throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
-  }
 
   buildBoardAssignment();
   updateScoreboard();
@@ -413,6 +476,8 @@ function resetGameState() {
 async function startNewGame() {
   try {
     clearError();
+    closeModal();
+    closeCategoryPicker();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
 
@@ -422,13 +487,22 @@ async function startNewGame() {
       throw new Error("لا توجد أسئلة صالحة في الملف.");
     }
 
-    resetGameState();
+    state.allCategories = getUniqueCategories(state.allQuestions);
+    if (state.allCategories.length < CATEGORIES_TO_SELECT) {
+      throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
+    }
+
+    state.boardTiles = [];
+    renderBoard();
+    openCategoryPicker();
   } catch (error) {
     state.dataLoadFailed = true;
     state.allQuestions = [];
-    state.categories = [];
+    state.allCategories = [];
+    state.selectedCategories = [];
     state.boardTiles = [];
     closeModal();
+    closeCategoryPicker();
     updateScoreboard();
     const message = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء تحميل البيانات.";
     showError(message);
@@ -445,10 +519,19 @@ el.revealBtn.addEventListener("click", revealAnswer);
 el.correctBtn.addEventListener("click", () => applyScore(true));
 el.wrongBtn.addEventListener("click", () => applyScore(false));
 el.lifelineBtn.addEventListener("click", useLifeline);
+el.startGameBtn.addEventListener("click", startGameFromSelection);
+el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
+el.cancelCategoryBtn.addEventListener("click", closeCategoryPicker);
 
 el.modal.addEventListener("click", (event) => {
   if (event.target === el.modal) {
     closeModal();
+  }
+});
+
+el.categoryModal.addEventListener("click", (event) => {
+  if (event.target === el.categoryModal) {
+    closeCategoryPicker();
   }
 });
 
