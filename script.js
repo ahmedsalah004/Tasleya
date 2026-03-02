@@ -4,6 +4,7 @@ const CATEGORIES_TO_SELECT = 5;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
+const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const el = {
   board: document.getElementById("board"),
@@ -47,6 +48,7 @@ const state = {
   lifelineUsed: false,
   activeTile: null,
   usedHistory: {},
+  displayedScores: { 1: 0, 2: 0 },
 };
 
 function showError(message) {
@@ -293,9 +295,41 @@ function buildBoardAssignment() {
   state.boardTiles = tiles;
 }
 
+function animateScoreValue(team, target) {
+  const scoreEl = team === 1 ? el.team1Score : el.team2Score;
+  const start = Number(state.displayedScores[team] ?? 0);
+
+  if (prefersReducedMotion || start === target) {
+    state.displayedScores[team] = target;
+    scoreEl.textContent = String(target);
+    return;
+  }
+
+  const duration = 420;
+  const startAt = performance.now();
+
+  function step(now) {
+    const progress = Math.min((now - startAt) / duration, 1);
+    const eased = 1 - (1 - progress) * (1 - progress);
+    const value = Math.round(start + (target - start) * eased);
+    scoreEl.textContent = String(value);
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      state.displayedScores[team] = target;
+      scoreEl.classList.remove("score-pop");
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add("score-pop");
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
 function updateScoreboard() {
-  el.team1Score.textContent = String(state.scores[1]);
-  el.team2Score.textContent = String(state.scores[2]);
+  animateScoreValue(1, state.scores[1]);
+  animateScoreValue(2, state.scores[2]);
   const currentText = state.currentTeam === 1 ? "الفريق الأول" : "الفريق الثاني";
   el.currentTurn.textContent = currentText;
   el.team1Card.classList.toggle("active", state.currentTeam === 1);
@@ -332,6 +366,7 @@ function renderBoard() {
       btn.type = "button";
       btn.className = "board-cell tile";
       btn.dataset.tileId = tile.id;
+      btn.setAttribute("aria-label", `${category} ${points}`);
 
       if (tile.missing) {
         btn.textContent = "نقص أسئلة";
@@ -389,12 +424,43 @@ function openQuestion(tileId) {
   }
 
   el.lifelineBtn.disabled = state.lifelineUsed;
+
+  const tileButton = el.board.querySelector(`[data-tile-id="${tileId}"]`);
+  if (tileButton && !prefersReducedMotion) {
+    tileButton.classList.remove("tile-pulse");
+    void tileButton.offsetWidth;
+    tileButton.classList.add("tile-pulse");
+  }
+
   el.modal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    el.modal.classList.remove("is-closing");
+    el.modal.classList.add("is-open");
+  });
 }
 
 function closeModal() {
-  el.modal.classList.add("hidden");
-  state.activeTile = null;
+  if (el.modal.classList.contains("hidden")) {
+    state.activeTile = null;
+    return;
+  }
+
+  if (prefersReducedMotion) {
+    el.modal.classList.add("hidden");
+    el.modal.classList.remove("is-open", "is-closing");
+    state.activeTile = null;
+    return;
+  }
+
+  el.modal.classList.remove("is-open");
+  el.modal.classList.add("is-closing");
+  const onEnd = () => {
+    el.modal.classList.add("hidden");
+    el.modal.classList.remove("is-closing");
+    state.activeTile = null;
+    el.modal.removeEventListener("animationend", onEnd, true);
+  };
+  el.modal.addEventListener("animationend", onEnd, true);
 }
 
 function resetGameState() {
@@ -403,6 +469,7 @@ function resetGameState() {
   state.pointLevels = [...POINT_LEVELS];
   state.assignedQuestionIds = new Set();
   state.scores = { 1: 0, 2: 0 };
+  state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   state.lifelineUsed = false;
   state.activeTile = null;
@@ -418,6 +485,11 @@ function revealAnswer() {
     return;
   }
   el.answerText.classList.remove("hidden");
+  if (!prefersReducedMotion) {
+    el.answerText.classList.remove("reveal-anim");
+    void el.answerText.offsetWidth;
+    el.answerText.classList.add("reveal-anim");
+  }
 }
 
 function uniqueByText(items) {
@@ -539,10 +611,31 @@ function openCategoryPicker() {
   state.selectedCategories = [];
   renderCategoryOptions();
   el.categoryModal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    el.categoryModal.classList.remove("is-closing");
+    el.categoryModal.classList.add("is-open");
+  });
 }
 
 function closeCategoryPicker() {
-  el.categoryModal.classList.add("hidden");
+  if (el.categoryModal.classList.contains("hidden")) {
+    return;
+  }
+
+  if (prefersReducedMotion) {
+    el.categoryModal.classList.add("hidden");
+    el.categoryModal.classList.remove("is-open", "is-closing");
+    return;
+  }
+
+  el.categoryModal.classList.remove("is-open");
+  el.categoryModal.classList.add("is-closing");
+  const onEnd = () => {
+    el.categoryModal.classList.add("hidden");
+    el.categoryModal.classList.remove("is-closing");
+    el.categoryModal.removeEventListener("animationend", onEnd, true);
+  };
+  el.categoryModal.addEventListener("animationend", onEnd, true);
 }
 
 function pickRandomCategories() {
@@ -557,6 +650,7 @@ function startGameFromSelection() {
 
   closeCategoryPicker();
   state.scores = { 1: 0, 2: 0 };
+  state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   state.lifelineUsed = false;
   state.activeTile = null;
