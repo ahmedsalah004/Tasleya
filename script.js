@@ -6,6 +6,7 @@ const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let lifelineUsed = false;
 
 const el = {
   board: document.getElementById("board"),
@@ -57,7 +58,6 @@ const state = {
   scores: { 1: 0, 2: 0 },
   teamNames: { 1: "الفريق الأول", 2: "الفريق الثاني" },
   currentTeam: 1,
-  lifelineUsed: false,
   activeTile: null,
   usedHistory: {},
   displayedScores: { 1: 0, 2: 0 },
@@ -191,9 +191,12 @@ function saveUsedHistory() {
 }
 
 function loadTeamNames() {
+  state.teamNames = { 1: "الفريق الأول", 2: "الفريق الثاني" };
+
   try {
     const raw = localStorage.getItem(TEAM_NAMES_STORAGE_KEY);
     if (!raw) {
+      saveTeamNames();
       return;
     }
     const parsed = JSON.parse(raw);
@@ -209,6 +212,7 @@ function loadTeamNames() {
     }
   } catch (error) {
     console.warn("Failed to read team names:", error);
+    saveTeamNames();
   }
 }
 
@@ -370,10 +374,13 @@ function updateScoreboard() {
   animateScoreValue(2, state.scores[2]);
   const currentText = state.teamNames[state.currentTeam];
   el.currentTurn.textContent = currentText;
-  el.team1NameInput.value = state.teamNames[1];
-  el.team2NameInput.value = state.teamNames[2];
   el.team1Card.classList.toggle("active", state.currentTeam === 1);
   el.team2Card.classList.toggle("active", state.currentTeam === 2);
+}
+
+function syncTeamNameInputs() {
+  el.team1NameInput.value = state.teamNames[1];
+  el.team2NameInput.value = state.teamNames[2];
 }
 
 function animateButtonClick(button) {
@@ -394,10 +401,14 @@ function adjustScore(team, delta, triggerButton) {
   updateScoreboard();
 }
 
-function setTeamName(team, value) {
-  const normalized = normalizeCell(value) || (team === 1 ? "الفريق الأول" : "الفريق الثاني");
+function setTeamName(team, value, { commit = false } = {}) {
+  const fallback = team === 1 ? "الفريق الأول" : "الفريق الثاني";
+  const normalized = commit ? normalizeCell(value) || fallback : String(value ?? "");
   state.teamNames[team] = normalized;
   saveTeamNames();
+  if (commit) {
+    syncTeamNameInputs();
+  }
   updateScoreboard();
 }
 
@@ -539,7 +550,7 @@ function openQuestion(tileId) {
     el.questionImage.removeAttribute("src");
   }
 
-  el.lifelineBtn.disabled = state.lifelineUsed;
+  el.lifelineBtn.disabled = lifelineUsed;
 
   const tileButton = el.board.querySelector(`[data-tile-id="${tileId}"]`);
   if (tileButton && !prefersReducedMotion) {
@@ -587,7 +598,7 @@ function resetGameState() {
   state.scores = { 1: 0, 2: 0 };
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  state.lifelineUsed = false;
+  lifelineUsed = false;
   state.activeTile = null;
   closeModal();
   closeCategoryPicker();
@@ -645,7 +656,7 @@ function generateChoices(question) {
 
 function useLifeline() {
   const question = getActiveQuestion();
-  if (!question || state.lifelineUsed) {
+  if (!question || lifelineUsed) {
     return;
   }
 
@@ -659,7 +670,7 @@ function useLifeline() {
     el.choicesList.appendChild(div);
   });
 
-  state.lifelineUsed = true;
+  lifelineUsed = true;
   el.lifelineBtn.disabled = true;
   el.choicesBox.classList.remove("hidden");
 }
@@ -774,7 +785,7 @@ function startGameFromSelection() {
   state.scores = { 1: 0, 2: 0 };
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  state.lifelineUsed = false;
+  lifelineUsed = false;
   state.activeTile = null;
   clearError();
 
@@ -833,10 +844,10 @@ el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
 el.cancelCategoryBtn.addEventListener("click", closeCategoryPicker);
 el.podiumNewGameBtn.addEventListener("click", startNewGame);
 
-el.team1NameInput.addEventListener("change", () => setTeamName(1, el.team1NameInput.value));
-el.team2NameInput.addEventListener("change", () => setTeamName(2, el.team2NameInput.value));
-el.team1NameInput.addEventListener("blur", () => setTeamName(1, el.team1NameInput.value));
-el.team2NameInput.addEventListener("blur", () => setTeamName(2, el.team2NameInput.value));
+el.team1NameInput.addEventListener("input", () => setTeamName(1, el.team1NameInput.value));
+el.team2NameInput.addEventListener("input", () => setTeamName(2, el.team2NameInput.value));
+el.team1NameInput.addEventListener("blur", () => setTeamName(1, el.team1NameInput.value, { commit: true }));
+el.team2NameInput.addEventListener("blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }));
 
 el.team1PlusBtn.addEventListener("click", () => adjustScore(1, 100, el.team1PlusBtn));
 el.team1MinusBtn.addEventListener("click", () => adjustScore(1, -100, el.team1MinusBtn));
@@ -857,5 +868,6 @@ el.categoryModal.addEventListener("click", (event) => {
 
 updateScoreboard();
 loadTeamNames();
+syncTeamNameInputs();
 updateScoreboard();
 startNewGame();
