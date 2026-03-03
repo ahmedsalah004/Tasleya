@@ -11,8 +11,8 @@
 
 #startBtn {
   position: absolute;
-  left: 50%;
-  top: 58%;
+  left: 49%;
+  top: 56%;
   transform: translate(-50%, -50%);
   transform-origin: center;
   will-change: transform;
