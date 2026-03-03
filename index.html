@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>تسلية</title>
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -32,23 +32,25 @@
 
         <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
-        <div class="team-card" id="team1Card">
-          <label for="team1NameInput" class="team-name-label">اسم الفريق 1</label>
-          <input id="team1NameInput" class="team-name-input" type="text" value="الفريق الأول" maxlength="30" />
-          <p class="score" id="team1Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الأول">
-            <button id="team1PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team1MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+        <div class="teams-grid" aria-label="لوحة الفرق">
+          <div class="team-card" id="team1Card">
+            <label for="team1NameInput" class="team-name-label">اسم الفريق 1</label>
+            <input id="team1NameInput" class="team-name-input" type="text" value="الفريق الأول" maxlength="30" />
+            <p class="score" id="team1Score">0</p>
+            <div class="score-adjustments" aria-label="تعديل نقاط الفريق الأول">
+              <button id="team1PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
+              <button id="team1MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+            </div>
           </div>
-        </div>
 
-        <div class="team-card" id="team2Card">
-          <label for="team2NameInput" class="team-name-label">اسم الفريق 2</label>
-          <input id="team2NameInput" class="team-name-input" type="text" value="الفريق الثاني" maxlength="30" />
-          <p class="score" id="team2Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثاني">
-            <button id="team2PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team2MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+          <div class="team-card" id="team2Card">
+            <label for="team2NameInput" class="team-name-label">اسم الفريق 2</label>
+            <input id="team2NameInput" class="team-name-input" type="text" value="الفريق الثاني" maxlength="30" />
+            <p class="score" id="team2Score">0</p>
+            <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثاني">
+              <button id="team2PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
+              <button id="team2MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+            </div>
           </div>
         </div>
 
