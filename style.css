@@ -340,6 +340,11 @@ body::after {
   color: #fff;
 }
 
+#otherTeamBtn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: #fff;
+}
+
 .ghost-btn {
   background: rgba(86, 109, 183, 0.15);
   color: #d4e2ff;
@@ -354,6 +359,10 @@ body::after {
 .ghost-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
+}
+
+#otherTeamBtn:hover {
+  background: linear-gradient(135deg, #f57c00, #ef6c00);
 }
 
 button:disabled {
