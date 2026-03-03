@@ -13,10 +13,19 @@
   --danger: #ff527b;
   --neon-1: #52f5ff;
   --neon-2: #b86eff;
+  --board-col-width: clamp(124px, 11vw, 170px);
+  --layout-max: 1320px;
 }
 
 * {
   box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -24,6 +33,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   font-family: "Cairo", "Noto Kufi Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
+  font-size: clamp(0.96rem, 0.24vw + 0.9rem, 1.06rem);
   background: linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
   background-size: 220% 220%;
   animation: gradientShift 32s ease-in-out infinite;
@@ -79,10 +89,12 @@ body::after {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  max-width: var(--layout-max);
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: 320px 1fr;
-  gap: 1rem;
-  padding: 1rem;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: clamp(0.8rem, 1vw, 1.2rem);
+  padding: clamp(0.7rem, 1.2vw, 1.15rem);
 }
 
 .sidebar,
@@ -96,7 +108,7 @@ body::after {
 }
 
 .sidebar {
-  padding: 1rem;
+  padding: clamp(0.75rem, 1vw, 1rem);
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -104,7 +116,7 @@ body::after {
 
 .sidebar h1 {
   margin: 0 0 0.4rem;
-  font-size: 1.9rem;
+  font-size: clamp(1.4rem, 1.1vw + 1.2rem, 1.9rem);
   line-height: 1.2;
   color: var(--accent);
   letter-spacing: 0.4px;
@@ -172,7 +184,7 @@ body::after {
 
 .score {
   margin: 0.45rem 0 0;
-  font-size: 2.1rem;
+  font-size: clamp(1.5rem, 1.7vw, 2.1rem);
   font-weight: 900;
   color: #fdf4cf;
   text-shadow: 0 0 14px rgba(255, 209, 102, 0.35);
@@ -190,9 +202,10 @@ body::after {
   border: none;
   border-radius: 11px;
   font-weight: 800;
-  font-size: 1rem;
+  font-size: clamp(0.92rem, 0.5vw + 0.7rem, 1rem);
   line-height: 1.25;
   padding: 0.72rem 0.95rem;
+  min-height: 44px;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
   position: relative;
@@ -254,21 +267,27 @@ button:disabled {
 .board-wrap {
   padding: 0.9rem;
   overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
 }
 
 .board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
-  gap: 0.55rem;
-  grid-auto-rows: minmax(88px, auto);
+  grid-template-columns: repeat(5, minmax(var(--board-col-width), 1fr));
+  gap: clamp(0.42rem, 0.8vw, 0.6rem);
+  grid-auto-rows: minmax(96px, auto);
+  min-width: fit-content;
 }
 
 .board-cell {
-  min-height: 88px;
+  min-height: 96px;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   border-radius: 12px;
   border: 1px solid rgba(113, 139, 220, 0.5);
   padding: 0.55rem;
@@ -277,7 +296,7 @@ button:disabled {
 .category {
   background: linear-gradient(150deg, rgba(54, 88, 170, 0.5), rgba(25, 42, 95, 0.5));
   color: #f0f5ff;
-  font-size: 1.02rem;
+  font-size: clamp(0.9rem, 0.8vw + 0.72rem, 1.05rem);
   font-weight: 900;
   line-height: 1.35;
   display: -webkit-box;
@@ -290,7 +309,7 @@ button:disabled {
 .tile {
   background: linear-gradient(145deg, rgba(39, 60, 131, 0.5), rgba(13, 22, 57, 0.62));
   color: var(--accent);
-  font-size: 1.6rem;
+  font-size: clamp(1.3rem, 1.2vw + 0.95rem, 1.6rem);
   font-weight: 900;
   backdrop-filter: blur(8px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 16px rgba(5, 10, 28, 0.4);
@@ -359,6 +378,8 @@ button:disabled {
 
 .modal-content {
   width: min(920px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 1.1rem;
   display: flex;
   flex-direction: column;
@@ -380,6 +401,8 @@ button:disabled {
   line-height: 1.9;
   font-size: clamp(1.3rem, 2.2vw, 2rem);
   text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 #questionImage {
@@ -400,6 +423,7 @@ button:disabled {
   border-radius: 12px;
   padding: 0.8rem;
   line-height: 1.8;
+  overflow-wrap: anywhere;
 }
 
 .answer.reveal-anim {
@@ -510,8 +534,8 @@ button:disabled {
 .adjust-btn {
   flex: 1;
   font-size: 0.84rem;
-  padding: 0.42rem 0.5rem;
-  min-height: 32px;
+  padding: 0.52rem 0.5rem;
+  min-height: 44px;
 }
 
 .click-pop {
@@ -521,6 +545,8 @@ button:disabled {
 .podium-content {
   width: min(760px, 100%);
   text-align: center;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .podium-subtitle {
@@ -684,10 +710,106 @@ button:disabled {
 @media (max-width: 900px) {
   .app {
     grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  main {
+    min-width: 0;
+  }
+
+  .sidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+    align-items: start;
+  }
+
+  .sidebar h1,
+  .error-banner,
+  .status-card,
+  #newGameBtn {
+    grid-column: 1 / -1;
+  }
+
+  .team-card {
+    padding: 0.68rem;
+  }
+
+  .score {
+    margin-top: 0.25rem;
+  }
+
+  .status-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem;
+    align-items: center;
+    padding: 0.65rem 0.75rem;
+  }
+
+  .status-card p {
+    font-size: clamp(0.9rem, 1.8vw, 1rem);
+  }
+
+  .board-wrap {
+    padding: 0.7rem;
   }
 
   .board {
-    min-width: 640px;
+    --board-col-width: clamp(130px, 31vw, 160px);
+    grid-auto-rows: minmax(78px, auto);
+  }
+
+  .board-cell {
+    min-height: 78px;
+    padding: 0.45rem;
+  }
+
+  .category {
+    line-height: 1.25;
+  }
+
+  .modal-content {
+    padding: 0.9rem;
+  }
+
+  .modal-actions {
+    position: sticky;
+    bottom: 0;
+    background: linear-gradient(to top, rgba(12, 18, 44, 0.95), rgba(12, 18, 44, 0.78));
+    padding-top: 0.4rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .app {
+    padding: 0.55rem;
+    gap: 0.7rem;
+  }
+
+  .sidebar {
+    gap: 0.5rem;
+  }
+
+  .team-name-input {
+    min-height: 40px;
+  }
+
+  .modal {
+    padding: 0.55rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions > button {
+    width: 100%;
+  }
+
+  .choices-list,
+  .podium-board {
+    grid-template-columns: 1fr;
   }
 }
 
