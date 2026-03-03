@@ -564,12 +564,18 @@ function renderBoard() {
 
   el.board.innerHTML = "";
 
+  const categoriesGrid = document.createElement("div");
+  categoriesGrid.className = "board-categories";
+
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div");
     header.className = "board-cell category";
     header.textContent = category;
-    el.board.appendChild(header);
+    categoriesGrid.appendChild(header);
   });
+
+  const pointsGrid = document.createElement("div");
+  pointsGrid.className = "board-points";
 
   state.pointLevels.forEach((points) => {
     state.selectedCategories.forEach((category) => {
@@ -598,10 +604,14 @@ function renderBoard() {
       }
 
       btn.addEventListener("click", () => openQuestion(tile.id));
-      el.board.appendChild(btn);
+      pointsGrid.appendChild(btn);
     });
   });
+
+  el.board.appendChild(categoriesGrid);
+  el.board.appendChild(pointsGrid);
 }
+
 
 function getActiveQuestion() {
   return state.activeTile?.question || null;
