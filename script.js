@@ -5,7 +5,11 @@ const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
-const ACCESS_PASSWORD = "123";
+const CURRENT_PASSWORD = "123";
+const PASSWORD_VERSION = "v1";
+const AUTH_TIME_STORAGE_KEY = "tasleya_auth_time";
+const AUTH_VERSION_STORAGE_KEY = "tasleya_auth_version";
+const AUTH_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let lifelineUsed = false;
 let timerInterval = null;
@@ -59,12 +63,35 @@ const el = {
 };
 
 
-function isUnlockedSession() {
-  return sessionStorage.getItem("tasleya_unlocked") === "1";
+function resetAuth() {
+  localStorage.removeItem(AUTH_TIME_STORAGE_KEY);
+  localStorage.removeItem(AUTH_VERSION_STORAGE_KEY);
+}
+
+function isAuthValid() {
+  const storedAuthTime = Number.parseInt(localStorage.getItem(AUTH_TIME_STORAGE_KEY) ?? "", 10);
+  const storedVersion = localStorage.getItem(AUTH_VERSION_STORAGE_KEY);
+
+  if (!Number.isFinite(storedAuthTime) || storedAuthTime <= 0) {
+    return false;
+  }
+
+  if (storedVersion !== PASSWORD_VERSION) {
+    resetAuth();
+    return false;
+  }
+
+  if (Date.now() - storedAuthTime > AUTH_EXPIRY_MS) {
+    resetAuth();
+    return false;
+  }
+
+  return true;
 }
 
 function unlockSession() {
-  sessionStorage.setItem("tasleya_unlocked", "1");
+  localStorage.setItem(AUTH_TIME_STORAGE_KEY, String(Date.now()));
+  localStorage.setItem(AUTH_VERSION_STORAGE_KEY, PASSWORD_VERSION);
   el.passwordGate.classList.add("hidden");
   el.passwordError.classList.add("hidden");
 }
@@ -75,7 +102,7 @@ function showPasswordError() {
 
 function handlePasswordSubmit() {
   const enteredPassword = el.passwordInput.value;
-  if (enteredPassword === ACCESS_PASSWORD) {
+  if (enteredPassword === CURRENT_PASSWORD) {
     unlockSession();
     el.passwordInput.value = "";
     return;
@@ -84,14 +111,18 @@ function handlePasswordSubmit() {
 }
 
 function setupPasswordGate() {
-  if (isUnlockedSession()) {
+  if (isAuthValid()) {
     unlockSession();
     return;
   }
 
+  resetAuth();
   el.passwordGate.classList.remove("hidden");
+  el.passwordError.classList.add("hidden");
   el.passwordInput.focus();
 }
+
+window.resetAuth = resetAuth;
 
 function formatElapsedTime(elapsedMs) {
   const totalSeconds = Math.floor(elapsedMs / 1000);
