@@ -7,13 +7,18 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="bg-animated" aria-hidden="true">
-      <div class="bg-particles"></div>
+    <div id="startScreen">
+      <button id="startBtn">تحيا جمهورية مصر العربية</button>
     </div>
 
-    <div class="app">
-      <aside class="sidebar" aria-label="لوحة النقاط">
-        <h1>تسلية</h1>
+    <div id="gameScreen" style="display: none;">
+      <div class="bg-animated" aria-hidden="true">
+        <div class="bg-particles"></div>
+      </div>
+
+      <div class="app">
+        <aside class="sidebar" aria-label="لوحة النقاط">
+          <h1>تسلية</h1>
 
         <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 

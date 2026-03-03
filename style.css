@@ -1,3 +1,35 @@
+
+#startScreen {
+  height: 100vh;
+  background-image: url('assets/start-bg.png');
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#startBtn {
+  padding: 22px 70px;
+  font-size: 32px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 215, 0, 0.6);
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.6);
+  color: #FFD700;
+  backdrop-filter: blur(6px);
+  transition: all 0.3s ease;
+  font-weight: bold;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+#startBtn:hover {
+  background: rgba(255, 215, 0, 0.15);
+  transform: scale(1.08);
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+}
+
 :root {
   --bg-1: #060816;
   --bg-2: #160a2e;
