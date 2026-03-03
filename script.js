@@ -950,6 +950,11 @@ el.categoryModal.addEventListener("click", (event) => {
   }
 });
 
+document.getElementById("startBtn").addEventListener("click", function() {
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameScreen").style.display = "block";
+});
+
 updateScoreboard();
 loadTeamNames();
 syncTeamNameInputs();
