@@ -3,6 +3,8 @@ const CSV_URL =
 const CATEGORIES_TO_SELECT = 5;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
+const ACCESS_PASSWORD = "123";
+const UNLOCK_STORAGE_KEY = "tasleya_unlocked";
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -51,6 +53,10 @@ const el = {
   podiumSubtitle: document.getElementById("podiumSubtitle"),
   podiumBoard: document.getElementById("podiumBoard"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
+  passwordGate: document.getElementById("passwordGate"),
+  passwordInput: document.getElementById("passwordInput"),
+  passwordSubmitBtn: document.getElementById("passwordSubmitBtn"),
+  passwordError: document.getElementById("passwordError"),
 };
 
 
@@ -93,6 +99,7 @@ function stopAndResetTimer() {
 }
 
 const state = {
+  appInitialized: false,
   allQuestions: [],
   allCategories: [],
   selectedCategories: [],
@@ -107,6 +114,45 @@ const state = {
   usedHistory: {},
   displayedScores: { 1: 0, 2: 0 },
 };
+
+function hidePasswordGate() {
+  el.passwordGate.classList.add("hidden");
+  el.passwordError.classList.add("hidden");
+}
+
+function showPasswordError() {
+  el.passwordError.classList.remove("hidden");
+}
+
+function isAppUnlocked() {
+  return sessionStorage.getItem(UNLOCK_STORAGE_KEY) === "1";
+}
+
+function initializeApp() {
+  if (state.appInitialized) {
+    return;
+  }
+
+  state.appInitialized = true;
+  updateScoreboard();
+  loadTeamNames();
+  syncTeamNameInputs();
+  updateScoreboard();
+  startNewGame();
+}
+
+function handlePasswordSubmit() {
+  const enteredPassword = el.passwordInput.value.trim();
+
+  if (enteredPassword === ACCESS_PASSWORD) {
+    sessionStorage.setItem(UNLOCK_STORAGE_KEY, "1");
+    hidePasswordGate();
+    initializeApp();
+    return;
+  }
+
+  showPasswordError();
+}
 
 function showError(message) {
   el.errorBanner.textContent = message;
@@ -955,8 +1001,16 @@ document.getElementById("startBtn").addEventListener("click", function() {
   document.getElementById("gameScreen").style.display = "block";
 });
 
-updateScoreboard();
-loadTeamNames();
-syncTeamNameInputs();
-updateScoreboard();
-startNewGame();
+el.passwordSubmitBtn.addEventListener("click", handlePasswordSubmit);
+el.passwordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    handlePasswordSubmit();
+  }
+});
+
+if (isAppUnlocked()) {
+  hidePasswordGate();
+  initializeApp();
+} else {
+  el.passwordInput.focus();
+}
