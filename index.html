@@ -55,6 +55,7 @@
     <div id="questionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="questionText">
       <div class="modal-content">
         <button id="closeModalBtn" class="ghost-btn" type="button">إغلاق</button>
+        <div id="questionTimer" class="question-timer" aria-live="polite">00:00</div>
         <h2 id="questionText">السؤال</h2>
         <img id="questionImage" alt="صورة السؤال" hidden />
         <p id="answerText" class="answer hidden"></p>
@@ -69,6 +70,7 @@
           <button id="revealBtn" class="secondary-btn" type="button">إظهار الإجابة</button>
           <button id="correctBtn" class="success-btn" type="button">إجابة صحيحة (+points)</button>
           <button id="wrongBtn" class="danger-btn" type="button">إجابة خاطئة</button>
+          <button id="otherTeamBtn" class="danger-btn" type="button">إجابة الفريق الآخر</button>
         </div>
       </div>
     </div>

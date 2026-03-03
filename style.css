@@ -405,6 +405,20 @@ button:disabled {
   word-break: break-word;
 }
 
+.question-timer {
+  align-self: flex-end;
+  padding: 0.28rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid rgba(112, 140, 220, 0.58);
+  background: rgba(20, 36, 79, 0.58);
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.question-timer.timer-red {
+  color: var(--danger);
+}
+
 #questionImage {
   max-width: min(100%, 760px);
   width: 100%;
