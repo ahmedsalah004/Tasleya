@@ -7,6 +7,8 @@ const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let lifelineUsed = false;
+let timerInterval = null;
+let timerStart = null;
 
 const el = {
   board: document.getElementById("board"),
@@ -25,12 +27,14 @@ const el = {
   newGameBtn: document.getElementById("newGameBtn"),
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
+  questionTimer: document.getElementById("questionTimer"),
   questionText: document.getElementById("questionText"),
   questionImage: document.getElementById("questionImage"),
   answerText: document.getElementById("answerText"),
   revealBtn: document.getElementById("revealBtn"),
   correctBtn: document.getElementById("correctBtn"),
   wrongBtn: document.getElementById("wrongBtn"),
+  otherTeamBtn: document.getElementById("otherTeamBtn"),
   lifelineBtn: document.getElementById("lifelineBtn"),
   choicesBox: document.getElementById("choicesBox"),
   choicesList: document.getElementById("choicesList"),
@@ -48,6 +52,45 @@ const el = {
   podiumBoard: document.getElementById("podiumBoard"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
 };
+
+
+function formatElapsedTime(elapsedMs) {
+  const totalSeconds = Math.floor(elapsedMs / 1000);
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateTimerUI() {
+  const elapsed = timerStart ? Date.now() - timerStart : 0;
+  const isOverMinute = elapsed >= 60000;
+  el.questionTimer.textContent = formatElapsedTime(elapsed);
+  el.questionTimer.classList.toggle("timer-red", isOverMinute);
+}
+
+function startTimer() {
+  stopTimer();
+  timerStart = Date.now();
+  updateTimerUI();
+  timerInterval = window.setInterval(updateTimerUI, 250);
+}
+
+function stopTimer() {
+  if (timerInterval !== null) {
+    window.clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function resetTimer() {
+  timerStart = null;
+  updateTimerUI();
+}
+
+function stopAndResetTimer() {
+  stopTimer();
+  resetTimer();
+}
 
 const state = {
   allQuestions: [],
@@ -526,6 +569,7 @@ function getActiveQuestion() {
 }
 
 function openQuestion(tileId) {
+  stopAndResetTimer();
   if (state.dataLoadFailed) {
     showError("تعذّر فتح السؤال لأن تحميل ملف CSV فشل. اضغط على لعبة جديدة بعد إصلاح الرابط.");
     return;
@@ -566,6 +610,8 @@ function openQuestion(tileId) {
     tileButton.classList.add("tile-pulse");
   }
 
+  startTimer();
+
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => {
     el.modal.classList.remove("is-closing");
@@ -574,6 +620,8 @@ function openQuestion(tileId) {
 }
 
 function closeModal() {
+  stopAndResetTimer();
+
   if (el.modal.classList.contains("hidden")) {
     state.activeTile = null;
     return;
@@ -692,9 +740,33 @@ function applyScore(isCorrect) {
     state.scores[state.currentTeam] += tile.points;
   }
 
+  stopAndResetTimer();
+
   state.scores[1] = Math.max(0, state.scores[1]);
   state.scores[2] = Math.max(0, state.scores[2]);
   tile.used = true;
+
+  state.currentTeam = state.currentTeam === 1 ? 2 : 1;
+  updateScoreboard();
+  renderBoard();
+  closeModal();
+  checkEndOfGame();
+}
+
+
+function awardPointsToOtherTeam() {
+  const tile = state.activeTile;
+  if (!tile || tile.used || !tile.question) {
+    return;
+  }
+
+  const otherTeam = state.currentTeam === 1 ? 2 : 1;
+  state.scores[otherTeam] += tile.points;
+  state.scores[1] = Math.max(0, state.scores[1]);
+  state.scores[2] = Math.max(0, state.scores[2]);
+  tile.used = true;
+
+  stopAndResetTimer();
 
   state.currentTeam = state.currentTeam === 1 ? 2 : 1;
   updateScoreboard();
@@ -849,6 +921,7 @@ el.closeModalBtn.addEventListener("click", closeModal);
 el.revealBtn.addEventListener("click", revealAnswer);
 el.correctBtn.addEventListener("click", () => applyScore(true));
 el.wrongBtn.addEventListener("click", () => applyScore(false));
+el.otherTeamBtn.addEventListener("click", awardPointsToOtherTeam);
 el.lifelineBtn.addEventListener("click", useLifeline);
 el.startGameBtn.addEventListener("click", startGameFromSelection);
 el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
