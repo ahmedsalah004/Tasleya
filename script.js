@@ -47,6 +47,9 @@ const el = {
   podiumSubtitle: document.getElementById("podiumSubtitle"),
   podiumBoard: document.getElementById("podiumBoard"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
+  startScreen: document.getElementById("startScreen"),
+  setupScreen: document.getElementById("setupScreen"),
+  playBtn: document.getElementById("playBtn"),
 };
 
 const state = {
@@ -882,3 +885,22 @@ loadTeamNames();
 syncTeamNameInputs();
 updateScoreboard();
 startNewGame();
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (el.setupScreen) {
+    el.setupScreen.style.display = "none";
+  }
+
+  if (el.startScreen) {
+    el.startScreen.style.display = "flex";
+  }
+
+  el.playBtn?.addEventListener("click", () => {
+    if (el.startScreen) {
+      el.startScreen.style.display = "none";
+    }
+    if (el.setupScreen) {
+      el.setupScreen.style.display = "block";
+    }
+  });
+});
