@@ -11,9 +11,11 @@
 
 #startBtn {
   position: absolute;
-  top: 28%;
   left: 50%;
+  top: 58%;
   transform: translate(-50%, -50%);
+  transform-origin: center;
+  will-change: transform;
   padding: 22px 70px;
   font-size: 32px;
   border-radius: 14px;
@@ -30,7 +32,7 @@
 
 #startBtn:hover {
   background: rgba(255, 215, 0, 0.15);
-  transform: scale(1.08);
+  transform: translate(-50%, -50%) scale(1.08);
   box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
 }
 
