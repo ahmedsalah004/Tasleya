@@ -5,6 +5,7 @@ const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
+const ACCESS_PASSWORD = "123";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 let lifelineUsed = false;
 let timerInterval = null;
@@ -51,8 +52,46 @@ const el = {
   podiumSubtitle: document.getElementById("podiumSubtitle"),
   podiumBoard: document.getElementById("podiumBoard"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
+  passwordGate: document.getElementById("passwordGate"),
+  passwordInput: document.getElementById("passwordInput"),
+  passwordSubmitBtn: document.getElementById("passwordSubmitBtn"),
+  passwordError: document.getElementById("passwordError"),
 };
 
+
+function isUnlockedSession() {
+  return sessionStorage.getItem("tasleya_unlocked") === "1";
+}
+
+function unlockSession() {
+  sessionStorage.setItem("tasleya_unlocked", "1");
+  el.passwordGate.classList.add("hidden");
+  el.passwordError.classList.add("hidden");
+}
+
+function showPasswordError() {
+  el.passwordError.classList.remove("hidden");
+}
+
+function handlePasswordSubmit() {
+  const enteredPassword = el.passwordInput.value;
+  if (enteredPassword === ACCESS_PASSWORD) {
+    unlockSession();
+    el.passwordInput.value = "";
+    return;
+  }
+  showPasswordError();
+}
+
+function setupPasswordGate() {
+  if (isUnlockedSession()) {
+    unlockSession();
+    return;
+  }
+
+  el.passwordGate.classList.remove("hidden");
+  el.passwordInput.focus();
+}
 
 function formatElapsedTime(elapsedMs) {
   const totalSeconds = Math.floor(elapsedMs / 1000);
@@ -950,6 +989,17 @@ el.categoryModal.addEventListener("click", (event) => {
   }
 });
 
+el.passwordSubmitBtn.addEventListener("click", handlePasswordSubmit);
+el.passwordInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    handlePasswordSubmit();
+  }
+});
+el.passwordInput.addEventListener("input", () => {
+  el.passwordError.classList.add("hidden");
+});
+
 document.getElementById("startBtn").addEventListener("click", function() {
   document.getElementById("startScreen").style.display = "none";
   document.getElementById("gameScreen").style.display = "block";
@@ -958,5 +1008,6 @@ document.getElementById("startBtn").addEventListener("click", function() {
 updateScoreboard();
 loadTeamNames();
 syncTeamNameInputs();
+setupPasswordGate();
 updateScoreboard();
 startNewGame();
