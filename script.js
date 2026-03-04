@@ -278,7 +278,6 @@ function rowsToQuestions(rows) {
         answer: q.answer || "",
         type: (q.type || "text").toLowerCase(),
         image_url: q.image_url || "",
-        media: q.media || "",
         choice_a: q.choice_a || "",
         choice_b: q.choice_b || "",
         choice_c: q.choice_c || "",
@@ -286,60 +285,6 @@ function rowsToQuestions(rows) {
       };
     })
     .filter((q) => q.question && q.answer && q.category);
-}
-
-function resolveMediaUrl(path) {
-  const normalizedPath = String(path ?? "").trim();
-  if (!normalizedPath) {
-    return "";
-  }
-
-  const isAbsolute = /^(https?:|data:|blob:|\/\/)/i.test(normalizedPath);
-  if (isAbsolute) {
-    return encodeURI(normalizedPath);
-  }
-
-  const basePath = window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/";
-  const relativePath = normalizedPath.replace(/^\/+/, "");
-  return encodeURI(`${basePath}${relativePath}`);
-}
-
-function clearQuestionAudio() {
-  const audio = el.modal.querySelector(".question-audio");
-  if (!audio) {
-    return;
-  }
-  audio.pause();
-  audio.currentTime = 0;
-  audio.remove();
-}
-
-function renderQuestionAudio(question) {
-  clearQuestionAudio();
-
-  const mediaPath = String(question.media ?? "").trim();
-  const hasAudioByType = question.type === "audio";
-  const hasAudioByMedia = /\.(mp3|wav|ogg)(?:\?|#|$)/i.test(mediaPath);
-
-  if (!mediaPath || (!hasAudioByType && !hasAudioByMedia)) {
-    return;
-  }
-
-  const src = resolveMediaUrl(mediaPath);
-  if (!src) {
-    return;
-  }
-
-  const audio = document.createElement("audio");
-  audio.className = "question-audio";
-  audio.controls = true;
-  audio.preload = "none";
-  audio.src = src;
-
-  const actions = el.modal.querySelector(".modal-actions");
-  if (actions?.parentNode) {
-    actions.parentNode.insertBefore(audio, actions);
-  }
 }
 
 function loadUsedHistory() {
@@ -695,7 +640,6 @@ function getActiveQuestion() {
 
 function openQuestion(tileId) {
   stopAndResetTimer();
-  clearQuestionAudio();
   if (state.dataLoadFailed) {
     showError("تعذّر فتح السؤال لأن تحميل ملف CSV فشل. اضغط على لعبة جديدة بعد إصلاح الرابط.");
     return;
@@ -718,15 +662,14 @@ function openQuestion(tileId) {
   el.choicesBox.classList.add("hidden");
   el.choicesList.innerHTML = "";
 
+  const basePath = window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/";
   if (q.type === "image" && q.image_url) {
     el.questionImage.hidden = false;
-    el.questionImage.src = resolveMediaUrl(q.image_url);
+    el.questionImage.src = encodeURI(basePath + q.image_url);
   } else {
     el.questionImage.hidden = true;
     el.questionImage.removeAttribute("src");
   }
-
-  renderQuestionAudio(q);
 
   el.lifelineBtn.disabled = lifelineUsed;
 
@@ -748,7 +691,6 @@ function openQuestion(tileId) {
 
 function closeModal() {
   stopAndResetTimer();
-  clearQuestionAudio();
 
   if (el.modal.classList.contains("hidden")) {
     state.activeTile = null;
