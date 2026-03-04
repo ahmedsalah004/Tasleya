@@ -278,6 +278,7 @@ function rowsToQuestions(rows) {
         answer: q.answer || "",
         type: (q.type || "text").toLowerCase(),
         image_url: q.image_url || "",
+        media: q.media || "",
         choice_a: q.choice_a || "",
         choice_b: q.choice_b || "",
         choice_c: q.choice_c || "",
@@ -638,8 +639,66 @@ function getActiveQuestion() {
   return state.activeTile?.question || null;
 }
 
+function getBasePath() {
+  return window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/";
+}
+
+function toMediaUrl(mediaPath) {
+  const normalized = normalizeCell(mediaPath);
+  if (!normalized) {
+    return "";
+  }
+
+  if (/^(?:https?:)?\/\//i.test(normalized) || normalized.startsWith("data:")) {
+    return encodeURI(normalized);
+  }
+
+  const cleanedPath = normalized.replace(/^\.\//, "").replace(/^\//, "");
+  return encodeURI(`${getBasePath()}${cleanedPath}`);
+}
+
+function shouldRenderAudio(question) {
+  const mediaPath = normalizeCell(question?.media);
+  return question?.type === "audio" || /\.(mp3|wav|ogg)(?:$|[?#])/i.test(mediaPath);
+}
+
+function getQuestionModalAudio() {
+  return el.modal.querySelector("#questionAudio");
+}
+
+function clearQuestionAudio() {
+  const currentAudio = getQuestionModalAudio();
+  if (!currentAudio) {
+    return;
+  }
+  currentAudio.pause();
+  currentAudio.currentTime = 0;
+  currentAudio.remove();
+}
+
+function renderQuestionAudio(mediaPath) {
+  clearQuestionAudio();
+  const audioSrc = toMediaUrl(mediaPath);
+  if (!audioSrc) {
+    return;
+  }
+
+  const audio = document.createElement("audio");
+  audio.id = "questionAudio";
+  audio.controls = true;
+  audio.preload = "metadata";
+  audio.src = audioSrc;
+  audio.setAttribute("aria-label", "مشغل صوت السؤال");
+
+  const actions = el.modal.querySelector(".modal-actions");
+  if (actions) {
+    actions.parentNode.insertBefore(audio, actions);
+  }
+}
+
 function openQuestion(tileId) {
   stopAndResetTimer();
+  clearQuestionAudio();
   if (state.dataLoadFailed) {
     showError("تعذّر فتح السؤال لأن تحميل ملف CSV فشل. اضغط على لعبة جديدة بعد إصلاح الرابط.");
     return;
@@ -662,13 +721,17 @@ function openQuestion(tileId) {
   el.choicesBox.classList.add("hidden");
   el.choicesList.innerHTML = "";
 
-  const basePath = window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/";
+  const basePath = getBasePath();
   if (q.type === "image" && q.image_url) {
     el.questionImage.hidden = false;
     el.questionImage.src = encodeURI(basePath + q.image_url);
   } else {
     el.questionImage.hidden = true;
     el.questionImage.removeAttribute("src");
+  }
+
+  if (shouldRenderAudio(q)) {
+    renderQuestionAudio(q.media);
   }
 
   el.lifelineBtn.disabled = lifelineUsed;
@@ -691,6 +754,7 @@ function openQuestion(tileId) {
 
 function closeModal() {
   stopAndResetTimer();
+  clearQuestionAudio();
 
   if (el.modal.classList.contains("hidden")) {
     state.activeTile = null;
