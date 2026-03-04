@@ -538,6 +538,12 @@ button:disabled {
   box-shadow: 0 14px 34px rgba(1, 7, 24, 0.5);
 }
 
+#questionAudio {
+  width: 100%;
+  max-width: min(100%, 760px);
+  margin-inline: auto;
+}
+
 .answer {
   margin: 0;
   background: rgba(20, 36, 79, 0.72);
