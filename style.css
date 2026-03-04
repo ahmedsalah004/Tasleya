@@ -1,7 +1,6 @@
 
 #startScreen {
-  min-height: 100vh;
-  min-height: 100svh;
+  height: 100vh;
   background-image: url('assets/start-bg.png');
   background-size: cover;
   background-position: center;
@@ -131,7 +130,6 @@ body {
 body {
   margin: 0;
   min-height: 100vh;
-  min-height: 100svh;
   color: var(--text);
   font-family: "Cairo", "Noto Kufi Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
   font-size: clamp(0.96rem, 0.24vw + 0.9rem, 1.06rem);
@@ -190,7 +188,6 @@ body::after {
   position: relative;
   z-index: 1;
   min-height: 100vh;
-  min-height: 100svh;
   max-width: var(--layout-max);
   margin-inline: auto;
   display: grid;
@@ -468,7 +465,7 @@ button:disabled {
   backdrop-filter: blur(8px);
   display: grid;
   place-items: center;
-  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  padding: 1rem;
   opacity: 0;
   transition: opacity 0.24s ease;
   z-index: 5;
@@ -490,7 +487,6 @@ button:disabled {
 .modal-content {
   width: min(920px, 100%);
   max-height: 90vh;
-  max-height: 90svh;
   overflow-y: auto;
   padding: 1.1rem;
   display: flex;
@@ -936,143 +932,6 @@ button:disabled {
   .choices-list,
   .podium-board {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  #startScreen {
-    background-position: 55% center;
-  }
-
-  #startBtn {
-    left: 50%;
-    top: 58%;
-    width: min(92vw, 320px);
-    padding: 0.85rem 1rem;
-    font-size: 1.35rem;
-    letter-spacing: 1px;
-    min-height: 48px;
-  }
-
-  .password-gate {
-    padding: max(0.7rem, env(safe-area-inset-top)) max(0.7rem, env(safe-area-inset-right)) max(0.7rem, env(safe-area-inset-bottom)) max(0.7rem, env(safe-area-inset-left));
-  }
-
-  .app {
-    width: 100%;
-    min-height: 100svh;
-    grid-template-columns: 1fr;
-    gap: 0.55rem;
-    padding: 0.45rem;
-  }
-
-  .sidebar {
-    grid-template-columns: 1fr;
-    width: 100%;
-    padding: 0.65rem;
-  }
-
-  .team-card,
-  .status-card,
-  .board-wrap,
-  .modal-content {
-    border-radius: 14px;
-  }
-
-  .board-wrap {
-    width: 100%;
-    padding: 0.45rem;
-    overflow-x: hidden;
-  }
-
-  .board {
-    width: 100%;
-    min-width: 0;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    grid-auto-rows: minmax(68px, auto);
-    gap: 0.32rem;
-  }
-
-  .board-cell {
-    min-height: 68px;
-    padding: 0.35rem;
-  }
-
-  .category {
-    font-size: 0.75rem;
-    line-height: 1.2;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-  }
-
-  .tile {
-    font-size: 1rem;
-  }
-
-  #questionText {
-    font-size: 1.08rem;
-    line-height: 1.65;
-  }
-
-  .modal {
-    padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) max(0.5rem, env(safe-area-inset-bottom)) max(0.5rem, env(safe-area-inset-left));
-  }
-
-  .modal-content {
-    width: 100%;
-    max-height: 92svh;
-    padding: 0.7rem;
-    gap: 0.65rem;
-  }
-
-  .modal-actions {
-    gap: 0.45rem;
-  }
-
-  .modal-actions > button,
-  .primary-btn,
-  .secondary-btn,
-  .success-btn,
-  .danger-btn,
-  .ghost-btn {
-    width: 100%;
-    min-height: 44px;
-    padding-block: 0.68rem;
-  }
-
-  .choices-list,
-  .podium-board,
-  .score-adjustments {
-    grid-template-columns: 1fr;
-  }
-
-  .score-adjustments {
-    display: grid;
-  }
-
-  .category-list {
-    max-height: 42svh;
-  }
-
-  .team-name-input {
-    min-height: 44px;
-    font-size: 0.92rem;
-  }
-}
-
-@media (max-width: 600px) and (hover: none), (max-width: 600px) and (pointer: coarse) {
-  #startBtn:hover,
-  .primary-btn:hover,
-  .secondary-btn:hover,
-  .success-btn:hover,
-  .danger-btn:hover,
-  .ghost-btn:hover,
-  #otherTeamBtn:hover,
-  .tile:hover:not(:disabled) {
-    transform: none;
-    filter: none;
-    box-shadow: inherit;
-    background: inherit;
   }
 }
 
