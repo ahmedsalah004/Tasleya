@@ -34,7 +34,7 @@ const el = {
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionTimer: document.getElementById("questionTimer"),
   questionText: document.getElementById("questionText"),
-  questionImage: document.getElementById("questionImage"),
+  questionMedia: document.getElementById("questionMedia"),
   answerText: document.getElementById("answerText"),
   revealBtn: document.getElementById("revealBtn"),
   correctBtn: document.getElementById("correctBtn"),
@@ -278,7 +278,6 @@ function rowsToQuestions(rows) {
         answer: q.answer || "",
         type: (q.type || "text").toLowerCase(),
         image_url: q.image_url || "",
-        media: q.media || "",
         choice_a: q.choice_a || "",
         choice_b: q.choice_b || "",
         choice_c: q.choice_c || "",
@@ -657,28 +656,35 @@ function toMediaUrl(mediaPath) {
   return encodeURI(`${getBasePath()}${cleanedPath}`);
 }
 
-function shouldRenderAudio(question) {
-  const mediaPath = normalizeCell(question?.media);
-  return question?.type === "audio" || /\.(mp3|wav|ogg)(?:$|[?#])/i.test(mediaPath);
-}
-
-function getQuestionModalAudio() {
-  return el.modal.querySelector("#questionAudio");
-}
-
-function clearQuestionAudio() {
-  const currentAudio = getQuestionModalAudio();
-  if (!currentAudio) {
+function clearQuestionMedia() {
+  if (!el.questionMedia) {
     return;
   }
-  currentAudio.pause();
-  currentAudio.currentTime = 0;
-  currentAudio.remove();
+
+  const currentAudio = el.questionMedia.querySelector("audio");
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
+
+  el.questionMedia.innerHTML = "";
 }
 
-function renderQuestionAudio(mediaPath) {
-  clearQuestionAudio();
-  const audioSrc = toMediaUrl(mediaPath);
+function renderQuestionImage(imagePath) {
+  const imageSrc = toMediaUrl(imagePath);
+  if (!imageSrc || !el.questionMedia) {
+    return;
+  }
+
+  const image = document.createElement("img");
+  image.id = "questionImage";
+  image.alt = "صورة السؤال";
+  image.src = imageSrc;
+  el.questionMedia.appendChild(image);
+}
+
+function renderQuestionAudio(audioPath) {
+  const audioSrc = toMediaUrl(audioPath);
   if (!audioSrc) {
     return;
   }
@@ -686,19 +692,19 @@ function renderQuestionAudio(mediaPath) {
   const audio = document.createElement("audio");
   audio.id = "questionAudio";
   audio.controls = true;
-  audio.preload = "metadata";
-  audio.src = audioSrc;
+  audio.preload = "none";
   audio.setAttribute("aria-label", "مشغل صوت السؤال");
+  audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`;
+  audio.load();
 
-  const actions = el.modal.querySelector(".modal-actions");
-  if (actions) {
-    actions.parentNode.insertBefore(audio, actions);
+  if (el.questionMedia) {
+    el.questionMedia.appendChild(audio);
   }
 }
 
 function openQuestion(tileId) {
   stopAndResetTimer();
-  clearQuestionAudio();
+  clearQuestionMedia();
   if (state.dataLoadFailed) {
     showError("تعذّر فتح السؤال لأن تحميل ملف CSV فشل. اضغط على لعبة جديدة بعد إصلاح الرابط.");
     return;
@@ -721,17 +727,12 @@ function openQuestion(tileId) {
   el.choicesBox.classList.add("hidden");
   el.choicesList.innerHTML = "";
 
-  const basePath = getBasePath();
   if (q.type === "image" && q.image_url) {
-    el.questionImage.hidden = false;
-    el.questionImage.src = encodeURI(basePath + q.image_url);
-  } else {
-    el.questionImage.hidden = true;
-    el.questionImage.removeAttribute("src");
+    renderQuestionImage(q.image_url);
   }
 
-  if (shouldRenderAudio(q)) {
-    renderQuestionAudio(q.media);
+  if (q.type === "audio" && q.image_url) {
+    renderQuestionAudio(q.image_url);
   }
 
   el.lifelineBtn.disabled = lifelineUsed;
@@ -754,7 +755,7 @@ function openQuestion(tileId) {
 
 function closeModal() {
   stopAndResetTimer();
-  clearQuestionAudio();
+  clearQuestionMedia();
 
   if (el.modal.classList.contains("hidden")) {
     state.activeTile = null;
