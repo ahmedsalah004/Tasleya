@@ -527,6 +527,11 @@ button:disabled {
   color: var(--danger);
 }
 
+.question-media {
+  display: grid;
+  gap: 0.6rem;
+}
+
 #questionImage {
   max-width: min(100%, 760px);
   width: 100%;
