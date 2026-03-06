@@ -667,11 +667,16 @@ function saveOnlineSession() {
   localStorage.setItem(ONLINE_SESSION_STORAGE_KEY, JSON.stringify({ roomCode: online.roomCode, role: online.role, clientId: online.clientId }));
 }
 
+function hasFirebaseValue(config, key) {
+  const value = normalizeCell(config?.[key]);
+  return !!value && !value.startsWith("PASTE_FIREBASE_") && !value.endsWith("_HERE");
+}
+
 function initFirebase() {
   if (online.firebaseReady) return true;
   if (!window.firebase || !window.FIREBASE_CONFIG) return false;
   const requiredConfigKeys = ["apiKey", "authDomain", "databaseURL", "projectId", "appId"];
-  const isConfigComplete = requiredConfigKeys.every((key) => normalizeCell(window.FIREBASE_CONFIG[key]));
+  const isConfigComplete = requiredConfigKeys.every((key) => hasFirebaseValue(window.FIREBASE_CONFIG, key));
   if (!isConfigComplete) return false;
   if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
   online.db = firebase.database();
@@ -697,7 +702,7 @@ async function createOnlineRoom() {
   setOnlineFeedback("جارٍ إنشاء الغرفة...", "info");
   setCreateRoomLoading(true);
   try {
-    if (!initFirebase()) throw new Error("يرجى التأكد من إعداد Firebase بالكامل داخل firebase-config.js");
+    if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js قبل إنشاء غرفة أونلاين");
     const code = randomRoomCode();
     const ref = roomRefByCode(code);
     const roomPayload = {
@@ -726,7 +731,7 @@ async function createOnlineRoom() {
 }
 
 async function joinOnlineRoom(codeInput) {
-  if (!initFirebase()) { showError("يرجى إعداد Firebase أولاً داخل firebase-config.js"); return; }
+  if (!initFirebase()) { showError("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً"); return; }
   const code = normalizeCell(codeInput).toUpperCase();
   if (!code) return;
   const ref = roomRefByCode(code);
