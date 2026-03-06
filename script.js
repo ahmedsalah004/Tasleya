@@ -84,6 +84,7 @@ const el = {
   onlineStatusCard: document.getElementById("onlineStatusCard"),
   onlineStatusText: document.getElementById("onlineStatusText"),
   onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
+  onlineFeedback: document.getElementById("onlineFeedback"),
 };
 
 const state = {
@@ -114,6 +115,7 @@ const online = {
   applyingRemote: false,
   firebaseReady: false,
   db: null,
+  creatingRoom: false,
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
 };
 
@@ -641,6 +643,21 @@ function applyRemoteGameState(game) {
 
 function setOnlineStatus(text) { el.onlineStatusText.textContent = text; }
 function updateRoomCodeTag() { el.onlineRoomCodeText.textContent = online.roomCode ? `الغرفة: ${online.roomCode}` : ""; }
+function setOnlineFeedback(message = "", type = "error") {
+  if (!el.onlineFeedback) return;
+  el.onlineFeedback.textContent = message;
+  el.onlineFeedback.classList.remove("hidden", "is-error", "is-success", "is-info");
+  if (!message) {
+    el.onlineFeedback.classList.add("hidden");
+    return;
+  }
+  el.onlineFeedback.classList.add(`is-${type}`);
+}
+function setCreateRoomLoading(isLoading) {
+  online.creatingRoom = isLoading;
+  el.createRoomBtn.disabled = isLoading;
+  el.createRoomBtn.textContent = isLoading ? "جارٍ إنشاء الغرفة..." : "إنشاء غرفة";
+}
 
 function saveOnlineSession() {
   if (online.mode !== "online") {
@@ -652,7 +669,10 @@ function saveOnlineSession() {
 
 function initFirebase() {
   if (online.firebaseReady) return true;
-  if (!window.firebase || !window.FIREBASE_CONFIG || !window.FIREBASE_CONFIG.apiKey) return false;
+  if (!window.firebase || !window.FIREBASE_CONFIG) return false;
+  const requiredConfigKeys = ["apiKey", "authDomain", "databaseURL", "projectId", "appId"];
+  const isConfigComplete = requiredConfigKeys.every((key) => normalizeCell(window.FIREBASE_CONFIG[key]));
+  if (!isConfigComplete) return false;
   if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
   online.db = firebase.database();
   online.firebaseReady = true;
@@ -673,25 +693,36 @@ function getJoinLink(code) {
 }
 
 async function createOnlineRoom() {
-  if (!initFirebase()) { showError("يرجى إعداد Firebase أولاً داخل firebase-config.js"); return; }
-  const code = randomRoomCode();
-  const ref = roomRefByCode(code);
-  const roomPayload = {
-    roomCode: code,
-    createdAt: Date.now(),
-    hostClientId: online.clientId,
-    guestClientId: null,
-    hostConnected: true,
-    guestConnected: false,
-    gameStarted: false,
-    game: null,
-  };
-  await ref.set(roomPayload);
-  await connectToRoom(code, "host");
-  el.createdRoomCode.textContent = `كود الغرفة: ${code}`;
-  el.joinLinkInput.value = getJoinLink(code);
-  el.onlineCreatePanel.classList.remove("hidden");
-  el.waitingStatus.textContent = "بانتظار انضمام الفريق الثاني...";
+  if (online.creatingRoom) return;
+  setOnlineFeedback("جارٍ إنشاء الغرفة...", "info");
+  setCreateRoomLoading(true);
+  try {
+    if (!initFirebase()) throw new Error("يرجى التأكد من إعداد Firebase بالكامل داخل firebase-config.js");
+    const code = randomRoomCode();
+    const ref = roomRefByCode(code);
+    const roomPayload = {
+      roomCode: code,
+      createdAt: Date.now(),
+      hostClientId: online.clientId,
+      guestClientId: null,
+      hostConnected: true,
+      guestConnected: false,
+      gameStarted: false,
+      game: null,
+    };
+    await ref.set(roomPayload);
+    await connectToRoom(code, "host");
+    el.createdRoomCode.textContent = `كود الغرفة: ${code}`;
+    el.joinLinkInput.value = getJoinLink(code);
+    el.onlineCreatePanel.classList.remove("hidden");
+    el.waitingStatus.textContent = "بانتظار انضمام الفريق الثاني...";
+    setOnlineFeedback("تم إنشاء الغرفة بنجاح.", "success");
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء إنشاء الغرفة.";
+    setOnlineFeedback(`تعذّر إنشاء الغرفة. ${errorMessage}`, "error");
+  } finally {
+    setCreateRoomLoading(false);
+  }
 }
 
 async function joinOnlineRoom(codeInput) {
@@ -786,6 +817,8 @@ function openOnlineModal() {
   el.onlineModal.classList.remove("hidden");
   el.onlineCreatePanel.classList.add("hidden");
   el.onlineJoinPanel.classList.add("hidden");
+  setOnlineFeedback("");
+  setCreateRoomLoading(false);
   requestAnimationFrame(() => el.onlineModal.classList.add("is-open"));
 }
 function closeOnlineModal() {
