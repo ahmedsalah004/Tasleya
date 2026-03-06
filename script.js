@@ -1,6 +1,6 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const CATEGORIES_TO_SELECT = 5;
+const CATEGORIES_TO_SELECT = 6;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
@@ -1028,7 +1028,7 @@ async function startNewGame() {
 
     state.allCategories = getUniqueCategories(state.allQuestions);
     if (state.allCategories.length < CATEGORIES_TO_SELECT) {
-      throw new Error("يلزم وجود 5 فئات مختلفة على الأقل في ملف CSV.");
+      throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
     }
 
     state.pointLevels = [...POINT_LEVELS];

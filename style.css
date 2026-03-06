@@ -112,7 +112,7 @@
   --danger: #ff527b;
   --neon-1: #52f5ff;
   --neon-2: #b86eff;
-  --board-col-width: clamp(124px, 11vw, 170px);
+  --board-col-width: clamp(110px, 9.5vw, 160px);
   --layout-max: 1320px;
 }
 
@@ -382,7 +382,7 @@ button:disabled {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(var(--board-col-width), 1fr));
+  grid-template-columns: repeat(6, minmax(var(--board-col-width), 1fr));
   gap: clamp(0.42rem, 0.8vw, 0.6rem);
   grid-auto-rows: minmax(96px, auto);
   min-width: fit-content;

@@ -52,7 +52,7 @@ main,
 }
 
 .board {
-  --board-col-width: clamp(108px, 30vw, 140px);
+  --board-col-width: clamp(100px, 28vw, 128px);
   grid-auto-rows: minmax(70px, auto);
   gap: 0.32rem;
 }
