@@ -11,7 +11,7 @@ const AUTH_TIME_STORAGE_KEY = "tasleya_auth_time";
 const AUTH_VERSION_STORAGE_KEY = "tasleya_auth_version";
 const AUTH_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-let lifelineUsed = false;
+let mcqHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
 
@@ -735,7 +735,7 @@ function openQuestion(tileId) {
     renderQuestionAudio(q.image_url);
   }
 
-  el.lifelineBtn.disabled = lifelineUsed;
+  el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam];
 
   const tileButton = el.board.querySelector(`[data-tile-id="${tileId}"]`);
   if (tileButton && !prefersReducedMotion) {
@@ -788,7 +788,7 @@ function resetGameState() {
   state.scores = { 1: 0, 2: 0 };
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  lifelineUsed = false;
+  mcqHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   closeModal();
   closeCategoryPicker();
@@ -846,7 +846,8 @@ function generateChoices(question) {
 
 function useLifeline() {
   const question = getActiveQuestion();
-  if (!question || lifelineUsed) {
+  const currentTeam = state.currentTeam;
+  if (!question || mcqHelpUsed[currentTeam]) {
     return;
   }
 
@@ -860,7 +861,7 @@ function useLifeline() {
     el.choicesList.appendChild(div);
   });
 
-  lifelineUsed = true;
+  mcqHelpUsed[currentTeam] = true;
   el.lifelineBtn.disabled = true;
   el.choicesBox.classList.remove("hidden");
 }
@@ -1003,7 +1004,7 @@ function startGameFromSelection() {
   state.scores = { 1: 0, 2: 0 };
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  lifelineUsed = false;
+  mcqHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   clearError();
 
