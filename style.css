@@ -71,6 +71,23 @@
   margin-top: 0.5rem;
 }
 
+.online-feedback {
+  margin-top: 0.55rem;
+  font-weight: 700;
+}
+
+.online-feedback.is-error {
+  color: #ff8b8b;
+}
+
+.online-feedback.is-success {
+  color: #6ee7b7;
+}
+
+.online-feedback.is-info {
+  color: #93c5fd;
+}
+
 .online-room-code {
   font-size: 1.1rem;
   font-weight: 800;
