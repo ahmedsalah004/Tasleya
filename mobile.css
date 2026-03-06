@@ -38,7 +38,8 @@ main,
   min-width: 0;
 }
 
-#startBtn {
+#startLocalBtn,
+#startOnlineBtn {
   left: 50%;
   width: min(90vw, 360px);
   padding: 16px 20px;
@@ -92,7 +93,8 @@ main,
 
 .modal-actions > button,
 #newGameBtn,
-#startBtn,
+#startLocalBtn,
+#startOnlineBtn,
 #podiumNewGameBtn {
   width: 100%;
 }
@@ -111,7 +113,8 @@ main,
 }
 
 @media (hover: none), (pointer: coarse) {
-  #startBtn:hover,
+  #startLocalBtn:hover,
+  #startOnlineBtn:hover,
   .primary-btn:hover,
   .secondary-btn:hover,
   .success-btn:hover,
@@ -129,7 +132,8 @@ main,
   .success-btn,
   .danger-btn,
   .ghost-btn,
-  #startBtn,
+  #startLocalBtn,
+#startOnlineBtn,
   .team-card::before,
   .team-card.active::after {
     animation: none;
