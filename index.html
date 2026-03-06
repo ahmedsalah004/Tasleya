@@ -19,7 +19,10 @@
     </div>
 
     <div id="startScreen">
-      <button id="startBtn">ابدأ اللعبة</button>
+      <div class="start-actions">
+        <button id="startLocalBtn">محلي (نفس الجهاز)</button>
+        <button id="startOnlineBtn">أونلاين</button>
+      </div>
     </div>
 
     <div id="gameScreen" style="display: none;">
@@ -56,6 +59,12 @@
         <div class="status-card">
           <p>الدور الحالي:</p>
           <p id="currentTurn">الفريق الأول</p>
+        </div>
+
+        <div id="onlineStatusCard" class="status-card hidden">
+          <p>حالة الأونلاين:</p>
+          <p id="onlineStatusText">غير متصل</p>
+          <p id="onlineRoomCodeText" class="online-room-code"></p>
         </div>
 
         <button id="newGameBtn" class="primary-btn">لعبة جديدة</button>
@@ -133,6 +142,41 @@
       </div>
     </div>
 
+    <div id="onlineModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="onlineModalTitle">
+      <div class="modal-content category-modal-content online-modal-content">
+        <h2 id="onlineModalTitle">وضع أونلاين</h2>
+        <div class="online-mode-actions">
+          <button id="createRoomBtn" class="primary-btn" type="button">إنشاء غرفة</button>
+          <button id="joinRoomBtn" class="secondary-btn" type="button">الانضمام إلى غرفة</button>
+        </div>
+
+        <div id="onlineCreatePanel" class="online-panel hidden">
+          <p>تم إنشاء الغرفة. شارك الكود أو الرابط مع الفريق الثاني.</p>
+          <p id="createdRoomCode" class="online-room-code"></p>
+          <input id="joinLinkInput" class="team-name-input" type="text" readonly />
+          <div class="modal-actions">
+            <button id="copyCodeBtn" class="secondary-btn" type="button">نسخ الكود</button>
+            <button id="copyLinkBtn" class="secondary-btn" type="button">نسخ الرابط</button>
+            <button id="startOnlineGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
+          </div>
+          <p id="waitingStatus">بانتظار انضمام الفريق الثاني...</p>
+        </div>
+
+        <div id="onlineJoinPanel" class="online-panel hidden">
+          <label for="roomCodeInput" class="team-name-label">كود الغرفة</label>
+          <input id="roomCodeInput" class="team-name-input" type="text" maxlength="6" placeholder="مثال: A1B2C3" />
+          <button id="confirmJoinBtn" class="primary-btn" type="button">انضمام</button>
+        </div>
+
+        <div class="modal-actions">
+          <button id="cancelOnlineBtn" class="ghost-btn" type="button">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

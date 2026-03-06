@@ -9,7 +9,8 @@
   align-items: center;
 }
 
-#startBtn {
+#startLocalBtn,
+#startOnlineBtn {
   position: absolute;
   left: 49%;
   top: 56%;
@@ -30,10 +31,51 @@
   letter-spacing: 2px;
 }
 
-#startBtn:hover {
+#startLocalBtn:hover,
+#startOnlineBtn:hover {
   background: rgba(255, 215, 0, 0.15);
   transform: translate(-50%, -50%) scale(1.08);
   box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+}
+
+
+.start-actions {
+  display: grid;
+  gap: 0.75rem;
+  width: min(92vw, 420px);
+}
+
+#startOnlineBtn {
+  left: 49%;
+  top: calc(56% + 88px);
+}
+
+.online-modal-content {
+  width: min(560px, 100%);
+}
+
+.online-mode-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.online-mode-actions > button,
+.online-panel > button {
+  flex: 1 1 180px;
+}
+
+.online-panel {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+.online-room-code {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--accent);
+  word-break: break-word;
 }
 
 .password-gate {
