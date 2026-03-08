@@ -116,6 +116,7 @@ const online = {
   firebaseReady: false,
   db: null,
   creatingRoom: false,
+  joiningRoom: false,
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
 };
 
@@ -656,7 +657,21 @@ function setOnlineFeedback(message = "", type = "error") {
 function setCreateRoomLoading(isLoading) {
   online.creatingRoom = isLoading;
   el.createRoomBtn.disabled = isLoading;
+  el.joinRoomBtn.disabled = isLoading || online.joiningRoom;
   el.createRoomBtn.textContent = isLoading ? "جارٍ إنشاء الغرفة..." : "إنشاء غرفة";
+}
+
+function setJoinRoomLoading(isLoading) {
+  online.joiningRoom = isLoading;
+  el.confirmJoinBtn.disabled = isLoading;
+  el.createRoomBtn.disabled = isLoading || online.creatingRoom;
+  el.joinRoomBtn.disabled = isLoading || online.creatingRoom;
+  el.confirmJoinBtn.textContent = isLoading ? "جارٍ الانضمام..." : "انضمام";
+}
+
+function setWaitingState(message, isConnected = false) {
+  el.waitingStatus.textContent = message;
+  el.waitingStatus.classList.toggle("is-connected", isConnected);
 }
 
 function saveOnlineSession() {
@@ -698,7 +713,7 @@ function getJoinLink(code) {
 }
 
 async function createOnlineRoom() {
-  if (online.creatingRoom) return;
+  if (online.creatingRoom || online.joiningRoom) return;
   setOnlineFeedback("جارٍ إنشاء الغرفة...", "info");
   setCreateRoomLoading(true);
   try {
@@ -717,11 +732,11 @@ async function createOnlineRoom() {
     };
     await ref.set(roomPayload);
     await connectToRoom(code, "host");
-    el.createdRoomCode.textContent = `كود الغرفة: ${code}`;
+    el.createdRoomCode.textContent = code;
     el.joinLinkInput.value = getJoinLink(code);
     el.onlineCreatePanel.classList.remove("hidden");
-    el.waitingStatus.textContent = "بانتظار انضمام الفريق الثاني...";
-    setOnlineFeedback("تم إنشاء الغرفة بنجاح.", "success");
+    setWaitingState("بانتظار انضمام الفريق الثاني...", false);
+    setOnlineFeedback("تم إنشاء الغرفة بنجاح. شارك الكود الآن.", "success");
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء إنشاء الغرفة.";
     setOnlineFeedback(`تعذّر إنشاء الغرفة. ${errorMessage}`, "error");
@@ -731,17 +746,28 @@ async function createOnlineRoom() {
 }
 
 async function joinOnlineRoom(codeInput) {
-  if (!initFirebase()) { showError("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً"); return; }
-  const code = normalizeCell(codeInput).toUpperCase();
-  if (!code) return;
-  const ref = roomRefByCode(code);
-  const snap = await ref.get();
-  if (!snap.exists()) { showError("الغرفة غير موجودة."); return; }
-  const room = snap.val();
-  if (room.guestClientId && room.guestClientId !== online.clientId) { showError("الغرفة ممتلئة."); return; }
-  await ref.update({ guestClientId: room.guestClientId || online.clientId, guestConnected: true });
-  await connectToRoom(code, "guest");
-  closeOnlineModal();
+  if (online.joiningRoom || online.creatingRoom) return;
+  setOnlineFeedback("جارٍ الانضمام إلى الغرفة...", "info");
+  setJoinRoomLoading(true);
+  try {
+    if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً");
+    const code = normalizeCell(codeInput).toUpperCase();
+    if (!code) throw new Error("أدخل كود الغرفة أولاً.");
+    const ref = roomRefByCode(code);
+    const snap = await ref.get();
+    if (!snap.exists()) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
+    const room = snap.val();
+    if (room.guestClientId && room.guestClientId !== online.clientId) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
+    await ref.update({ guestClientId: room.guestClientId || online.clientId, guestConnected: true });
+    await connectToRoom(code, "guest");
+    setOnlineFeedback("تم الانضمام بنجاح. جارٍ الدخول إلى الغرفة...", "success");
+    closeOnlineModal();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "تعذّر الانضمام إلى الغرفة.";
+    setOnlineFeedback(errorMessage, "error");
+  } finally {
+    setJoinRoomLoading(false);
+  }
 }
 
 async function connectToRoom(code, role) {
@@ -752,7 +778,7 @@ async function connectToRoom(code, role) {
   saveOnlineSession();
   updateRoomCodeTag();
   el.onlineStatusCard.classList.remove("hidden");
-  setOnlineStatus("متصل");
+  setOnlineStatus(role === "host" ? "تم إنشاء الغرفة" : "تم الانضمام بنجاح");
   updateOnlineActionPermissions();
 
   const connectionKey = role === "host" ? "hostConnected" : "guestConnected";
@@ -767,9 +793,15 @@ async function connectToRoom(code, role) {
       if (online.role === "host") {
         const bothConnected = !!room.hostConnected && !!room.guestConnected;
         el.startOnlineGameBtn.disabled = !bothConnected;
-        el.waitingStatus.textContent = bothConnected ? "الفريق الثاني متصل" : "بانتظار انضمام الفريق الثاني...";
+        setWaitingState(bothConnected ? "تم اتصال الفريق الثاني. يمكنك بدء اللعبة." : "بانتظار انضمام الفريق الثاني...", bothConnected);
       }
-      setOnlineStatus(room.gameStarted ? "بدأت اللعبة" : online.connected[2] ? "متصل" : "بانتظار الفريق الثاني");
+      if (room.gameStarted) {
+        setOnlineStatus("بدأت اللعبة");
+      } else if (online.role === "host") {
+        setOnlineStatus(online.connected[2] ? "اللاعب متصل" : "بانتظار اللاعب");
+      } else {
+        setOnlineStatus("تم الدخول إلى الغرفة");
+      }
       if (room.gameStarted && room.game) {
         closeCategoryPicker();
         applyRemoteGameState(room.game);
@@ -824,6 +856,8 @@ function openOnlineModal() {
   el.onlineJoinPanel.classList.add("hidden");
   setOnlineFeedback("");
   setCreateRoomLoading(false);
+  setJoinRoomLoading(false);
+  setOnlineStatus("غير متصل");
   requestAnimationFrame(() => el.onlineModal.classList.add("is-open"));
 }
 function closeOnlineModal() {
@@ -937,8 +971,17 @@ el.passwordInput.addEventListener("input", () => { el.passwordError.classList.ad
 el.startLocalBtn.addEventListener("click", () => enterGame("local"));
 el.startOnlineBtn.addEventListener("click", () => enterGame("online"));
 el.createRoomBtn.addEventListener("click", createOnlineRoom);
-el.joinRoomBtn.addEventListener("click", () => { el.onlineJoinPanel.classList.remove("hidden"); });
+el.joinRoomBtn.addEventListener("click", () => {
+  el.onlineJoinPanel.classList.remove("hidden");
+  setOnlineFeedback("أدخل كود الغرفة ثم اضغط انضمام.", "info");
+  el.roomCodeInput.focus();
+});
 el.confirmJoinBtn.addEventListener("click", () => joinOnlineRoom(el.roomCodeInput.value));
+el.roomCodeInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  joinOnlineRoom(el.roomCodeInput.value);
+});
 el.cancelOnlineBtn.addEventListener("click", () => {
   if (online.mode === "online" && online.roomCode) {
     closeOnlineModal();
@@ -952,8 +995,24 @@ el.startOnlineGameBtn.addEventListener("click", () => {
   closeOnlineModal();
   startNewGame();
 });
-el.copyCodeBtn.addEventListener("click", async () => { if (online.roomCode) await navigator.clipboard.writeText(online.roomCode); });
-el.copyLinkBtn.addEventListener("click", async () => { if (el.joinLinkInput.value) await navigator.clipboard.writeText(el.joinLinkInput.value); });
+el.copyCodeBtn.addEventListener("click", async () => {
+  if (!online.roomCode) return;
+  try {
+    await navigator.clipboard.writeText(online.roomCode);
+    setOnlineFeedback("تم نسخ كود الغرفة.", "success");
+  } catch (_) {
+    setOnlineFeedback("تعذّر نسخ الكود. انسخه يدويًا.", "error");
+  }
+});
+el.copyLinkBtn.addEventListener("click", async () => {
+  if (!el.joinLinkInput.value) return;
+  try {
+    await navigator.clipboard.writeText(el.joinLinkInput.value);
+    setOnlineFeedback("تم نسخ رابط الدعوة.", "success");
+  } catch (_) {
+    setOnlineFeedback("تعذّر نسخ الرابط. انسخه يدويًا.", "error");
+  }
+});
 
 updateScoreboard();
 loadTeamNames();

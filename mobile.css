@@ -140,3 +140,13 @@ main,
     transition: none;
   }
 }
+
+
+.online-code-box {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.online-code-box .secondary-btn {
+  width: 100%;
+}

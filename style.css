@@ -88,9 +88,43 @@
   color: #93c5fd;
 }
 
+
+.online-code-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(255, 209, 102, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 209, 102, 0.08);
+}
+
+.online-code-box .secondary-btn {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.waiting-status {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(147, 197, 253, 0.12);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  font-weight: 700;
+}
+
+.waiting-status.is-connected {
+  background: rgba(110, 231, 183, 0.12);
+  border-color: rgba(110, 231, 183, 0.35);
+  color: #6ee7b7;
+}
+
 .online-room-code {
-  font-size: 1.1rem;
-  font-weight: 800;
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  letter-spacing: 0.18em;
+  font-weight: 900;
   color: var(--accent);
   word-break: break-word;
 }
