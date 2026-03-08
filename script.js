@@ -200,6 +200,13 @@ function parseCSV(text) {
   return rows;
 }
 function normalizeHeader(header) { return normalizeCell(header).trim().toLowerCase().replace(/\s+/g, "_"); }
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const normalized = normalizeCell(value);
+    if (normalized) return normalized;
+  }
+  return "";
+}
 function toPoints(question) {
   const explicit = Number.parseInt(String(question.points ?? "").replace(/[^\d]/g, ""), 10);
   return Number.isFinite(explicit) ? explicit : null;
@@ -210,14 +217,28 @@ function rowsToQuestions(rows) {
   return dataRows.map((row, index) => {
     const q = {};
     mapHeaders.forEach((key, i) => { q[key] = normalizeCell(row[i]); });
+    const hintValue = firstNonEmpty(
+      q["تلميح"],
+      q["تلميح_(hint)"],
+      q.hint,
+      q.hint_text,
+    );
     const difficulty = Number.parseInt(String(q.difficulty ?? "").replace(/[^\d]/g, ""), 10);
     const computedPoints = toPoints(q) ?? (difficulty >= 1 && difficulty <= 5 ? difficulty * 100 : null);
-    return {
+    const question = {
       id: q.id || String(index + 1), category: q.category || "", points: computedPoints,
       question: q.question || "", answer: q.answer || "", type: (q.type || "text").toLowerCase(),
       image_url: q.image_url || "", choice_a: q.choice_a || "", choice_b: q.choice_b || "", choice_c: q.choice_c || "", choice_d: q.choice_d || "",
-      hint: q["تلميح_(hint)"] || "",
+      hint: hintValue,
+      "تلميح": hintValue,
     };
+    console.log("[Tasleya] Loaded question hint", {
+      id: question.id,
+      type: question.type,
+      question: question.question,
+      hint: question.hint,
+    });
+    return question;
   }).filter((q) => q.question && q.answer && q.category);
 }
 
@@ -422,6 +443,7 @@ function openQuestion(tileId) {
   if (!tile || tile.used || !tile.question) return;
   state.activeTile = tile;
   const q = tile.question;
+  console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint, rawHint: q["تلميح"] });
   el.questionText.textContent = q.question;
   el.answerText.textContent = `الإجابة: ${q.answer}`;
   el.answerText.classList.add("hidden");
@@ -516,7 +538,7 @@ function useLifeline() {
 function useHintLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
   if (!question || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
-  const hintText = normalizeCell(question.hint);
+  const hintText = firstNonEmpty(question.hint, question["تلميح"]);
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
     el.hintText.textContent = state.currentHintText;
