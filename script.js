@@ -110,12 +110,14 @@ const online = {
   role: null,
   roomCode: "",
   roomRef: null,
+  roomListener: null,
   connected: { 1: false, 2: false },
   listening: false,
   applyingRemote: false,
   firebaseReady: false,
   db: null,
   creatingRoom: false,
+  joiningRoom: false,
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
 };
 
@@ -656,7 +658,16 @@ function setOnlineFeedback(message = "", type = "error") {
 function setCreateRoomLoading(isLoading) {
   online.creatingRoom = isLoading;
   el.createRoomBtn.disabled = isLoading;
+  el.joinRoomBtn.disabled = isLoading;
   el.createRoomBtn.textContent = isLoading ? "جارٍ إنشاء الغرفة..." : "إنشاء غرفة";
+}
+
+function setJoinRoomLoading(isLoading) {
+  online.joiningRoom = isLoading;
+  el.confirmJoinBtn.disabled = isLoading;
+  el.createRoomBtn.disabled = isLoading || online.creatingRoom;
+  el.joinRoomBtn.disabled = isLoading || online.creatingRoom;
+  el.confirmJoinBtn.textContent = isLoading ? "جارٍ الانضمام..." : "انضمام";
 }
 
 function saveOnlineSession() {
@@ -703,19 +714,25 @@ async function createOnlineRoom() {
   setCreateRoomLoading(true);
   try {
     if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js قبل إنشاء غرفة أونلاين");
-    const code = randomRoomCode();
-    const ref = roomRefByCode(code);
-    const roomPayload = {
-      roomCode: code,
-      createdAt: Date.now(),
-      hostClientId: online.clientId,
-      guestClientId: null,
-      hostConnected: true,
-      guestConnected: false,
-      gameStarted: false,
-      game: null,
-    };
-    await ref.set(roomPayload);
+    let code = "";
+    let created = false;
+    for (let attempt = 0; attempt < 5 && !created; attempt += 1) {
+      code = randomRoomCode();
+      const ref = roomRefByCode(code);
+      const roomPayload = {
+        roomCode: code,
+        createdAt: Date.now(),
+        hostClientId: online.clientId,
+        guestClientId: null,
+        hostConnected: true,
+        guestConnected: false,
+        gameStarted: false,
+        game: null,
+      };
+      const txn = await ref.transaction((current) => (current ? undefined : roomPayload));
+      created = !!txn.committed;
+    }
+    if (!created || !code) throw new Error("تعذّر إنشاء غرفة جديدة حالياً. حاول مرة أخرى.");
     await connectToRoom(code, "host");
     el.createdRoomCode.textContent = `كود الغرفة: ${code}`;
     el.joinLinkInput.value = getJoinLink(code);
@@ -731,20 +748,47 @@ async function createOnlineRoom() {
 }
 
 async function joinOnlineRoom(codeInput) {
-  if (!initFirebase()) { showError("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً"); return; }
-  const code = normalizeCell(codeInput).toUpperCase();
-  if (!code) return;
-  const ref = roomRefByCode(code);
-  const snap = await ref.get();
-  if (!snap.exists()) { showError("الغرفة غير موجودة."); return; }
-  const room = snap.val();
-  if (room.guestClientId && room.guestClientId !== online.clientId) { showError("الغرفة ممتلئة."); return; }
-  await ref.update({ guestClientId: room.guestClientId || online.clientId, guestConnected: true });
-  await connectToRoom(code, "guest");
-  closeOnlineModal();
+  if (online.joiningRoom) return;
+  setJoinRoomLoading(true);
+  setOnlineFeedback("جارٍ الانضمام إلى الغرفة...", "info");
+  try {
+    if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً");
+    const code = normalizeCell(codeInput).toUpperCase();
+    if (!code) throw new Error("يرجى إدخال كود غرفة صحيح.");
+    const ref = roomRefByCode(code);
+    const txn = await ref.transaction((room) => {
+      if (!room) return;
+      const hasAnotherGuest = !!room.guestClientId && room.guestClientId !== online.clientId;
+      if (hasAnotherGuest) return;
+      if (room.gameStarted && !room.guestClientId) return;
+      return { ...room, guestClientId: room.guestClientId || online.clientId, guestConnected: true };
+    });
+    if (!txn.snapshot.exists()) throw new Error("الغرفة غير موجودة أو تم إغلاقها.");
+    if (!txn.committed) {
+      const room = txn.snapshot.val() || {};
+      if (room.guestClientId && room.guestClientId !== online.clientId) throw new Error("الغرفة ممتلئة.");
+      if (room.gameStarted && !room.guestClientId) throw new Error("لا يمكن الانضمام بعد بدء اللعبة.");
+      throw new Error("تعذّر الانضمام إلى الغرفة حالياً.");
+    }
+    await connectToRoom(code, "guest");
+    closeOnlineModal();
+    setOnlineFeedback("", "info");
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع أثناء الانضمام.";
+    setOnlineFeedback(errorMessage, "error");
+  } finally {
+    setJoinRoomLoading(false);
+  }
+}
+
+function handleInvalidOnlineRoom(message) {
+  setOnlineStatus("تم قطع الاتصال");
+  setOnlineFeedback(message, "error");
+  resetOnlineMode();
 }
 
 async function connectToRoom(code, role) {
+  disconnectOnlineListeners();
   online.mode = "online";
   online.role = role;
   online.roomCode = code;
@@ -756,25 +800,59 @@ async function connectToRoom(code, role) {
   updateOnlineActionPermissions();
 
   const connectionKey = role === "host" ? "hostConnected" : "guestConnected";
-  online.roomRef.child(connectionKey).set(true);
+  await online.roomRef.child(connectionKey).set(true);
   online.roomRef.child(connectionKey).onDisconnect().set(false);
 
   if (!online.listening) {
-    online.roomRef.on("value", (snapshot) => {
+    online.roomListener = (snapshot) => {
       const room = snapshot.val();
-      if (!room) return;
+      if (!room) {
+        handleInvalidOnlineRoom("هذه الغرفة لم تعد متاحة. أعد إنشاء غرفة جديدة أو انضم لغرفة أخرى.");
+        return;
+      }
+
+      if ((online.role === "host" && room.hostClientId && room.hostClientId !== online.clientId)
+        || (online.role === "guest" && room.guestClientId && room.guestClientId !== online.clientId)) {
+        handleInvalidOnlineRoom("تم فتح هذه الغرفة من جهاز آخر. أعد الاتصال مرة أخرى.");
+        return;
+      }
+
       online.connected = { 1: !!room.hostConnected, 2: !!room.guestConnected };
       if (online.role === "host") {
         const bothConnected = !!room.hostConnected && !!room.guestConnected;
         el.startOnlineGameBtn.disabled = !bothConnected;
         el.waitingStatus.textContent = bothConnected ? "الفريق الثاني متصل" : "بانتظار انضمام الفريق الثاني...";
+        if (!room.guestClientId && !room.gameStarted) {
+          setOnlineFeedback("لم ينضم الفريق الثاني بعد.", "info");
+        }
       }
-      setOnlineStatus(room.gameStarted ? "بدأت اللعبة" : online.connected[2] ? "متصل" : "بانتظار الفريق الثاني");
+
+      if (room.gameStarted) {
+        if (!online.connected[1] || !online.connected[2]) {
+          setOnlineStatus("يوجد انقطاع اتصال");
+          setOnlineFeedback("أحد اللاعبين غير متصل حالياً. انتظر إعادة الاتصال.", "error");
+        } else {
+          setOnlineStatus("بدأت اللعبة");
+          setOnlineFeedback("", "info");
+        }
+      } else if (online.connected[2]) {
+        setOnlineStatus("متصل");
+        setOnlineFeedback("", "info");
+      } else {
+        setOnlineStatus("بانتظار الفريق الثاني");
+      }
+
+      if (online.role === "guest" && !room.hostConnected && !room.gameStarted) {
+        handleInvalidOnlineRoom("المضيف غادر الغرفة قبل بدء اللعبة.");
+        return;
+      }
+
       if (room.gameStarted && room.game) {
         closeCategoryPicker();
         applyRemoteGameState(room.game);
       }
-    });
+    };
+    online.roomRef.on("value", online.roomListener);
     online.listening = true;
   }
 
@@ -784,7 +862,10 @@ async function connectToRoom(code, role) {
 }
 
 function disconnectOnlineListeners() {
-  if (online.roomRef && online.listening) online.roomRef.off();
+  if (online.roomRef && online.listening && online.roomListener) {
+    online.roomRef.off("value", online.roomListener);
+  }
+  online.roomListener = null;
   online.listening = false;
 }
 
@@ -806,6 +887,11 @@ function updateOnlineActionPermissions() {
 
 function resetOnlineMode() {
   disconnectOnlineListeners();
+  if (online.roomRef && online.role) {
+    const connectionKey = online.role === "host" ? "hostConnected" : "guestConnected";
+    online.roomRef.child(connectionKey).set(false);
+    online.roomRef.child(connectionKey).onDisconnect().cancel();
+  }
   online.mode = "local";
   online.role = null;
   online.roomCode = "";
@@ -824,7 +910,44 @@ function openOnlineModal() {
   el.onlineJoinPanel.classList.add("hidden");
   setOnlineFeedback("");
   setCreateRoomLoading(false);
+  setJoinRoomLoading(false);
   requestAnimationFrame(() => el.onlineModal.classList.add("is-open"));
+}
+
+async function restoreOnlineSession() {
+  if (online.mode === "online") return;
+  if (normalizeCell(new URL(window.location.href).searchParams.get("room"))) return;
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(ONLINE_SESSION_STORAGE_KEY) || "null");
+  } catch {
+    localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+    return;
+  }
+  const roomCode = normalizeCell(stored?.roomCode).toUpperCase();
+  const role = stored?.role;
+  const storedClientId = normalizeCell(stored?.clientId);
+  if (!roomCode || !["host", "guest"].includes(role)) return;
+  if (storedClientId) online.clientId = storedClientId;
+  if (!initFirebase()) return;
+  try {
+    const ref = roomRefByCode(roomCode);
+    const snap = await ref.get();
+    if (!snap.exists()) {
+      localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+      return;
+    }
+    const room = snap.val() || {};
+    const roomOwnerId = role === "host" ? room.hostClientId : room.guestClientId;
+    if (roomOwnerId && roomOwnerId !== online.clientId) {
+      localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+      return;
+    }
+    await connectToRoom(roomCode, role);
+    setOnlineFeedback("تمت إعادة الاتصال بالغرفة تلقائياً.", "success");
+  } catch {
+    localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+  }
 }
 function closeOnlineModal() {
   el.onlineModal.classList.remove("is-open");
@@ -961,3 +1084,4 @@ syncTeamNameInputs();
 setupPasswordGate();
 updateOnlineActionPermissions();
 tryAutoJoinFromUrl();
+restoreOnlineSession();
