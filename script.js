@@ -15,6 +15,7 @@ const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let mcqHelpUsed = { 1: false, 2: false };
+let hintHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
 
@@ -44,8 +45,11 @@ const el = {
   wrongBtn: document.getElementById("wrongBtn"),
   otherTeamBtn: document.getElementById("otherTeamBtn"),
   lifelineBtn: document.getElementById("lifelineBtn"),
+  hintLifelineBtn: document.getElementById("hintLifelineBtn"),
   choicesBox: document.getElementById("choicesBox"),
   choicesList: document.getElementById("choicesList"),
+  hintBox: document.getElementById("hintBox"),
+  hintText: document.getElementById("hintText"),
   categoryModal: document.getElementById("categoryModal"),
   categoryList: document.getElementById("categoryList"),
   categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
@@ -103,6 +107,7 @@ const state = {
   displayedScores: { 1: 0, 2: 0 },
   answerRevealed: false,
   currentChoices: [],
+  currentHintText: "",
 };
 
 const online = {
@@ -211,6 +216,7 @@ function rowsToQuestions(rows) {
       id: q.id || String(index + 1), category: q.category || "", points: computedPoints,
       question: q.question || "", answer: q.answer || "", type: (q.type || "text").toLowerCase(),
       image_url: q.image_url || "", choice_a: q.choice_a || "", choice_b: q.choice_b || "", choice_c: q.choice_c || "", choice_d: q.choice_d || "",
+      hint: q["تلميح_(hint)"] || "",
     };
   }).filter((q) => q.question && q.answer && q.category);
 }
@@ -423,9 +429,13 @@ function openQuestion(tileId) {
   el.choicesBox.classList.add("hidden");
   el.choicesList.innerHTML = "";
   state.currentChoices = [];
+  state.currentHintText = "";
+  el.hintText.textContent = "";
+  el.hintBox.classList.add("hidden");
   if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url);
   if (q.type === "audio" && q.image_url) renderQuestionAudio(q.image_url);
   el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
+  el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   startTimer();
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
@@ -434,6 +444,9 @@ function openQuestion(tileId) {
 
 function closeModal({ silentSync = false } = {}) {
   stopAndResetTimer(); clearQuestionMedia();
+  state.currentHintText = "";
+  el.hintText.textContent = "";
+  el.hintBox.classList.add("hidden");
   if (el.modal.classList.contains("hidden")) { state.activeTile = null; return; }
   if (prefersReducedMotion) {
     el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null;
@@ -454,9 +467,11 @@ function resetGameState() {
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   mcqHelpUsed = { 1: false, 2: false };
+  hintHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
+  state.currentHintText = "";
   closeModal({ silentSync: true });
   closeCategoryPicker();
   closePodiumModal();
@@ -494,6 +509,26 @@ function useLifeline() {
   state.currentChoices = options;
   el.lifelineBtn.disabled = true;
   el.choicesBox.classList.remove("hidden");
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+}
+
+
+function useHintLifeline() {
+  const question = getActiveQuestion(); const currentTeam = state.currentTeam;
+  if (!question || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
+  const hintText = normalizeCell(question.hint);
+  if (!hintText) {
+    state.currentHintText = "لا يوجد تلميح لهذا السؤال";
+    el.hintText.textContent = state.currentHintText;
+    el.hintBox.classList.remove("hidden");
+    if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+    return;
+  }
+  hintHelpUsed[currentTeam] = true;
+  state.currentHintText = hintText;
+  el.hintText.textContent = state.currentHintText;
+  el.hintBox.classList.remove("hidden");
+  el.hintLifelineBtn.disabled = true;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -581,10 +616,12 @@ function serializeGameState() {
     teamNames: state.teamNames,
     currentTeam: state.currentTeam,
     mcqHelpUsed,
+    hintHelpUsed,
     activeTileId: state.activeTile?.id || null,
     modalOpen: !el.modal.classList.contains("hidden") && !!state.activeTile,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
+    currentHintText: state.currentHintText,
     finished: state.boardTiles.length > 0 && !hasPlayableTiles(),
   };
 }
@@ -600,8 +637,10 @@ function applyRemoteGameState(game) {
     state.teamNames = game.teamNames || { 1: "الفريق الأول", 2: "الفريق الثاني" };
     state.currentTeam = Number(game.currentTeam) === 2 ? 2 : 1;
     mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false };
+    hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false };
     state.answerRevealed = !!game.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
+    state.currentHintText = normalizeCell(game.currentHintText);
 
     syncTeamNameInputs();
     updateScoreboard();
@@ -628,7 +667,15 @@ function applyRemoteGameState(game) {
         } else {
           el.choicesBox.classList.add("hidden");
         }
+        if (state.currentHintText) {
+          el.hintText.textContent = state.currentHintText;
+          el.hintBox.classList.remove("hidden");
+        } else {
+          el.hintText.textContent = "";
+          el.hintBox.classList.add("hidden");
+        }
         el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
+        el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
         el.modal.classList.remove("hidden");
         el.modal.classList.add("is-open");
       }
@@ -874,9 +921,11 @@ async function startGameFromSelection() {
   state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
   mcqHelpUsed = { 1: false, 2: false };
+  hintHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
+  state.currentHintText = "";
   clearError();
   buildBoardAssignment();
   updateScoreboard();
@@ -944,6 +993,7 @@ el.correctBtn.addEventListener("click", () => applyScore(true));
 el.wrongBtn.addEventListener("click", () => applyScore(false));
 el.otherTeamBtn.addEventListener("click", awardPointsToOtherTeam);
 el.lifelineBtn.addEventListener("click", useLifeline);
+el.hintLifelineBtn.addEventListener("click", useHintLifeline);
 el.startGameBtn.addEventListener("click", startGameFromSelection);
 el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
 el.cancelCategoryBtn.addEventListener("click", closeCategoryPicker);
