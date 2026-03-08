@@ -153,14 +153,16 @@
 
         <div id="onlineCreatePanel" class="online-panel hidden">
           <p>تم إنشاء الغرفة. شارك الكود أو الرابط مع الفريق الثاني.</p>
-          <p id="createdRoomCode" class="online-room-code"></p>
+          <div class="online-code-box" aria-live="polite">
+            <p id="createdRoomCode" class="online-room-code"></p>
+            <button id="copyCodeBtn" class="secondary-btn" type="button">نسخ الكود</button>
+          </div>
           <input id="joinLinkInput" class="team-name-input" type="text" readonly />
           <div class="modal-actions">
-            <button id="copyCodeBtn" class="secondary-btn" type="button">نسخ الكود</button>
             <button id="copyLinkBtn" class="secondary-btn" type="button">نسخ الرابط</button>
             <button id="startOnlineGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
           </div>
-          <p id="waitingStatus">بانتظار انضمام الفريق الثاني...</p>
+          <p id="waitingStatus" class="waiting-status">بانتظار انضمام الفريق الثاني...</p>
         </div>
 
         <div id="onlineJoinPanel" class="online-panel hidden">
