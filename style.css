@@ -1,9 +1,13 @@
 
 #startScreen {
-  height: 100vh;
-  background-image: url('assets/start-bg.png');
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  background-image: linear-gradient(rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.34)), url('assets/start-bg.png');
   background-size: cover;
-  background-position: center;
+  background-position: center center;
+  background-repeat: no-repeat;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -223,6 +227,7 @@ body {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100svh;
   color: var(--text);
   font-family: "Cairo", "Noto Kufi Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
   font-size: clamp(0.96rem, 0.24vw + 0.9rem, 1.06rem);
