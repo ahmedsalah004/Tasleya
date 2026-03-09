@@ -125,6 +125,13 @@ const online = {
   clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
 };
 
+
+const analyticsState = {
+  supported: false,
+  analytics: null,
+  warnedUnsupported: false,
+};
+
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
@@ -376,6 +383,11 @@ function showPodiumModal() {
 }
 function checkEndOfGame() {
   if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
+    logAnalyticsEvent("game_finished", {
+      mode: online.mode,
+      team1_score: state.scores[1],
+      team2_score: state.scores[2],
+    });
     showPodiumModal();
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   }
@@ -547,6 +559,11 @@ function useHintLifeline() {
     return;
   }
   hintHelpUsed[currentTeam] = true;
+  logAnalyticsEvent("hint_used", {
+    mode: online.mode,
+    team: currentTeam,
+    has_hint: true,
+  });
   state.currentHintText = hintText;
   el.hintText.textContent = state.currentHintText;
   el.hintBox.classList.remove("hidden");
@@ -762,11 +779,54 @@ function initFirebase() {
   const requiredConfigKeys = ["apiKey", "authDomain", "databaseURL", "projectId", "appId"];
   const isConfigComplete = requiredConfigKeys.every((key) => hasFirebaseValue(window.FIREBASE_CONFIG, key));
   if (!isConfigComplete) return false;
-  if (!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
+  if (!firebase.apps.length) {
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    console.log("[Tasleya] Firebase app initialized");
+  }
   online.db = firebase.database();
   online.firebaseReady = true;
   return true;
 }
+
+function initAnalytics() {
+  if (analyticsState.analytics) return analyticsState.analytics;
+  if (!initFirebase()) {
+    console.warn("[Tasleya] Analytics skipped: Firebase app/config not ready");
+    return null;
+  }
+  if (!window.firebase?.analytics) {
+    if (!analyticsState.warnedUnsupported) {
+      console.warn("[Tasleya] Analytics unsupported in this context");
+      analyticsState.warnedUnsupported = true;
+    }
+    return null;
+  }
+  try {
+    const analytics = firebase.analytics();
+    analyticsState.analytics = analytics;
+    analyticsState.supported = true;
+    console.log("[Tasleya] Analytics initialized");
+    return analytics;
+  } catch (error) {
+    if (!analyticsState.warnedUnsupported) {
+      console.warn("[Tasleya] Analytics unsupported in this context", error);
+      analyticsState.warnedUnsupported = true;
+    }
+    return null;
+  }
+}
+
+function logAnalyticsEvent(eventName, params = {}) {
+  const analytics = initAnalytics();
+  if (!analytics) return;
+  try {
+    analytics.logEvent(eventName, params);
+    console.log("[Tasleya] Analytics event sent", { eventName, params });
+  } catch (error) {
+    console.warn("[Tasleya] Analytics event failed", { eventName, error });
+  }
+}
+
 
 function roomRefByCode(code) { return online.db.ref(`${FIREBASE_ROOMS_PATH}/${code}`); }
 function randomRoomCode() {
@@ -801,6 +861,7 @@ async function createOnlineRoom() {
     };
     await ref.set(roomPayload);
     await connectToRoom(code, "host");
+    logAnalyticsEvent("room_created", { room_code: code });
     el.createdRoomCode.textContent = code;
     el.joinLinkInput.value = getJoinLink(code);
     el.onlineCreatePanel.classList.remove("hidden");
@@ -829,6 +890,7 @@ async function joinOnlineRoom(codeInput) {
     if (room.guestClientId && room.guestClientId !== online.clientId) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
     await ref.update({ guestClientId: room.guestClientId || online.clientId, guestConnected: true });
     await connectToRoom(code, "guest");
+    logAnalyticsEvent("room_joined", { room_code: code });
     setOnlineFeedback("تم الانضمام بنجاح. جارٍ الدخول إلى الغرفة...", "success");
     closeOnlineModal();
   } catch (error) {
@@ -953,6 +1015,10 @@ async function startGameFromSelection() {
   updateScoreboard();
   renderBoard();
   checkEndOfGame();
+  logAnalyticsEvent("game_started", {
+    mode: online.mode,
+    categories_count: state.selectedCategories.length,
+  });
   if (online.mode === "online") pushOnlineState();
 }
 
@@ -1091,4 +1157,8 @@ loadTeamNames();
 syncTeamNameInputs();
 setupPasswordGate();
 updateOnlineActionPermissions();
+
+initAnalytics();
+logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
+
 tryAutoJoinFromUrl();
