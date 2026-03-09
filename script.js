@@ -14,7 +14,10 @@ let hintHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
 
-const el = {
+let el = {};
+
+function cacheElements() {
+  el = {
   board: document.getElementById("board"),
   errorBanner: document.getElementById("errorBanner"),
   team1Score: document.getElementById("team1Score"),
@@ -80,7 +83,8 @@ const el = {
   onlineStatusText: document.getElementById("onlineStatusText"),
   onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
   onlineFeedback: document.getElementById("onlineFeedback"),
-};
+  };
+}
 
 const state = {
   allQuestions: [],
@@ -113,7 +117,7 @@ const online = {
   db: null,
   creatingRoom: false,
   joiningRoom: false,
-  clientId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+  clientId: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()),
 };
 
 
@@ -1035,90 +1039,114 @@ function tryAutoJoinFromUrl() {
   });
 }
 
-el.newGameBtn.addEventListener("click", () => {
-  if (online.mode === "online" && online.role !== "host") return;
-  startNewGame();
-});
-el.closeModalBtn.addEventListener("click", () => closeModal());
-el.revealBtn.addEventListener("click", revealAnswer);
-el.correctBtn.addEventListener("click", () => applyScore(true));
-el.wrongBtn.addEventListener("click", () => applyScore(false));
-el.otherTeamBtn.addEventListener("click", awardPointsToOtherTeam);
-el.lifelineBtn.addEventListener("click", useLifeline);
-el.hintLifelineBtn.addEventListener("click", useHintLifeline);
-el.startGameBtn.addEventListener("click", startGameFromSelection);
-el.randomCategoriesBtn.addEventListener("click", pickRandomCategories);
-el.cancelCategoryBtn.addEventListener("click", closeCategoryPicker);
-el.podiumNewGameBtn.addEventListener("click", () => {
-  if (online.mode === "online" && online.role !== "host") return;
-  startNewGame();
-});
-
-el.team1NameInput.addEventListener("input", () => setTeamName(1, el.team1NameInput.value));
-el.team2NameInput.addEventListener("input", () => setTeamName(2, el.team2NameInput.value));
-el.team1NameInput.addEventListener("blur", () => setTeamName(1, el.team1NameInput.value, { commit: true }));
-el.team2NameInput.addEventListener("blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }));
-
-el.team1PlusBtn.addEventListener("click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] + 100); updateScoreboard(); } });
-el.team1MinusBtn.addEventListener("click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] - 100); updateScoreboard(); } });
-el.team2PlusBtn.addEventListener("click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] + 100); updateScoreboard(); } });
-el.team2MinusBtn.addEventListener("click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] - 100); updateScoreboard(); } });
-
-el.modal.addEventListener("click", (event) => { if (event.target === el.modal) closeModal(); });
-el.categoryModal.addEventListener("click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); });
-
-el.startLocalBtn.addEventListener("click", () => enterGame("local"));
-el.startOnlineBtn.addEventListener("click", () => enterGame("online"));
-el.createRoomBtn.addEventListener("click", createOnlineRoom);
-el.joinRoomBtn.addEventListener("click", () => {
-  el.onlineJoinPanel.classList.remove("hidden");
-  setOnlineFeedback("أدخل كود الغرفة ثم اضغط انضمام.", "info");
-  el.roomCodeInput.focus();
-});
-el.confirmJoinBtn.addEventListener("click", () => joinOnlineRoom(el.roomCodeInput.value));
-el.roomCodeInput.addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
-  event.preventDefault();
-  joinOnlineRoom(el.roomCodeInput.value);
-});
-el.cancelOnlineBtn.addEventListener("click", () => {
-  if (online.mode === "online" && online.roomCode) {
-    closeOnlineModal();
+function bindEvent(element, eventName, handler, elementName) {
+  if (!element) {
+    console.error(`[Tasleya] Missing element: ${elementName}`);
     return;
   }
-  el.gameScreen.style.display = "none";
-  el.startScreen.style.display = "flex";
-  closeOnlineModal();
-});
-el.startOnlineGameBtn.addEventListener("click", () => {
-  closeOnlineModal();
-  startNewGame();
-});
-el.copyCodeBtn.addEventListener("click", async () => {
-  if (!online.roomCode) return;
-  try {
-    await navigator.clipboard.writeText(online.roomCode);
-    setOnlineFeedback("تم نسخ كود الغرفة.", "success");
-  } catch (_) {
-    setOnlineFeedback("تعذّر نسخ الكود. انسخه يدويًا.", "error");
-  }
-});
-el.copyLinkBtn.addEventListener("click", async () => {
-  if (!el.joinLinkInput.value) return;
-  try {
-    await navigator.clipboard.writeText(el.joinLinkInput.value);
-    setOnlineFeedback("تم نسخ رابط الدعوة.", "success");
-  } catch (_) {
-    setOnlineFeedback("تعذّر نسخ الرابط. انسخه يدويًا.", "error");
-  }
-});
+  element.addEventListener(eventName, handler);
+}
 
-updateScoreboard();
-loadTeamNames();
-syncTeamNameInputs();
-updateOnlineActionPermissions();
+function initializeApp() {
+  cacheElements();
 
-initAnalytics();
-logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
+  bindEvent(el.newGameBtn, "click", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    startNewGame();
+  }, "newGameBtn");
+  bindEvent(el.closeModalBtn, "click", () => closeModal(), "closeModalBtn");
+  bindEvent(el.revealBtn, "click", revealAnswer, "revealBtn");
+  bindEvent(el.correctBtn, "click", () => applyScore(true), "correctBtn");
+  bindEvent(el.wrongBtn, "click", () => applyScore(false), "wrongBtn");
+  bindEvent(el.otherTeamBtn, "click", awardPointsToOtherTeam, "otherTeamBtn");
+  bindEvent(el.lifelineBtn, "click", useLifeline, "lifelineBtn");
+  bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
+  bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");
+  bindEvent(el.randomCategoriesBtn, "click", pickRandomCategories, "randomCategoriesBtn");
+  bindEvent(el.cancelCategoryBtn, "click", closeCategoryPicker, "cancelCategoryBtn");
+  bindEvent(el.podiumNewGameBtn, "click", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    startNewGame();
+  }, "podiumNewGameBtn");
 
-tryAutoJoinFromUrl();
+  bindEvent(el.team1NameInput, "input", () => setTeamName(1, el.team1NameInput.value), "team1NameInput");
+  bindEvent(el.team2NameInput, "input", () => setTeamName(2, el.team2NameInput.value), "team2NameInput");
+  bindEvent(el.team1NameInput, "blur", () => setTeamName(1, el.team1NameInput.value, { commit: true }), "team1NameInput");
+  bindEvent(el.team2NameInput, "blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }), "team2NameInput");
+
+  bindEvent(el.team1PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] + 100); updateScoreboard(); } }, "team1PlusBtn");
+  bindEvent(el.team1MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] - 100); updateScoreboard(); } }, "team1MinusBtn");
+  bindEvent(el.team2PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] + 100); updateScoreboard(); } }, "team2PlusBtn");
+  bindEvent(el.team2MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] - 100); updateScoreboard(); } }, "team2MinusBtn");
+
+  bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
+  bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
+
+  bindEvent(el.startLocalBtn, "click", () => {
+    console.log("[Tasleya] Start local button clicked");
+    enterGame("local");
+  }, "startLocalBtn");
+  bindEvent(el.startOnlineBtn, "click", () => {
+    console.log("[Tasleya] Start online button clicked");
+    enterGame("online");
+  }, "startOnlineBtn");
+  bindEvent(el.createRoomBtn, "click", createOnlineRoom, "createRoomBtn");
+  bindEvent(el.joinRoomBtn, "click", () => {
+    el.onlineJoinPanel.classList.remove("hidden");
+    setOnlineFeedback("أدخل كود الغرفة ثم اضغط انضمام.", "info");
+    el.roomCodeInput.focus();
+  }, "joinRoomBtn");
+  bindEvent(el.confirmJoinBtn, "click", () => joinOnlineRoom(el.roomCodeInput.value), "confirmJoinBtn");
+  bindEvent(el.roomCodeInput, "keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    joinOnlineRoom(el.roomCodeInput.value);
+  }, "roomCodeInput");
+  bindEvent(el.cancelOnlineBtn, "click", () => {
+    if (online.mode === "online" && online.roomCode) {
+      closeOnlineModal();
+      return;
+    }
+    el.gameScreen.style.display = "none";
+    el.startScreen.style.display = "flex";
+    closeOnlineModal();
+  }, "cancelOnlineBtn");
+  bindEvent(el.startOnlineGameBtn, "click", () => {
+    closeOnlineModal();
+    startNewGame();
+  }, "startOnlineGameBtn");
+  bindEvent(el.copyCodeBtn, "click", async () => {
+    if (!online.roomCode) return;
+    try {
+      await navigator.clipboard.writeText(online.roomCode);
+      setOnlineFeedback("تم نسخ كود الغرفة.", "success");
+    } catch (_) {
+      setOnlineFeedback("تعذّر نسخ الكود. انسخه يدويًا.", "error");
+    }
+  }, "copyCodeBtn");
+  bindEvent(el.copyLinkBtn, "click", async () => {
+    if (!el.joinLinkInput.value) return;
+    try {
+      await navigator.clipboard.writeText(el.joinLinkInput.value);
+      setOnlineFeedback("تم نسخ رابط الدعوة.", "success");
+    } catch (_) {
+      setOnlineFeedback("تعذّر نسخ الرابط. انسخه يدويًا.", "error");
+    }
+  }, "copyLinkBtn");
+
+  updateScoreboard();
+  loadTeamNames();
+  syncTeamNameInputs();
+  updateOnlineActionPermissions();
+
+  initAnalytics();
+  logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
+
+  tryAutoJoinFromUrl();
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initializeApp, { once: true });
+} else {
+  initializeApp();
+}
