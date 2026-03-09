@@ -97,13 +97,6 @@ main,
   translate: none !important;
 }
 
-
-.start-title {
-  font-size: clamp(2.4rem, 14vw, 3.2rem);
-  transform: translateY(-20px);
-  margin-bottom: 14px;
-}
-
 .start-actions {
   width: 100%;
   display: flex;
