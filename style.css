@@ -33,13 +33,24 @@
   letter-spacing: 2px;
   z-index: 3;
   pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#startLocalBtn:hover,
-#startOnlineBtn:hover {
-  background: rgba(255, 215, 0, 0.15);
-  transform: translate(-50%, -50%) scale(1.08);
-  box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+#startLocalBtn::before,
+#startLocalBtn::after,
+#startOnlineBtn::before,
+#startOnlineBtn::after {
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #startLocalBtn:hover,
+  #startOnlineBtn:hover {
+    background: rgba(255, 215, 0, 0.15);
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+  }
 }
 
 

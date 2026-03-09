@@ -3,6 +3,37 @@ body {
   overflow-x: hidden;
 }
 
+
+button,
+#startLocalBtn,
+#startOnlineBtn,
+.primary-btn,
+.secondary-btn,
+.success-btn,
+.danger-btn,
+.ghost-btn {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#startLocalBtn::before,
+#startLocalBtn::after,
+#startOnlineBtn::before,
+#startOnlineBtn::after,
+.primary-btn::before,
+.primary-btn::after,
+.secondary-btn::before,
+.secondary-btn::after,
+.success-btn::before,
+.success-btn::after,
+.danger-btn::before,
+.danger-btn::after,
+.ghost-btn::before,
+.ghost-btn::after {
+  pointer-events: none;
+}
+
 .container,
 .board,
 .game-container {
@@ -119,8 +150,23 @@ main,
   .success-btn:hover,
   .danger-btn:hover,
   .ghost-btn:hover,
-  .tile:hover:not(:disabled) {
-    transform: none;
+  .tile:hover:not(:disabled),
+  #startLocalBtn:focus,
+  #startOnlineBtn:focus,
+  .primary-btn:focus,
+  .secondary-btn:focus,
+  .success-btn:focus,
+  .danger-btn:focus,
+  .ghost-btn:focus,
+  #startLocalBtn:active,
+  #startOnlineBtn:active,
+  .primary-btn:active,
+  .secondary-btn:active,
+  .success-btn:active,
+  .danger-btn:active,
+  .ghost-btn:active {
+    transform: none !important;
+    translate: none !important;
     box-shadow: none;
     filter: none;
   }
