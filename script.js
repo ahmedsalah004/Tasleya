@@ -13,6 +13,10 @@ let mcqHelpUsed = { 1: false, 2: false };
 let hintHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
+let questionTimeoutToken = null;
+
+const QUESTION_WARNING_MS = 60000;
+const QUESTION_TIMEOUT_MS = 75000;
 
 let el = {};
 
@@ -48,6 +52,7 @@ function cacheElements() {
   choicesList: document.getElementById("choicesList"),
   hintBox: document.getElementById("hintBox"),
   hintText: document.getElementById("hintText"),
+  questionStatus: document.getElementById("questionStatus"),
   categoryModal: document.getElementById("categoryModal"),
   categoryList: document.getElementById("categoryList"),
   categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
@@ -138,15 +143,56 @@ function formatElapsedTime(elapsedMs) {
   const totalSeconds = Math.floor(elapsedMs / 1000);
   return `${String(Math.floor(totalSeconds / 60)).padStart(2, "0")}:${String(totalSeconds % 60).padStart(2, "0")}`;
 }
+function showQuestionStatus(message = "") {
+  if (!el.questionStatus) return;
+  el.questionStatus.textContent = message;
+  el.questionStatus.classList.toggle("hidden", !message);
+}
+
+function updateQuestionActionLock() {
+  const lockByTimeout = !!state.activeTile?.timedOut;
+  const lockByTurn = online.mode === "online" && !canCurrentClientAct();
+  const disableActions = lockByTimeout || lockByTurn;
+  el.revealBtn.disabled = disableActions;
+  el.correctBtn.disabled = disableActions;
+  el.wrongBtn.disabled = disableActions;
+  el.otherTeamBtn.disabled = disableActions;
+  el.lifelineBtn.disabled = disableActions || mcqHelpUsed[state.currentTeam];
+  el.hintLifelineBtn.disabled = disableActions || hintHelpUsed[state.currentTeam];
+}
+
 function updateTimerUI() {
   const elapsed = timerStart ? Date.now() - timerStart : 0;
-  el.questionTimer.textContent = formatElapsedTime(elapsed);
-  el.questionTimer.classList.toggle("timer-red", elapsed >= 60000);
+  el.questionTimer.textContent = formatElapsedTime(Math.min(elapsed, QUESTION_TIMEOUT_MS));
+  el.questionTimer.classList.toggle("timer-red", elapsed >= QUESTION_WARNING_MS);
 }
 function stopTimer() { if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; } }
+function stopQuestionTimeout() { if (questionTimeoutToken !== null) { clearTimeout(questionTimeoutToken); questionTimeoutToken = null; } }
 function resetTimer() { timerStart = null; updateTimerUI(); }
-function stopAndResetTimer() { stopTimer(); resetTimer(); }
-function startTimer() { stopAndResetTimer(); timerStart = Date.now(); updateTimerUI(); timerInterval = setInterval(updateTimerUI, 250); }
+function stopAndResetTimer() { stopTimer(); stopQuestionTimeout(); resetTimer(); }
+function handleQuestionTimeout() {
+  if (questionTimeoutToken === null) return;
+  questionTimeoutToken = null;
+  if (online.mode === "online" && !canCurrentClientAct()) return;
+  const tile = state.activeTile;
+  if (!tile || tile.used || !tile.question || tile.timedOut) return;
+  tile.timedOut = true;
+  stopTimer();
+  timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+  updateTimerUI();
+  showQuestionStatus("انتهى الوقت");
+  updateQuestionActionLock();
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+}
+function startTimer() {
+  stopAndResetTimer();
+  timerStart = Date.now();
+  updateTimerUI();
+  timerInterval = setInterval(updateTimerUI, 250);
+  if (online.mode !== "online" || canCurrentClientAct()) {
+    questionTimeoutToken = setTimeout(handleQuestionTimeout, QUESTION_TIMEOUT_MS);
+  }
+}
 
 function shuffle(input) {
   const arr = [...input];
@@ -422,6 +468,7 @@ function openQuestion(tileId) {
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || !tile.question) return;
   state.activeTile = tile;
+  tile.timedOut = false;
   const q = tile.question;
   console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint, rawHint: q["تلميح"] });
   el.questionText.textContent = q.question;
@@ -434,10 +481,12 @@ function openQuestion(tileId) {
   state.currentHintText = "";
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
+  showQuestionStatus("");
   if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url);
   if (q.type === "audio" && q.image_url) renderQuestionAudio(q.image_url);
   el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
+  updateQuestionActionLock();
   startTimer();
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
@@ -449,6 +498,7 @@ function closeModal({ silentSync = false } = {}) {
   state.currentHintText = "";
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
+  showQuestionStatus("");
   if (el.modal.classList.contains("hidden")) { state.activeTile = null; return; }
   if (prefersReducedMotion) {
     el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null;
@@ -483,7 +533,7 @@ function resetGameState() {
 }
 
 function revealAnswer() {
-  if (!getActiveQuestion() || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!getActiveQuestion() || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
   el.answerText.classList.remove("hidden");
   state.answerRevealed = true;
   if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
@@ -503,7 +553,7 @@ function generateChoices(question) {
 }
 function useLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || mcqHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || mcqHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const options = generateChoices(question);
   el.choicesList.innerHTML = "";
   options.forEach((option) => { const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div); });
@@ -517,7 +567,7 @@ function useLifeline() {
 
 function useHintLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const hintText = firstNonEmpty(question.hint, question["تلميح"]);
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
@@ -553,7 +603,7 @@ function applyScore(isCorrect) {
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   const tile = state.activeTile;
-  if (!tile || tile.used || !tile.question) return;
+  if (!tile || tile.used || tile.timedOut || !tile.question) return;
   const otherTeam = state.currentTeam === 1 ? 2 : 1;
   state.scores[otherTeam] += tile.points;
   state.scores[1] = Math.max(0, state.scores[1]); state.scores[2] = Math.max(0, state.scores[2]);
@@ -629,6 +679,7 @@ function serializeGameState() {
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
     currentHintText: state.currentHintText,
+    questionStartedAt: state.activeTile && timerStart ? timerStart : null,
     finished: state.boardTiles.length > 0 && !hasPlayableTiles(),
   };
 }
@@ -681,10 +732,31 @@ function applyRemoteGameState(game) {
           el.hintText.textContent = "";
           el.hintBox.classList.add("hidden");
         }
-        el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
-        el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
+        const remoteTimedOut = !!tile.timedOut;
+        showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
+        el.lifelineBtn.disabled = remoteTimedOut || mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
+        el.hintLifelineBtn.disabled = remoteTimedOut || hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
+        updateQuestionActionLock();
         el.modal.classList.remove("hidden");
         el.modal.classList.add("is-open");
+
+        if (remoteTimedOut) {
+          stopAndResetTimer();
+          timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+          updateTimerUI();
+        } else if (game.questionStartedAt) {
+          stopAndResetTimer();
+          timerStart = Number(game.questionStartedAt) || Date.now();
+          updateTimerUI();
+          stopTimer();
+          timerInterval = setInterval(updateTimerUI, 250);
+          const remaining = Math.max(0, QUESTION_TIMEOUT_MS - (Date.now() - timerStart));
+          if (online.mode !== "online" || canCurrentClientAct()) {
+            questionTimeoutToken = setTimeout(handleQuestionTimeout, remaining);
+          }
+        } else {
+          startTimer();
+        }
       }
     } else {
       closeModal({ silentSync: true });
