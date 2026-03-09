@@ -73,16 +73,16 @@
     max-width: none;
   }
 
-  #startLocalBtn,
-  #startOnlineBtn {
-    width: min(560px, 70vw);
-    max-width: 560px;
-    min-height: 78px;
-    padding: 16px 28px;
-    margin: 0 auto;
+  .start-menu-btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: fit-content;
+    min-width: 320px;
+    max-width: 560px;
+    min-height: 78px;
+    padding: 16px 32px;
+    margin: 0 auto;
     text-align: center;
     direction: rtl;
     white-space: nowrap;
