@@ -64,25 +64,28 @@
 
 @media (min-width: 701px) {
   .start-actions {
-    display: flex;
-    flex-direction: column;
+    display: grid;
     align-items: center;
-    justify-content: center;
-    gap: 20px;
-    width: 100%;
-    max-width: none;
+    justify-items: center;
+    gap: 18px;
+    width: fit-content;
+    min-width: 340px;
+    max-width: 460px;
+    margin: 0 auto;
   }
 
   #startLocalBtn,
   #startOnlineBtn {
-    width: min(560px, 70vw);
-    max-width: 560px;
-    min-height: 78px;
-    padding: 16px 28px;
-    margin: 0 auto;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 100%;
+    min-width: 340px;
+    max-width: 460px;
+    min-height: 72px;
+    padding: 14px 30px;
+    margin: 0 auto;
+    box-sizing: border-box;
     text-align: center;
     direction: rtl;
     white-space: nowrap;
