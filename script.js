@@ -1084,10 +1084,12 @@ function initializeApp() {
 
   bindEvent(el.startLocalBtn, "click", () => {
     console.log("[Tasleya] Start local button clicked");
+    logAnalyticsEvent("local_game_started", { mode: "single_device" });
     enterGame("local");
   }, "startLocalBtn");
   bindEvent(el.startOnlineBtn, "click", () => {
     console.log("[Tasleya] Start online button clicked");
+    logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
   bindEvent(el.createRoomBtn, "click", createOnlineRoom, "createRoomBtn");
