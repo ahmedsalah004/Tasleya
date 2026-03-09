@@ -62,6 +62,37 @@
   width: min(92vw, 420px);
 }
 
+@media (min-width: 701px) {
+  .start-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+    max-width: none;
+  }
+
+  #startLocalBtn,
+  #startOnlineBtn {
+    width: min(560px, 70vw);
+    max-width: 560px;
+    min-height: 78px;
+    padding: 16px 28px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    direction: rtl;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    line-height: 1.2;
+    font-size: clamp(24px, 2vw, 42px);
+  }
+}
+
 #startOnlineBtn {
   left: 49%;
   top: calc(56% + 88px);
