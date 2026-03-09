@@ -35,13 +35,11 @@
   pointer-events: auto;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  #startLocalBtn:hover,
-  #startOnlineBtn:hover {
-    background: rgba(255, 215, 0, 0.15);
-    transform: translate(-50%, -50%) scale(1.08);
-    box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
-  }
+#startLocalBtn:hover,
+#startOnlineBtn:hover {
+  background: rgba(255, 215, 0, 0.15);
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
 }
 
 
@@ -392,19 +390,17 @@ body::after {
   align-self: flex-start;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .primary-btn:hover,
-  .secondary-btn:hover,
-  .success-btn:hover,
-  .danger-btn:hover,
-  .ghost-btn:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.05);
-  }
+.primary-btn:hover,
+.secondary-btn:hover,
+.success-btn:hover,
+.danger-btn:hover,
+.ghost-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
 
-  #otherTeamBtn:hover {
-    background: linear-gradient(135deg, #f57c00, #ef6c00);
-  }
+#otherTeamBtn:hover {
+  background: linear-gradient(135deg, #f57c00, #ef6c00);
 }
 
 button:disabled {
@@ -467,12 +463,10 @@ button:disabled {
   position: relative;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .tile:hover:not(:disabled) {
-    transform: translateY(-4px);
-    box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.55), 0 0 18px rgba(255, 209, 102, 0.25),
-      0 12px 20px rgba(5, 10, 28, 0.45);
-  }
+.tile:hover:not(:disabled) {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 1px rgba(255, 209, 102, 0.55), 0 0 18px rgba(255, 209, 102, 0.25),
+    0 12px 20px rgba(5, 10, 28, 0.45);
 }
 
 .tile.tile-pulse {
