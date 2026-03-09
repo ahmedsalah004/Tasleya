@@ -1,5 +1,5 @@
 window.FIREBASE_CONFIG = {
-  apiKey: "...",
+  apiKey: "AIzaSyDq-oPFbX4jSWPKElDYvz8s_81WDQAADzQ",
   authDomain: "tasleya-online.firebaseapp.com",
   databaseURL: "https://tasleya-online-default-rtdb.firebaseio.com",
   projectId: "tasleya-online",
