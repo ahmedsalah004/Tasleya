@@ -18,8 +18,7 @@ main,
 .board-wrap,
 .modal-content,
 .category-modal-content,
-.podium-content,
-.password-gate-card {
+.podium-content {
   width: 100%;
   max-width: 100%;
 }
