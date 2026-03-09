@@ -5,11 +5,6 @@ const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
-const CURRENT_PASSWORD = "salaheldin";
-const PASSWORD_VERSION = "v2";
-const AUTH_TIME_STORAGE_KEY = "tasleya_auth_time";
-const AUTH_VERSION_STORAGE_KEY = "tasleya_auth_version";
-const AUTH_EXPIRY_MS = 24 * 60 * 60 * 1000;
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -63,10 +58,6 @@ const el = {
   podiumSubtitle: document.getElementById("podiumSubtitle"),
   podiumBoard: document.getElementById("podiumBoard"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
-  passwordGate: document.getElementById("passwordGate"),
-  passwordInput: document.getElementById("passwordInput"),
-  passwordSubmitBtn: document.getElementById("passwordSubmitBtn"),
-  passwordError: document.getElementById("passwordError"),
   startScreen: document.getElementById("startScreen"),
   gameScreen: document.getElementById("gameScreen"),
   startLocalBtn: document.getElementById("startLocalBtn"),
@@ -138,33 +129,6 @@ function normalizeCell(value) {
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
 
-function resetAuth() { localStorage.removeItem(AUTH_TIME_STORAGE_KEY); localStorage.removeItem(AUTH_VERSION_STORAGE_KEY); }
-function isAuthValid() {
-  const storedAuthTime = Number.parseInt(localStorage.getItem(AUTH_TIME_STORAGE_KEY) ?? "", 10);
-  const storedVersion = localStorage.getItem(AUTH_VERSION_STORAGE_KEY);
-  if (!Number.isFinite(storedAuthTime) || storedAuthTime <= 0) return false;
-  if (storedVersion !== PASSWORD_VERSION) { resetAuth(); return false; }
-  if (Date.now() - storedAuthTime > AUTH_EXPIRY_MS) { resetAuth(); return false; }
-  return true;
-}
-function unlockSession() {
-  localStorage.setItem(AUTH_TIME_STORAGE_KEY, String(Date.now()));
-  localStorage.setItem(AUTH_VERSION_STORAGE_KEY, PASSWORD_VERSION);
-  el.passwordGate.classList.add("hidden");
-  el.passwordError.classList.add("hidden");
-}
-function handlePasswordSubmit() {
-  if (el.passwordInput.value === CURRENT_PASSWORD) { unlockSession(); el.passwordInput.value = ""; return; }
-  el.passwordError.classList.remove("hidden");
-}
-function setupPasswordGate() {
-  if (isAuthValid()) { unlockSession(); return; }
-  resetAuth();
-  el.passwordGate.classList.remove("hidden");
-  el.passwordError.classList.add("hidden");
-  el.passwordInput.focus();
-}
-window.resetAuth = resetAuth;
 
 function formatElapsedTime(elapsedMs) {
   const totalSeconds = Math.floor(elapsedMs / 1000);
@@ -1102,9 +1066,6 @@ el.team2MinusBtn.addEventListener("click", () => { if (online.mode !== "online")
 
 el.modal.addEventListener("click", (event) => { if (event.target === el.modal) closeModal(); });
 el.categoryModal.addEventListener("click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); });
-el.passwordSubmitBtn.addEventListener("click", handlePasswordSubmit);
-el.passwordInput.addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); handlePasswordSubmit(); } });
-el.passwordInput.addEventListener("input", () => { el.passwordError.classList.add("hidden"); });
 
 el.startLocalBtn.addEventListener("click", () => enterGame("local"));
 el.startOnlineBtn.addEventListener("click", () => enterGame("online"));
@@ -1155,7 +1116,6 @@ el.copyLinkBtn.addEventListener("click", async () => {
 updateScoreboard();
 loadTeamNames();
 syncTeamNameInputs();
-setupPasswordGate();
 updateOnlineActionPermissions();
 
 initAnalytics();
