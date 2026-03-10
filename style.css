@@ -589,7 +589,16 @@ button:disabled {
   padding: 1rem;
   opacity: 0;
   transition: opacity 0.24s ease;
-  z-index: 2000;
+  z-index: 4000;
+  pointer-events: auto;
+}
+
+#installGuideModal {
+  z-index: 4500;
+  pointer-events: auto;
+}
+
+#installGuideModal .modal-content {
   pointer-events: auto;
 }
 
@@ -1086,6 +1095,19 @@ button:disabled {
     width: min(100%, 560px);
     max-height: calc(100vh - 1.1rem);
     margin-top: 0.25rem;
+  }
+
+  #installGuideModal {
+    align-items: flex-start;
+    padding-top: max(0.55rem, env(safe-area-inset-top));
+    padding-bottom: max(0.55rem, env(safe-area-inset-bottom));
+  }
+
+  #installGuideModal .install-guide-content {
+    width: min(100%, 560px);
+    max-height: calc(100vh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    margin-inline: auto;
+    margin-top: 0;
   }
 
   .modal-actions {
