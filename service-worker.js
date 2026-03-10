@@ -1,4 +1,4 @@
-const CACHE_VERSION = "tasleya-shell-v1";
+const CACHE_VERSION = "tasleya-shell-v2";
 const CORE_SHELL_FILES = [
   "./",
   "index.html",
@@ -11,6 +11,11 @@ const CORE_SHELL_FILES = [
   "assets/icons/icon-192.svg",
   "assets/icons/icon-512.svg"
 ];
+
+function isAppShellAsset(url) {
+  const path = url.pathname.replace(/^\//, "");
+  return CORE_SHELL_FILES.includes(path);
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -32,6 +37,12 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
@@ -40,7 +51,26 @@ self.addEventListener("fetch", (event) => {
 
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match("index.html"))
+      fetch(event.request)
+        .then((networkResponse) => {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put("index.html", copy));
+          return networkResponse;
+        })
+        .catch(() => caches.match("index.html"))
+    );
+    return;
+  }
+
+  if (isAppShellAsset(requestUrl)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
