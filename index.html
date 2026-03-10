@@ -13,8 +13,9 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="icon" type="image/svg+xml" sizes="192x192" href="assets/icons/icon-192.svg" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/start-bg.png" />
-    <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="mobile.css" media="screen and (max-width: 700px)">
+    <!-- Deployment versioning: bump v=... below when releasing updated CSS/JS files. -->
+    <link rel="stylesheet" href="style.css?v=1.0.0" />
+    <link rel="stylesheet" href="mobile.css?v=1.0.0" media="screen and (max-width: 700px)" />
   </head>
   <body>
     <div id="startScreen">
@@ -282,6 +283,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
     <script src="firebase-config.js"></script>
-    <script src="script.js"></script>
+    <script src="script.js?v=1.0.0"></script>
   </body>
 </html>
