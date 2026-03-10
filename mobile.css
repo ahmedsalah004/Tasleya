@@ -109,9 +109,12 @@ main,
 
 #instructionsBtn,
 #installGuideBtn {
-  padding: 8px 16px;
-  font-size: clamp(1rem, 3.9vw, 1.08rem);
-  min-height: 48px;
+  width: 74%;
+  max-width: 74%;
+  min-width: 0;
+  padding: 7px 14px;
+  font-size: clamp(0.96rem, 3.5vw, 1.02rem);
+  min-height: 46px;
 }
 
 #startLocalBtn:hover,
@@ -135,7 +138,7 @@ main,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 18px;
   padding-top: clamp(3.2rem, 10.5vh, 5.4rem);
 }
