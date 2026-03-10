@@ -164,8 +164,14 @@ function hasUnresolvedActiveQuestion() {
   return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeTile.question);
 }
 
+function shouldLockQuestionClose() {
+  if (!hasUnresolvedActiveQuestion()) return false;
+  if (online.mode !== "online") return true;
+  return canCurrentClientAct();
+}
+
 function updateCloseButtonLock() {
-  const lockClose = hasUnresolvedActiveQuestion();
+  const lockClose = shouldLockQuestionClose();
   el.closeModalBtn.disabled = lockClose;
   el.closeModalBtn.classList.toggle("hidden", lockClose);
 }
@@ -518,8 +524,8 @@ function openQuestion(tileId) {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
-function closeModal({ silentSync = false } = {}) {
-  if (hasUnresolvedActiveQuestion()) {
+function closeModal({ silentSync = false, force = false } = {}) {
+  if (!force && shouldLockQuestionClose()) {
     updateCloseButtonLock();
     return false;
   }
@@ -767,9 +773,11 @@ function applyRemoteGameState(game) {
 
     const activeId = game.activeTileId;
     const shouldOpen = !!game.modalOpen && activeId;
+    let syncedOpenModal = false;
     if (shouldOpen) {
       const tile = state.boardTiles.find((t) => t.id === activeId && !t.used && t.question);
       if (tile) {
+        syncedOpenModal = true;
         state.activeTile = tile;
         clearQuestionMedia();
         el.questionText.textContent = tile.question.question;
@@ -819,8 +827,11 @@ function applyRemoteGameState(game) {
           startTimer();
         }
       }
-    } else {
-      closeModal({ silentSync: true });
+    }
+
+    if (!syncedOpenModal) {
+      state.activeTile = null;
+      closeModal({ silentSync: true, force: true });
     }
 
     if (game.finished) showPodiumModal();
