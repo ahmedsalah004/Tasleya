@@ -82,18 +82,14 @@
     margin: 0 auto;
   }
 
-  #startLocalBtn,
-  #startOnlineBtn,
-  #instructionsBtn,
-  #installGuideBtn {
+  .start-primary-btn,
+  .start-secondary-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 100%;
     min-width: 340px;
     max-width: 460px;
-    min-height: 72px;
-    padding: 14px 30px;
     margin: 0 auto;
     box-sizing: border-box;
     text-align: center;
@@ -102,7 +98,20 @@
     word-break: normal;
     overflow-wrap: normal;
     line-height: 1.2;
+  }
+
+  .start-primary-btn {
+    min-height: 72px;
+    padding: 14px 30px;
     font-size: clamp(24px, 2vw, 42px);
+  }
+
+  .start-secondary-btn {
+    min-height: 50px;
+    padding: 10px 22px;
+    font-size: clamp(16px, 1.2vw, 24px);
+    font-weight: 600;
+    letter-spacing: 1.2px;
   }
 }
 
@@ -119,8 +128,6 @@
 #installGuideBtn {
   left: 49%;
   top: calc(56% + 264px);
-  font-size: clamp(16px, 1.2vw, 22px);
-  padding: 12px 24px;
 }
 
 .instructions-content {
