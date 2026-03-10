@@ -153,6 +153,10 @@ main,
   gap: 0.32rem;
 }
 
+.team-count-options {
+  grid-template-columns: repeat(5, minmax(42px, 1fr));
+}
+
 .board-cell {
   min-height: 70px;
   padding: 0.35rem;

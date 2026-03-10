@@ -450,6 +450,11 @@ body::after {
   padding: 0.8rem;
 }
 
+.teams-container {
+  display: grid;
+  gap: 0.7rem;
+}
+
 .team-card {
   position: relative;
   overflow: hidden;
@@ -847,6 +852,22 @@ button:disabled {
   display: grid;
   gap: 0.2rem;
   margin-bottom: 0.6rem;
+}
+
+.team-count-section {
+  margin-bottom: 0.6rem;
+}
+
+.team-count-label {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.team-count-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
 }
 
 .category-counter {

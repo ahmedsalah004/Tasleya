@@ -1,6 +1,6 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const CATEGORIES_TO_SELECT = 6;
+const CATEGORY_COUNT_BY_TEAMS = { 2: 6, 3: 6, 4: 8, 5: 10, 6: 12 };
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
@@ -10,8 +10,8 @@ const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-let mcqHelpUsed = { 1: false, 2: false };
-let hintHelpUsed = { 1: false, 2: false };
+let mcqHelpUsed = {};
+let hintHelpUsed = {};
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
@@ -25,16 +25,7 @@ function cacheElements() {
   el = {
   board: document.getElementById("board"),
   errorBanner: document.getElementById("errorBanner"),
-  team1Score: document.getElementById("team1Score"),
-  team2Score: document.getElementById("team2Score"),
-  team1Card: document.getElementById("team1Card"),
-  team2Card: document.getElementById("team2Card"),
-  team1NameInput: document.getElementById("team1NameInput"),
-  team2NameInput: document.getElementById("team2NameInput"),
-  team1PlusBtn: document.getElementById("team1PlusBtn"),
-  team1MinusBtn: document.getElementById("team1MinusBtn"),
-  team2PlusBtn: document.getElementById("team2PlusBtn"),
-  team2MinusBtn: document.getElementById("team2MinusBtn"),
+  teamsContainer: document.getElementById("teamsContainer"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
   modal: document.getElementById("questionModal"),
@@ -56,8 +47,10 @@ function cacheElements() {
   questionStatus: document.getElementById("questionStatus"),
   categoryModal: document.getElementById("categoryModal"),
   categoryList: document.getElementById("categoryList"),
-  categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
-  categoryTeam2NameInput: document.getElementById("categoryTeam2NameInput"),
+  categoryTeamInputs: document.getElementById("categoryTeamInputs"),
+  categoryModalTitle: document.getElementById("categoryModalTitle"),
+  teamCountSection: document.getElementById("teamCountSection"),
+  teamCountButtons: Array.from(document.querySelectorAll(".team-count-btn")),
   categoryCounter: document.getElementById("categoryCounter"),
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
@@ -95,7 +88,28 @@ function cacheElements() {
   onlineStatusText: document.getElementById("onlineStatusText"),
   onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
   onlineFeedback: document.getElementById("onlineFeedback"),
+  teamElements: {},
+  categoryTeamNameInputs: [],
   };
+}
+
+function getRequiredCategoriesCount() {
+  return CATEGORY_COUNT_BY_TEAMS[state.teamCount] || 6;
+}
+
+function getTeamFallbackName(team) {
+  const order = ["الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس"];
+  return `الفريق ${order[team - 1] || team}`;
+}
+
+function createTeamFlags(defaultValue = false) {
+  const flags = {};
+  for (let team = 1; team <= state.teamCount; team += 1) flags[team] = defaultValue;
+  return flags;
+}
+
+function getNextTeam(team) {
+  return team >= state.teamCount ? 1 : team + 1;
 }
 
 const state = {
@@ -106,6 +120,7 @@ const state = {
   pointLevels: [],
   assignedQuestionIds: new Set(),
   dataLoadFailed: false,
+  teamCount: 2,
   scores: { 1: 0, 2: 0 },
   teamNames: { 1: "الفريق الأول", 2: "الفريق الثاني" },
   currentTeam: 1,
@@ -251,7 +266,7 @@ function handleQuestionTimeout() {
   showQuestionStatus("انتهى الوقت");
   resolveActiveQuestion({
     timedOut: true,
-    nextTeam: state.currentTeam === 1 ? 2 : 1,
+    nextTeam: getNextTeam(state.currentTeam),
   });
 }
 function startTimer() {
@@ -339,15 +354,16 @@ function loadUsedHistory() {
 }
 function saveUsedHistory() { localStorage.setItem(USED_STORAGE_KEY, JSON.stringify(state.usedHistory)); }
 function loadTeamNames() {
-  state.teamNames = { 1: "الفريق الأول", 2: "الفريق الثاني" };
+  state.teamNames = {};
+  for (let team = 1; team <= state.teamCount; team += 1) state.teamNames[team] = getTeamFallbackName(team);
   try {
     const raw = localStorage.getItem(TEAM_NAMES_STORAGE_KEY);
     if (!raw) { saveTeamNames(); return; }
     const parsed = JSON.parse(raw);
-    const team1 = normalizeCell(parsed?.[1] ?? parsed?.team1);
-    const team2 = normalizeCell(parsed?.[2] ?? parsed?.team2);
-    if (team1) state.teamNames[1] = team1;
-    if (team2) state.teamNames[2] = team2;
+    for (let team = 1; team <= state.teamCount; team += 1) {
+      const value = normalizeCell(parsed?.[team] ?? parsed?.[`team${team}`]);
+      if (value) state.teamNames[team] = value;
+    }
   } catch { saveTeamNames(); }
 }
 function saveTeamNames() { localStorage.setItem(TEAM_NAMES_STORAGE_KEY, JSON.stringify(state.teamNames)); }
@@ -402,8 +418,75 @@ function buildBoardAssignment() {
   state.boardTiles = tiles;
 }
 
+function renderTeamsUI() {
+  el.teamsContainer.innerHTML = "";
+  el.teamElements = {};
+  for (let team = 1; team <= state.teamCount; team += 1) {
+    const card = document.createElement("div");
+    card.className = "team-card";
+    const label = document.createElement("label");
+    label.className = "team-name-label";
+    label.textContent = `اسم الفريق ${team}`;
+    const input = document.createElement("input");
+    input.className = "team-name-input";
+    input.type = "text";
+    input.maxLength = 30;
+    input.value = state.teamNames[team] || getTeamFallbackName(team);
+    const score = document.createElement("p");
+    score.className = "score";
+    score.textContent = String(state.scores[team] || 0);
+    const controls = document.createElement("div");
+    controls.className = "score-adjustments";
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "secondary-btn adjust-btn";
+    plus.textContent = "+100";
+    plus.addEventListener("click", () => {
+      if (online.mode !== "online") { state.scores[team] = Math.max(0, (state.scores[team] || 0) + 100); updateScoreboard(); }
+    });
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "danger-btn adjust-btn";
+    minus.textContent = "-100";
+    minus.addEventListener("click", () => {
+      if (online.mode !== "online") { state.scores[team] = Math.max(0, (state.scores[team] || 0) - 100); updateScoreboard(); }
+    });
+    controls.append(plus, minus);
+    input.addEventListener("input", () => setTeamName(team, input.value));
+    input.addEventListener("blur", () => setTeamName(team, input.value, { commit: true }));
+    card.append(label, input, score, controls);
+    el.teamsContainer.appendChild(card);
+    el.teamElements[team] = { card, nameInput: input, score, plusBtn: plus, minusBtn: minus };
+  }
+}
+
+function renderCategoryTeamInputs() {
+  el.categoryTeamInputs.innerHTML = "";
+  el.categoryTeamNameInputs = [];
+  for (let team = 1; team <= state.teamCount; team += 1) {
+    const label = document.createElement("label");
+    label.className = "team-name-label";
+    label.textContent = `اسم الفريق ${team === 1 ? "الأول" : team === 2 ? "الثاني" : team === 3 ? "الثالث" : team === 4 ? "الرابع" : team === 5 ? "الخامس" : "السادس"}`;
+    const input = document.createElement("input");
+    input.className = "team-name-input";
+    input.type = "text";
+    input.maxLength = 30;
+    input.placeholder = getTeamFallbackName(team);
+    input.value = state.teamNames[team] || getTeamFallbackName(team);
+    input.addEventListener("input", updateCategoryPickerUI);
+    el.categoryTeamInputs.append(label, input);
+    el.categoryTeamNameInputs.push(input);
+  }
+}
+
+function areTeamNamesReady() {
+  return el.categoryTeamNameInputs.length === state.teamCount
+    && el.categoryTeamNameInputs.every((input) => normalizeCell(input.value));
+}
+
 function animateScoreValue(team, target) {
-  const scoreEl = team === 1 ? el.team1Score : el.team2Score;
+  const scoreEl = el.teamElements[team]?.score;
+  if (!scoreEl) return;
   const start = Number(state.displayedScores[team] ?? 0);
   if (prefersReducedMotion || start === target) { state.displayedScores[team] = target; scoreEl.textContent = String(target); return; }
   const duration = 420; const startAt = performance.now();
@@ -418,20 +501,21 @@ function animateScoreValue(team, target) {
   requestAnimationFrame(step);
 }
 function updateScoreboard() {
-  animateScoreValue(1, state.scores[1]);
-  animateScoreValue(2, state.scores[2]);
+  for (let team = 1; team <= state.teamCount; team += 1) {
+    animateScoreValue(team, state.scores[team] || 0);
+    el.teamElements[team]?.card.classList.toggle("active", state.currentTeam === team);
+  }
   el.currentTurn.textContent = state.teamNames[state.currentTeam];
-  el.team1Card.classList.toggle("active", state.currentTeam === 1);
-  el.team2Card.classList.toggle("active", state.currentTeam === 2);
 }
 function syncTeamNameInputs() {
-  el.team1NameInput.value = state.teamNames[1];
-  el.team2NameInput.value = state.teamNames[2];
-  el.categoryTeam1NameInput.value = state.teamNames[1];
-  el.categoryTeam2NameInput.value = state.teamNames[2];
+  for (let team = 1; team <= state.teamCount; team += 1) {
+    const name = state.teamNames[team] || getTeamFallbackName(team);
+    if (el.teamElements[team]?.nameInput) el.teamElements[team].nameInput.value = name;
+    if (el.categoryTeamNameInputs[team - 1]) el.categoryTeamNameInputs[team - 1].value = name;
+  }
 }
 function setTeamName(team, value, { commit = false } = {}) {
-  const fallback = team === 1 ? "الفريق الأول" : "الفريق الثاني";
+  const fallback = getTeamFallbackName(team);
   state.teamNames[team] = commit ? normalizeCell(value) || fallback : String(value ?? "");
   if (commit) syncTeamNameInputs();
   saveTeamNames();
@@ -439,8 +523,9 @@ function setTeamName(team, value, { commit = false } = {}) {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
-  setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
-  setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
+  for (let team = 1; team <= state.teamCount; team += 1) {
+    setTeamName(team, el.categoryTeamNameInputs[team - 1]?.value || "", { commit: true });
+  }
 }
 
 function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question); }
@@ -449,19 +534,13 @@ function buildPodiumColumn(name, score, label, placeClass) {
   return `<div class="podium-column ${placeClass}"><p class="podium-label">${label}</p><p class="podium-team-name">${name}</p><p class="podium-score">${score}</p><div class="podium-step"></div></div>`;
 }
 function showPodiumModal() {
-  const score1 = state.scores[1], score2 = state.scores[2], team1 = state.teamNames[1], team2 = state.teamNames[2];
-  if (score1 === score2) {
-    el.podiumTitle.textContent = "تعادل!";
-    el.podiumSubtitle.textContent = "منافسة قوية.. استمروا";
-    el.podiumBoard.innerHTML = buildPodiumColumn(team1, score1, "نتيجة الفريق", "tie") + buildPodiumColumn(team2, score2, "نتيجة الفريق", "tie");
-  } else {
-    const winnerTeam = score1 > score2 ? 1 : 2; const loserTeam = winnerTeam === 1 ? 2 : 1;
-    el.podiumTitle.textContent = "نهاية اللعبة";
-    el.podiumSubtitle.textContent = "النتائج النهائية";
-    el.podiumBoard.innerHTML =
-      buildPodiumColumn(state.teamNames[winnerTeam], state.scores[winnerTeam], "سعادة الباشا", "winner") +
-      buildPodiumColumn(state.teamNames[loserTeam], state.scores[loserTeam], "إشتغل علي نفسك", "loser");
-  }
+  const ranking = Object.keys(state.scores).map(Number).sort((a, b) => (state.scores[b] || 0) - (state.scores[a] || 0));
+  const tiedTop = ranking.filter((team) => (state.scores[team] || 0) === (state.scores[ranking[0]] || 0));
+  el.podiumTitle.textContent = tiedTop.length > 1 ? "تعادل!" : "نهاية اللعبة";
+  el.podiumSubtitle.textContent = tiedTop.length > 1 ? "منافسة قوية.. استمروا" : "النتائج النهائية";
+  el.podiumBoard.innerHTML = ranking
+    .map((team, index) => buildPodiumColumn(state.teamNames[team], state.scores[team] || 0, `المركز ${index + 1}`, index === 0 ? "winner" : "tie"))
+    .join("");
   el.podiumModal.classList.remove("hidden");
   requestAnimationFrame(() => el.podiumModal.classList.add("is-open"));
 }
@@ -469,8 +548,7 @@ function checkEndOfGame() {
   if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
     logAnalyticsEvent("game_finished", {
       mode: online.mode,
-      team1_score: state.scores[1],
-      team2_score: state.scores[2],
+      teams_count: state.teamCount,
     });
     showPodiumModal();
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
@@ -478,11 +556,15 @@ function checkEndOfGame() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed || state.selectedCategories.length !== CATEGORIES_TO_SELECT || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
+  if (state.dataLoadFailed || state.selectedCategories.length !== getRequiredCategoriesCount() || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
   el.board.innerHTML = "";
+  const categoriesCount = state.selectedCategories.length;
+  const width = categoriesCount >= 12 ? "clamp(78px, 8vw, 104px)" : categoriesCount >= 10 ? "clamp(84px, 8.4vw, 114px)" : categoriesCount >= 8 ? "clamp(94px, 8.9vw, 126px)" : "clamp(110px, 9.5vw, 160px)";
+  el.board.style.setProperty("--board-col-width", width);
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div"); header.className = "board-cell category"; header.textContent = category; el.board.appendChild(header);
   });
+  el.board.style.gridTemplateColumns = `repeat(${state.selectedCategories.length}, minmax(var(--board-col-width), 1fr))`;
   state.pointLevels.forEach((points) => {
     state.selectedCategories.forEach((category) => {
       const tile = state.boardTiles.find((t) => t.category === category && t.points === points);
@@ -524,7 +606,8 @@ function renderQuestionAudio(audioPath) {
 
 function getMyTeamNumber() {
   if (online.mode !== "online") return state.currentTeam;
-  return online.role === "host" ? 1 : 2;
+  if (online.role === "host") return state.currentTeam;
+  return 2;
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
@@ -592,11 +675,11 @@ function resetGameState() {
   state.boardTiles = [];
   state.pointLevels = [...POINT_LEVELS];
   state.assignedQuestionIds = new Set();
-  state.scores = { 1: 0, 2: 0 };
-  state.displayedScores = { 1: 0, 2: 0 };
+  state.scores = createTeamFlags(0);
+  state.displayedScores = createTeamFlags(0);
   state.currentTeam = 1;
-  mcqHelpUsed = { 1: false, 2: false };
-  hintHelpUsed = { 1: false, 2: false };
+  mcqHelpUsed = createTeamFlags(false);
+  hintHelpUsed = createTeamFlags(false);
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
@@ -673,13 +756,13 @@ function applyScore(isCorrect) {
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
   resolveActiveQuestion({
     scoreDelta,
-    nextTeam: state.currentTeam === 1 ? 2 : 1,
+    nextTeam: getNextTeam(state.currentTeam),
   });
 }
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (!state.answerRevealed) return;
-  const otherTeam = state.currentTeam === 1 ? 2 : 1;
+  const otherTeam = getNextTeam(state.currentTeam);
   resolveActiveQuestion({
     preventTimeoutAction: true,
     scoreDelta: { [otherTeam]: state.activeTile?.points ?? 0 },
@@ -695,7 +778,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   if (scoreDelta && typeof scoreDelta === "object") {
     Object.entries(scoreDelta).forEach(([team, points]) => {
       const teamNumber = Number(team);
-      if (teamNumber !== 1 && teamNumber !== 2) return;
+      if (teamNumber < 1 || teamNumber > state.teamCount) return;
       const safePoints = Number(points) || 0;
       state.scores[teamNumber] += safePoints;
     });
@@ -705,10 +788,9 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
     tile.timedOut = true;
   }
   tile.used = true;
-  state.scores[1] = Math.max(0, state.scores[1]);
-  state.scores[2] = Math.max(0, state.scores[2]);
+  for (let team = 1; team <= state.teamCount; team += 1) state.scores[team] = Math.max(0, state.scores[team] || 0);
 
-  if (nextTeam === 1 || nextTeam === 2) {
+  if (nextTeam >= 1 && nextTeam <= state.teamCount) {
     state.currentTeam = nextTeam;
   }
 
@@ -721,13 +803,40 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 }
 
 function updateCategoryPickerUI() {
-  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${CATEGORIES_TO_SELECT}`;
-  el.startGameBtn.disabled = state.selectedCategories.length !== CATEGORIES_TO_SELECT;
-  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= CATEGORIES_TO_SELECT;
+  const requiredCount = getRequiredCategoriesCount();
+  el.categoryModalTitle.textContent = `اختر ${requiredCount} فئات لبدء اللعبة`;
+  el.randomCategoriesBtn.textContent = `اختيار عشوائي (${requiredCount})`;
+  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${requiredCount}`;
+  el.startGameBtn.disabled = state.selectedCategories.length !== requiredCount || !areTeamNamesReady();
+  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= requiredCount;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = !checkbox.checked && reachedMax;
   });
+}
+function setTeamCount(teamCount, { keepSelection = false } = {}) {
+  const safeCount = Math.min(6, Math.max(2, Number(teamCount) || 2));
+  state.teamCount = safeCount;
+  state.teamNames = Object.fromEntries(Array.from({ length: safeCount }, (_, i) => {
+    const team = i + 1;
+    return [team, state.teamNames[team] || getTeamFallbackName(team)];
+  }));
+  state.scores = Object.fromEntries(Array.from({ length: safeCount }, (_, i) => [i + 1, state.scores[i + 1] || 0]));
+  state.displayedScores = Object.fromEntries(Array.from({ length: safeCount }, (_, i) => [i + 1, state.displayedScores[i + 1] || 0]));
+  if (state.currentTeam > safeCount) state.currentTeam = 1;
+  mcqHelpUsed = createTeamFlags(false);
+  hintHelpUsed = createTeamFlags(false);
+  if (!keepSelection) state.selectedCategories = [];
+  el.teamCountButtons.forEach((button) => {
+    button.classList.toggle("success-btn", Number(button.dataset.teamCount) === safeCount);
+    button.classList.toggle("secondary-btn", Number(button.dataset.teamCount) !== safeCount);
+  });
+  renderTeamsUI();
+  renderCategoryTeamInputs();
+  syncTeamNameInputs();
+  updateOnlineActionPermissions();
+  updateScoreboard();
+  updateCategoryPickerUI();
 }
 function renderCategoryOptions() {
   el.categoryList.innerHTML = "";
@@ -735,7 +844,7 @@ function renderCategoryOptions() {
     const label = document.createElement("label"); label.className = "category-option";
     const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
+      if (checkbox.checked) { if (state.selectedCategories.length < getRequiredCategoriesCount()) state.selectedCategories.push(category); }
       else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
       updateCategoryPickerUI();
     });
@@ -746,18 +855,17 @@ function renderCategoryOptions() {
 }
 function openCategoryPicker() {
   state.selectedCategories = [];
-  el.categoryTeam1NameInput.value = state.teamNames[1];
-  el.categoryTeam2NameInput.value = state.teamNames[2];
+  renderCategoryTeamInputs();
   renderCategoryOptions();
   if (online.mode === "online" && online.role !== "host") {
     el.startGameBtn.disabled = true;
     el.randomCategoriesBtn.disabled = true;
-    el.categoryTeam1NameInput.disabled = true;
-    el.categoryTeam2NameInput.disabled = true;
+    el.teamCountButtons.forEach((button) => { button.disabled = true; });
+    el.categoryTeamNameInputs.forEach((input) => { input.disabled = true; });
   } else {
     el.randomCategoriesBtn.disabled = false;
-    el.categoryTeam1NameInput.disabled = false;
-    el.categoryTeam2NameInput.disabled = false;
+    el.teamCountButtons.forEach((button) => { button.disabled = false; });
+    el.categoryTeamNameInputs.forEach((input) => { input.disabled = false; });
   }
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
@@ -769,10 +877,11 @@ function closeCategoryPicker() {
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
-function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); }
+function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, getRequiredCategoriesCount()); updateCategoryPickerUI(); }
 
 function serializeGameState() {
   return {
+    teamCount: state.teamCount,
     selectedCategories: state.selectedCategories,
     pointLevels: state.pointLevels,
     boardTiles: state.boardTiles,
@@ -796,17 +905,20 @@ function applyRemoteGameState(game) {
   online.applyingRemote = true;
   try {
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
+    state.teamCount = Math.min(6, Math.max(2, Number(game.teamCount) || 2));
     state.pointLevels = Array.isArray(game.pointLevels) ? [...game.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = Array.isArray(game.boardTiles) ? [...game.boardTiles] : [];
-    state.scores = game.scores || { 1: 0, 2: 0 };
-    state.teamNames = game.teamNames || { 1: "الفريق الأول", 2: "الفريق الثاني" };
-    state.currentTeam = Number(game.currentTeam) === 2 ? 2 : 1;
-    mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false };
-    hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false };
+    state.scores = game.scores || createTeamFlags(0);
+    state.teamNames = game.teamNames || Object.fromEntries(Array.from({ length: state.teamCount }, (_, i) => [i + 1, getTeamFallbackName(i + 1)]));
+    state.currentTeam = Math.min(state.teamCount, Math.max(1, Number(game.currentTeam) || 1));
+    mcqHelpUsed = game.mcqHelpUsed || createTeamFlags(false);
+    hintHelpUsed = game.hintHelpUsed || createTeamFlags(false);
     state.answerRevealed = !!game.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
 
+    renderTeamsUI();
+    renderCategoryTeamInputs();
     syncTeamNameInputs();
     updateScoreboard();
     renderBoard();
@@ -1111,12 +1223,11 @@ function pushOnlineState() {
 function updateOnlineActionPermissions() {
   const locked = online.mode === "online";
   const hostOnly = locked && online.role !== "host";
-  el.team1PlusBtn.disabled = locked;
-  el.team1MinusBtn.disabled = locked;
-  el.team2PlusBtn.disabled = locked;
-  el.team2MinusBtn.disabled = locked;
-  el.team1NameInput.disabled = hostOnly;
-  el.team2NameInput.disabled = hostOnly;
+  Object.values(el.teamElements).forEach(({ plusBtn, minusBtn, nameInput }) => {
+    plusBtn.disabled = locked;
+    minusBtn.disabled = locked;
+    nameInput.disabled = hostOnly;
+  });
 }
 
 function resetOnlineMode() {
@@ -1149,15 +1260,16 @@ function closeOnlineModal() {
 }
 
 async function startGameFromSelection() {
-  if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) return;
+  if (state.selectedCategories.length !== getRequiredCategoriesCount()) return;
+  if (!areTeamNamesReady()) return;
   if (online.mode === "online" && online.role !== "host") return;
   setTeamNamesFromCategoryModal();
   closeCategoryPicker();
-  state.scores = { 1: 0, 2: 0 };
-  state.displayedScores = { 1: 0, 2: 0 };
+  state.scores = createTeamFlags(0);
+  state.displayedScores = createTeamFlags(0);
   state.currentTeam = 1;
-  mcqHelpUsed = { 1: false, 2: false };
-  hintHelpUsed = { 1: false, 2: false };
+  mcqHelpUsed = createTeamFlags(false);
+  hintHelpUsed = createTeamFlags(false);
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
@@ -1182,7 +1294,7 @@ async function startNewGame() {
     state.allQuestions = await fetchQuestions();
     if (state.allQuestions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
     state.allCategories = getUniqueCategories(state.allQuestions);
-    if (state.allCategories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
+    if (state.allCategories.length < getRequiredCategoriesCount()) throw new Error(`يلزم وجود ${getRequiredCategoriesCount()} فئات مختلفة على الأقل في ملف CSV.`);
     state.pointLevels = [...POINT_LEVELS];
     state.usedHistory = loadUsedHistory();
     state.boardTiles = [];
@@ -1351,15 +1463,13 @@ function initializeApp() {
     startNewGame();
   }, "podiumNewGameBtn");
 
-  bindEvent(el.team1NameInput, "input", () => setTeamName(1, el.team1NameInput.value), "team1NameInput");
-  bindEvent(el.team2NameInput, "input", () => setTeamName(2, el.team2NameInput.value), "team2NameInput");
-  bindEvent(el.team1NameInput, "blur", () => setTeamName(1, el.team1NameInput.value, { commit: true }), "team1NameInput");
-  bindEvent(el.team2NameInput, "blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }), "team2NameInput");
-
-  bindEvent(el.team1PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] + 100); updateScoreboard(); } }, "team1PlusBtn");
-  bindEvent(el.team1MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] - 100); updateScoreboard(); } }, "team1MinusBtn");
-  bindEvent(el.team2PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] + 100); updateScoreboard(); } }, "team2PlusBtn");
-  bindEvent(el.team2MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] - 100); updateScoreboard(); } }, "team2MinusBtn");
+  el.teamCountButtons.forEach((button) => {
+    bindEvent(button, "click", () => {
+      if (online.mode === "online" && online.role !== "host") return;
+      setTeamCount(Number(button.dataset.teamCount));
+      renderCategoryOptions();
+    }, `teamCountBtn-${button.dataset.teamCount}`);
+  });
 
   bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
@@ -1374,13 +1484,13 @@ function initializeApp() {
     logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
-  bindEvent(el.instructionsBtn, "click", openInstructionsModal, "instructionsBtn");
+  if (el.instructionsBtn) bindEvent(el.instructionsBtn, "click", openInstructionsModal, "instructionsBtn");
   bindEvent(el.closeInstructionsBtn, "click", closeInstructionsModal, "closeInstructionsBtn");
   bindEvent(el.instructionsModal, "click", (event) => {
     if (event.target === el.instructionsModal) closeInstructionsModal();
   }, "instructionsModal");
-  bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
-  bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
+  if (el.installGuideBtn) bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
+  if (el.installGuideBtn) bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
   bindEvent(el.installGuideModal, "click", (event) => {
     if (event.target === el.installGuideModal) closeInstallGuide();
@@ -1439,9 +1549,12 @@ function initializeApp() {
     displayModeMedia.addListener(updateInstallGuideVisibility);
   }
 
-  updateScoreboard();
+  setTeamCount(2, { keepSelection: true });
   loadTeamNames();
+  renderTeamsUI();
+  renderCategoryTeamInputs();
   syncTeamNameInputs();
+  updateScoreboard();
   updateOnlineActionPermissions();
 
   initAnalytics();
