@@ -1186,13 +1186,38 @@ function tryAutoJoinFromUrl() {
   });
 }
 
+
+function isStandaloneMode() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isMobileDevice() {
+  return window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
+}
+
+function updateInstallGuideVisibility() {
+  if (!el.installGuideBtn) return;
+  el.installGuideBtn.classList.toggle("hidden", isStandaloneMode());
+}
+
+function updateInstallGuideContent() {
+  const mobileIntro = document.getElementById("installGuideMobileIntro");
+  const mobileSteps = document.getElementById("installGuideMobileSteps");
+  const desktopMessage = document.getElementById("installGuideDesktopMessage");
+  if (!mobileIntro || !mobileSteps || !desktopMessage) return;
+
+  const isMobile = isMobileDevice();
+  mobileIntro.classList.toggle("hidden", !isMobile);
+  mobileSteps.classList.toggle("hidden", !isMobile);
+  desktopMessage.classList.toggle("hidden", isMobile);
+}
+
 function openInstallGuide() {
   if (!el.installGuideModal) return;
-  el.installGuideModal.classList.remove("hidden");
-  requestAnimationFrame(() => {
-    el.installGuideModal.classList.remove("is-closing");
-    el.installGuideModal.classList.add("is-open");
-  });
+  updateInstallGuideContent();
+  el.installGuideModal.classList.remove("hidden", "is-closing");
+  void el.installGuideModal.offsetWidth;
+  el.installGuideModal.classList.add("is-open");
 }
 
 function closeInstallGuide() {
@@ -1266,6 +1291,7 @@ function initializeApp() {
     enterGame("online");
   }, "startOnlineBtn");
   bindEvent(el.installGuideBtn, "click", openInstallGuide, "installGuideBtn");
+  bindEvent(el.installGuideBtn, "touchend", (event) => { event.preventDefault(); openInstallGuide(); }, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
   bindEvent(el.installGuideModal, "click", (event) => {
     if (event.target === el.installGuideModal) closeInstallGuide();
@@ -1313,6 +1339,15 @@ function initializeApp() {
       setOnlineFeedback("تعذّر نسخ الرابط. انسخه يدويًا.", "error");
     }
   }, "copyLinkBtn");
+
+  updateInstallGuideVisibility();
+  updateInstallGuideContent();
+  const displayModeMedia = window.matchMedia("(display-mode: standalone)");
+  if (typeof displayModeMedia.addEventListener === "function") {
+    displayModeMedia.addEventListener("change", updateInstallGuideVisibility);
+  } else if (typeof displayModeMedia.addListener === "function") {
+    displayModeMedia.addListener(updateInstallGuideVisibility);
+  }
 
   updateScoreboard();
   loadTeamNames();
