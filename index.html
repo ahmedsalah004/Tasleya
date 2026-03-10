@@ -154,38 +154,21 @@
     <div id="categoryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
       <div class="modal-content category-modal-content">
         <h2 id="categoryModalTitle">كم عدد الفرق؟</h2>
-        <p id="setupStepLabel" class="setup-step-label">الخطوة 1 من 4: اختر عدد الفرق</p>
+        <div id="teamCountPicker" class="team-count-picker" aria-label="عدد الفرق">
+          <button type="button" class="team-count-btn" data-team-count="2">2</button>
+          <button type="button" class="team-count-btn" data-team-count="3">3</button>
+          <button type="button" class="team-count-btn" data-team-count="4">4</button>
+          <button type="button" class="team-count-btn" data-team-count="5">5</button>
+          <button type="button" class="team-count-btn" data-team-count="6">6</button>
+        </div>
+        <div id="categoryTeamInputs" class="category-team-inputs" aria-label="أسماء الفرق"></div>
+        <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
+        <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
 
-        <section id="setupStep1" class="setup-step" data-step="1">
-          <div id="teamCountPicker" class="team-count-picker" aria-label="عدد الفرق">
-            <button type="button" class="team-count-btn" data-team-count="2">2</button>
-            <button type="button" class="team-count-btn" data-team-count="3">3</button>
-            <button type="button" class="team-count-btn" data-team-count="4">4</button>
-            <button type="button" class="team-count-btn" data-team-count="5">5</button>
-            <button type="button" class="team-count-btn" data-team-count="6">6</button>
-          </div>
-        </section>
-
-        <section id="setupStep2" class="setup-step" data-step="2">
-          <div id="categoryTeamInputs" class="category-team-inputs" aria-label="أسماء الفرق"></div>
-        </section>
-
-        <section id="setupStep3" class="setup-step" data-step="3">
-          <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
-          <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
-        </section>
-
-        <section id="setupStep4" class="setup-step" data-step="4">
-          <div class="modal-actions">
-            <button id="startGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
-            <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي</button>
-            <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
-          </div>
-        </section>
-
-        <div id="setupStepNav" class="setup-step-nav" aria-label="تنقل الإعداد">
-          <button id="setupBackBtn" class="ghost-btn" type="button">السابق</button>
-          <button id="setupNextBtn" class="secondary-btn" type="button">التالي</button>
+        <div class="modal-actions">
+          <button id="startGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
+          <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي</button>
+          <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
         </div>
       </div>
     </div>

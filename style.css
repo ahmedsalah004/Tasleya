@@ -860,35 +860,13 @@ button:disabled {
 }
 
 .category-modal-content {
-  width: min(760px, 100%);
-  display: grid;
-  gap: 0.5rem;
-}
-
-.setup-step-label {
-  margin: 0;
-  color: var(--muted);
-  font-weight: 700;
-  font-size: 0.92rem;
-}
-
-.setup-step {
-  min-width: 0;
-}
-
-.setup-step-nav {
-  display: none;
-  gap: 0.45rem;
-}
-
-.setup-step-nav > button {
-  flex: 1;
+  width: min(640px, 100%);
 }
 
 .category-team-inputs {
   display: grid;
   gap: 0.2rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.6rem;
 }
 
 .category-counter {
@@ -899,20 +877,10 @@ button:disabled {
 
 .category-list {
   display: grid;
-  gap: 0.45rem;
-  max-height: 42vh;
+  gap: 0.5rem;
+  max-height: 50vh;
   overflow-y: auto;
   padding-inline-end: 0.2rem;
-}
-
-#categoryModal.dense-setup .category-team-inputs {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 0.6rem;
-}
-
-#categoryModal.dense-setup .category-list {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  max-height: 36vh;
 }
 
 .category-option {
@@ -922,8 +890,7 @@ button:disabled {
   background: rgba(20, 36, 79, 0.72);
   border: 1px solid rgba(93, 128, 220, 0.62);
   border-radius: 10px;
-  padding: 0.58rem 0.72rem;
-  min-height: 44px;
+  padding: 0.55rem 0.7rem;
 }
 
 .category-option input {
