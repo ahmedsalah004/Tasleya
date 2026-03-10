@@ -856,6 +856,12 @@ button:disabled {
   padding-inline-end: 0.2rem;
 }
 
+.category-group-title {
+  margin: 0.4rem 0 0.1rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
 .category-option {
   display: flex;
   align-items: center;
