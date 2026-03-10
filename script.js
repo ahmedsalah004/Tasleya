@@ -54,10 +54,6 @@ function cacheElements() {
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
   cancelCategoryBtn: document.getElementById("cancelCategoryBtn"),
-  setupStepLabel: document.getElementById("setupStepLabel"),
-  setupStepNav: document.getElementById("setupStepNav"),
-  setupBackBtn: document.getElementById("setupBackBtn"),
-  setupNextBtn: document.getElementById("setupNextBtn"),
   podiumModal: document.getElementById("podiumModal"),
   podiumTitle: document.getElementById("podiumTitle"),
   podiumSubtitle: document.getElementById("podiumSubtitle"),
@@ -112,7 +108,6 @@ const state = {
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
-  setupStep: 1,
 };
 
 const online = {
@@ -785,49 +780,6 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   return true;
 }
 
-function isMobileSetupFlow() {
-  return window.matchMedia("(max-width: 768px)").matches;
-}
-
-function getSetupStepText(step) {
-  if (step === 1) return "الخطوة 1 من 4: اختر عدد الفرق";
-  if (step === 2) return "الخطوة 2 من 4: أدخل أسماء الفرق";
-  if (step === 3) return "الخطوة 3 من 4: اختر الفئات";
-  return "الخطوة 4 من 4: ابدأ اللعبة";
-}
-
-function updateSetupFlowUI() {
-  const mobileFlow = isMobileSetupFlow();
-  const safeStep = Math.min(4, Math.max(1, Number(state.setupStep) || 1));
-  state.setupStep = safeStep;
-  const denseSetup = state.teamCount >= 5;
-  el.categoryModal.classList.toggle("mobile-setup-flow", mobileFlow);
-  el.categoryModal.classList.toggle("dense-setup", denseSetup);
-
-  if (el.setupStepLabel) {
-    el.setupStepLabel.textContent = getSetupStepText(state.setupStep);
-    el.setupStepLabel.classList.toggle("hidden", !mobileFlow);
-  }
-
-  for (let step = 1; step <= 4; step += 1) {
-    const section = document.getElementById(`setupStep${step}`);
-    if (!section) continue;
-    section.classList.toggle("hidden", mobileFlow && state.setupStep !== step);
-  }
-
-  if (el.setupStepNav) {
-    el.setupStepNav.classList.toggle("hidden", !mobileFlow);
-  }
-  if (el.setupBackBtn) {
-    el.setupBackBtn.disabled = !mobileFlow || state.setupStep <= 1;
-  }
-  if (el.setupNextBtn) {
-    const showNext = mobileFlow && state.setupStep < 4;
-    el.setupNextBtn.classList.toggle("hidden", !showNext);
-    el.setupNextBtn.disabled = !showNext;
-  }
-}
-
 function updateCategoryPickerUI() {
   el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${getCategoriesToSelect()}`;
   el.startGameBtn.disabled = state.selectedCategories.length !== getCategoriesToSelect();
@@ -854,7 +806,6 @@ function renderCategoryOptions() {
 }
 function openCategoryPicker() {
   state.selectedCategories = [];
-  state.setupStep = 1;
   el.categoryModalTitle.textContent = `اختر ${getCategoriesToSelect()} فئات لبدء اللعبة`;
   renderCategoryTeamInputs();
   renderCategoryOptions();
@@ -867,7 +818,6 @@ function openCategoryPicker() {
     btn.disabled = hostOnly;
   });
   el.categoryTeamInputs.querySelectorAll("input").forEach((input) => { input.disabled = hostOnly; });
-  updateSetupFlowUI();
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
 }
@@ -1446,7 +1396,6 @@ function bindEvent(element, eventName, handler, elementName) {
 
 function initializeApp() {
   cacheElements();
-  window.addEventListener("resize", updateSetupFlowUI);
 
   bindEvent(el.newGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
@@ -1472,14 +1421,6 @@ function initializeApp() {
     }, `teamCountBtn-${btn.dataset.teamCount}`);
   });
   bindEvent(el.cancelCategoryBtn, "click", closeCategoryPicker, "cancelCategoryBtn");
-  bindEvent(el.setupBackBtn, "click", () => {
-    state.setupStep = Math.max(1, state.setupStep - 1);
-    updateSetupFlowUI();
-  }, "setupBackBtn");
-  bindEvent(el.setupNextBtn, "click", () => {
-    state.setupStep = Math.min(4, state.setupStep + 1);
-    updateSetupFlowUI();
-  }, "setupNextBtn");
   bindEvent(el.podiumNewGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
