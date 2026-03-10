@@ -1220,6 +1220,13 @@ function openInstallGuide() {
   el.installGuideModal.classList.add("is-open");
 }
 
+function handleInstallGuidePointerOpen(event) {
+  if (event) {
+    event.preventDefault();
+  }
+  openInstallGuide();
+}
+
 function closeInstallGuide() {
   if (!el.installGuideModal || el.installGuideModal.classList.contains("hidden")) return;
   if (prefersReducedMotion) {
@@ -1290,8 +1297,8 @@ function initializeApp() {
     logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
-  bindEvent(el.installGuideBtn, "click", openInstallGuide, "installGuideBtn");
-  bindEvent(el.installGuideBtn, "touchend", (event) => { event.preventDefault(); openInstallGuide(); }, "installGuideBtn");
+  bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
+  bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
   bindEvent(el.installGuideModal, "click", (event) => {
     if (event.target === el.installGuideModal) closeInstallGuide();
