@@ -159,16 +159,29 @@ function showQuestionStatus(message = "") {
   el.questionStatus.classList.toggle("hidden", !message);
 }
 
+function hasUnresolvedActiveQuestion() {
+  const modalOpen = !el.modal?.classList.contains("hidden");
+  return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeTile.question);
+}
+
+function updateCloseButtonLock() {
+  const lockClose = hasUnresolvedActiveQuestion();
+  el.closeModalBtn.disabled = lockClose;
+  el.closeModalBtn.classList.toggle("hidden", lockClose);
+}
+
 function updateQuestionActionLock() {
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
+  const lockByReveal = hasUnresolvedActiveQuestion() && !state.answerRevealed;
   const disableActions = lockByTimeout || lockByTurn;
-  el.revealBtn.disabled = disableActions;
-  el.correctBtn.disabled = disableActions;
-  el.wrongBtn.disabled = disableActions;
-  el.otherTeamBtn.disabled = disableActions;
-  el.lifelineBtn.disabled = disableActions || mcqHelpUsed[state.currentTeam];
-  el.hintLifelineBtn.disabled = disableActions || hintHelpUsed[state.currentTeam];
+  el.revealBtn.disabled = disableActions || state.answerRevealed;
+  el.correctBtn.disabled = disableActions || lockByReveal;
+  el.wrongBtn.disabled = disableActions || lockByReveal;
+  el.otherTeamBtn.disabled = disableActions || lockByReveal;
+  el.lifelineBtn.disabled = disableActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
+  el.hintLifelineBtn.disabled = disableActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
+  updateCloseButtonLock();
 }
 
 function updateTimerUI() {
@@ -475,6 +488,7 @@ function canCurrentClientAct() {
 
 function openQuestion(tileId) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (hasUnresolvedActiveQuestion()) return;
   stopAndResetTimer(); clearQuestionMedia();
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || !tile.question) return;
@@ -505,6 +519,10 @@ function openQuestion(tileId) {
 }
 
 function closeModal({ silentSync = false } = {}) {
+  if (hasUnresolvedActiveQuestion()) {
+    updateCloseButtonLock();
+    return false;
+  }
   stopAndResetTimer(); clearQuestionMedia();
   state.currentHintText = "";
   el.hintText.textContent = "";
@@ -518,7 +536,9 @@ function closeModal({ silentSync = false } = {}) {
     const onEnd = () => { el.modal.classList.add("hidden"); el.modal.classList.remove("is-closing"); state.activeTile = null; el.modal.removeEventListener("animationend", onEnd, true); };
     el.modal.addEventListener("animationend", onEnd, true);
   }
+  updateCloseButtonLock();
   if (online.mode === "online" && !online.applyingRemote && !silentSync) pushOnlineState();
+  return true;
 }
 
 function resetGameState() {
@@ -544,9 +564,10 @@ function resetGameState() {
 }
 
 function revealAnswer() {
-  if (!getActiveQuestion() || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!getActiveQuestion() || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
   el.answerText.classList.remove("hidden");
   state.answerRevealed = true;
+  updateQuestionActionLock();
   if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
@@ -602,6 +623,7 @@ function useHintLifeline() {
 
 function applyScore(isCorrect) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (!state.answerRevealed) return;
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
   resolveActiveQuestion({
     scoreDelta,
@@ -610,6 +632,7 @@ function applyScore(isCorrect) {
 }
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (!state.answerRevealed) return;
   const otherTeam = state.currentTeam === 1 ? 2 : 1;
   resolveActiveQuestion({
     preventTimeoutAction: true,
