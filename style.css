@@ -12,7 +12,8 @@
 }
 
 #startLocalBtn,
-#startOnlineBtn {
+#startOnlineBtn,
+#installGuideBtn {
   position: absolute;
   left: 49%;
   top: 56%;
@@ -40,13 +41,16 @@
 #startLocalBtn::before,
 #startLocalBtn::after,
 #startOnlineBtn::before,
-#startOnlineBtn::after {
+#startOnlineBtn::after,
+#installGuideBtn::before,
+#installGuideBtn::after {
   pointer-events: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
   #startLocalBtn:hover,
-  #startOnlineBtn:hover {
+  #startOnlineBtn:hover,
+  #installGuideBtn:hover {
     background: rgba(255, 215, 0, 0.15);
     transform: translate(-50%, -50%) scale(1.08);
     box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
@@ -75,7 +79,8 @@
   }
 
   #startLocalBtn,
-  #startOnlineBtn {
+  #startOnlineBtn,
+  #installGuideBtn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -99,6 +104,31 @@
 #startOnlineBtn {
   left: 49%;
   top: calc(56% + 88px);
+}
+
+#installGuideBtn {
+  left: 49%;
+  top: calc(56% + 176px);
+  font-size: clamp(16px, 1.2vw, 22px);
+  padding: 12px 24px;
+}
+
+.install-guide-content {
+  width: min(540px, 100%);
+}
+
+.install-guide-steps {
+  margin-top: 0.5rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.install-guide-steps p {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  background: rgba(255, 215, 0, 0.08);
 }
 
 .online-modal-content {

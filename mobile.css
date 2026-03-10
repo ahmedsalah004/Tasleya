@@ -7,6 +7,7 @@ body {
 button,
 #startLocalBtn,
 #startOnlineBtn,
+#installGuideBtn,
 .primary-btn,
 .secondary-btn,
 .success-btn,
@@ -21,6 +22,8 @@ button,
 #startLocalBtn::after,
 #startOnlineBtn::before,
 #startOnlineBtn::after,
+#installGuideBtn::before,
+#installGuideBtn::after,
 .primary-btn::before,
 .primary-btn::after,
 .secondary-btn::before,
@@ -69,7 +72,8 @@ main,
 }
 
 #startLocalBtn,
-#startOnlineBtn {
+#startOnlineBtn,
+#installGuideBtn {
   position: static;
   left: auto;
   right: auto;
@@ -92,7 +96,10 @@ main,
 #startLocalBtn:active,
 #startOnlineBtn:hover,
 #startOnlineBtn:focus,
-#startOnlineBtn:active {
+#startOnlineBtn:active,
+#installGuideBtn:hover,
+#installGuideBtn:focus,
+#installGuideBtn:active {
   transform: none !important;
   translate: none !important;
 }
@@ -104,6 +111,12 @@ main,
   align-items: center;
   justify-content: center;
   gap: 18px;
+}
+
+#installGuideBtn {
+  top: calc(56% + 146px);
+  padding: 12px 20px;
+  font-size: clamp(16px, 4.2vw, 20px);
 }
 
 .board-wrap {
@@ -172,6 +185,7 @@ main,
 @media (hover: none), (pointer: coarse) {
   #startLocalBtn:hover,
   #startOnlineBtn:hover,
+  #installGuideBtn:hover,
   .primary-btn:hover,
   .secondary-btn:hover,
   .success-btn:hover,
@@ -180,6 +194,7 @@ main,
   .tile:hover:not(:disabled),
   #startLocalBtn:focus,
   #startOnlineBtn:focus,
+  #installGuideBtn:focus,
   .primary-btn:focus,
   .secondary-btn:focus,
   .success-btn:focus,
@@ -187,6 +202,7 @@ main,
   .ghost-btn:focus,
   #startLocalBtn:active,
   #startOnlineBtn:active,
+  #installGuideBtn:active,
   .primary-btn:active,
   .secondary-btn:active,
   .success-btn:active,
@@ -206,6 +222,7 @@ main,
   .ghost-btn,
   #startLocalBtn,
 #startOnlineBtn,
+#installGuideBtn,
   .team-card::before,
   .team-card.active::after {
     animation: none;
