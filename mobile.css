@@ -4,6 +4,11 @@ body {
 }
 
 
+#startScreen::before {
+  top: max(2.2rem, calc(env(safe-area-inset-top) + 1.4rem));
+  font-size: clamp(2rem, 12vw, 2.6rem);
+  padding: 0.45rem 1.2rem 0.58rem;
+}
 
 
 button,
@@ -135,7 +140,7 @@ main,
   align-items: center;
   justify-content: flex-start;
   gap: 18px;
-  padding-top: clamp(8.2rem, 18vh, 11rem);
+  padding-top: clamp(3.2rem, 10.5vh, 5.4rem);
 }
 
 #instructionsBtn {
