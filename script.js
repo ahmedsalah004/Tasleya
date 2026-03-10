@@ -176,13 +176,14 @@ function handleQuestionTimeout() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   const tile = state.activeTile;
   if (!tile || tile.used || !tile.question || tile.timedOut) return;
-  tile.timedOut = true;
-  stopTimer();
   timerStart = Date.now() - QUESTION_TIMEOUT_MS;
   updateTimerUI();
+  stopTimer();
   showQuestionStatus("انتهى الوقت");
-  updateQuestionActionLock();
-  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  resolveActiveQuestion({
+    timedOut: true,
+    nextTeam: state.currentTeam === 1 ? 2 : 1,
+  });
 }
 function startTimer() {
   stopAndResetTimer();
@@ -591,26 +592,53 @@ function useHintLifeline() {
 
 function applyScore(isCorrect) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
-  const tile = state.activeTile;
-  if (!tile || tile.used || !tile.question) return;
-  if (isCorrect) state.scores[state.currentTeam] += tile.points;
-  state.scores[1] = Math.max(0, state.scores[1]); state.scores[2] = Math.max(0, state.scores[2]);
-  tile.used = true;
-  state.currentTeam = state.currentTeam === 1 ? 2 : 1;
-  updateScoreboard(); renderBoard(); closeModal({ silentSync: true }); checkEndOfGame();
-  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
+  resolveActiveQuestion({
+    scoreDelta,
+    nextTeam: state.currentTeam === 1 ? 2 : 1,
+  });
 }
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
-  const tile = state.activeTile;
-  if (!tile || tile.used || tile.timedOut || !tile.question) return;
   const otherTeam = state.currentTeam === 1 ? 2 : 1;
-  state.scores[otherTeam] += tile.points;
-  state.scores[1] = Math.max(0, state.scores[1]); state.scores[2] = Math.max(0, state.scores[2]);
+  resolveActiveQuestion({
+    preventTimeoutAction: true,
+    scoreDelta: { [otherTeam]: state.activeTile?.points ?? 0 },
+    nextTeam: otherTeam,
+  });
+}
+
+function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = false, preventTimeoutAction = false } = {}) {
+  const tile = state.activeTile;
+  if (!tile || tile.used || !tile.question) return false;
+  if (preventTimeoutAction && tile.timedOut) return false;
+
+  if (scoreDelta && typeof scoreDelta === "object") {
+    Object.entries(scoreDelta).forEach(([team, points]) => {
+      const teamNumber = Number(team);
+      if (teamNumber !== 1 && teamNumber !== 2) return;
+      const safePoints = Number(points) || 0;
+      state.scores[teamNumber] += safePoints;
+    });
+  }
+
+  if (timedOut) {
+    tile.timedOut = true;
+  }
   tile.used = true;
-  state.currentTeam = otherTeam;
-  updateScoreboard(); renderBoard(); closeModal({ silentSync: true }); checkEndOfGame();
+  state.scores[1] = Math.max(0, state.scores[1]);
+  state.scores[2] = Math.max(0, state.scores[2]);
+
+  if (nextTeam === 1 || nextTeam === 2) {
+    state.currentTeam = nextTeam;
+  }
+
+  updateScoreboard();
+  renderBoard();
+  closeModal({ silentSync: true });
+  checkEndOfGame();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  return true;
 }
 
 function updateCategoryPickerUI() {
