@@ -70,6 +70,9 @@ function cacheElements() {
   gameScreen: document.getElementById("gameScreen"),
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
+  installGuideBtn: document.getElementById("installGuideBtn"),
+  installGuideModal: document.getElementById("installGuideModal"),
+  closeInstallGuideBtn: document.getElementById("closeInstallGuideBtn"),
   onlineModal: document.getElementById("onlineModal"),
   createRoomBtn: document.getElementById("createRoomBtn"),
   joinRoomBtn: document.getElementById("joinRoomBtn"),
@@ -1183,6 +1186,32 @@ function tryAutoJoinFromUrl() {
   });
 }
 
+function openInstallGuide() {
+  if (!el.installGuideModal) return;
+  el.installGuideModal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    el.installGuideModal.classList.remove("is-closing");
+    el.installGuideModal.classList.add("is-open");
+  });
+}
+
+function closeInstallGuide() {
+  if (!el.installGuideModal || el.installGuideModal.classList.contains("hidden")) return;
+  if (prefersReducedMotion) {
+    el.installGuideModal.classList.add("hidden");
+    el.installGuideModal.classList.remove("is-open", "is-closing");
+    return;
+  }
+  el.installGuideModal.classList.remove("is-open");
+  el.installGuideModal.classList.add("is-closing");
+  const onEnd = () => {
+    el.installGuideModal.classList.add("hidden");
+    el.installGuideModal.classList.remove("is-closing");
+    el.installGuideModal.removeEventListener("animationend", onEnd, true);
+  };
+  el.installGuideModal.addEventListener("animationend", onEnd, true);
+}
+
 function bindEvent(element, eventName, handler, elementName) {
   if (!element) {
     console.error(`[Tasleya] Missing element: ${elementName}`);
@@ -1236,6 +1265,11 @@ function initializeApp() {
     logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
+  bindEvent(el.installGuideBtn, "click", openInstallGuide, "installGuideBtn");
+  bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
+  bindEvent(el.installGuideModal, "click", (event) => {
+    if (event.target === el.installGuideModal) closeInstallGuide();
+  }, "installGuideModal");
   bindEvent(el.createRoomBtn, "click", createOnlineRoom, "createRoomBtn");
   bindEvent(el.joinRoomBtn, "click", () => {
     el.onlineJoinPanel.classList.remove("hidden");

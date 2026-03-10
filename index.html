@@ -21,6 +21,23 @@
       <div class="start-actions">
         <button id="startLocalBtn">لعب على جهاز واحد</button>
         <button id="startOnlineBtn">لعب على أجهزة مختلفة</button>
+        <button id="installGuideBtn">📱 ثبت تسلية كتطبيق</button>
+      </div>
+    </div>
+
+    <div id="installGuideModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
+      <div class="modal-content install-guide-content">
+        <h2 id="installGuideTitle">تثبيت تسلية كتطبيق</h2>
+        <p>يمكنك تثبيت تسلية على شاشة الهاتف الرئيسية لتشغيلها بسرعة كتطبيق.</p>
+
+        <div class="install-guide-steps" aria-label="خطوات التثبيت">
+          <p><strong>iPhone (Safari):</strong> زر المشاركة (Share) ← Add to Home Screen</p>
+          <p><strong>Android (Chrome):</strong> Install App أو Add to Home Screen</p>
+        </div>
+
+        <div class="modal-actions">
+          <button id="closeInstallGuideBtn" class="ghost-btn" type="button">إغلاق</button>
+        </div>
       </div>
     </div>
 
