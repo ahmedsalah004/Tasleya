@@ -131,6 +131,14 @@
   background: rgba(255, 215, 0, 0.08);
 }
 
+#installGuideDesktopMessage {
+  margin: 0.3rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  background: rgba(255, 215, 0, 0.08);
+}
+
 .online-modal-content {
   width: min(560px, 100%);
 }
@@ -581,7 +589,8 @@ button:disabled {
   padding: 1rem;
   opacity: 0;
   transition: opacity 0.24s ease;
-  z-index: 5;
+  z-index: 2000;
+  pointer-events: auto;
 }
 
 .modal.is-open {
@@ -1068,6 +1077,15 @@ button:disabled {
 
   .modal {
     padding: 0.55rem;
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .install-guide-content {
+    width: min(100%, 560px);
+    max-height: calc(100vh - 1.1rem);
+    margin-top: 0.25rem;
   }
 
   .modal-actions {
