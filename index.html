@@ -98,25 +98,7 @@
 
         <div id="errorBanner" class="error-banner hidden" role="alert"></div>
 
-        <div class="team-card" id="team1Card">
-          <label for="team1NameInput" class="team-name-label">اسم الفريق 1</label>
-          <input id="team1NameInput" class="team-name-input" type="text" value="الفريق الأول" maxlength="30" />
-          <p class="score" id="team1Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الأول">
-            <button id="team1PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team1MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-          </div>
-        </div>
-
-        <div class="team-card" id="team2Card">
-          <label for="team2NameInput" class="team-name-label">اسم الفريق 2</label>
-          <input id="team2NameInput" class="team-name-input" type="text" value="الفريق الثاني" maxlength="30" />
-          <p class="score" id="team2Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثاني">
-            <button id="team2PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team2MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-          </div>
-        </div>
+        <div id="teamsContainer"></div>
 
         <div class="status-card">
           <p>الدور الحالي:</p>
@@ -171,32 +153,21 @@
 
     <div id="categoryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
       <div class="modal-content category-modal-content">
-        <h2 id="categoryModalTitle">اختر 6 فئات لبدء اللعبة</h2>
-        <div class="category-team-inputs" aria-label="أسماء الفرق">
-          <label for="categoryTeam1NameInput" class="team-name-label">اسم الفريق الأول</label>
-          <input
-            id="categoryTeam1NameInput"
-            class="team-name-input"
-            type="text"
-            maxlength="30"
-            placeholder="الفريق الأول"
-          />
-
-          <label for="categoryTeam2NameInput" class="team-name-label">اسم الفريق الثاني</label>
-          <input
-            id="categoryTeam2NameInput"
-            class="team-name-input"
-            type="text"
-            maxlength="30"
-            placeholder="الفريق الثاني"
-          />
+        <h2 id="categoryModalTitle">كم عدد الفرق؟</h2>
+        <div id="teamCountPicker" class="team-count-picker" aria-label="عدد الفرق">
+          <button type="button" class="team-count-btn" data-team-count="2">2</button>
+          <button type="button" class="team-count-btn" data-team-count="3">3</button>
+          <button type="button" class="team-count-btn" data-team-count="4">4</button>
+          <button type="button" class="team-count-btn" data-team-count="5">5</button>
+          <button type="button" class="team-count-btn" data-team-count="6">6</button>
         </div>
+        <div id="categoryTeamInputs" class="category-team-inputs" aria-label="أسماء الفرق"></div>
         <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
         <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
 
         <div class="modal-actions">
           <button id="startGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
-          <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي (6)</button>
+          <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي</button>
           <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
         </div>
       </div>
