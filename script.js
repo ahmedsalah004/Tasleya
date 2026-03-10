@@ -6,7 +6,6 @@ const POINT_LEVELS = [100, 200, 300, 400, 500];
 const SUPPORTED_TEAM_COUNTS = [2, 3];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
-const CATEGORY_CACHE_STORAGE_KEY = "tasleya_category_cache_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
@@ -20,7 +19,6 @@ let questionTimeoutToken = null;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
-const CATEGORY_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 24;
 const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
 const CATEGORY_DISPLAY_GROUPS = [
   {
@@ -165,13 +163,6 @@ const state = {
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
-};
-
-const dataCache = {
-  categories: null,
-  rows: null,
-  categoriesPromise: null,
-  allQuestionsPromise: null,
 };
 
 const online = {
@@ -382,9 +373,6 @@ function toPoints(question) {
   return Number.isFinite(explicit) ? explicit : null;
 }
 function rowsToQuestions(rows) {
-  return rowsToQuestionsByCategory(rows);
-}
-function rowsToQuestionsByCategory(rows, categoryFilter = null) {
   const [headers, ...dataRows] = rows;
   const mapHeaders = headers.map(normalizeHeader);
   return dataRows.map((row, index) => {
@@ -412,11 +400,7 @@ function rowsToQuestionsByCategory(rows, categoryFilter = null) {
       hint: question.hint,
     });
     return question;
-  }).filter((q) => {
-    if (!(q.question && q.answer && q.category)) return false;
-    if (categoryFilter && !categoryFilter.has(q.category)) return false;
-    return true;
-  });
+  }).filter((q) => q.question && q.answer && q.category);
 }
 
 function loadUsedHistory() {
@@ -452,116 +436,13 @@ function markQuestionAsUsed(category, points, questionId) {
   if (!bucket.includes(questionId)) { bucket.push(questionId); saveUsedHistory(); }
 }
 
-function loadCachedCategories() {
-  try {
-    const raw = localStorage.getItem(CATEGORY_CACHE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return [];
-    if (!Array.isArray(parsed.categories)) return [];
-    if (!parsed.savedAt || Date.now() - parsed.savedAt > CATEGORY_CACHE_MAX_AGE_MS) return [];
-    return parsed.categories.map((category) => normalizeCell(category)).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-function saveCachedCategories(categories) {
-  const unique = Array.from(new Set(categories.map((category) => normalizeCell(category)).filter(Boolean)));
-  localStorage.setItem(CATEGORY_CACHE_STORAGE_KEY, JSON.stringify({ categories: unique, savedAt: Date.now() }));
-}
-function extractCategoriesFromRows(rows) {
-  if (!Array.isArray(rows) || rows.length < 2) return [];
-  const [headers, ...dataRows] = rows;
-  const mapHeaders = headers.map(normalizeHeader);
-  const categoryIndex = mapHeaders.indexOf("category");
-  const questionIndex = mapHeaders.indexOf("question");
-  const answerIndex = mapHeaders.indexOf("answer");
-  if (categoryIndex === -1 || questionIndex === -1 || answerIndex === -1) return [];
-  const categories = [];
-  dataRows.forEach((row) => {
-    const category = normalizeCell(row[categoryIndex]);
-    const question = normalizeCell(row[questionIndex]);
-    const answer = normalizeCell(row[answerIndex]);
-    if (!category || !question || !answer || categories.includes(category)) return;
-    categories.push(category);
-  });
-  return categories;
-}
-async function fetchCsvRows() {
-  const res = await fetch(CSV_URL, { cache: "default" });
+async function fetchQuestions() {
+  const csvUrl = `${CSV_URL}${CSV_URL.includes("?") ? "&" : "?"}t=${Date.now()}`;
+  const res = await fetch(csvUrl, { cache: "no-store" });
   if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
   const rows = parseCSV(await res.text());
   if (rows.length < 2) throw new Error("ملف CSV لا يحتوي بيانات كافية.");
-  return rows;
-}
-async function ensureCategoriesLoaded() {
-  if (Array.isArray(dataCache.categories) && dataCache.categories.length) return dataCache.categories;
-  if (dataCache.categoriesPromise) return dataCache.categoriesPromise;
-
-  const cached = loadCachedCategories();
-  if (cached.length) {
-    dataCache.categories = cached;
-    state.allCategories = [...cached];
-  }
-
-  dataCache.categoriesPromise = (async () => {
-    const rows = dataCache.rows || await fetchCsvRows();
-    dataCache.rows = rows;
-    const categories = extractCategoriesFromRows(rows);
-    if (categories.length >= CATEGORIES_TO_SELECT) {
-      dataCache.categories = categories;
-      state.allCategories = [...categories];
-      saveCachedCategories(categories);
-      return categories;
-    }
-    if (cached.length >= CATEGORIES_TO_SELECT) return cached;
-    throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
-  })();
-
-  try {
-    return await dataCache.categoriesPromise;
-  } finally {
-    dataCache.categoriesPromise = null;
-  }
-}
-async function ensureAllQuestionsLoaded() {
-  if (state.allQuestions.length) return state.allQuestions;
-  if (dataCache.allQuestionsPromise) return dataCache.allQuestionsPromise;
-  dataCache.allQuestionsPromise = (async () => {
-    const rows = dataCache.rows || await fetchCsvRows();
-    dataCache.rows = rows;
-    const questions = rowsToQuestions(rows);
-    state.allQuestions = questions;
-    if (!state.allCategories.length) {
-      state.allCategories = getUniqueCategories(questions);
-    }
-    return questions;
-  })();
-  try {
-    return await dataCache.allQuestionsPromise;
-  } finally {
-    dataCache.allQuestionsPromise = null;
-  }
-}
-async function ensureQuestionsForSelectedCategories(selectedCategories) {
-  if (!Array.isArray(selectedCategories) || selectedCategories.length === 0) return [];
-  const selectedSet = new Set(selectedCategories);
-  const existing = state.allQuestions.filter((q) => selectedSet.has(q.category));
-  const covered = new Set(existing.map((q) => q.category));
-  const missing = selectedCategories.some((category) => !covered.has(category));
-  if (!missing) return existing;
-
-  const rows = dataCache.rows || await fetchCsvRows();
-  dataCache.rows = rows;
-  const selectedQuestions = rowsToQuestionsByCategory(rows, selectedSet);
-  const retained = state.allQuestions.filter((q) => !selectedSet.has(q.category));
-  state.allQuestions = [...retained, ...selectedQuestions];
-  return selectedQuestions;
-}
-function preloadQuestionsInBackground() {
-  ensureAllQuestionsLoaded().catch((error) => {
-    console.warn("[Tasleya] Background question preload failed", error);
-  });
+  return rowsToQuestions(rows);
 }
 function getUniqueCategories(questions) {
   const unique = [];
@@ -990,11 +871,7 @@ function openCategoryPicker() {
   el.categoryTeam2NameInput.value = state.teamNames[2];
   el.categoryTeam3NameInput.value = state.teamNames[3];
   updateTeamModeUI();
-  if (!state.allCategories.length) {
-    el.categoryList.innerHTML = "<p class='muted'>جاري تحميل الفئات...</p>";
-  } else {
-    renderCategoryOptions();
-  }
+  renderCategoryOptions();
   if (online.mode === "online" && online.role !== "host") {
     el.startGameBtn.disabled = true;
     el.randomCategoriesBtn.disabled = true;
@@ -1404,37 +1281,28 @@ function closeOnlineModal() {
 async function startGameFromSelection() {
   if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) return;
   if (online.mode === "online" && online.role !== "host") return;
-  el.startGameBtn.disabled = true;
-  try {
-    setTeamNamesFromCategoryModal();
-    clearError();
-    await ensureQuestionsForSelectedCategories(state.selectedCategories);
-    preloadQuestionsInBackground();
-    closeCategoryPicker();
-    state.scores = { 1: 0, 2: 0, 3: 0 };
-    state.displayedScores = { 1: 0, 2: 0, 3: 0 };
-    state.currentTeam = 1;
-    mcqHelpUsed = { 1: false, 2: false, 3: false };
-    hintHelpUsed = { 1: false, 2: false, 3: false };
-    state.activeTile = null;
-    state.answerRevealed = false;
-    state.currentChoices = [];
-    state.currentHintText = "";
-    buildBoardAssignment();
-    updateScoreboard();
-    renderBoard();
-    checkEndOfGame();
-    logAnalyticsEvent("game_started", {
-      mode: online.mode,
-      categories_count: state.selectedCategories.length,
-      teams_count: state.teamCount,
-    });
-    if (online.mode === "online") pushOnlineState();
-  } catch (error) {
-    showError(`تعذّر تحميل أسئلة الفئات المختارة. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
-  } finally {
-    updateCategoryPickerUI();
-  }
+  setTeamNamesFromCategoryModal();
+  closeCategoryPicker();
+  state.scores = { 1: 0, 2: 0, 3: 0 };
+  state.displayedScores = { 1: 0, 2: 0, 3: 0 };
+  state.currentTeam = 1;
+  mcqHelpUsed = { 1: false, 2: false, 3: false };
+  hintHelpUsed = { 1: false, 2: false, 3: false };
+  state.activeTile = null;
+  state.answerRevealed = false;
+  state.currentChoices = [];
+  state.currentHintText = "";
+  clearError();
+  buildBoardAssignment();
+  updateScoreboard();
+  renderBoard();
+  checkEndOfGame();
+  logAnalyticsEvent("game_started", {
+    mode: online.mode,
+    categories_count: state.selectedCategories.length,
+    teams_count: state.teamCount,
+  });
+  if (online.mode === "online") pushOnlineState();
 }
 
 async function startNewGame() {
@@ -1442,20 +1310,15 @@ async function startNewGame() {
     resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
-    state.allQuestions = [];
-    const cachedCategories = loadCachedCategories();
-    if (cachedCategories.length >= CATEGORIES_TO_SELECT) {
-      state.allCategories = cachedCategories;
-    }
-    openCategoryPicker();
-    await ensureCategoriesLoaded();
+    state.allQuestions = await fetchQuestions();
+    if (state.allQuestions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
+    state.allCategories = getUniqueCategories(state.allQuestions);
     if (state.allCategories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
     state.pointLevels = [...POINT_LEVELS];
     state.usedHistory = loadUsedHistory();
     state.boardTiles = [];
     renderBoard();
-    renderCategoryOptions();
-    preloadQuestionsInBackground();
+    openCategoryPicker();
   } catch (error) {
     state.dataLoadFailed = true;
     state.allQuestions = [];
