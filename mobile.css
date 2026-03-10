@@ -138,6 +138,12 @@ main,
   padding-top: clamp(3.2rem, 10.5vh, 5.4rem);
 }
 
+@media (max-width: 700px) and (max-height: 780px) and (orientation: portrait) {
+  .start-actions {
+    padding-top: clamp(4.2rem, 16svh, 6.4rem);
+  }
+}
+
 #instructionsBtn {
   top: calc(56% + 146px);
 }
