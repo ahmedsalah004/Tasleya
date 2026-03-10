@@ -257,3 +257,30 @@ main,
 }
 
 .team-count-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+
+#categoryModal.mobile-setup-flow .category-modal-content {
+  display: grid;
+  gap: 0.55rem;
+}
+
+#categoryModal.mobile-setup-flow .setup-step-nav {
+  display: flex;
+}
+
+#categoryModal.mobile-setup-flow .setup-step {
+  min-height: 0;
+}
+
+#categoryModal.mobile-setup-flow .category-list {
+  max-height: 52vh;
+}
+
+#categoryModal.mobile-setup-flow .category-team-inputs {
+  gap: 0.15rem;
+}
+
+#categoryModal.mobile-setup-flow .modal-actions {
+  flex-direction: column;
+  gap: 0.45rem;
+}
