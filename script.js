@@ -14,6 +14,7 @@ let hintHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
+let lastInstallGuideOpenAt = 0;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
@@ -1186,13 +1187,49 @@ function tryAutoJoinFromUrl() {
   });
 }
 
+
+function isStandaloneMode() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isMobileDevice() {
+  return window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
+}
+
+function updateInstallGuideVisibility() {
+  if (!el.installGuideBtn) return;
+  el.installGuideBtn.classList.toggle("hidden", isStandaloneMode());
+}
+
+function updateInstallGuideContent() {
+  const mobileIntro = document.getElementById("installGuideMobileIntro");
+  const mobileSteps = document.getElementById("installGuideMobileSteps");
+  const desktopMessage = document.getElementById("installGuideDesktopMessage");
+  if (!mobileIntro || !mobileSteps || !desktopMessage) return;
+
+  const isMobile = isMobileDevice();
+  mobileIntro.classList.toggle("hidden", !isMobile);
+  mobileSteps.classList.toggle("hidden", !isMobile);
+  desktopMessage.classList.toggle("hidden", isMobile);
+}
+
+function openInstallGuideFromInteraction(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const now = Date.now();
+  if (now - lastInstallGuideOpenAt < 350) return;
+  lastInstallGuideOpenAt = now;
+  openInstallGuide();
+}
+
 function openInstallGuide() {
   if (!el.installGuideModal) return;
-  el.installGuideModal.classList.remove("hidden");
-  requestAnimationFrame(() => {
-    el.installGuideModal.classList.remove("is-closing");
-    el.installGuideModal.classList.add("is-open");
-  });
+  updateInstallGuideContent();
+  el.installGuideModal.classList.remove("hidden", "is-closing");
+  void el.installGuideModal.offsetWidth;
+  el.installGuideModal.classList.add("is-open");
 }
 
 function closeInstallGuide() {
@@ -1265,7 +1302,8 @@ function initializeApp() {
     logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
-  bindEvent(el.installGuideBtn, "click", openInstallGuide, "installGuideBtn");
+  bindEvent(el.installGuideBtn, "click", openInstallGuideFromInteraction, "installGuideBtn");
+  bindEvent(el.installGuideBtn, "touchstart", openInstallGuideFromInteraction, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
   bindEvent(el.installGuideModal, "click", (event) => {
     if (event.target === el.installGuideModal) closeInstallGuide();
@@ -1313,6 +1351,15 @@ function initializeApp() {
       setOnlineFeedback("تعذّر نسخ الرابط. انسخه يدويًا.", "error");
     }
   }, "copyLinkBtn");
+
+  updateInstallGuideVisibility();
+  updateInstallGuideContent();
+  const displayModeMedia = window.matchMedia("(display-mode: standalone)");
+  if (typeof displayModeMedia.addEventListener === "function") {
+    displayModeMedia.addEventListener("change", updateInstallGuideVisibility);
+  } else if (typeof displayModeMedia.addListener === "function") {
+    displayModeMedia.addListener(updateInstallGuideVisibility);
+  }
 
   updateScoreboard();
   loadTeamNames();
