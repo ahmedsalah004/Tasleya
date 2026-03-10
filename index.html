@@ -21,7 +21,46 @@
       <div class="start-actions">
         <button id="startLocalBtn">لعب على جهاز واحد</button>
         <button id="startOnlineBtn">لعب على أجهزة مختلفة</button>
+        <button id="instructionsBtn">التعليمات</button>
         <button id="installGuideBtn">📱 ثبت تسلية كتطبيق</button>
+      </div>
+    </div>
+
+    <div id="instructionsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="instructionsTitle">
+      <div class="modal-content instructions-content">
+        <h2 id="instructionsTitle">تعليمات اللعبة</h2>
+
+        <div class="instructions-accordion" aria-label="أقسام تعليمات اللعبة">
+          <details class="instructions-section" open>
+            <summary>فكرة اللعبة</summary>
+            <p>تسلية هي لعبة أسئلة ثقافية بين فريقين أو أكثر.<br />اختر الفئات، أجب عن الأسئلة، واجمع أكبر عدد من النقاط للفوز.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>النقاط</summary>
+            <p>كل سؤال له قيمة نقاط مختلفة.<br />الأسئلة الأصعب تعطي نقاطًا أكثر.<br />الفريق الذي يجمع أكبر عدد من النقاط يفوز في نهاية اللعبة.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>نظام الأدوار</summary>
+            <p>اللعب يتم بالتناوب بين الفرق.<br />عندما يكون الدور لفريق معين، هو فقط من يمكنه التحكم في السؤال.<br />لا يمكن اختيار الإجابة الصحيحة أو الخاطئة قبل الضغط على "إظهار الإجابة".</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>الوسائل المساعدة</summary>
+            <p>بعض الأسئلة قد تحتوي على وسيلة مساعدة مثل "تلميح".<br />التلميح يعطي معلومات إضافية عن الإجابة مثل الحرف الأول.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>أنماط اللعب</summary>
+            <p><strong>لعب على جهاز واحد:</strong><br />هذا الوضع مخصص عندما يلعب جميع اللاعبين على نفس الجهاز.</p>
+            <p><strong>لعب على أجهزة مختلفة:</strong><br />الشخص الذي ينشئ الجلسة هو المسؤول عن اختيار الفئات.<br />بقية اللاعبين ينضمون إلى الجلسة وينتظرون بدء اللعب.<br />فقط الفريق الذي عليه الدور يمكنه التحكم في السؤال أثناء دوره.</p>
+          </details>
+        </div>
+
+        <div class="modal-actions">
+          <button id="closeInstructionsBtn" class="ghost-btn" type="button">إغلاق</button>
+        </div>
       </div>
     </div>
 

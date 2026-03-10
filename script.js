@@ -6,6 +6,7 @@ const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
+const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -70,6 +71,9 @@ function cacheElements() {
   gameScreen: document.getElementById("gameScreen"),
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
+  instructionsBtn: document.getElementById("instructionsBtn"),
+  instructionsModal: document.getElementById("instructionsModal"),
+  closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
   installGuideBtn: document.getElementById("installGuideBtn"),
   installGuideModal: document.getElementById("installGuideModal"),
   closeInstallGuideBtn: document.getElementById("closeInstallGuideBtn"),
@@ -1220,6 +1224,46 @@ function tryAutoJoinFromUrl() {
 }
 
 
+
+function openInstructionsModal() {
+  if (!el.instructionsModal) return;
+  el.instructionsModal.classList.remove("hidden", "is-closing");
+  void el.instructionsModal.offsetWidth;
+  el.instructionsModal.classList.add("is-open");
+  try {
+    localStorage.setItem(INSTRUCTIONS_SEEN_STORAGE_KEY, "1");
+  } catch (_) {
+    // Ignore storage errors silently.
+  }
+}
+
+function closeInstructionsModal() {
+  if (!el.instructionsModal || el.instructionsModal.classList.contains("hidden")) return;
+  if (prefersReducedMotion) {
+    el.instructionsModal.classList.add("hidden");
+    el.instructionsModal.classList.remove("is-open", "is-closing");
+    return;
+  }
+
+  el.instructionsModal.classList.remove("is-open");
+  el.instructionsModal.classList.add("is-closing");
+  const onEnd = () => {
+    el.instructionsModal.classList.add("hidden");
+    el.instructionsModal.classList.remove("is-closing");
+    el.instructionsModal.removeEventListener("animationend", onEnd, true);
+  };
+  el.instructionsModal.addEventListener("animationend", onEnd, true);
+}
+
+function maybeOpenInstructionsForFirstVisit() {
+  try {
+    if (localStorage.getItem(INSTRUCTIONS_SEEN_STORAGE_KEY)) return;
+  } catch (_) {
+    return;
+  }
+  openInstructionsModal();
+}
+
 function isStandaloneMode() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
@@ -1330,6 +1374,11 @@ function initializeApp() {
     logAnalyticsEvent("online_game_started", { mode: "multi_device" });
     enterGame("online");
   }, "startOnlineBtn");
+  bindEvent(el.instructionsBtn, "click", openInstructionsModal, "instructionsBtn");
+  bindEvent(el.closeInstructionsBtn, "click", closeInstructionsModal, "closeInstructionsBtn");
+  bindEvent(el.instructionsModal, "click", (event) => {
+    if (event.target === el.instructionsModal) closeInstructionsModal();
+  }, "instructionsModal");
   bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
@@ -1382,6 +1431,7 @@ function initializeApp() {
 
   updateInstallGuideVisibility();
   updateInstallGuideContent();
+  maybeOpenInstructionsForFirstVisit();
   const displayModeMedia = window.matchMedia("(display-mode: standalone)");
   if (typeof displayModeMedia.addEventListener === "function") {
     displayModeMedia.addEventListener("change", updateInstallGuideVisibility);

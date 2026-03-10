@@ -13,6 +13,7 @@
 
 #startLocalBtn,
 #startOnlineBtn,
+#instructionsBtn,
 #installGuideBtn {
   position: absolute;
   left: 49%;
@@ -42,6 +43,8 @@
 #startLocalBtn::after,
 #startOnlineBtn::before,
 #startOnlineBtn::after,
+#instructionsBtn::before,
+#instructionsBtn::after,
 #installGuideBtn::before,
 #installGuideBtn::after {
   pointer-events: none;
@@ -50,6 +53,7 @@
 @media (hover: hover) and (pointer: fine) {
   #startLocalBtn:hover,
   #startOnlineBtn:hover,
+  #instructionsBtn:hover,
   #installGuideBtn:hover {
     background: rgba(255, 215, 0, 0.15);
     transform: translate(-50%, -50%) scale(1.08);
@@ -80,6 +84,7 @@
 
   #startLocalBtn,
   #startOnlineBtn,
+  #instructionsBtn,
   #installGuideBtn {
     display: inline-flex;
     align-items: center;
@@ -106,11 +111,70 @@
   top: calc(56% + 88px);
 }
 
-#installGuideBtn {
+#instructionsBtn {
   left: 49%;
   top: calc(56% + 176px);
+}
+
+#installGuideBtn {
+  left: 49%;
+  top: calc(56% + 264px);
   font-size: clamp(16px, 1.2vw, 22px);
   padding: 12px 24px;
+}
+
+.instructions-content {
+  width: min(680px, 100%);
+}
+
+.instructions-accordion {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.instructions-section {
+  background: rgba(20, 36, 79, 0.62);
+  border: 1px solid rgba(93, 128, 220, 0.45);
+  border-radius: 12px;
+  padding: 0.2rem 0.75rem 0.75rem;
+}
+
+.instructions-section summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: clamp(1rem, 1.1vw, 1.15rem);
+  font-weight: 800;
+  padding: 0.8rem 1.9rem 0.6rem 0;
+  position: relative;
+}
+
+.instructions-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.instructions-section summary::after {
+  content: "▾";
+  position: absolute;
+  inset-inline-end: 0;
+  top: 0.78rem;
+  font-size: 1.05rem;
+  color: var(--accent);
+  transition: transform 0.2s ease;
+}
+
+.instructions-section[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.instructions-section p {
+  margin: 0.15rem 0 0;
+  line-height: 1.85;
+  color: #eef3ff;
+  font-size: clamp(0.98rem, 0.8vw + 0.78rem, 1.08rem);
+}
+
+.instructions-section p + p {
+  margin-top: 0.65rem;
 }
 
 .install-guide-content {
