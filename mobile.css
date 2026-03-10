@@ -111,6 +111,7 @@ main,
   align-items: center;
   justify-content: center;
   gap: 18px;
+  padding-top: clamp(2.25rem, 9vh, 4.5rem);
 }
 
 #installGuideBtn {
