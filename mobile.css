@@ -85,27 +85,14 @@ main,
   max-width: 92vw;
   margin-left: auto;
   margin-right: auto;
+  padding: 12px 18px;
+  font-size: 1.3rem;
+  letter-spacing: 0.8px;
   box-sizing: border-box;
   text-align: center;
   white-space: nowrap;
   transform: none !important;
   translate: none !important;
-}
-
-.start-primary-btn {
-  min-height: 58px;
-  padding: 12px 18px;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-}
-
-.start-secondary-btn {
-  min-height: 40px;
-  padding: 8px 14px;
-  font-size: 1.08rem;
-  font-weight: 600;
-  letter-spacing: 0.45px;
 }
 
 #startLocalBtn:hover,
@@ -140,6 +127,8 @@ main,
 
 #installGuideBtn {
   top: calc(56% + 206px);
+  padding: 12px 20px;
+  font-size: clamp(16px, 4.2vw, 20px);
 }
 
 .board-wrap {
