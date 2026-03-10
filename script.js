@@ -18,6 +18,37 @@ let questionTimeoutToken = null;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
+const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
+const CATEGORY_DISPLAY_GROUPS = [
+  {
+    name: "علوم إسلامية",
+    categories: ["القرآن الكريم", "أحاديث", "السيرة النبوية", "تاريخ اسلامي"],
+  },
+  {
+    name: "جغرافيا",
+    categories: ["ما هي الدولة بالعلم", "ما هي الدولة بالخريطة", "عواصم", "لون العلم"],
+  },
+  {
+    name: "الدول",
+    categories: ["مصر", "المغرب", "السعودية", "الكويت", "فلسطين"],
+  },
+  {
+    name: "رياضة",
+    categories: ["رياضة", "كرة قدم", "UFC", "مسيرة لاعب"],
+  },
+  {
+    name: "ثقافة وفن",
+    categories: ["فن عربي", "من هو المشهور (جزء من وجه)", "خمن القائل من الصوت"],
+  },
+  {
+    name: "معلومات عامة",
+    categories: ["معلومات عامة", "رتب التالي", "أكمل المثل"],
+  },
+  {
+    name: "مدن",
+    categories: ["الإسكندرية"],
+  },
+];
 
 let el = {};
 
@@ -731,18 +762,46 @@ function updateCategoryPickerUI() {
 }
 function renderCategoryOptions() {
   el.categoryList.innerHTML = "";
-  state.allCategories.forEach((category) => {
-    const label = document.createElement("label"); label.className = "category-option";
-    const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
-      else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
-      updateCategoryPickerUI();
+  const groupedCategories = getGroupedCategoryDisplay(state.allCategories);
+  groupedCategories.forEach(({ groupName, categories }) => {
+    if (!categories.length) return;
+    const header = document.createElement("h3");
+    header.className = "category-group-title";
+    header.textContent = groupName;
+    el.categoryList.appendChild(header);
+
+    categories.forEach((category) => {
+      const label = document.createElement("label"); label.className = "category-option";
+      const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
+        else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
+        updateCategoryPickerUI();
+      });
+      const span = document.createElement("span"); span.textContent = category;
+      label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
     });
-    const span = document.createElement("span"); span.textContent = category;
-    label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
   });
   updateCategoryPickerUI();
+}
+
+function getGroupedCategoryDisplay(categories) {
+  const grouped = CATEGORY_DISPLAY_GROUPS.map((group) => ({ groupName: group.name, categories: [] }));
+  const indexByName = new Map(CATEGORY_DISPLAY_GROUPS.map((group, index) => [group.name, index]));
+  const categoryToGroup = new Map();
+
+  CATEGORY_DISPLAY_GROUPS.forEach((group) => {
+    group.categories.forEach((category) => categoryToGroup.set(category, group.name));
+  });
+
+  categories.forEach((category) => {
+    const targetGroupName = categoryToGroup.get(category) || DEFAULT_CATEGORY_GROUP;
+    const groupIndex = indexByName.get(targetGroupName);
+    if (groupIndex === undefined) return;
+    grouped[groupIndex].categories.push(category);
+  });
+
+  return grouped;
 }
 function openCategoryPicker() {
   state.selectedCategories = [];
