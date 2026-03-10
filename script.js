@@ -1,6 +1,6 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const TEAM_BOARD_CONFIG = { 2: 6, 3: 6, 4: 8, 5: 10, 6: 12 };
+const CATEGORIES_TO_SELECT = 6;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const USED_STORAGE_KEY = "tasleya_used_v1";
@@ -10,8 +10,8 @@ const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-let mcqHelpUsed = {};
-let hintHelpUsed = {};
+let mcqHelpUsed = { 1: false, 2: false };
+let hintHelpUsed = { 1: false, 2: false };
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
@@ -25,7 +25,16 @@ function cacheElements() {
   el = {
   board: document.getElementById("board"),
   errorBanner: document.getElementById("errorBanner"),
-  teamsContainer: document.getElementById("teamsContainer"),
+  team1Score: document.getElementById("team1Score"),
+  team2Score: document.getElementById("team2Score"),
+  team1Card: document.getElementById("team1Card"),
+  team2Card: document.getElementById("team2Card"),
+  team1NameInput: document.getElementById("team1NameInput"),
+  team2NameInput: document.getElementById("team2NameInput"),
+  team1PlusBtn: document.getElementById("team1PlusBtn"),
+  team1MinusBtn: document.getElementById("team1MinusBtn"),
+  team2PlusBtn: document.getElementById("team2PlusBtn"),
+  team2MinusBtn: document.getElementById("team2MinusBtn"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
   modal: document.getElementById("questionModal"),
@@ -46,10 +55,9 @@ function cacheElements() {
   hintText: document.getElementById("hintText"),
   questionStatus: document.getElementById("questionStatus"),
   categoryModal: document.getElementById("categoryModal"),
-  categoryModalTitle: document.getElementById("categoryModalTitle"),
   categoryList: document.getElementById("categoryList"),
-  teamCountPicker: document.getElementById("teamCountPicker"),
-  categoryTeamInputs: document.getElementById("categoryTeamInputs"),
+  categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
+  categoryTeam2NameInput: document.getElementById("categoryTeam2NameInput"),
   categoryCounter: document.getElementById("categoryCounter"),
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
@@ -98,13 +106,12 @@ const state = {
   pointLevels: [],
   assignedQuestionIds: new Set(),
   dataLoadFailed: false,
-  teamCount: 2,
-  scores: {},
-  teamNames: {},
+  scores: { 1: 0, 2: 0 },
+  teamNames: { 1: "الفريق الأول", 2: "الفريق الثاني" },
   currentTeam: 1,
   activeTile: null,
   usedHistory: {},
-  displayedScores: {},
+  displayedScores: { 1: 0, 2: 0 },
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
@@ -178,26 +185,6 @@ const analyticsState = {
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
-
-function getCategoriesToSelect() { return TEAM_BOARD_CONFIG[state.teamCount] || 6; }
-function initTeamState(teamCount = 2) {
-  state.teamCount = Math.min(6, Math.max(2, Number(teamCount) || 2));
-  const names = {};
-  const scores = {};
-  const displayed = {};
-  for (let i = 1; i <= state.teamCount; i += 1) {
-    names[i] = state.teamNames[i] || `الفريق ${i}`;
-    scores[i] = Number(state.scores[i] || 0);
-    displayed[i] = Number(state.displayedScores[i] || 0);
-  }
-  state.teamNames = names;
-  state.scores = scores;
-  state.displayedScores = displayed;
-  mcqHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, !!mcqHelpUsed[idx + 1]]));
-  hintHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, !!hintHelpUsed[idx + 1]]));
-  if (state.currentTeam > state.teamCount) state.currentTeam = 1;
-}
-
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
 
@@ -264,7 +251,7 @@ function handleQuestionTimeout() {
   showQuestionStatus("انتهى الوقت");
   resolveActiveQuestion({
     timedOut: true,
-    nextTeam: (state.currentTeam % state.teamCount) + 1,
+    nextTeam: state.currentTeam === 1 ? 2 : 1,
   });
 }
 function startTimer() {
@@ -352,21 +339,16 @@ function loadUsedHistory() {
 }
 function saveUsedHistory() { localStorage.setItem(USED_STORAGE_KEY, JSON.stringify(state.usedHistory)); }
 function loadTeamNames() {
-  state.teamNames = {};
+  state.teamNames = { 1: "الفريق الأول", 2: "الفريق الثاني" };
   try {
     const raw = localStorage.getItem(TEAM_NAMES_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      for (let i = 1; i <= 6; i += 1) {
-        const name = normalizeCell(parsed?.[i] ?? parsed?.[`team${i}`]);
-        if (name) state.teamNames[i] = name;
-      }
-    }
-  } catch {}
-  for (let i = 1; i <= 6; i += 1) {
-    if (!state.teamNames[i]) state.teamNames[i] = `الفريق ${i}`;
-  }
-  saveTeamNames();
+    if (!raw) { saveTeamNames(); return; }
+    const parsed = JSON.parse(raw);
+    const team1 = normalizeCell(parsed?.[1] ?? parsed?.team1);
+    const team2 = normalizeCell(parsed?.[2] ?? parsed?.team2);
+    if (team1) state.teamNames[1] = team1;
+    if (team2) state.teamNames[2] = team2;
+  } catch { saveTeamNames(); }
 }
 function saveTeamNames() { localStorage.setItem(TEAM_NAMES_STORAGE_KEY, JSON.stringify(state.teamNames)); }
 
@@ -420,34 +402,8 @@ function buildBoardAssignment() {
   state.boardTiles = tiles;
 }
 
-function renderTeamCards() {
-  if (!el.teamsContainer) return;
-  el.teamsContainer.innerHTML = "";
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    const card = document.createElement('div');
-    card.className = 'team-card';
-    card.id = `team${team}Card`;
-    card.innerHTML = `<label for="team${team}NameInput" class="team-name-label">اسم الفريق ${team}</label>
-      <input id="team${team}NameInput" class="team-name-input" type="text" maxlength="30" />
-      <p class="score" id="team${team}Score">0</p>
-      <div class="score-adjustments" aria-label="تعديل نقاط الفريق ${team}">
-        <button id="team${team}PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-        <button id="team${team}MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-      </div>`;
-    el.teamsContainer.appendChild(card);
-    const nameInput = card.querySelector(`#team${team}NameInput`);
-    const plusBtn = card.querySelector(`#team${team}PlusBtn`);
-    const minusBtn = card.querySelector(`#team${team}MinusBtn`);
-    bindEvent(nameInput, 'input', () => setTeamName(team, nameInput.value), `team${team}NameInput`);
-    bindEvent(nameInput, 'blur', () => setTeamName(team, nameInput.value, { commit: true }), `team${team}NameInput`);
-    bindEvent(plusBtn, 'click', () => { if (online.mode !== 'online') { state.scores[team] = Math.max(0, (state.scores[team] || 0) + 100); updateScoreboard(); } }, `team${team}PlusBtn`);
-    bindEvent(minusBtn, 'click', () => { if (online.mode !== 'online') { state.scores[team] = Math.max(0, (state.scores[team] || 0) - 100); updateScoreboard(); } }, `team${team}MinusBtn`);
-  }
-}
-
 function animateScoreValue(team, target) {
-  const scoreEl = document.getElementById(`team${team}Score`);
-  if (!scoreEl) return;
+  const scoreEl = team === 1 ? el.team1Score : el.team2Score;
   const start = Number(state.displayedScores[team] ?? 0);
   if (prefersReducedMotion || start === target) { state.displayedScores[team] = target; scoreEl.textContent = String(target); return; }
   const duration = 420; const startAt = performance.now();
@@ -457,57 +413,34 @@ function animateScoreValue(team, target) {
     const value = Math.round(start + (target - start) * eased);
     scoreEl.textContent = String(value);
     if (progress < 1) requestAnimationFrame(step);
-    else { state.displayedScores[team] = target; scoreEl.classList.remove('score-pop'); void scoreEl.offsetWidth; scoreEl.classList.add('score-pop'); }
+    else { state.displayedScores[team] = target; scoreEl.classList.remove("score-pop"); void scoreEl.offsetWidth; scoreEl.classList.add("score-pop"); }
   }
   requestAnimationFrame(step);
 }
 function updateScoreboard() {
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    animateScoreValue(team, state.scores[team] || 0);
-    const card = document.getElementById(`team${team}Card`);
-    if (card) card.classList.toggle('active', state.currentTeam === team);
-  }
-  el.currentTurn.textContent = state.teamNames[state.currentTeam] || `الفريق ${state.currentTeam}`;
+  animateScoreValue(1, state.scores[1]);
+  animateScoreValue(2, state.scores[2]);
+  el.currentTurn.textContent = state.teamNames[state.currentTeam];
+  el.team1Card.classList.toggle("active", state.currentTeam === 1);
+  el.team2Card.classList.toggle("active", state.currentTeam === 2);
 }
 function syncTeamNameInputs() {
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    const input = document.getElementById(`team${team}NameInput`);
-    if (input) input.value = state.teamNames[team] || `الفريق ${team}`;
-  }
-  renderCategoryTeamInputs();
+  el.team1NameInput.value = state.teamNames[1];
+  el.team2NameInput.value = state.teamNames[2];
+  el.categoryTeam1NameInput.value = state.teamNames[1];
+  el.categoryTeam2NameInput.value = state.teamNames[2];
 }
 function setTeamName(team, value, { commit = false } = {}) {
-  const fallback = `الفريق ${team}`;
-  state.teamNames[team] = commit ? normalizeCell(value) || fallback : String(value ?? '');
+  const fallback = team === 1 ? "الفريق الأول" : "الفريق الثاني";
+  state.teamNames[team] = commit ? normalizeCell(value) || fallback : String(value ?? "");
   if (commit) syncTeamNameInputs();
   saveTeamNames();
   updateScoreboard();
-  if (online.mode === 'online' && !online.applyingRemote) pushOnlineState();
-}
-function renderCategoryTeamInputs() {
-  if (!el.categoryTeamInputs) return;
-  el.categoryTeamInputs.innerHTML = '';
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    const label = document.createElement('label');
-    label.className = 'team-name-label';
-    label.setAttribute('for', `categoryTeam${team}NameInput`);
-    label.textContent = `اسم الفريق ${team}`;
-    const input = document.createElement('input');
-    input.id = `categoryTeam${team}NameInput`;
-    input.className = 'team-name-input';
-    input.type = 'text';
-    input.maxLength = 30;
-    input.placeholder = `الفريق ${team}`;
-    input.value = state.teamNames[team] || `الفريق ${team}`;
-    el.categoryTeamInputs.append(label, input);
-  }
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    const input = document.getElementById(`categoryTeam${team}NameInput`);
-    if (!input) continue;
-    setTeamName(team, input.value, { commit: true });
-  }
+  setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
+  setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
 }
 
 function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question); }
@@ -516,13 +449,19 @@ function buildPodiumColumn(name, score, label, placeClass) {
   return `<div class="podium-column ${placeClass}"><p class="podium-label">${label}</p><p class="podium-team-name">${name}</p><p class="podium-score">${score}</p><div class="podium-step"></div></div>`;
 }
 function showPodiumModal() {
-  const ranking = Array.from({ length: state.teamCount }, (_, idx) => idx + 1)
-    .sort((a, b) => (state.scores[b] || 0) - (state.scores[a] || 0));
-  el.podiumTitle.textContent = "نهاية اللعبة";
-  el.podiumSubtitle.textContent = "النتائج النهائية";
-  el.podiumBoard.innerHTML = ranking
-    .map((team, idx) => buildPodiumColumn(state.teamNames[team], state.scores[team] || 0, `المركز ${idx + 1}`, idx === 0 ? "winner" : "loser"))
-    .join("");
+  const score1 = state.scores[1], score2 = state.scores[2], team1 = state.teamNames[1], team2 = state.teamNames[2];
+  if (score1 === score2) {
+    el.podiumTitle.textContent = "تعادل!";
+    el.podiumSubtitle.textContent = "منافسة قوية.. استمروا";
+    el.podiumBoard.innerHTML = buildPodiumColumn(team1, score1, "نتيجة الفريق", "tie") + buildPodiumColumn(team2, score2, "نتيجة الفريق", "tie");
+  } else {
+    const winnerTeam = score1 > score2 ? 1 : 2; const loserTeam = winnerTeam === 1 ? 2 : 1;
+    el.podiumTitle.textContent = "نهاية اللعبة";
+    el.podiumSubtitle.textContent = "النتائج النهائية";
+    el.podiumBoard.innerHTML =
+      buildPodiumColumn(state.teamNames[winnerTeam], state.scores[winnerTeam], "سعادة الباشا", "winner") +
+      buildPodiumColumn(state.teamNames[loserTeam], state.scores[loserTeam], "إشتغل علي نفسك", "loser");
+  }
   el.podiumModal.classList.remove("hidden");
   requestAnimationFrame(() => el.podiumModal.classList.add("is-open"));
 }
@@ -530,7 +469,8 @@ function checkEndOfGame() {
   if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
     logAnalyticsEvent("game_finished", {
       mode: online.mode,
-      teams: state.teamCount,
+      team1_score: state.scores[1],
+      team2_score: state.scores[2],
     });
     showPodiumModal();
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
@@ -538,8 +478,7 @@ function checkEndOfGame() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed || state.selectedCategories.length !== getCategoriesToSelect() || state.pointLevels.length === 0) { el.board.innerHTML = "";
-  el.board.style.setProperty("--board-columns", String(state.selectedCategories.length)); return; }
+  if (state.dataLoadFailed || state.selectedCategories.length !== CATEGORIES_TO_SELECT || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
   el.board.innerHTML = "";
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div"); header.className = "board-cell category"; header.textContent = category; el.board.appendChild(header);
@@ -653,11 +592,11 @@ function resetGameState() {
   state.boardTiles = [];
   state.pointLevels = [...POINT_LEVELS];
   state.assignedQuestionIds = new Set();
+  state.scores = { 1: 0, 2: 0 };
+  state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  initTeamState(state.teamCount);
-  Object.keys(state.scores).forEach((k) => { state.scores[k] = 0; state.displayedScores[k] = 0; });
-  mcqHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, false]));
-  hintHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, false]));
+  mcqHelpUsed = { 1: false, 2: false };
+  hintHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
@@ -734,13 +673,13 @@ function applyScore(isCorrect) {
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
   resolveActiveQuestion({
     scoreDelta,
-    nextTeam: (state.currentTeam % state.teamCount) + 1,
+    nextTeam: state.currentTeam === 1 ? 2 : 1,
   });
 }
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (!state.answerRevealed) return;
-  const otherTeam = (state.currentTeam % state.teamCount) + 1;
+  const otherTeam = state.currentTeam === 1 ? 2 : 1;
   resolveActiveQuestion({
     preventTimeoutAction: true,
     scoreDelta: { [otherTeam]: state.activeTile?.points ?? 0 },
@@ -756,7 +695,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   if (scoreDelta && typeof scoreDelta === "object") {
     Object.entries(scoreDelta).forEach(([team, points]) => {
       const teamNumber = Number(team);
-      if (teamNumber < 1 || teamNumber > state.teamCount) return;
+      if (teamNumber !== 1 && teamNumber !== 2) return;
       const safePoints = Number(points) || 0;
       state.scores[teamNumber] += safePoints;
     });
@@ -766,9 +705,10 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
     tile.timedOut = true;
   }
   tile.used = true;
-  for (let team = 1; team <= state.teamCount; team += 1) state.scores[team] = Math.max(0, state.scores[team] || 0);
+  state.scores[1] = Math.max(0, state.scores[1]);
+  state.scores[2] = Math.max(0, state.scores[2]);
 
-  if (nextTeam >= 1 && nextTeam <= state.teamCount) {
+  if (nextTeam === 1 || nextTeam === 2) {
     state.currentTeam = nextTeam;
   }
 
@@ -781,9 +721,9 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 }
 
 function updateCategoryPickerUI() {
-  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${getCategoriesToSelect()}`;
-  el.startGameBtn.disabled = state.selectedCategories.length !== getCategoriesToSelect();
-  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= getCategoriesToSelect();
+  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${CATEGORIES_TO_SELECT}`;
+  el.startGameBtn.disabled = state.selectedCategories.length !== CATEGORIES_TO_SELECT;
+  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= CATEGORIES_TO_SELECT;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = !checkbox.checked && reachedMax;
@@ -795,7 +735,7 @@ function renderCategoryOptions() {
     const label = document.createElement("label"); label.className = "category-option";
     const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) { if (state.selectedCategories.length < getCategoriesToSelect()) state.selectedCategories.push(category); }
+      if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
       else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
       updateCategoryPickerUI();
     });
@@ -806,18 +746,19 @@ function renderCategoryOptions() {
 }
 function openCategoryPicker() {
   state.selectedCategories = [];
-  el.categoryModalTitle.textContent = `اختر ${getCategoriesToSelect()} فئات لبدء اللعبة`;
-  renderCategoryTeamInputs();
+  el.categoryTeam1NameInput.value = state.teamNames[1];
+  el.categoryTeam2NameInput.value = state.teamNames[2];
   renderCategoryOptions();
-  const hostOnly = online.mode === "online" && online.role !== "host";
-  el.startGameBtn.disabled = hostOnly;
-  el.randomCategoriesBtn.disabled = hostOnly;
-  el.teamCountPicker.querySelectorAll(".team-count-btn").forEach((btn) => {
-    const selected = Number(btn.dataset.teamCount) === state.teamCount;
-    btn.classList.toggle("active", selected);
-    btn.disabled = hostOnly;
-  });
-  el.categoryTeamInputs.querySelectorAll("input").forEach((input) => { input.disabled = hostOnly; });
+  if (online.mode === "online" && online.role !== "host") {
+    el.startGameBtn.disabled = true;
+    el.randomCategoriesBtn.disabled = true;
+    el.categoryTeam1NameInput.disabled = true;
+    el.categoryTeam2NameInput.disabled = true;
+  } else {
+    el.randomCategoriesBtn.disabled = false;
+    el.categoryTeam1NameInput.disabled = false;
+    el.categoryTeam2NameInput.disabled = false;
+  }
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
 }
@@ -828,11 +769,10 @@ function closeCategoryPicker() {
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
-function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, getCategoriesToSelect()); updateCategoryPickerUI(); }
+function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); }
 
 function serializeGameState() {
   return {
-    teamCount: state.teamCount,
     selectedCategories: state.selectedCategories,
     pointLevels: state.pointLevels,
     boardTiles: state.boardTiles,
@@ -855,14 +795,12 @@ function applyRemoteGameState(game) {
   if (!game) return;
   online.applyingRemote = true;
   try {
-    initTeamState(Number(game.teamCount) || state.teamCount || 2);
-    renderTeamCards();
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
     state.pointLevels = Array.isArray(game.pointLevels) ? [...game.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = Array.isArray(game.boardTiles) ? [...game.boardTiles] : [];
     state.scores = game.scores || { 1: 0, 2: 0 };
     state.teamNames = game.teamNames || { 1: "الفريق الأول", 2: "الفريق الثاني" };
-    state.currentTeam = Math.min(state.teamCount, Math.max(1, Number(game.currentTeam) || 1));
+    state.currentTeam = Number(game.currentTeam) === 2 ? 2 : 1;
     mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false };
     hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false };
     state.answerRevealed = !!game.answerRevealed;
@@ -1173,16 +1111,13 @@ function pushOnlineState() {
 function updateOnlineActionPermissions() {
   const locked = online.mode === "online";
   const hostOnly = locked && online.role !== "host";
-  for (let team = 1; team <= state.teamCount; team += 1) {
-    const plus = document.getElementById(`team${team}PlusBtn`);
-    const minus = document.getElementById(`team${team}MinusBtn`);
-    const input = document.getElementById(`team${team}NameInput`);
-    if (plus) plus.disabled = locked;
-    if (minus) minus.disabled = locked;
-    if (input) input.disabled = hostOnly;
-  }
+  el.team1PlusBtn.disabled = locked;
+  el.team1MinusBtn.disabled = locked;
+  el.team2PlusBtn.disabled = locked;
+  el.team2MinusBtn.disabled = locked;
+  el.team1NameInput.disabled = hostOnly;
+  el.team2NameInput.disabled = hostOnly;
 }
-
 
 function resetOnlineMode() {
   disconnectOnlineListeners();
@@ -1214,15 +1149,15 @@ function closeOnlineModal() {
 }
 
 async function startGameFromSelection() {
-  if (state.selectedCategories.length !== getCategoriesToSelect()) return;
+  if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) return;
   if (online.mode === "online" && online.role !== "host") return;
   setTeamNamesFromCategoryModal();
   closeCategoryPicker();
+  state.scores = { 1: 0, 2: 0 };
+  state.displayedScores = { 1: 0, 2: 0 };
   state.currentTeam = 1;
-  initTeamState(state.teamCount);
-  Object.keys(state.scores).forEach((k) => { state.scores[k] = 0; state.displayedScores[k] = 0; });
-  mcqHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, false]));
-  hintHelpUsed = Object.fromEntries(Array.from({ length: state.teamCount }, (_, idx) => [idx + 1, false]));
+  mcqHelpUsed = { 1: false, 2: false };
+  hintHelpUsed = { 1: false, 2: false };
   state.activeTile = null;
   state.answerRevealed = false;
   state.currentChoices = [];
@@ -1247,7 +1182,7 @@ async function startNewGame() {
     state.allQuestions = await fetchQuestions();
     if (state.allQuestions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
     state.allCategories = getUniqueCategories(state.allQuestions);
-    if (state.allCategories.length < getCategoriesToSelect()) throw new Error(`يلزم وجود ${getCategoriesToSelect()} فئات مختلفة على الأقل في ملف CSV.`);
+    if (state.allCategories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
     state.pointLevels = [...POINT_LEVELS];
     state.usedHistory = loadUsedHistory();
     state.boardTiles = [];
@@ -1410,22 +1345,21 @@ function initializeApp() {
   bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
   bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");
   bindEvent(el.randomCategoriesBtn, "click", pickRandomCategories, "randomCategoriesBtn");
-  el.teamCountPicker?.querySelectorAll(".team-count-btn").forEach((btn) => {
-    bindEvent(btn, "click", () => {
-      if (online.mode === "online" && online.role !== "host") return;
-      initTeamState(Number(btn.dataset.teamCount));
-      renderTeamCards();
-      syncTeamNameInputs();
-      updateOnlineActionPermissions();
-      openCategoryPicker();
-    }, `teamCountBtn-${btn.dataset.teamCount}`);
-  });
   bindEvent(el.cancelCategoryBtn, "click", closeCategoryPicker, "cancelCategoryBtn");
   bindEvent(el.podiumNewGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
   }, "podiumNewGameBtn");
 
+  bindEvent(el.team1NameInput, "input", () => setTeamName(1, el.team1NameInput.value), "team1NameInput");
+  bindEvent(el.team2NameInput, "input", () => setTeamName(2, el.team2NameInput.value), "team2NameInput");
+  bindEvent(el.team1NameInput, "blur", () => setTeamName(1, el.team1NameInput.value, { commit: true }), "team1NameInput");
+  bindEvent(el.team2NameInput, "blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }), "team2NameInput");
+
+  bindEvent(el.team1PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] + 100); updateScoreboard(); } }, "team1PlusBtn");
+  bindEvent(el.team1MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] - 100); updateScoreboard(); } }, "team1MinusBtn");
+  bindEvent(el.team2PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] + 100); updateScoreboard(); } }, "team2PlusBtn");
+  bindEvent(el.team2MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] - 100); updateScoreboard(); } }, "team2MinusBtn");
 
   bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
@@ -1505,11 +1439,9 @@ function initializeApp() {
     displayModeMedia.addListener(updateInstallGuideVisibility);
   }
 
-  loadTeamNames();
-  initTeamState(2);
-  renderTeamCards();
-  syncTeamNameInputs();
   updateScoreboard();
+  loadTeamNames();
+  syncTeamNameInputs();
   updateOnlineActionPermissions();
 
   initAnalytics();

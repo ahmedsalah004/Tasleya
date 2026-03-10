@@ -255,5 +255,3 @@ main,
 .online-code-box .secondary-btn {
   width: 100%;
 }
-
-.team-count-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
