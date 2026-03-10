@@ -586,7 +586,7 @@ button:disabled {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(var(--board-columns, 6), minmax(var(--board-col-width), 1fr));
+  grid-template-columns: repeat(6, minmax(var(--board-col-width), 1fr));
   gap: clamp(0.42rem, 0.8vw, 0.6rem);
   grid-auto-rows: minmax(96px, auto);
   min-width: fit-content;
@@ -830,33 +830,6 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
-}
-
-
-#teamsContainer {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.team-count-picker {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.6rem;
-}
-
-.team-count-btn {
-  border: 1px solid rgba(112, 140, 220, 0.6);
-  background: rgba(12, 20, 48, 0.62);
-  color: var(--text);
-  border-radius: 10px;
-  padding: 0.45rem;
-  font-weight: 800;
-}
-
-.team-count-btn.active {
-  border-color: rgba(255, 209, 102, 0.8);
-  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.22);
 }
 
 .category-modal-content {
