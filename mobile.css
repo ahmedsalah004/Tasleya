@@ -255,3 +255,8 @@ main,
 .online-code-box .secondary-btn {
   width: 100%;
 }
+
+
+.local-team-count-actions {
+  grid-template-columns: 1fr;
+}

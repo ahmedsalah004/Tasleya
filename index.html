@@ -118,6 +118,16 @@
           </div>
         </div>
 
+        <div class="team-card hidden" id="team3Card">
+          <label for="team3NameInput" class="team-name-label">اسم الفريق 3</label>
+          <input id="team3NameInput" class="team-name-input" type="text" value="الفريق الثالث" maxlength="30" />
+          <p class="score" id="team3Score">0</p>
+          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثالث">
+            <button id="team3PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
+            <button id="team3MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
+          </div>
+        </div>
+
         <div class="status-card">
           <p>الدور الحالي:</p>
           <p id="currentTurn">الفريق الأول</p>
@@ -190,6 +200,15 @@
             maxlength="30"
             placeholder="الفريق الثاني"
           />
+
+          <label for="categoryTeam3NameInput" id="categoryTeam3NameLabel" class="team-name-label hidden">اسم الفريق الثالث</label>
+          <input
+            id="categoryTeam3NameInput"
+            class="team-name-input hidden"
+            type="text"
+            maxlength="30"
+            placeholder="الفريق الثالث"
+          />
         </div>
         <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
         <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
@@ -242,6 +261,19 @@
 
         <div class="modal-actions">
           <button id="cancelOnlineBtn" class="ghost-btn" type="button">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="localTeamsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="localTeamsModalTitle">
+      <div class="modal-content local-teams-modal-content">
+        <h2 id="localTeamsModalTitle">كم عدد الفرق؟</h2>
+        <div class="local-team-count-actions">
+          <button id="localTwoTeamsBtn" class="primary-btn" type="button">2</button>
+          <button id="localThreeTeamsBtn" class="secondary-btn" type="button">3</button>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelLocalTeamsBtn" class="ghost-btn" type="button">إلغاء</button>
         </div>
       </div>
     </div>
