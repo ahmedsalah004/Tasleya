@@ -126,6 +126,16 @@ const online = {
 };
 
 
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+      console.warn("[Tasleya] Service worker registration failed", error);
+    });
+  });
+}
+
 const analyticsState = {
   supported: false,
   analytics: null,
@@ -1217,6 +1227,7 @@ function initializeApp() {
   logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
 
   tryAutoJoinFromUrl();
+  registerServiceWorker();
 }
 
 if (document.readyState === "loading") {
