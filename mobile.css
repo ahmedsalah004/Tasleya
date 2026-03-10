@@ -4,6 +4,8 @@ body {
 }
 
 
+
+
 button,
 #startLocalBtn,
 #startOnlineBtn,
@@ -95,6 +97,21 @@ main,
   translate: none !important;
 }
 
+#startLocalBtn,
+#startOnlineBtn {
+  min-height: 68px;
+}
+
+#instructionsBtn,
+#installGuideBtn {
+  width: 74%;
+  max-width: 74%;
+  min-width: 0;
+  padding: 7px 14px;
+  font-size: clamp(0.96rem, 3.5vw, 1.02rem);
+  min-height: 46px;
+}
+
 #startLocalBtn:hover,
 #startLocalBtn:focus,
 #startLocalBtn:active,
@@ -116,9 +133,9 @@ main,
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 18px;
-  padding-top: clamp(2.25rem, 9vh, 4.5rem);
+  padding-top: clamp(8.2rem, 18vh, 11rem);
 }
 
 #instructionsBtn {
@@ -127,8 +144,6 @@ main,
 
 #installGuideBtn {
   top: calc(56% + 206px);
-  padding: 12px 20px;
-  font-size: clamp(16px, 4.2vw, 20px);
 }
 
 .board-wrap {

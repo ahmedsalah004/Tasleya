@@ -11,13 +11,14 @@
   align-items: center;
 }
 
+
 #startLocalBtn,
 #startOnlineBtn,
 #instructionsBtn,
 #installGuideBtn {
   position: absolute;
   left: 49%;
-  top: 56%;
+  top: 59%;
   transform: translate(-50%, -50%);
   transform-origin: center;
   will-change: transform;
@@ -108,19 +109,26 @@
 
 #startOnlineBtn {
   left: 49%;
-  top: calc(56% + 88px);
+  top: calc(59% + 88px);
 }
 
 #instructionsBtn {
   left: 49%;
-  top: calc(56% + 176px);
+  top: calc(59% + 176px);
 }
 
 #installGuideBtn {
   left: 49%;
-  top: calc(56% + 264px);
-  font-size: clamp(16px, 1.2vw, 22px);
-  padding: 12px 24px;
+  top: calc(59% + 264px);
+}
+
+#instructionsBtn,
+#installGuideBtn {
+  width: 74%;
+  min-width: 250px;
+  min-height: 50px;
+  padding: 9px 20px;
+  font-size: clamp(16px, 1.05vw, 19px);
 }
 
 .instructions-content {
