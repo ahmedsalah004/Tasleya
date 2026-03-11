@@ -982,6 +982,13 @@ button:disabled {
   font-weight: 700;
 }
 
+.category-host-note {
+  margin: 0.35rem 0 0;
+  color: #ffd67d;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
 .category-list {
   display: grid;
   gap: 0.5rem;

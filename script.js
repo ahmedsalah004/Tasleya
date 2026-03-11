@@ -9,6 +9,7 @@ const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
+const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let mcqHelpUsed = { 1: false, 2: false, 3: false };
@@ -102,6 +103,7 @@ function cacheElements() {
   categoryTeam3NameInput: document.getElementById("categoryTeam3NameInput"),
   categoryTeam3NameLabel: document.getElementById("categoryTeam3NameLabel"),
   categoryCounter: document.getElementById("categoryCounter"),
+  categoryHostOnlyNote: document.getElementById("categoryHostOnlyNote"),
   startGameBtn: document.getElementById("startGameBtn"),
   randomCategoriesBtn: document.getElementById("randomCategoriesBtn"),
   cancelCategoryBtn: document.getElementById("cancelCategoryBtn"),
@@ -925,8 +927,12 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 }
 
 function updateCategoryPickerUI() {
+  const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
   el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${CATEGORIES_TO_SELECT}`;
-  el.startGameBtn.disabled = state.selectedCategories.length !== CATEGORIES_TO_SELECT;
+  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== CATEGORIES_TO_SELECT;
+  if (el.categoryHostOnlyNote) {
+    el.categoryHostOnlyNote.classList.toggle("hidden", !hostOnlyBlocked);
+  }
   const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= CATEGORIES_TO_SELECT;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
@@ -1133,6 +1139,10 @@ function applyRemoteGameState(game) {
 
 function setOnlineStatus(text) { el.onlineStatusText.textContent = text; }
 function updateRoomCodeTag() { el.onlineRoomCodeText.textContent = online.roomCode ? `الغرفة: ${online.roomCode}` : ""; }
+function showHostOnlyStartMessage() {
+  showError(HOST_ONLY_START_MESSAGE);
+  setOnlineFeedback(HOST_ONLY_START_MESSAGE, "info");
+}
 function setOnlineFeedback(message = "", type = "error") {
   if (!el.onlineFeedback) return;
   el.onlineFeedback.textContent = message;
@@ -1510,7 +1520,10 @@ function closeOnlineModal() {
 
 async function startGameFromSelection() {
   if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) return;
-  if (online.mode === "online" && online.role !== "host") return;
+  if (online.mode === "online" && online.role !== "host") {
+    showHostOnlyStartMessage();
+    return;
+  }
   setTeamNamesFromCategoryModal();
   closeCategoryPicker();
   state.scores = { 1: 0, 2: 0, 3: 0 };
@@ -1802,6 +1815,10 @@ function initializeApp() {
     closeOnlineModal();
   }, "cancelOnlineBtn");
   bindEvent(el.startOnlineGameBtn, "click", async () => {
+    if (online.mode === "online" && online.role !== "host") {
+      showHostOnlyStartMessage();
+      return;
+    }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
       await online.roomRef.update({
         teamCount: normalizeTeamCount(state.teamCount),
