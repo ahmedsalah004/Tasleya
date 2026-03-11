@@ -25,14 +25,14 @@
   font-size: clamp(2.5rem, 7.4vw, 5.8rem);
   line-height: 1.05;
   letter-spacing: 0.09em;
-  color: #ffefae;
+  color: #ffd700;
   background: linear-gradient(
-    180deg,
-    #fff9d1 0%,
-    #ffeaa0 28%,
-    #ffd868 52%,
-    #ffbf3e 76%,
-    #f39b1d 100%
+    to bottom,
+    #fff6b0 0%,
+    #ffd700 40%,
+    #ffb300 60%,
+    #ffd700 80%,
+    #fff6b0 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
