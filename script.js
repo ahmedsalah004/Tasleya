@@ -159,7 +159,7 @@ const state = {
   currentTeam: 1,
   activeTile: null,
   usedHistory: {},
-  displayedScores: { 1: 0, 2: 0 },
+  displayedScores: { 1: 0, 2: 0, 3: 0 },
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
@@ -340,6 +340,7 @@ function getNextTeamNumber(team) {
 function setLocalTeamCount(teamCount) {
   const normalized = Number(teamCount);
   state.teamCount = SUPPORTED_TEAM_COUNTS.includes(normalized) ? normalized : 2;
+  updateOnlineActionPermissions();
 }
 function updateTeamModeUI() {
   const isThreeTeams = state.teamCount === 3;
@@ -347,6 +348,24 @@ function updateTeamModeUI() {
   el.team3Card.classList.toggle("hidden", !isThreeTeams);
   el.categoryTeam3NameInput.classList.toggle("hidden", !isThreeTeams);
   el.categoryTeam3NameLabel.classList.toggle("hidden", !isThreeTeams);
+}
+
+function getTeamControlEntries() {
+  return [
+    { team: 1, plusBtn: el.team1PlusBtn, minusBtn: el.team1MinusBtn, nameInput: el.team1NameInput },
+    { team: 2, plusBtn: el.team2PlusBtn, minusBtn: el.team2MinusBtn, nameInput: el.team2NameInput },
+    { team: 3, plusBtn: el.team3PlusBtn, minusBtn: el.team3MinusBtn, nameInput: el.team3NameInput },
+  ];
+}
+
+function isTeamActive(team) {
+  return getActiveTeamNumbers().includes(team);
+}
+
+function adjustTeamScore(team, delta) {
+  if (online.mode === "online" || !isTeamActive(team)) return;
+  state.scores[team] = Math.max(0, (Number(state.scores[team]) || 0) + delta);
+  updateScoreboard();
 }
 
 function parseCSV(text) {
@@ -1279,15 +1298,12 @@ function pushOnlineState() {
 function updateOnlineActionPermissions() {
   const locked = online.mode === "online";
   const hostOnly = locked && online.role !== "host";
-  el.team1PlusBtn.disabled = locked;
-  el.team1MinusBtn.disabled = locked;
-  el.team2PlusBtn.disabled = locked;
-  el.team2MinusBtn.disabled = locked;
-  el.team3PlusBtn.disabled = locked || state.teamCount !== 3;
-  el.team3MinusBtn.disabled = locked || state.teamCount !== 3;
-  el.team1NameInput.disabled = hostOnly;
-  el.team2NameInput.disabled = hostOnly;
-  el.team3NameInput.disabled = hostOnly || state.teamCount !== 3;
+  getTeamControlEntries().forEach(({ team, plusBtn, minusBtn, nameInput }) => {
+    const active = isTeamActive(team);
+    if (plusBtn) plusBtn.disabled = locked || !active;
+    if (minusBtn) minusBtn.disabled = locked || !active;
+    if (nameInput) nameInput.disabled = hostOnly || !active;
+  });
 }
 
 function resetOnlineMode() {
@@ -1547,12 +1563,10 @@ function initializeApp() {
   bindEvent(el.team2NameInput, "blur", () => setTeamName(2, el.team2NameInput.value, { commit: true }), "team2NameInput");
   bindEvent(el.team3NameInput, "blur", () => setTeamName(3, el.team3NameInput.value, { commit: true }), "team3NameInput");
 
-  bindEvent(el.team1PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] + 100); updateScoreboard(); } }, "team1PlusBtn");
-  bindEvent(el.team1MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[1] = Math.max(0, state.scores[1] - 100); updateScoreboard(); } }, "team1MinusBtn");
-  bindEvent(el.team2PlusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] + 100); updateScoreboard(); } }, "team2PlusBtn");
-  bindEvent(el.team2MinusBtn, "click", () => { if (online.mode !== "online") { state.scores[2] = Math.max(0, state.scores[2] - 100); updateScoreboard(); } }, "team2MinusBtn");
-  bindEvent(el.team3PlusBtn, "click", () => { if (online.mode !== "online" && state.teamCount === 3) { state.scores[3] = Math.max(0, state.scores[3] + 100); updateScoreboard(); } }, "team3PlusBtn");
-  bindEvent(el.team3MinusBtn, "click", () => { if (online.mode !== "online" && state.teamCount === 3) { state.scores[3] = Math.max(0, state.scores[3] - 100); updateScoreboard(); } }, "team3MinusBtn");
+  getTeamControlEntries().forEach(({ team, plusBtn, minusBtn }) => {
+    bindEvent(plusBtn, "click", () => adjustTeamScore(team, 100), `team${team}PlusBtn`);
+    bindEvent(minusBtn, "click", () => adjustTeamScore(team, -100), `team${team}MinusBtn`);
+  });
 
   bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
