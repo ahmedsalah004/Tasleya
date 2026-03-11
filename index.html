@@ -247,23 +247,23 @@
 
     <div id="onlineModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="onlineModalTitle">
       <div class="modal-content category-modal-content online-modal-content">
-        <h2 id="onlineModalTitle">وضع أونلاين</h2>
-        <div class="online-mode-actions">
-          <button id="createRoomBtn" class="primary-btn" type="button">إنشاء غرفة</button>
-          <button id="joinRoomBtn" class="secondary-btn" type="button">الانضمام إلى غرفة</button>
-        </div>
-        <p id="onlineFeedback" class="online-feedback hidden" role="alert"></p>
-
         <div class="online-team-count" aria-label="عدد الفرق">
-          <p class="online-team-count-label">عدد الفرق في اللعبة الأونلاين</p>
+          <h2 id="onlineModalTitle" class="online-team-count-label">عدد الفرق في اللعبة الأونلاين</h2>
           <div class="online-team-count-actions">
             <button id="onlineTwoTeamsBtn" class="primary-btn" type="button" aria-pressed="true">2 فرق</button>
             <button id="onlineThreeTeamsBtn" class="secondary-btn" type="button" aria-pressed="false">3 فرق</button>
           </div>
         </div>
 
+        <p class="online-mode-title">وضع أونلاين</p>
+        <div class="online-mode-actions">
+          <button id="createRoomBtn" class="primary-btn" type="button">إنشاء غرفة</button>
+          <button id="joinRoomBtn" class="secondary-btn" type="button">الانضمام إلى غرفة</button>
+        </div>
+        <p id="onlineFeedback" class="online-feedback hidden" role="alert"></p>
+
         <div id="onlineCreatePanel" class="online-panel hidden">
-          <p>تم إنشاء الغرفة. شارك الكود أو الرابط مع الفريق الثاني.</p>
+          <p>تم إنشاء الغرفة. شارك الكود أو الرابط مع بقية الفرق.</p>
           <div class="online-code-box" aria-live="polite">
             <p id="createdRoomCode" class="online-room-code"></p>
             <button id="copyCodeBtn" class="secondary-btn" type="button">نسخ الكود</button>
@@ -273,7 +273,7 @@
             <button id="copyLinkBtn" class="secondary-btn" type="button">نسخ الرابط</button>
             <button id="startOnlineGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
           </div>
-          <p id="waitingStatus" class="waiting-status">بانتظار انضمام الفريق الثاني...</p>
+          <p id="waitingStatus" class="waiting-status">بانتظار انضمام بقية الفرق...</p>
         </div>
 
         <div id="onlineJoinPanel" class="online-panel hidden">
