@@ -230,6 +230,12 @@ const analyticsState = {
   warnedUnsupported: false,
 };
 
+const questionBankCache = {
+  questions: null,
+  categories: null,
+  loadPromise: null,
+};
+
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
@@ -437,12 +443,43 @@ function markQuestionAsUsed(category, points, questionId) {
 }
 
 async function fetchQuestions() {
-  const csvUrl = `${CSV_URL}${CSV_URL.includes("?") ? "&" : "?"}t=${Date.now()}`;
-  const res = await fetch(csvUrl, { cache: "no-store" });
+  const res = await fetch(CSV_URL);
   if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
   const rows = parseCSV(await res.text());
   if (rows.length < 2) throw new Error("ملف CSV لا يحتوي بيانات كافية.");
   return rowsToQuestions(rows);
+}
+
+async function preloadQuestionBank() {
+  if (questionBankCache.questions && questionBankCache.categories) {
+    return {
+      questions: questionBankCache.questions,
+      categories: questionBankCache.categories,
+    };
+  }
+
+  if (questionBankCache.loadPromise) return questionBankCache.loadPromise;
+
+  questionBankCache.loadPromise = (async () => {
+    const questions = await fetchQuestions();
+    if (questions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
+    const categories = getUniqueCategories(questions);
+    if (categories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
+
+    questionBankCache.questions = questions;
+    questionBankCache.categories = categories;
+    return { questions, categories };
+  })();
+
+  try {
+    return await questionBankCache.loadPromise;
+  } catch (error) {
+    questionBankCache.questions = null;
+    questionBankCache.categories = null;
+    throw error;
+  } finally {
+    questionBankCache.loadPromise = null;
+  }
 }
 function getUniqueCategories(questions) {
   const unique = [];
@@ -823,6 +860,10 @@ function updateCategoryPickerUI() {
   });
 }
 function renderCategoryOptions() {
+  if (el.categoryList.childElementCount > 0) {
+    updateCategoryPickerUI();
+    return;
+  }
   el.categoryList.innerHTML = "";
   const groupedCategories = getGroupedCategoryDisplay(state.allCategories);
   groupedCategories.forEach(({ groupName, categories }) => {
@@ -1310,10 +1351,9 @@ async function startNewGame() {
     resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
-    state.allQuestions = await fetchQuestions();
-    if (state.allQuestions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
-    state.allCategories = getUniqueCategories(state.allQuestions);
-    if (state.allCategories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
+    const { questions, categories } = await preloadQuestionBank();
+    state.allQuestions = questions;
+    state.allCategories = categories;
     state.pointLevels = [...POINT_LEVELS];
     state.usedHistory = loadUsedHistory();
     state.boardTiles = [];
@@ -1342,6 +1382,7 @@ async function enterGame(mode) {
     await startNewGame();
   } else {
     resetOnlineMode();
+    preloadQuestionBank().catch(() => {});
     openLocalTeamsModal();
   }
 }
@@ -1612,6 +1653,8 @@ function initializeApp() {
 
   initAnalytics();
   logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
+
+  preloadQuestionBank().catch(() => {});
 
   tryAutoJoinFromUrl();
   registerServiceWorker();
