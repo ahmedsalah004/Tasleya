@@ -265,6 +265,12 @@ function shouldLockQuestionClose() {
 }
 
 function updateCloseButtonLock() {
+  if (!el.closeModalBtn) return;
+  if (online.mode !== "online") {
+    el.closeModalBtn.disabled = true;
+    el.closeModalBtn.classList.add("hidden");
+    return;
+  }
   const lockClose = shouldLockQuestionClose();
   el.closeModalBtn.disabled = lockClose;
   el.closeModalBtn.classList.toggle("hidden", lockClose);
