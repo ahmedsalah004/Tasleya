@@ -860,6 +860,8 @@ button:disabled {
   display: grid;
   gap: 0.5rem;
   max-height: 50vh;
+  flex: 1 1 auto;
+  min-height: 180px;
   overflow-y: auto;
   padding-inline-end: 0.2rem;
 }
@@ -1186,6 +1188,62 @@ button:disabled {
     align-items: flex-start;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  #categoryModal {
+    padding-top: max(0.55rem, env(safe-area-inset-top));
+    padding-bottom: max(0.55rem, env(safe-area-inset-bottom));
+  }
+
+  #categoryModal .category-modal-content {
+    max-height: calc(100dvh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    max-height: calc(100svh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    overflow: hidden;
+    gap: 0.6rem;
+  }
+
+  #categoryModalTitle {
+    margin-bottom: 0;
+    font-size: clamp(1.05rem, 5vw, 1.2rem);
+  }
+
+  #categoryModal .category-team-inputs {
+    gap: 0.12rem;
+    margin-bottom: 0.2rem;
+  }
+
+  #categoryModal .team-name-label {
+    margin-bottom: 0.15rem;
+    font-size: 0.78rem;
+  }
+
+  #categoryModal .team-name-input {
+    min-height: 36px;
+    margin-bottom: 0.2rem;
+    padding-top: 0.34rem;
+    padding-bottom: 0.34rem;
+  }
+
+  #categoryModal .category-counter {
+    font-size: 0.88rem;
+  }
+
+  #categoryModal .category-list {
+    min-height: clamp(220px, 40dvh, 420px);
+    min-height: clamp(220px, 40svh, 420px);
+    max-height: none;
+  }
+
+  #categoryModal .modal-actions {
+    gap: 0.4rem;
+    padding-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  #categoryModal .modal-actions > button {
+    min-height: 40px;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 
   .install-guide-content {
