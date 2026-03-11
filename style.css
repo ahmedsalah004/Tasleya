@@ -12,6 +12,25 @@
   padding-bottom: 10.5rem;
 }
 
+.start-screen-title {
+  position: absolute;
+  top: clamp(2rem, 9vh, 5.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  z-index: 2;
+  text-align: center;
+  font-size: clamp(2.6rem, 8vw, 6.1rem);
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  color: #ffe083;
+  text-shadow:
+    0 0 8px rgba(255, 224, 131, 0.95),
+    0 0 22px rgba(255, 196, 54, 0.75),
+    0 0 40px rgba(255, 173, 35, 0.5);
+  pointer-events: none;
+}
+
 
 #startLocalBtn,
 #startOnlineBtn,
