@@ -842,6 +842,7 @@ button:disabled {
 
 .category-modal-content {
   width: min(640px, 100%);
+  min-height: 0;
 }
 
 .category-team-inputs {
@@ -861,7 +862,7 @@ button:disabled {
   gap: 0.5rem;
   max-height: 50vh;
   flex: 1 1 auto;
-  min-height: 180px;
+  min-height: 0;
   overflow-y: auto;
   padding-inline-end: 0.2rem;
 }
@@ -1193,13 +1194,19 @@ button:disabled {
   #categoryModal {
     padding-top: max(0.55rem, env(safe-area-inset-top));
     padding-bottom: max(0.55rem, env(safe-area-inset-bottom));
+    align-items: stretch;
   }
 
   #categoryModal .category-modal-content {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    height: calc(100svh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
     max-height: calc(100dvh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
     max-height: calc(100svh - max(1.1rem, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
     overflow: hidden;
     gap: 0.6rem;
+    min-height: 0;
   }
 
   #categoryModalTitle {
@@ -1210,6 +1217,7 @@ button:disabled {
   #categoryModal .category-team-inputs {
     gap: 0.12rem;
     margin-bottom: 0.2rem;
+    flex-shrink: 0;
   }
 
   #categoryModal .team-name-label {
@@ -1226,18 +1234,22 @@ button:disabled {
 
   #categoryModal .category-counter {
     font-size: 0.88rem;
+    flex-shrink: 0;
   }
 
   #categoryModal .category-list {
-    min-height: clamp(220px, 40dvh, 420px);
-    min-height: clamp(220px, 40svh, 420px);
+    flex: 1 1 auto;
+    min-height: 0;
     max-height: none;
+    overflow-y: auto;
   }
 
   #categoryModal .modal-actions {
+    position: static;
     gap: 0.4rem;
     padding-top: 0.2rem;
     flex-shrink: 0;
+    margin-top: auto;
   }
 
   #categoryModal .modal-actions > button {
