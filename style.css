@@ -43,8 +43,32 @@
     0 0 12px rgba(255, 215, 0, 0.8),
     0 0 24px rgba(255, 200, 0, 0.6),
     0 0 40px rgba(255, 180, 0, 0.4);
+  animation: titleGlowPulse 4s ease-in-out infinite;
   filter: drop-shadow(0 0 2px rgba(255, 238, 166, 0.75));
   pointer-events: none;
+}
+
+@keyframes titleGlowPulse {
+  0% {
+    text-shadow:
+      0 0 6px rgba(255, 215, 0, 0.8),
+      0 0 12px rgba(255, 215, 0, 0.7),
+      0 0 24px rgba(255, 200, 0, 0.5);
+  }
+
+  50% {
+    text-shadow:
+      0 0 10px rgba(255, 215, 0, 1),
+      0 0 20px rgba(255, 215, 0, 0.9),
+      0 0 36px rgba(255, 200, 0, 0.7);
+  }
+
+  100% {
+    text-shadow:
+      0 0 6px rgba(255, 215, 0, 0.8),
+      0 0 12px rgba(255, 215, 0, 0.7),
+      0 0 24px rgba(255, 200, 0, 0.5);
+  }
 }
 
 
