@@ -3,7 +3,7 @@
   position: relative;
   isolation: isolate;
   height: 100vh;
-  background-image: url('assets/start-bg.png');
+  background-image: url('assets/start-bg-v2.png');
   background-size: cover;
   background-position: center;
   display: flex;
