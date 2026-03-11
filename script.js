@@ -131,6 +131,8 @@ function cacheElements() {
   copyLinkBtn: document.getElementById("copyLinkBtn"),
   waitingStatus: document.getElementById("waitingStatus"),
   startOnlineGameBtn: document.getElementById("startOnlineGameBtn"),
+  onlineTwoTeamsBtn: document.getElementById("onlineTwoTeamsBtn"),
+  onlineThreeTeamsBtn: document.getElementById("onlineThreeTeamsBtn"),
   roomCodeInput: document.getElementById("roomCodeInput"),
   confirmJoinBtn: document.getElementById("confirmJoinBtn"),
   cancelOnlineBtn: document.getElementById("cancelOnlineBtn"),
@@ -177,6 +179,7 @@ const online = {
   db: null,
   creatingRoom: false,
   joiningRoom: false,
+  selectedTeamCount: 2,
   clientId: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()),
 };
 
@@ -337,6 +340,10 @@ function shuffle(input) {
 function getActiveTeamNumbers() {
   return Array.from({ length: state.teamCount }, (_, index) => index + 1);
 }
+function normalizeTeamCount(teamCount) {
+  const normalized = Number(teamCount);
+  return SUPPORTED_TEAM_COUNTS.includes(normalized) ? normalized : 2;
+}
 function getNextTeamNumber(team) {
   const activeTeams = getActiveTeamNumbers();
   const index = activeTeams.indexOf(team);
@@ -344,8 +351,7 @@ function getNextTeamNumber(team) {
   return activeTeams[(index + 1) % activeTeams.length];
 }
 function setLocalTeamCount(teamCount) {
-  const normalized = Number(teamCount);
-  state.teamCount = SUPPORTED_TEAM_COUNTS.includes(normalized) ? normalized : 2;
+  state.teamCount = normalizeTeamCount(teamCount);
   updateOnlineActionPermissions();
 }
 function updateTeamModeUI() {
@@ -677,13 +683,19 @@ function renderQuestionAudio(audioPath) {
 }
 
 function getMyTeamNumber() {
-  if (online.mode !== "online") return state.currentTeam;
-  return online.role === "host" ? 1 : 2;
+  return getMyControlledTeams()[0] || 1;
+}
+function getMyControlledTeams() {
+  if (online.mode !== "online") return [state.currentTeam];
+  if (online.role === "host") {
+    return state.teamCount === 3 ? [1, 3] : [1];
+  }
+  return [2];
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
-  if (!state.activeTile) return getMyTeamNumber() === state.currentTeam;
-  return getMyTeamNumber() === state.currentTeam;
+  const controlledTeams = getMyControlledTeams();
+  return controlledTeams.includes(state.currentTeam);
 }
 
 function openQuestion(tileId) {
@@ -990,10 +1002,18 @@ function applyRemoteGameState(game) {
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
     state.pointLevels = Array.isArray(game.pointLevels) ? [...game.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = Array.isArray(game.boardTiles) ? [...game.boardTiles] : [];
-    state.teamCount = 2;
-    state.scores = game.scores || { 1: 0, 2: 0, 3: 0 };
-    state.teamNames = game.teamNames || { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
-    state.currentTeam = Number(game.currentTeam) === 2 ? 2 : 1;
+    state.teamCount = normalizeTeamCount(game.teamCount);
+    state.scores = {
+      1: Number(game?.scores?.[1] ?? game?.scores?.team1 ?? 0) || 0,
+      2: Number(game?.scores?.[2] ?? game?.scores?.team2 ?? 0) || 0,
+      3: Number(game?.scores?.[3] ?? game?.scores?.team3 ?? 0) || 0,
+    };
+    state.teamNames = {
+      1: normalizeCell(game?.teamNames?.[1] ?? game?.teamNames?.team1) || "الفريق الأول",
+      2: normalizeCell(game?.teamNames?.[2] ?? game?.teamNames?.team2) || "الفريق الثاني",
+      3: normalizeCell(game?.teamNames?.[3] ?? game?.teamNames?.team3) || "الفريق الثالث",
+    };
+    state.currentTeam = getActiveTeamNumbers().includes(Number(game.currentTeam)) ? Number(game.currentTeam) : 1;
     mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false, 3: false };
     hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false, 3: false };
     state.answerRevealed = !!game.answerRevealed;
@@ -1001,6 +1021,7 @@ function applyRemoteGameState(game) {
     state.currentHintText = normalizeCell(game.currentHintText);
 
     syncTeamNameInputs();
+    updateTeamModeUI();
     updateScoreboard();
     renderBoard();
 
@@ -1196,6 +1217,7 @@ async function createOnlineRoom() {
     const ref = roomRefByCode(code);
     const roomPayload = {
       roomCode: code,
+      teamCount: normalizeTeamCount(online.selectedTeamCount),
       createdAt: Date.now(),
       hostClientId: online.clientId,
       guestClientId: null,
@@ -1232,6 +1254,9 @@ async function joinOnlineRoom(codeInput) {
     const snap = await ref.get();
     if (!snap.exists()) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
     const room = snap.val();
+    const roomTeamCount = normalizeTeamCount(room.teamCount);
+    setLocalTeamCount(roomTeamCount);
+    updateTeamModeUI();
     if (room.guestClientId && room.guestClientId !== online.clientId) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
     await ref.update({ guestClientId: room.guestClientId || online.clientId, guestConnected: true });
     await connectToRoom(code, "guest");
@@ -1265,6 +1290,13 @@ async function connectToRoom(code, role) {
     online.roomRef.on("value", (snapshot) => {
       const room = snapshot.val();
       if (!room) return;
+      const roomTeamCount = normalizeTeamCount(room.teamCount);
+      online.selectedTeamCount = roomTeamCount;
+      if (!room.gameStarted) {
+        setLocalTeamCount(roomTeamCount);
+        updateTeamModeUI();
+      }
+      updateOnlineTeamCountControls();
       online.connected = { 1: !!room.hostConnected, 2: !!room.guestConnected };
       if (online.role === "host") {
         const bothConnected = !!room.hostConnected && !!room.guestConnected;
@@ -1298,7 +1330,33 @@ function disconnectOnlineListeners() {
 
 function pushOnlineState() {
   if (online.mode !== "online" || !online.roomRef || online.applyingRemote) return;
-  online.roomRef.update({ gameStarted: true, game: serializeGameState() });
+  online.roomRef.update({ teamCount: normalizeTeamCount(state.teamCount), gameStarted: true, game: serializeGameState() });
+}
+
+function setOnlineTeamCount(teamCount) {
+  online.selectedTeamCount = normalizeTeamCount(teamCount);
+  if (online.mode !== "online") {
+    setLocalTeamCount(online.selectedTeamCount);
+    updateTeamModeUI();
+  }
+  updateOnlineTeamCountControls();
+}
+
+function updateOnlineTeamCountControls() {
+  const isThree = online.selectedTeamCount === 3;
+  const locked = online.mode === "online" && !!online.roomCode;
+  if (el.onlineTwoTeamsBtn) {
+    el.onlineTwoTeamsBtn.classList.toggle("secondary-btn", isThree);
+    el.onlineTwoTeamsBtn.classList.toggle("primary-btn", !isThree);
+    el.onlineTwoTeamsBtn.setAttribute("aria-pressed", String(!isThree));
+    el.onlineTwoTeamsBtn.disabled = locked;
+  }
+  if (el.onlineThreeTeamsBtn) {
+    el.onlineThreeTeamsBtn.classList.toggle("secondary-btn", !isThree);
+    el.onlineThreeTeamsBtn.classList.toggle("primary-btn", isThree);
+    el.onlineThreeTeamsBtn.setAttribute("aria-pressed", String(isThree));
+    el.onlineThreeTeamsBtn.disabled = locked;
+  }
 }
 
 function updateOnlineActionPermissions() {
@@ -1333,6 +1391,7 @@ function openOnlineModal() {
   setOnlineFeedback("");
   setCreateRoomLoading(false);
   setJoinRoomLoading(false);
+  updateOnlineTeamCountControls();
   setOnlineStatus("غير متصل");
   requestAnimationFrame(() => el.onlineModal.classList.add("is-open"));
 }
@@ -1398,7 +1457,7 @@ async function enterGame(mode) {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
   if (mode === "online") {
-    setLocalTeamCount(2);
+    setOnlineTeamCount(2);
     updateTeamModeUI();
     openOnlineModal();
     await startNewGame();
@@ -1612,6 +1671,8 @@ function initializeApp() {
     if (event.target === el.installGuideModal) closeInstallGuide();
   }, "installGuideModal");
   bindEvent(el.createRoomBtn, "click", createOnlineRoom, "createRoomBtn");
+  bindEvent(el.onlineTwoTeamsBtn, "click", () => setOnlineTeamCount(2), "onlineTwoTeamsBtn");
+  bindEvent(el.onlineThreeTeamsBtn, "click", () => setOnlineTeamCount(3), "onlineThreeTeamsBtn");
   bindEvent(el.joinRoomBtn, "click", () => {
     el.onlineJoinPanel.classList.remove("hidden");
     setOnlineFeedback("أدخل كود الغرفة ثم اضغط انضمام.", "info");
@@ -1656,6 +1717,7 @@ function initializeApp() {
   }, "copyLinkBtn");
 
   updateInstallGuideVisibility();
+  updateOnlineTeamCountControls();
   updateInstallGuideContent();
   maybeOpenInstructionsForFirstVisit();
   const displayModeMedia = window.matchMedia("(display-mode: standalone)");
