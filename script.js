@@ -1432,7 +1432,12 @@ function disconnectOnlineListeners() {
 
 function pushOnlineState() {
   if (online.mode !== "online" || !online.roomRef || online.applyingRemote) return;
-  online.roomRef.update({ teamCount: normalizeTeamCount(state.teamCount), gameStarted: true, game: serializeGameState() });
+  const isBoardReady = state.selectedCategories.length === CATEGORIES_TO_SELECT && state.boardTiles.length > 0;
+  online.roomRef.update({
+    teamCount: normalizeTeamCount(state.teamCount),
+    gameStarted: isBoardReady,
+    game: isBoardReady ? serializeGameState() : null,
+  });
 }
 
 function setOnlineTeamCount(teamCount) {
@@ -1796,7 +1801,14 @@ function initializeApp() {
     el.startScreen.style.display = "flex";
     closeOnlineModal();
   }, "cancelOnlineBtn");
-  bindEvent(el.startOnlineGameBtn, "click", () => {
+  bindEvent(el.startOnlineGameBtn, "click", async () => {
+    if (online.mode === "online" && online.role === "host" && online.roomRef) {
+      await online.roomRef.update({
+        teamCount: normalizeTeamCount(state.teamCount),
+        gameStarted: false,
+        game: null,
+      });
+    }
     closeOnlineModal();
     startNewGame();
   }, "startOnlineGameBtn");
