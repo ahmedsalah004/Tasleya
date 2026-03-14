@@ -8,7 +8,6 @@ const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
-const GAME_SESSION_STORAGE_KEY = "tasleya_game_session_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -168,7 +167,6 @@ const state = {
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
-  activeScreen: "start",
 };
 
 const online = {
@@ -228,197 +226,6 @@ function getParticipantCount(slots, teamCount) {
 }
 
 
-
-
-function setActiveScreen(screen) {
-  state.activeScreen = screen;
-  saveGameSession();
-}
-
-function safeParseJson(raw) {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch (_) {
-    return null;
-  }
-}
-
-function serializeBoardTiles() {
-  return state.boardTiles.map((tile) => ({
-    id: tile.id,
-    category: tile.category,
-    points: tile.points,
-    questionId: tile.question?.id || null,
-    used: !!tile.used,
-    missing: !!tile.missing,
-    timedOut: !!tile.timedOut,
-  }));
-}
-
-function getActiveTileId() {
-  return state.activeTile?.id || null;
-}
-
-function saveGameSession() {
-  if (online.mode === "online") return;
-  const hasProgress = state.activeScreen !== "start" || state.selectedCategories.length > 0 || state.boardTiles.length > 0;
-  if (!hasProgress) {
-    sessionStorage.removeItem(GAME_SESSION_STORAGE_KEY);
-    return;
-  }
-
-  const payload = {
-    version: 1,
-    activeScreen: state.activeScreen,
-    teamCount: state.teamCount,
-    selectedCategories: [...state.selectedCategories],
-    pointLevels: [...state.pointLevels],
-    scores: { ...state.scores },
-    teamNames: { ...state.teamNames },
-    currentTeam: state.currentTeam,
-    boardTiles: serializeBoardTiles(),
-    activeTileId: getActiveTileId(),
-    answerRevealed: !!state.answerRevealed,
-    currentChoices: [...state.currentChoices],
-    currentHintText: state.currentHintText || "",
-    mcqHelpUsed: { ...mcqHelpUsed },
-    hintHelpUsed: { ...hintHelpUsed },
-    usedHistory: state.usedHistory,
-    currentQuestionId: state.activeTile?.question?.id || null,
-  };
-
-  sessionStorage.setItem(GAME_SESSION_STORAGE_KEY, JSON.stringify(payload));
-}
-
-function restoreBoardTilesFromSession(serializedTiles = [], questions = []) {
-  if (!Array.isArray(serializedTiles)) return [];
-  const questionById = new Map(questions.map((question) => [question.id, question]));
-  return serializedTiles.map((tile) => ({
-    id: normalizeCell(tile?.id),
-    category: normalizeCell(tile?.category),
-    points: Number(tile?.points) || 0,
-    question: questionById.get(normalizeCell(tile?.questionId)) || null,
-    used: !!tile?.used,
-    missing: !!tile?.missing,
-    timedOut: !!tile?.timedOut,
-  })).filter((tile) => tile.id && tile.category && tile.points > 0);
-}
-
-function applySessionSnapshot(snapshot) {
-  const safeTeamCount = normalizeTeamCount(snapshot?.teamCount);
-  setLocalTeamCount(safeTeamCount);
-  state.selectedCategories = Array.isArray(snapshot?.selectedCategories) ? snapshot.selectedCategories.map(normalizeCell).filter(Boolean) : [];
-  state.pointLevels = Array.isArray(snapshot?.pointLevels) && snapshot.pointLevels.length ? snapshot.pointLevels.map((value) => Number(value) || 0).filter((value) => value > 0) : [...POINT_LEVELS];
-  state.scores = {
-    1: Math.max(0, Number(snapshot?.scores?.[1] ?? snapshot?.scores?.team1 ?? 0) || 0),
-    2: Math.max(0, Number(snapshot?.scores?.[2] ?? snapshot?.scores?.team2 ?? 0) || 0),
-    3: Math.max(0, Number(snapshot?.scores?.[3] ?? snapshot?.scores?.team3 ?? 0) || 0),
-  };
-  state.currentTeam = getActiveTeamNumbers().includes(Number(snapshot?.currentTeam)) ? Number(snapshot.currentTeam) : 1;
-  state.answerRevealed = !!snapshot?.answerRevealed;
-  state.currentChoices = Array.isArray(snapshot?.currentChoices) ? snapshot.currentChoices.map((value) => String(value ?? "")) : [];
-  state.currentHintText = normalizeCell(snapshot?.currentHintText);
-  mcqHelpUsed = { 1: !!snapshot?.mcqHelpUsed?.[1], 2: !!snapshot?.mcqHelpUsed?.[2], 3: !!snapshot?.mcqHelpUsed?.[3] };
-  hintHelpUsed = { 1: !!snapshot?.hintHelpUsed?.[1], 2: !!snapshot?.hintHelpUsed?.[2], 3: !!snapshot?.hintHelpUsed?.[3] };
-  state.usedHistory = (snapshot?.usedHistory && typeof snapshot.usedHistory === "object") ? snapshot.usedHistory : loadUsedHistory();
-
-  if (snapshot?.teamNames && typeof snapshot.teamNames === "object") {
-    [1, 2, 3].forEach((team) => {
-      const restoredName = normalizeCell(snapshot.teamNames[team] ?? snapshot.teamNames[`team${team}`]);
-      if (restoredName) state.teamNames[team] = restoredName;
-    });
-  }
-
-  state.boardTiles = restoreBoardTilesFromSession(snapshot?.boardTiles, state.allQuestions);
-  const activeTileId = normalizeCell(snapshot?.activeTileId);
-  state.activeTile = state.boardTiles.find((tile) => tile.id === activeTileId) || null;
-}
-
-async function tryRestoreGameSession() {
-  if (online.mode === "online") return false;
-  const snapshot = safeParseJson(sessionStorage.getItem(GAME_SESSION_STORAGE_KEY));
-  if (!snapshot || typeof snapshot !== "object") return false;
-
-  try {
-    const { questions, categories } = await preloadQuestionBank();
-    state.allQuestions = questions;
-    state.allCategories = categories;
-    applySessionSnapshot(snapshot);
-    updateTeamModeUI();
-    syncTeamNameInputs();
-    updateScoreboard();
-    renderBoard();
-    closeCategoryPicker();
-    closePodiumModal();
-    clearError();
-
-    const showGame = snapshot.activeScreen === "game" || snapshot.activeScreen === "category" || state.selectedCategories.length > 0 || state.boardTiles.length > 0;
-    if (showGame) {
-      el.startScreen.style.display = "none";
-      el.gameScreen.style.display = "block";
-      setActiveScreen("game");
-    }
-
-    if (snapshot.activeScreen === "category" && state.selectedCategories.length !== CATEGORIES_TO_SELECT) {
-      openCategoryPicker();
-      setActiveScreen("category");
-    }
-
-    if (state.activeTile && !state.activeTile.used && state.activeTile.question) {
-      openQuestion(state.activeTile.id);
-      if (state.answerRevealed) {
-        revealAnswer();
-      }
-      if (state.currentChoices.length) {
-        el.choicesList.innerHTML = "";
-        state.currentChoices.forEach((option) => {
-          const div = document.createElement("div");
-          div.className = "choice-item";
-          div.textContent = option;
-          el.choicesList.appendChild(div);
-        });
-        el.choicesBox.classList.remove("hidden");
-      }
-      if (state.currentHintText) {
-        el.hintText.textContent = state.currentHintText;
-        el.hintBox.classList.remove("hidden");
-      }
-    }
-
-    return true;
-  } catch (_) {
-    sessionStorage.removeItem(GAME_SESSION_STORAGE_KEY);
-    return false;
-  }
-}
-
-function blockGestureZoomOnGameArea(event) {
-  event.preventDefault();
-}
-
-function setupMobileGameGuards() {
-  if (!el.gameScreen || !el.questionMedia) return;
-
-  const stopBubble = (event) => {
-    if (!el.modal || el.modal.classList.contains("hidden")) return;
-    event.stopPropagation();
-  };
-
-  [el.questionMedia, el.choicesList, el.modal?.querySelector(".modal-content")].forEach((target) => {
-    if (!target) return;
-    bindEvent(target, "touchstart", stopBubble, "gameTouchArea");
-    bindEvent(target, "touchend", stopBubble, "gameTouchArea");
-    bindEvent(target, "pointerdown", stopBubble, "gameTouchArea");
-    bindEvent(target, "click", stopBubble, "gameTouchArea");
-  });
-
-  const gestureOptions = { passive: false };
-  ["gesturestart", "gesturechange", "gestureend"].forEach((eventName) => {
-    el.questionMedia.addEventListener(eventName, blockGestureZoomOnGameArea, gestureOptions);
-    el.gameScreen.addEventListener(eventName, blockGestureZoomOnGameArea, gestureOptions);
-  });
-}
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
@@ -613,7 +420,6 @@ function adjustTeamScore(team, delta) {
   if (online.mode === "online" || !isTeamActive(team)) return;
   state.scores[team] = Math.max(0, (Number(state.scores[team]) || 0) + delta);
   updateScoreboard();
-  saveGameSession();
 }
 
 function parseCSV(text) {
@@ -817,7 +623,6 @@ function setTeamName(team, value, { commit = false } = {}) {
   if (commit) syncTeamNameInputs();
   saveTeamNames();
   updateScoreboard();
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
@@ -961,7 +766,6 @@ function openQuestion(tileId) {
   startTimer();
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -984,7 +788,6 @@ function closeModal({ silentSync = false, force = false } = {}) {
     el.modal.addEventListener("animationend", onEnd, true);
   }
   updateCloseButtonLock();
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote && !silentSync) pushOnlineState();
   return true;
 }
@@ -1009,7 +812,6 @@ function resetGameState() {
   clearError();
   updateScoreboard();
   renderBoard();
-  saveGameSession();
 }
 
 function revealAnswer() {
@@ -1018,7 +820,6 @@ function revealAnswer() {
   state.answerRevealed = true;
   updateQuestionActionLock();
   if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function uniqueByText(items) { const seen = new Set(); return items.filter((item) => { const key = item.trim(); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
@@ -1043,7 +844,6 @@ function useLifeline() {
   state.currentChoices = options;
   el.lifelineBtn.disabled = true;
   el.choicesBox.classList.remove("hidden");
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -1069,7 +869,6 @@ function useHintLifeline() {
   el.hintText.textContent = state.currentHintText;
   el.hintBox.classList.remove("hidden");
   el.hintLifelineBtn.disabled = true;
-  saveGameSession();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -1121,7 +920,6 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 
   updateScoreboard();
   renderBoard();
-  saveGameSession();
   closeModal({ silentSync: true });
   checkEndOfGame();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
@@ -1162,7 +960,6 @@ function renderCategoryOptions() {
         if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
         else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
         updateCategoryPickerUI();
-        saveGameSession();
       });
       const span = document.createElement("span"); span.textContent = category;
       label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
@@ -1209,28 +1006,16 @@ function openCategoryPicker() {
     el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
   }
   el.categoryModal.classList.remove("hidden");
-  setActiveScreen("category");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
 }
 function closeCategoryPicker() {
   if (el.categoryModal.classList.contains("hidden")) return;
-  if (prefersReducedMotion) {
-    el.categoryModal.classList.add("hidden");
-    el.categoryModal.classList.remove("is-open", "is-closing");
-    if (state.activeScreen === "category") setActiveScreen("game");
-    return;
-  }
+  if (prefersReducedMotion) { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-open", "is-closing"); return; }
   el.categoryModal.classList.remove("is-open"); el.categoryModal.classList.add("is-closing");
-  const onEnd = () => {
-    el.categoryModal.classList.add("hidden");
-    el.categoryModal.classList.remove("is-closing");
-    if (state.activeScreen === "category") setActiveScreen("game");
-    el.categoryModal.removeEventListener("animationend", onEnd, true);
-  };
+  const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
-
-function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); saveGameSession(); }
+function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); }
 
 function serializeGameState() {
   return {
@@ -1754,7 +1539,6 @@ async function startGameFromSelection() {
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
-  saveGameSession();
   checkEndOfGame();
   logAnalyticsEvent("game_started", {
     mode: online.mode,
@@ -1793,7 +1577,6 @@ async function startNewGame() {
 async function enterGame(mode) {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
-  setActiveScreen("game");
   if (mode === "online") {
     setOnlineTeamCount(2);
     updateTeamModeUI();
@@ -1808,13 +1591,11 @@ async function enterGame(mode) {
 
 function openLocalTeamsModal() {
   el.localTeamsModal.classList.remove("hidden");
-  setActiveScreen("local-team-select");
   requestAnimationFrame(() => el.localTeamsModal.classList.add("is-open"));
 }
 function closeLocalTeamsModal() {
   el.localTeamsModal.classList.remove("is-open");
   el.localTeamsModal.classList.add("hidden");
-  if (state.activeScreen === "local-team-select") setActiveScreen("start");
 }
 async function chooseLocalTeamCount(teamCount) {
   setLocalTeamCount(teamCount);
@@ -1939,9 +1720,8 @@ function bindEvent(element, eventName, handler, elementName) {
   element.addEventListener(eventName, handler);
 }
 
-async function initializeApp() {
+function initializeApp() {
   cacheElements();
-  setupMobileGameGuards();
 
   bindEvent(el.newGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
@@ -1988,14 +1768,12 @@ async function initializeApp() {
     closeLocalTeamsModal();
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
-    setActiveScreen("start");
   }, "cancelLocalTeamsBtn");
   bindEvent(el.localTeamsModal, "click", (event) => {
     if (event.target !== el.localTeamsModal) return;
     closeLocalTeamsModal();
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
-    setActiveScreen("start");
   }, "localTeamsModal");
   bindEvent(el.startOnlineBtn, "click", () => {
     console.log("[Tasleya] Start online button clicked");
@@ -2034,7 +1812,6 @@ async function initializeApp() {
     }
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
-    setActiveScreen("start");
     closeOnlineModal();
   }, "cancelOnlineBtn");
   bindEvent(el.startOnlineGameBtn, "click", async () => {
@@ -2091,8 +1868,7 @@ async function initializeApp() {
   initAnalytics();
   logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
 
-  const restored = await tryRestoreGameSession();
-  if (!restored) preloadQuestionBank().catch(() => {});
+  preloadQuestionBank().catch(() => {});
 
   tryAutoJoinFromUrl();
   registerServiceWorker();
