@@ -8,6 +8,7 @@ const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
+const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -230,11 +231,12 @@ function getParticipantCount(slots, teamCount) {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
 
-  let refreshing = false;
+  let controllerChanged = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (refreshing) return;
-    refreshing = true;
-    window.location.reload();
+    if (controllerChanged) return;
+    controllerChanged = true;
+    persistLocalProgress();
+    console.log("[Tasleya] Service worker controller changed; skipping forced reload to avoid interrupting active games");
   });
 
   window.addEventListener("load", async () => {
@@ -420,6 +422,7 @@ function adjustTeamScore(team, delta) {
   if (online.mode === "online" || !isTeamActive(team)) return;
   state.scores[team] = Math.max(0, (Number(state.scores[team]) || 0) + delta);
   updateScoreboard();
+  persistLocalProgress();
 }
 
 function parseCSV(text) {
@@ -503,6 +506,100 @@ function loadTeamNames() {
 }
 function saveTeamNames() { localStorage.setItem(TEAM_NAMES_STORAGE_KEY, JSON.stringify(state.teamNames)); }
 
+
+function clearLocalProgress() {
+  try {
+    sessionStorage.removeItem(LOCAL_PROGRESS_STORAGE_KEY);
+  } catch (_) {
+    // Ignore storage errors silently.
+  }
+}
+
+function persistLocalProgress() {
+  if (online.mode !== "local") {
+    clearLocalProgress();
+    return;
+  }
+  const hasBoard = state.boardTiles.length > 0 && state.selectedCategories.length === CATEGORIES_TO_SELECT;
+  if (!hasBoard) return;
+
+  const payload = {
+    mode: "local",
+    screen: el.gameScreen?.style.display === "block" ? "game" : "start",
+    selectedCategories: [...state.selectedCategories],
+    pointLevels: [...state.pointLevels],
+    boardTiles: state.boardTiles,
+    teamCount: state.teamCount,
+    teamNames: { ...state.teamNames },
+    scores: { ...state.scores },
+    currentTeam: state.currentTeam,
+    mcqHelpUsed: { ...mcqHelpUsed },
+    hintHelpUsed: { ...hintHelpUsed },
+    activeTileId: state.activeTile?.id || null,
+    modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
+  };
+
+  try {
+    sessionStorage.setItem(LOCAL_PROGRESS_STORAGE_KEY, JSON.stringify(payload));
+  } catch (_) {
+    // Ignore storage errors silently.
+  }
+}
+
+function restoreLocalProgress() {
+  if (new URL(window.location.href).searchParams.get("room")) return false;
+  try {
+    const raw = sessionStorage.getItem(LOCAL_PROGRESS_STORAGE_KEY);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (!saved || saved.mode !== "local" || saved.screen !== "game") return false;
+    if (!Array.isArray(saved.selectedCategories) || saved.selectedCategories.length !== CATEGORIES_TO_SELECT) return false;
+    if (!Array.isArray(saved.boardTiles) || saved.boardTiles.length === 0) return false;
+
+    state.selectedCategories = [...saved.selectedCategories];
+    state.pointLevels = Array.isArray(saved.pointLevels) && saved.pointLevels.length ? [...saved.pointLevels] : [...POINT_LEVELS];
+    state.boardTiles = [...saved.boardTiles];
+    setLocalTeamCount(saved.teamCount);
+    state.teamNames = {
+      1: normalizeCell(saved.teamNames?.[1]) || "الفريق الأول",
+      2: normalizeCell(saved.teamNames?.[2]) || "الفريق الثاني",
+      3: normalizeCell(saved.teamNames?.[3]) || "الفريق الثالث",
+    };
+    state.scores = {
+      1: Math.max(0, Number(saved.scores?.[1]) || 0),
+      2: Math.max(0, Number(saved.scores?.[2]) || 0),
+      3: Math.max(0, Number(saved.scores?.[3]) || 0),
+    };
+    state.displayedScores = { ...state.scores };
+    state.currentTeam = getActiveTeamNumbers().includes(Number(saved.currentTeam)) ? Number(saved.currentTeam) : 1;
+    mcqHelpUsed = {
+      1: !!saved.mcqHelpUsed?.[1],
+      2: !!saved.mcqHelpUsed?.[2],
+      3: !!saved.mcqHelpUsed?.[3],
+    };
+    hintHelpUsed = {
+      1: !!saved.hintHelpUsed?.[1],
+      2: !!saved.hintHelpUsed?.[2],
+      3: !!saved.hintHelpUsed?.[3],
+    };
+
+    el.startScreen.style.display = "none";
+    el.gameScreen.style.display = "block";
+    updateTeamModeUI();
+    syncTeamNameInputs();
+    updateScoreboard();
+    renderBoard();
+
+    const savedActiveId = normalizeCell(saved.activeTileId);
+    if (saved.modalOpen && savedActiveId) {
+      openQuestion(savedActiveId);
+    }
+
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 function ensureBucket(category, points) {
   if (!state.usedHistory[category]) state.usedHistory[category] = {};
   const key = String(points);
@@ -623,6 +720,7 @@ function setTeamName(team, value, { commit = false } = {}) {
   if (commit) syncTeamNameInputs();
   saveTeamNames();
   updateScoreboard();
+  persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
@@ -766,6 +864,7 @@ function openQuestion(tileId) {
   startTimer();
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
+  persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -788,6 +887,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
     el.modal.addEventListener("animationend", onEnd, true);
   }
   updateCloseButtonLock();
+  persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote && !silentSync) pushOnlineState();
   return true;
 }
@@ -921,6 +1021,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   updateScoreboard();
   renderBoard();
   closeModal({ silentSync: true });
+  persistLocalProgress();
   checkEndOfGame();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   return true;
@@ -1540,6 +1641,7 @@ async function startGameFromSelection() {
   updateScoreboard();
   renderBoard();
   checkEndOfGame();
+  persistLocalProgress();
   logAnalyticsEvent("game_started", {
     mode: online.mode,
     categories_count: state.selectedCategories.length,
@@ -1550,6 +1652,7 @@ async function startGameFromSelection() {
 
 async function startNewGame() {
   try {
+    clearLocalProgress();
     resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
@@ -1578,6 +1681,7 @@ async function enterGame(mode) {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
   if (mode === "online") {
+    clearLocalProgress();
     setOnlineTeamCount(2);
     updateTeamModeUI();
     openOnlineModal();
@@ -1768,12 +1872,14 @@ function initializeApp() {
     closeLocalTeamsModal();
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
+    clearLocalProgress();
   }, "cancelLocalTeamsBtn");
   bindEvent(el.localTeamsModal, "click", (event) => {
     if (event.target !== el.localTeamsModal) return;
     closeLocalTeamsModal();
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
+    clearLocalProgress();
   }, "localTeamsModal");
   bindEvent(el.startOnlineBtn, "click", () => {
     console.log("[Tasleya] Start online button clicked");
@@ -1812,6 +1918,7 @@ function initializeApp() {
     }
     el.gameScreen.style.display = "none";
     el.startScreen.style.display = "flex";
+    clearLocalProgress();
     closeOnlineModal();
   }, "cancelOnlineBtn");
   bindEvent(el.startOnlineGameBtn, "click", async () => {
@@ -1864,6 +1971,13 @@ function initializeApp() {
   syncTeamNameInputs();
   updateScoreboard();
   updateOnlineActionPermissions();
+
+  restoreLocalProgress();
+
+  window.addEventListener("pagehide", persistLocalProgress);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persistLocalProgress();
+  });
 
   initAnalytics();
   logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
