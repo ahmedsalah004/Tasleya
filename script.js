@@ -19,13 +19,11 @@ let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
 let questionDeadlineTs = null;
-let mapQuestionImageBlobUrl = null;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
 const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
 const MAP_QUESTION_CATEGORY = "ما هي الدولة بالخريطة";
-const MAX_MAP_IMAGE_DIMENSION = 2048;
 const CATEGORY_DISPLAY_GROUPS = [
   {
     name: "علوم إسلامية",
@@ -834,48 +832,7 @@ function toMediaUrl(mediaPath) {
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
-  if (mapQuestionImageBlobUrl) {
-    URL.revokeObjectURL(mapQuestionImageBlobUrl);
-    mapQuestionImageBlobUrl = null;
-  }
   el.questionMedia.innerHTML = "";
-}
-
-async function maybeDownscaleMapImageForSafari(imageSrc, question) {
-  if (normalizeCell(question?.category) !== MAP_QUESTION_CATEGORY) return imageSrc;
-  try {
-    const response = await fetch(imageSrc, { cache: "force-cache" });
-    if (!response.ok) return imageSrc;
-    const blob = await response.blob();
-    const bitmap = await createImageBitmap(blob);
-    const maxEdge = Math.max(bitmap.width, bitmap.height);
-    if (maxEdge <= MAX_MAP_IMAGE_DIMENSION) {
-      bitmap.close();
-      return imageSrc;
-    }
-
-    const scale = MAX_MAP_IMAGE_DIMENSION / maxEdge;
-    const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
-    const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = document.createElement("canvas");
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    const context = canvas.getContext("2d", { alpha: true, desynchronized: true });
-    if (!context) {
-      bitmap.close();
-      return imageSrc;
-    }
-    context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
-    bitmap.close();
-
-    const downscaledBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.92));
-    if (!downscaledBlob) return imageSrc;
-    if (mapQuestionImageBlobUrl) URL.revokeObjectURL(mapQuestionImageBlobUrl);
-    mapQuestionImageBlobUrl = URL.createObjectURL(downscaledBlob);
-    return mapQuestionImageBlobUrl;
-  } catch (_) {
-    return imageSrc;
-  }
 }
 
 function renderQuestionImage(imagePath, question = null) {
@@ -886,17 +843,12 @@ function renderQuestionImage(imagePath, question = null) {
   image.decoding = "async";
   image.loading = "eager";
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
+    image.classList.add("map-question-image");
     image.fetchPriority = "low";
   }
   image.src = imageSrc;
   el.questionMedia.appendChild(image);
 
-  maybeDownscaleMapImageForSafari(imageSrc, question).then((optimizedSrc) => {
-    if (!optimizedSrc || !state.activeTile?.question) return;
-    if (image.isConnected && image.src !== optimizedSrc && normalizeCell(state.activeTile.question.category) === MAP_QUESTION_CATEGORY) {
-      image.src = optimizedSrc;
-    }
-  });
 }
 function renderQuestionAudio(audioPath) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
