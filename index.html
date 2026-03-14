@@ -157,6 +157,28 @@
           placeholder="اكتب رسالتك هنا"
           aria-label="رسالة التواصل"
         ></textarea>
+        <p class="contact-helper-text">إذا رغبت في الحصول على رد، يمكنك كتابة اسمك وبريدك الإلكتروني.</p>
+        <label class="contact-input-label" for="contactNameInput">الاسم (اختياري)</label>
+        <input
+          id="contactNameInput"
+          class="contact-optional-input"
+          type="text"
+          maxlength="100"
+          placeholder="الاسم (اختياري)"
+          aria-label="الاسم (اختياري)"
+        />
+        <label class="contact-input-label" for="contactEmailInput">البريد الإلكتروني (اختياري)</label>
+        <input
+          id="contactEmailInput"
+          class="contact-optional-input"
+          type="email"
+          maxlength="254"
+          inputmode="email"
+          autocomplete="email"
+          placeholder="البريد الإلكتروني (اختياري)"
+          aria-label="البريد الإلكتروني (اختياري)"
+        />
+        <p class="contact-privacy-note">لن نستخدم بياناتك إلا إذا كنت ترغب في تلقي رد.</p>
         <p id="contactFeedback" class="contact-feedback hidden" role="status" aria-live="polite"></p>
         <div class="modal-actions contact-modal-actions">
           <button id="sendContactBtn" class="primary-btn" type="button">إرسال</button>
