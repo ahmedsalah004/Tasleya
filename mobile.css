@@ -290,3 +290,18 @@ main,
 .local-team-count-actions {
   grid-template-columns: 1fr;
 }
+
+/* Keep map questions paint/compositing as light as possible on iPhone/mobile WebKit */
+.question-media.map-question-media {
+  display: block;
+}
+
+.question-media.map-question-media #questionImage.map-question-image {
+  box-shadow: none;
+  border-radius: 8px;
+  border-color: rgba(148, 178, 255, 0.22);
+  contain: none;
+  transform: none;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}

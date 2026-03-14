@@ -896,6 +896,7 @@ button:disabled {
 }
 
 #questionImage {
+  display: block;
   max-width: min(100%, 760px);
   width: 100%;
   max-height: min(50vh, 420px);
@@ -907,8 +908,26 @@ button:disabled {
 }
 
 #questionImage.map-question-image {
-  contain: paint;
-  transform: translateZ(0);
+  transform: none;
+  contain: none;
+}
+
+@media (max-width: 900px) {
+  .question-media.map-question-media {
+    display: block;
+  }
+
+  .question-media.map-question-media #questionImage.map-question-image {
+    max-height: min(58vh, 360px);
+    border-radius: 8px;
+    box-shadow: none;
+    border-width: 1px;
+    border-color: rgba(148, 178, 255, 0.22);
+    backface-visibility: hidden;
+    will-change: auto;
+    contain: none;
+    transform: none;
+  }
 }
 
 #questionAudio {
