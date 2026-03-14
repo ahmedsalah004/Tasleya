@@ -85,6 +85,7 @@ function cacheElements() {
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionTimer: document.getElementById("questionTimer"),
+  lateOtherTeamPrompt: document.getElementById("lateOtherTeamPrompt"),
   questionText: document.getElementById("questionText"),
   questionMedia: document.getElementById("questionMedia"),
   answerText: document.getElementById("answerText"),
@@ -336,13 +337,33 @@ function updateQuestionActionLock() {
   el.otherTeamBtn.disabled = disableActions || lockByReveal;
   el.lifelineBtn.disabled = disableActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
   el.hintLifelineBtn.disabled = disableActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
+  updateLateOtherTeamPrompt();
   updateCloseButtonLock();
+}
+
+function updateLateOtherTeamPrompt() {
+  if (!el.lateOtherTeamPrompt) return;
+  const hasQuestion = !!getActiveQuestion() && !state.activeTile?.used && !state.activeTile?.timedOut;
+  const elapsed = timerStart ? Date.now() - timerStart : 0;
+  const shouldShow = hasQuestion && elapsed >= QUESTION_WARNING_MS;
+  el.lateOtherTeamPrompt.classList.toggle("hidden", !shouldShow);
+  if (!shouldShow) {
+    el.lateOtherTeamPrompt.disabled = true;
+    el.lateOtherTeamPrompt.classList.remove("is-disabled");
+    el.lateOtherTeamPrompt.setAttribute("aria-disabled", "true");
+    return;
+  }
+  const isDisabled = el.otherTeamBtn.disabled;
+  el.lateOtherTeamPrompt.disabled = isDisabled;
+  el.lateOtherTeamPrompt.classList.toggle("is-disabled", isDisabled);
+  el.lateOtherTeamPrompt.setAttribute("aria-disabled", isDisabled ? "true" : "false");
 }
 
 function updateTimerUI() {
   const elapsed = timerStart ? Date.now() - timerStart : 0;
-  el.questionTimer.textContent = formatElapsedTime(Math.min(elapsed, QUESTION_TIMEOUT_MS));
+  el.questionTimer.textContent = formatElapsedTime(Math.max(0, elapsed));
   el.questionTimer.classList.toggle("timer-red", elapsed >= QUESTION_WARNING_MS);
+  updateLateOtherTeamPrompt();
 }
 function stopTimer() { if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; } }
 function stopQuestionTimeout() { if (questionTimeoutToken !== null) { clearTimeout(questionTimeoutToken); questionTimeoutToken = null; } }
@@ -353,7 +374,7 @@ function handleQuestionTimeout() {
   questionTimeoutToken = null;
   if (online.mode === "online" && !canCurrentClientAct()) return;
   const tile = state.activeTile;
-  if (!tile || tile.used || !tile.question || tile.timedOut) return;
+  if (!tile || tile.used || !tile.question || tile.timedOut || state.answerRevealed) return;
   timerStart = Date.now() - QUESTION_TIMEOUT_MS;
   updateTimerUI();
   stopTimer();
@@ -892,6 +913,7 @@ function openQuestion(tileId, { restored = false, deadlineTs = null } = {}) {
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
+  updateLateOtherTeamPrompt();
   if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url, q);
   if (q.type === "audio" && q.image_url) renderQuestionAudio(q.image_url);
   el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
@@ -922,6 +944,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
+  updateLateOtherTeamPrompt();
   if (el.modal.classList.contains("hidden")) { state.activeTile = null; return; }
   if (prefersReducedMotion) {
     el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null;
@@ -1880,6 +1903,7 @@ function initializeApp() {
   bindEvent(el.correctBtn, "click", () => applyScore(true), "correctBtn");
   bindEvent(el.wrongBtn, "click", () => applyScore(false), "wrongBtn");
   bindEvent(el.otherTeamBtn, "click", awardPointsToOtherTeam, "otherTeamBtn");
+  bindEvent(el.lateOtherTeamPrompt, "click", awardPointsToOtherTeam, "lateOtherTeamPrompt");
   bindEvent(el.lifelineBtn, "click", useLifeline, "lifelineBtn");
   bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
   bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");

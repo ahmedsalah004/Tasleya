@@ -878,6 +878,31 @@ button:disabled {
   color: var(--danger);
 }
 
+
+.late-other-team-prompt {
+  align-self: flex-end;
+  margin-top: -0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(214, 227, 255, 0.82);
+  font-size: 0.88rem;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+  cursor: pointer;
+}
+
+.late-other-team-prompt:hover,
+.late-other-team-prompt:focus-visible {
+  color: #f3f7ff;
+}
+
+.late-other-team-prompt.is-disabled {
+  opacity: 0.52;
+  cursor: default;
+  text-decoration-thickness: 1px;
+}
+
 .question-status {
   margin: 0;
   text-align: center;
