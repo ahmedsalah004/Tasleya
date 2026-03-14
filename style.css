@@ -250,22 +250,48 @@
   color: rgba(228, 237, 255, 0.9);
 }
 
-.contact-message-input {
+.contact-helper-text,
+.contact-privacy-note {
+  margin: 0;
+  color: rgba(210, 226, 255, 0.86);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.contact-input-label {
+  display: block;
+  margin: 0;
+  color: rgba(233, 241, 255, 0.95);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.contact-message-input,
+.contact-optional-input {
   width: 100%;
-  resize: vertical;
-  min-height: 150px;
-  max-height: 42vh;
   border-radius: 12px;
   border: 1px solid rgba(112, 140, 220, 0.58);
   background: rgba(11, 19, 45, 0.8);
   color: #eef4ff;
   padding: 0.75rem;
   font-size: 1rem;
-  line-height: 1.7;
   box-sizing: border-box;
 }
 
-.contact-message-input:focus {
+.contact-message-input {
+  resize: vertical;
+  min-height: 150px;
+  max-height: 42vh;
+  line-height: 1.7;
+}
+
+.contact-optional-input {
+  min-height: 44px;
+  line-height: 1.4;
+}
+
+.contact-message-input:focus,
+.contact-optional-input:focus {
   outline: none;
   border-color: rgba(255, 209, 102, 0.9);
   box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.2);

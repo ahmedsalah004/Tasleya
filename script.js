@@ -130,6 +130,8 @@ function cacheElements() {
   contactBtn: document.getElementById("contactBtn"),
   contactModal: document.getElementById("contactModal"),
   contactMessageInput: document.getElementById("contactMessageInput"),
+  contactNameInput: document.getElementById("contactNameInput"),
+  contactEmailInput: document.getElementById("contactEmailInput"),
   contactFeedback: document.getElementById("contactFeedback"),
   sendContactBtn: document.getElementById("sendContactBtn"),
   closeContactBtn: document.getElementById("closeContactBtn"),
@@ -1948,6 +1950,18 @@ function normalizeContactMessage(rawMessage = "") {
   return String(rawMessage).trim();
 }
 
+function normalizeContactName(rawName = "") {
+  return String(rawName).trim();
+}
+
+function normalizeContactEmail(rawEmail = "") {
+  return String(rawEmail).trim();
+}
+
+function isValidEmail(email = "") {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function validateContactMessage(message) {
   if (!message) return "الرجاء كتابة رسالة أولاً.";
   if (message.length < CONTACT_MIN_LENGTH) return "الرسالة يجب أن تحتوي على 3 أحرف على الأقل.";
@@ -1966,9 +1980,15 @@ async function submitContactMessage() {
   }
 
   const message = normalizeContactMessage(el.contactMessageInput?.value || "");
+  const name = normalizeContactName(el.contactNameInput?.value || "");
+  const email = normalizeContactEmail(el.contactEmailInput?.value || "");
   const validationError = validateContactMessage(message);
   if (validationError) {
     setContactFeedback(validationError, "error");
+    return;
+  }
+  if (email && !isValidEmail(email)) {
+    setContactFeedback("يرجى إدخال بريد إلكتروني صحيح.", "error");
     return;
   }
 
@@ -1984,6 +2004,9 @@ async function submitContactMessage() {
   try {
     await online.firestore.collection(CONTACT_MESSAGES_COLLECTION).add({
       message,
+      name,
+      email,
+      wantsReply: !!email,
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       page: "start-screen",
       userAgent: navigator.userAgent || "",
@@ -1992,6 +2015,8 @@ async function submitContactMessage() {
 
     contactState.cooldownUntil = Date.now() + CONTACT_SUBMIT_COOLDOWN_MS;
     if (el.contactMessageInput) el.contactMessageInput.value = "";
+    if (el.contactNameInput) el.contactNameInput.value = "";
+    if (el.contactEmailInput) el.contactEmailInput.value = "";
     setContactFeedback("تم إرسال رسالتك بنجاح", "success");
 
     window.setTimeout(() => {
