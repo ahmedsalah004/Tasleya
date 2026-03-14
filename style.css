@@ -242,6 +242,7 @@
 
 .contact-modal-content {
   width: min(560px, 100%);
+  position: relative;
 }
 
 .contact-modal-subtitle {
@@ -273,6 +274,8 @@
 .contact-feedback {
   margin: 0;
   font-weight: 700;
+  position: relative;
+  z-index: 1;
 }
 
 .contact-feedback.is-error {
@@ -289,6 +292,15 @@
 
 .contact-modal-actions {
   gap: 0.6rem;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+}
+
+.contact-modal-actions > button {
+  position: relative;
+  z-index: 4;
+  pointer-events: auto;
 }
 
 .instructions-content {
@@ -1420,6 +1432,17 @@ button:disabled {
     bottom: 0;
     background: linear-gradient(to top, rgba(12, 18, 44, 0.95), rgba(12, 18, 44, 0.78));
     padding-top: 0.4rem;
+  }
+
+  .contact-modal-content .contact-message-input,
+  .contact-modal-content .contact-feedback {
+    position: relative;
+    z-index: 1;
+  }
+
+  .contact-modal-content .contact-modal-actions {
+    z-index: 5;
+    isolation: isolate;
   }
 }
 
