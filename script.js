@@ -10,6 +10,10 @@ const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
+const CONTACT_MESSAGES_COLLECTION = "contactMessages";
+const CONTACT_MIN_LENGTH = 3;
+const CONTACT_MAX_LENGTH = 1000;
+const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -123,6 +127,12 @@ function cacheElements() {
   instructionsBtn: document.getElementById("instructionsBtn"),
   instructionsModal: document.getElementById("instructionsModal"),
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
+  contactBtn: document.getElementById("contactBtn"),
+  contactModal: document.getElementById("contactModal"),
+  contactMessageInput: document.getElementById("contactMessageInput"),
+  contactFeedback: document.getElementById("contactFeedback"),
+  sendContactBtn: document.getElementById("sendContactBtn"),
+  closeContactBtn: document.getElementById("closeContactBtn"),
   installGuideBtn: document.getElementById("installGuideBtn"),
   installGuideModal: document.getElementById("installGuideModal"),
   closeInstallGuideBtn: document.getElementById("closeInstallGuideBtn"),
@@ -173,6 +183,12 @@ const state = {
   currentHintText: "",
 };
 
+const contactState = {
+  submitting: false,
+  cooldownUntil: 0,
+};
+
+
 const online = {
   mode: "local",
   role: null,
@@ -184,6 +200,7 @@ const online = {
   applyingRemote: false,
   firebaseReady: false,
   db: null,
+  firestore: null,
   creatingRoom: false,
   joiningRoom: false,
   selectedTeamCount: 2,
@@ -1365,6 +1382,9 @@ function initFirebase() {
     console.log("[Tasleya] Firebase app initialized");
   }
   online.db = firebase.database();
+  if (typeof firebase.firestore === "function") {
+    online.firestore = firebase.firestore();
+  }
   online.firebaseReady = true;
   return true;
 }
@@ -1883,6 +1903,106 @@ function closeInstallGuide() {
   el.installGuideModal.addEventListener("animationend", onEnd, true);
 }
 
+function setContactFeedback(message = "", type = "error") {
+  if (!el.contactFeedback) return;
+  el.contactFeedback.textContent = message;
+  el.contactFeedback.classList.remove("hidden", "is-error", "is-success", "is-info");
+  if (!message) {
+    el.contactFeedback.classList.add("hidden");
+    return;
+  }
+  el.contactFeedback.classList.add(`is-${type}`);
+}
+
+function openContactModal() {
+  if (!el.contactModal) return;
+  setContactFeedback("");
+  el.contactModal.classList.remove("hidden", "is-closing");
+  void el.contactModal.offsetWidth;
+  el.contactModal.classList.add("is-open");
+  if (el.contactMessageInput) {
+    requestAnimationFrame(() => el.contactMessageInput.focus());
+  }
+}
+
+function closeContactModal() {
+  if (!el.contactModal || el.contactModal.classList.contains("hidden")) return;
+  if (prefersReducedMotion) {
+    el.contactModal.classList.add("hidden");
+    el.contactModal.classList.remove("is-open", "is-closing");
+    return;
+  }
+  el.contactModal.classList.remove("is-open");
+  el.contactModal.classList.add("is-closing");
+  const onEnd = () => {
+    el.contactModal.classList.add("hidden");
+    el.contactModal.classList.remove("is-closing");
+    el.contactModal.removeEventListener("animationend", onEnd, true);
+  };
+  el.contactModal.addEventListener("animationend", onEnd, true);
+}
+
+function normalizeContactMessage(rawMessage = "") {
+  return String(rawMessage).trim();
+}
+
+function validateContactMessage(message) {
+  if (!message) return "الرجاء كتابة رسالة أولاً.";
+  if (message.length < CONTACT_MIN_LENGTH) return "الرسالة يجب أن تحتوي على 3 أحرف على الأقل.";
+  if (message.length > CONTACT_MAX_LENGTH) return "الرسالة طويلة جدًا. الحد الأقصى 1000 حرف.";
+  return "";
+}
+
+async function submitContactMessage() {
+  if (contactState.submitting) return;
+  const now = Date.now();
+  if (now < contactState.cooldownUntil) {
+    const waitSeconds = Math.ceil((contactState.cooldownUntil - now) / 1000);
+    setContactFeedback(`يرجى الانتظار ${waitSeconds} ثوانٍ قبل إرسال رسالة جديدة.`, "info");
+    return;
+  }
+
+  const message = normalizeContactMessage(el.contactMessageInput?.value || "");
+  const validationError = validateContactMessage(message);
+  if (validationError) {
+    setContactFeedback(validationError, "error");
+    return;
+  }
+
+  if (!initFirebase() || !online.firestore) {
+    setContactFeedback("تعذّر الاتصال بالخدمة الآن. حاول مرة أخرى لاحقًا.", "error");
+    return;
+  }
+
+  contactState.submitting = true;
+  if (el.sendContactBtn) el.sendContactBtn.disabled = true;
+  setContactFeedback("جارٍ الإرسال...", "info");
+
+  try {
+    await online.firestore.collection(CONTACT_MESSAGES_COLLECTION).add({
+      message,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      page: "start-screen",
+      userAgent: navigator.userAgent || "",
+      language: navigator.language || "",
+    });
+
+    contactState.cooldownUntil = Date.now() + CONTACT_SUBMIT_COOLDOWN_MS;
+    if (el.contactMessageInput) el.contactMessageInput.value = "";
+    setContactFeedback("تم إرسال رسالتك بنجاح", "success");
+
+    window.setTimeout(() => {
+      closeContactModal();
+    }, 900);
+  } catch (error) {
+    console.error("[Tasleya] Failed to submit contact message", error);
+    setContactFeedback("تعذّر إرسال الرسالة. حاول مرة أخرى.", "error");
+  } finally {
+    contactState.submitting = false;
+    if (el.sendContactBtn) el.sendContactBtn.disabled = false;
+  }
+}
+
 function bindEvent(element, eventName, handler, elementName) {
   if (!element) {
     console.error(`[Tasleya] Missing element: ${elementName}`);
@@ -1959,6 +2079,18 @@ function initializeApp() {
   bindEvent(el.instructionsModal, "click", (event) => {
     if (event.target === el.instructionsModal) closeInstructionsModal();
   }, "instructionsModal");
+  bindEvent(el.contactBtn, "click", openContactModal, "contactBtn");
+  bindEvent(el.sendContactBtn, "click", submitContactMessage, "sendContactBtn");
+  bindEvent(el.closeContactBtn, "click", closeContactModal, "closeContactBtn");
+  bindEvent(el.contactModal, "click", (event) => {
+    if (event.target === el.contactModal) closeContactModal();
+  }, "contactModal");
+  bindEvent(el.contactMessageInput, "keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      submitContactMessage();
+    }
+  }, "contactMessageInput");
   bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");

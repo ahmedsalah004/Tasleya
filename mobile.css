@@ -10,6 +10,7 @@ button,
 #startLocalBtn,
 #startOnlineBtn,
 #instructionsBtn,
+#contactBtn,
 #installGuideBtn,
 .primary-btn,
 .secondary-btn,
@@ -27,6 +28,8 @@ button,
 #startOnlineBtn::after,
 #instructionsBtn::before,
 #instructionsBtn::after,
+#contactBtn::before,
+#contactBtn::after,
 #installGuideBtn::before,
 #installGuideBtn::after,
 .primary-btn::before,
@@ -79,6 +82,7 @@ main,
 #startLocalBtn,
 #startOnlineBtn,
 #instructionsBtn,
+#contactBtn,
 #installGuideBtn {
   position: static;
   left: auto;
@@ -103,6 +107,7 @@ main,
 }
 
 #instructionsBtn,
+#contactBtn,
 #installGuideBtn {
   width: 74%;
   max-width: 74%;
@@ -121,6 +126,9 @@ main,
 #instructionsBtn:hover,
 #instructionsBtn:focus,
 #instructionsBtn:active,
+#contactBtn:hover,
+#contactBtn:focus,
+#contactBtn:active,
 #installGuideBtn:hover,
 #installGuideBtn:focus,
 #installGuideBtn:active {
@@ -153,8 +161,12 @@ main,
   top: calc(56% + 146px);
 }
 
-#installGuideBtn {
+#contactBtn {
   top: calc(56% + 206px);
+}
+
+#installGuideBtn {
+  top: calc(56% + 264px);
 }
 
 .board-wrap {
@@ -224,6 +236,7 @@ main,
   #startLocalBtn:hover,
   #startOnlineBtn:hover,
   #instructionsBtn:hover,
+  #contactBtn:hover,
   #installGuideBtn:hover,
   .primary-btn:hover,
   .secondary-btn:hover,
@@ -234,6 +247,7 @@ main,
   #startLocalBtn:focus,
   #startOnlineBtn:focus,
   #instructionsBtn:focus,
+  #contactBtn:focus,
   #installGuideBtn:focus,
   .primary-btn:focus,
   .secondary-btn:focus,
@@ -243,6 +257,7 @@ main,
   #startLocalBtn:active,
   #startOnlineBtn:active,
   #instructionsBtn:active,
+  #contactBtn:active,
   #installGuideBtn:active,
   .primary-btn:active,
   .secondary-btn:active,
@@ -264,6 +279,7 @@ main,
   #startLocalBtn,
 #startOnlineBtn,
 #instructionsBtn,
+#contactBtn,
 #installGuideBtn,
   .team-card::before,
   .team-card.active::after {
