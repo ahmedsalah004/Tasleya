@@ -832,6 +832,7 @@ function toMediaUrl(mediaPath) {
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+  el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
 }
 
@@ -843,6 +844,7 @@ function renderQuestionImage(imagePath, question = null) {
   image.decoding = "async";
   image.loading = "eager";
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
+    el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
     image.fetchPriority = "low";
   }
