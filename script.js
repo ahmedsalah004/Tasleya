@@ -1956,21 +1956,17 @@ function validateContactMessage(message) {
 }
 
 async function submitContactMessage() {
-  console.log("[Tasleya] Send contact button clicked");
   if (contactState.submitting) return;
 
   const now = Date.now();
   if (now < contactState.cooldownUntil) {
     const waitSeconds = Math.ceil((contactState.cooldownUntil - now) / 1000);
     setContactFeedback(`يرجى الانتظار ${waitSeconds} ثوانٍ قبل إرسال رسالة جديدة.`, "info");
-    console.log("[Tasleya] Contact validation passed: false (cooldown active)");
     return;
   }
 
   const message = normalizeContactMessage(el.contactMessageInput?.value || "");
   const validationError = validateContactMessage(message);
-  const validationPassed = !validationError;
-  console.log(`[Tasleya] Contact validation passed: ${validationPassed}`);
   if (validationError) {
     setContactFeedback(validationError, "error");
     return;
@@ -1982,7 +1978,6 @@ async function submitContactMessage() {
   }
 
   contactState.submitting = true;
-  console.log("[Tasleya] Contact submit started");
   if (el.sendContactBtn) el.sendContactBtn.disabled = true;
   setContactFeedback("جارٍ الإرسال...", "info");
 
@@ -2003,7 +1998,6 @@ async function submitContactMessage() {
       closeContactModal();
     }, 900);
   } catch (error) {
-    console.error("[Tasleya] Failed to submit contact message", error);
     setContactFeedback("تعذّر إرسال الرسالة. حاول مرة أخرى.", "error");
   } finally {
     contactState.submitting = false;
