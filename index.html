@@ -70,6 +70,7 @@
         <button id="startLocalBtn" type="button">لعب على جهاز واحد</button>
         <button id="startOnlineBtn" type="button">لعب على أجهزة مختلفة</button>
         <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
+        <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
         <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
       </div>
       <section class="seo-text info-box">
@@ -140,6 +141,26 @@
 
         <div class="modal-actions">
           <button id="closeInstallGuideBtn" class="ghost-btn" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="contactModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+      <div class="modal-content contact-modal-content">
+        <h2 id="contactTitle">تواصل معنا</h2>
+        <p class="contact-modal-subtitle">اكتب رسالتك هنا</p>
+        <textarea
+          id="contactMessageInput"
+          class="contact-message-input"
+          rows="7"
+          maxlength="1000"
+          placeholder="اكتب رسالتك هنا"
+          aria-label="رسالة التواصل"
+        ></textarea>
+        <p id="contactFeedback" class="contact-feedback hidden" role="status" aria-live="polite"></p>
+        <div class="modal-actions contact-modal-actions">
+          <button id="sendContactBtn" class="primary-btn" type="button">إرسال</button>
+          <button id="closeContactBtn" class="ghost-btn" type="button">إغلاق</button>
         </div>
       </div>
     </div>
@@ -347,6 +368,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="script.js?v=1.0.0"></script>
