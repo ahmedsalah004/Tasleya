@@ -811,7 +811,6 @@ button:disabled {
   transition: opacity 0.24s ease;
   z-index: 4000;
   pointer-events: auto;
-  overscroll-behavior: contain;
 }
 
 #installGuideModal {
@@ -846,7 +845,6 @@ button:disabled {
   gap: 0.95rem;
   transform: scale(0.92) translateY(10px);
   opacity: 0;
-  overscroll-behavior: contain;
 }
 
 .modal.is-open .modal-content {
@@ -890,7 +888,6 @@ button:disabled {
 .question-media {
   display: grid;
   gap: 0.6rem;
-  overscroll-behavior: contain;
 }
 
 .question-media img {
