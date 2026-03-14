@@ -18,10 +18,14 @@ let hintHelpUsed = { 1: false, 2: false, 3: false };
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
+let questionDeadlineTs = null;
+let mapQuestionImageBlobUrl = null;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
 const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
+const MAP_QUESTION_CATEGORY = "ما هي الدولة بالخريطة";
+const MAX_MAP_IMAGE_DIMENSION = 2048;
 const CATEGORY_DISPLAY_GROUPS = [
   {
     name: "علوم إسلامية",
@@ -344,7 +348,7 @@ function updateTimerUI() {
 }
 function stopTimer() { if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; } }
 function stopQuestionTimeout() { if (questionTimeoutToken !== null) { clearTimeout(questionTimeoutToken); questionTimeoutToken = null; } }
-function resetTimer() { timerStart = null; updateTimerUI(); }
+function resetTimer() { timerStart = null; questionDeadlineTs = null; updateTimerUI(); }
 function stopAndResetTimer() { stopTimer(); stopQuestionTimeout(); resetTimer(); }
 function handleQuestionTimeout() {
   if (questionTimeoutToken === null) return;
@@ -361,13 +365,19 @@ function handleQuestionTimeout() {
     nextTeam: getNextTeamNumber(state.currentTeam),
   });
 }
-function startTimer() {
+function startTimer({ deadlineTs = null } = {}) {
   stopAndResetTimer();
-  timerStart = Date.now();
+  const now = Date.now();
+  const normalizedDeadline = Number(deadlineTs);
+  questionDeadlineTs = Number.isFinite(normalizedDeadline) && normalizedDeadline > now
+    ? normalizedDeadline
+    : now + QUESTION_TIMEOUT_MS;
+  timerStart = questionDeadlineTs - QUESTION_TIMEOUT_MS;
   updateTimerUI();
   timerInterval = setInterval(updateTimerUI, 250);
+  const timeoutInMs = Math.max(0, questionDeadlineTs - now);
   if (online.mode !== "online" || canCurrentClientAct()) {
-    questionTimeoutToken = setTimeout(handleQuestionTimeout, QUESTION_TIMEOUT_MS);
+    questionTimeoutToken = setTimeout(handleQuestionTimeout, timeoutInMs);
   }
 }
 
@@ -532,11 +542,17 @@ function persistLocalProgress() {
     teamCount: state.teamCount,
     teamNames: { ...state.teamNames },
     scores: { ...state.scores },
+    usedQuestionIds: state.boardTiles.filter((tile) => tile.used && tile.question?.id).map((tile) => tile.question.id),
     currentTeam: state.currentTeam,
     mcqHelpUsed: { ...mcqHelpUsed },
     hintHelpUsed: { ...hintHelpUsed },
     activeTileId: state.activeTile?.id || null,
+    activeQuestionId: state.activeTile?.question?.id || null,
+    activeCategory: state.activeTile?.category || null,
     modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
+    questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
+    questionStartedAt: state.activeTile && timerStart ? timerStart : null,
+    lastSavedAt: Date.now(),
   };
 
   try {
@@ -592,7 +608,15 @@ function restoreLocalProgress() {
 
     const savedActiveId = normalizeCell(saved.activeTileId);
     if (saved.modalOpen && savedActiveId) {
-      openQuestion(savedActiveId);
+      const restoredDeadline = Number(saved.questionDeadlineTs);
+      const restoredStart = Number(saved.questionStartedAt);
+      const fallbackDeadline = Number.isFinite(restoredStart)
+        ? restoredStart + QUESTION_TIMEOUT_MS
+        : null;
+      openQuestion(savedActiveId, {
+        restored: true,
+        deadlineTs: Number.isFinite(restoredDeadline) ? restoredDeadline : fallbackDeadline,
+      });
     }
 
     return true;
@@ -810,11 +834,69 @@ function toMediaUrl(mediaPath) {
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+  if (mapQuestionImageBlobUrl) {
+    URL.revokeObjectURL(mapQuestionImageBlobUrl);
+    mapQuestionImageBlobUrl = null;
+  }
   el.questionMedia.innerHTML = "";
 }
-function renderQuestionImage(imagePath) {
+
+async function maybeDownscaleMapImageForSafari(imageSrc, question) {
+  if (normalizeCell(question?.category) !== MAP_QUESTION_CATEGORY) return imageSrc;
+  try {
+    const response = await fetch(imageSrc, { cache: "force-cache" });
+    if (!response.ok) return imageSrc;
+    const blob = await response.blob();
+    const bitmap = await createImageBitmap(blob);
+    const maxEdge = Math.max(bitmap.width, bitmap.height);
+    if (maxEdge <= MAX_MAP_IMAGE_DIMENSION) {
+      bitmap.close();
+      return imageSrc;
+    }
+
+    const scale = MAX_MAP_IMAGE_DIMENSION / maxEdge;
+    const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
+    const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const context = canvas.getContext("2d", { alpha: true, desynchronized: true });
+    if (!context) {
+      bitmap.close();
+      return imageSrc;
+    }
+    context.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+    bitmap.close();
+
+    const downscaledBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.92));
+    if (!downscaledBlob) return imageSrc;
+    if (mapQuestionImageBlobUrl) URL.revokeObjectURL(mapQuestionImageBlobUrl);
+    mapQuestionImageBlobUrl = URL.createObjectURL(downscaledBlob);
+    return mapQuestionImageBlobUrl;
+  } catch (_) {
+    return imageSrc;
+  }
+}
+
+function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
-  const image = document.createElement("img"); image.id = "questionImage"; image.alt = "صورة السؤال"; image.src = imageSrc; el.questionMedia.appendChild(image);
+  const image = document.createElement("img");
+  image.id = "questionImage";
+  image.alt = "صورة السؤال";
+  image.decoding = "async";
+  image.loading = "eager";
+  if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
+    image.fetchPriority = "low";
+  }
+  image.src = imageSrc;
+  el.questionMedia.appendChild(image);
+
+  maybeDownscaleMapImageForSafari(imageSrc, question).then((optimizedSrc) => {
+    if (!optimizedSrc || !state.activeTile?.question) return;
+    if (image.isConnected && image.src !== optimizedSrc && normalizeCell(state.activeTile.question.category) === MAP_QUESTION_CATEGORY) {
+      image.src = optimizedSrc;
+    }
+  });
 }
 function renderQuestionAudio(audioPath) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
@@ -835,7 +917,7 @@ function canCurrentClientAct() {
   return controlledTeams.includes(state.currentTeam);
 }
 
-function openQuestion(tileId) {
+function openQuestion(tileId, { restored = false, deadlineTs = null } = {}) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (hasUnresolvedActiveQuestion()) return;
   stopAndResetTimer(); clearQuestionMedia();
@@ -856,12 +938,20 @@ function openQuestion(tileId) {
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
-  if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url);
+  if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url, q);
   if (q.type === "audio" && q.image_url) renderQuestionAudio(q.image_url);
   el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   updateQuestionActionLock();
-  startTimer();
+  const safeDeadline = Number(deadlineTs);
+  const restoreDeadline = Number.isFinite(safeDeadline) ? safeDeadline : null;
+  if (restored && restoreDeadline && restoreDeadline <= Date.now()) {
+    showQuestionStatus("انتهى الوقت");
+    startTimer({ deadlineTs: Date.now() + 10 });
+    handleQuestionTimeout();
+  } else {
+    startTimer({ deadlineTs: restored ? restoreDeadline : null });
+  }
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
   persistLocalProgress();
@@ -1135,6 +1225,7 @@ function serializeGameState() {
     currentChoices: state.currentChoices,
     currentHintText: state.currentHintText,
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
+    questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
     finished: state.boardTiles.length > 0 && !hasPlayableTiles(),
   };
 }
@@ -1181,7 +1272,7 @@ function applyRemoteGameState(game) {
         el.questionText.textContent = tile.question.question;
         el.answerText.textContent = `الإجابة: ${tile.question.answer}`;
         el.answerText.classList.toggle("hidden", !state.answerRevealed);
-        if (tile.question.type === "image" && tile.question.image_url) renderQuestionImage(tile.question.image_url);
+        if (tile.question.type === "image" && tile.question.image_url) renderQuestionImage(tile.question.image_url, tile.question);
         if (tile.question.type === "audio" && tile.question.image_url) renderQuestionAudio(tile.question.image_url);
         el.choicesList.innerHTML = "";
         if (state.currentChoices.length) {
@@ -1210,19 +1301,18 @@ function applyRemoteGameState(game) {
         if (remoteTimedOut) {
           stopAndResetTimer();
           timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+          questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
           updateTimerUI();
-        } else if (game.questionStartedAt) {
-          stopAndResetTimer();
-          timerStart = Number(game.questionStartedAt) || Date.now();
-          updateTimerUI();
-          stopTimer();
-          timerInterval = setInterval(updateTimerUI, 250);
-          const remaining = Math.max(0, QUESTION_TIMEOUT_MS - (Date.now() - timerStart));
-          if (online.mode !== "online" || canCurrentClientAct()) {
-            questionTimeoutToken = setTimeout(handleQuestionTimeout, remaining);
-          }
         } else {
-          startTimer();
+          const remoteDeadline = Number(game.questionDeadlineTs);
+          if (Number.isFinite(remoteDeadline)) {
+            startTimer({ deadlineTs: remoteDeadline });
+          } else if (game.questionStartedAt) {
+            const remoteStart = Number(game.questionStartedAt) || Date.now();
+            startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
+          } else {
+            startTimer();
+          }
         }
       }
     }
