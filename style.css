@@ -888,15 +888,6 @@ button:disabled {
 .question-media {
   display: grid;
   gap: 0.6rem;
-  touch-action: manipulation;
-  -ms-touch-action: manipulation;
-}
-
-#questionModal .modal-content,
-#questionMedia,
-#questionImage,
-#choicesList {
-  touch-action: manipulation;
 }
 
 .question-media img {
