@@ -8,6 +8,7 @@ const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
+const SESSION_GAME_STATE_KEY = "tasleya_session_game_state_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -17,6 +18,7 @@ let hintHelpUsed = { 1: false, 2: false, 3: false };
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
+let isRestoringSessionState = false;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
@@ -367,6 +369,7 @@ function startTimer() {
   if (online.mode !== "online" || canCurrentClientAct()) {
     questionTimeoutToken = setTimeout(handleQuestionTimeout, QUESTION_TIMEOUT_MS);
   }
+  saveSessionGameState();
 }
 
 function shuffle(input) {
@@ -395,6 +398,7 @@ function getNextTeamNumber(team) {
 function setLocalTeamCount(teamCount) {
   state.teamCount = normalizeTeamCount(teamCount);
   updateOnlineActionPermissions();
+  saveSessionGameState();
 }
 function updateTeamModeUI() {
   const isThreeTeams = state.teamCount === 3;
@@ -420,6 +424,7 @@ function adjustTeamScore(team, delta) {
   if (online.mode === "online" || !isTeamActive(team)) return;
   state.scores[team] = Math.max(0, (Number(state.scores[team]) || 0) + delta);
   updateScoreboard();
+  saveSessionGameState();
 }
 
 function parseCSV(text) {
@@ -553,6 +558,7 @@ async function preloadQuestionBank() {
   } finally {
     questionBankCache.loadPromise = null;
   }
+  saveSessionGameState();
 }
 function getUniqueCategories(questions) {
   const unique = [];
@@ -623,6 +629,7 @@ function setTeamName(team, value, { commit = false } = {}) {
   if (commit) syncTeamNameInputs();
   saveTeamNames();
   updateScoreboard();
+  saveSessionGameState();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
@@ -632,7 +639,7 @@ function setTeamNamesFromCategoryModal() {
 }
 
 function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question); }
-function closePodiumModal() { el.podiumModal.classList.add("hidden"); el.podiumModal.classList.remove("is-open"); }
+function closePodiumModal() { el.podiumModal.classList.add("hidden"); el.podiumModal.classList.remove("is-open"); saveSessionGameState(); }
 function buildPodiumColumn(name, score, label, placeClass) {
   return `<div class="podium-column ${placeClass}"><p class="podium-label">${label}</p><p class="podium-team-name">${name}</p><p class="podium-score">${score}</p><div class="podium-step"></div></div>`;
 }
@@ -664,6 +671,7 @@ function showPodiumModal() {
   }
   el.podiumModal.classList.remove("hidden");
   requestAnimationFrame(() => el.podiumModal.classList.add("is-open"));
+  saveSessionGameState();
 }
 function checkEndOfGame() {
   if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
@@ -677,6 +685,7 @@ function checkEndOfGame() {
     showPodiumModal();
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   }
+  saveSessionGameState();
 }
 
 function renderBoard() {
@@ -789,6 +798,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
   }
   updateCloseButtonLock();
   if (online.mode === "online" && !online.applyingRemote && !silentSync) pushOnlineState();
+  saveSessionGameState();
   return true;
 }
 
@@ -812,6 +822,7 @@ function resetGameState() {
   clearError();
   updateScoreboard();
   renderBoard();
+  saveSessionGameState();
 }
 
 function revealAnswer() {
@@ -857,6 +868,7 @@ function useHintLifeline() {
     el.hintText.textContent = state.currentHintText;
     el.hintBox.classList.remove("hidden");
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+    saveSessionGameState();
     return;
   }
   hintHelpUsed[currentTeam] = true;
@@ -923,6 +935,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   closeModal({ silentSync: true });
   checkEndOfGame();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  saveSessionGameState();
   return true;
 }
 
@@ -1015,7 +1028,140 @@ function closeCategoryPicker() {
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
-function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); }
+function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); saveSessionGameState(); }
+
+function getCurrentScreenName() {
+  if (el.startScreen?.style.display !== "none") return "start";
+  return "game";
+}
+
+function serializeSessionGameState() {
+  return {
+    currentScreen: getCurrentScreenName(),
+    selectedCategory: state.activeTile?.category || state.selectedCategories[0] || "",
+    selectedCategories: state.selectedCategories,
+    pointLevels: state.pointLevels,
+    boardTiles: state.boardTiles,
+    currentQuestionId: state.activeTile?.question?.id || null,
+    activeTileId: state.activeTile?.id || null,
+    scores: state.scores,
+    teams: {
+      count: state.teamCount,
+      names: state.teamNames,
+      currentTeam: state.currentTeam,
+    },
+    usedQuestions: state.usedHistory,
+    mcqHelpUsed,
+    hintHelpUsed,
+    answerRevealed: state.answerRevealed,
+    currentChoices: state.currentChoices,
+    currentHintText: state.currentHintText,
+    modalOpen: !!state.activeTile && !el.modal.classList.contains("hidden"),
+    categoryModalOpen: !el.categoryModal.classList.contains("hidden"),
+    timestamp: Date.now(),
+  };
+}
+
+function saveSessionGameState() {
+  if (isRestoringSessionState) return;
+  try {
+    sessionStorage.setItem(SESSION_GAME_STATE_KEY, JSON.stringify(serializeSessionGameState()));
+  } catch (_) {
+    // Ignore storage quota and privacy mode errors.
+  }
+}
+
+function loadSessionGameState() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_GAME_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function restoreSessionGameState() {
+  const saved = loadSessionGameState();
+  if (!saved || saved.currentScreen !== "game") return false;
+
+  const questionById = new Map(state.allQuestions.map((question) => [String(question.id), question]));
+  const restoredTiles = Array.isArray(saved.boardTiles)
+    ? saved.boardTiles.map((tile) => {
+      const questionId = normalizeCell(tile?.question?.id || tile?.questionId);
+      const matchedQuestion = questionById.get(questionId) || tile?.question || null;
+      return {
+        id: normalizeCell(tile?.id),
+        category: normalizeCell(tile?.category),
+        points: Number(tile?.points) || 0,
+        question: matchedQuestion,
+        used: !!tile?.used,
+        missing: !!tile?.missing,
+        timedOut: !!tile?.timedOut,
+      };
+    }).filter((tile) => tile.id && tile.category)
+    : [];
+
+  isRestoringSessionState = true;
+  try {
+    state.selectedCategories = Array.isArray(saved.selectedCategories) ? [...saved.selectedCategories] : [];
+    state.pointLevels = Array.isArray(saved.pointLevels) && saved.pointLevels.length ? [...saved.pointLevels] : [...POINT_LEVELS];
+    state.boardTiles = restoredTiles;
+    state.teamCount = normalizeTeamCount(saved?.teams?.count ?? saved?.teamCount);
+    state.scores = {
+      1: Number(saved?.scores?.[1] ?? saved?.scores?.team1 ?? 0) || 0,
+      2: Number(saved?.scores?.[2] ?? saved?.scores?.team2 ?? 0) || 0,
+      3: Number(saved?.scores?.[3] ?? saved?.scores?.team3 ?? 0) || 0,
+    };
+    state.displayedScores = { ...state.scores };
+    state.teamNames = {
+      1: normalizeCell(saved?.teams?.names?.[1] ?? saved?.teamNames?.[1]) || "الفريق الأول",
+      2: normalizeCell(saved?.teams?.names?.[2] ?? saved?.teamNames?.[2]) || "الفريق الثاني",
+      3: normalizeCell(saved?.teams?.names?.[3] ?? saved?.teamNames?.[3]) || "الفريق الثالث",
+    };
+    state.currentTeam = getActiveTeamNumbers().includes(Number(saved?.teams?.currentTeam)) ? Number(saved.teams.currentTeam) : 1;
+    state.usedHistory = saved?.usedQuestions && typeof saved.usedQuestions === "object" ? saved.usedQuestions : loadUsedHistory();
+    mcqHelpUsed = saved?.mcqHelpUsed && typeof saved.mcqHelpUsed === "object" ? saved.mcqHelpUsed : { 1: false, 2: false, 3: false };
+    hintHelpUsed = saved?.hintHelpUsed && typeof saved.hintHelpUsed === "object" ? saved.hintHelpUsed : { 1: false, 2: false, 3: false };
+    const savedAnswerRevealed = !!saved.answerRevealed;
+    state.answerRevealed = savedAnswerRevealed;
+    state.currentChoices = Array.isArray(saved.currentChoices) ? saved.currentChoices : [];
+    state.currentHintText = normalizeCell(saved.currentHintText);
+
+    el.startScreen.style.display = "none";
+    el.gameScreen.style.display = "block";
+    updateTeamModeUI();
+    syncTeamNameInputs();
+    updateScoreboard();
+    renderBoard();
+
+    const activeTileId = normalizeCell(saved.activeTileId);
+    const canRestoreModal = !!saved.modalOpen && activeTileId;
+    if (canRestoreModal) {
+      const tile = state.boardTiles.find((entry) => entry.id === activeTileId && !entry.used && entry.question);
+      if (tile) {
+        openQuestion(tile.id);
+        state.answerRevealed = savedAnswerRevealed;
+        if (savedAnswerRevealed) {
+          el.answerText.classList.remove("hidden");
+          updateQuestionActionLock();
+        }
+      }
+    } else if (saved.categoryModalOpen && state.boardTiles.length === 0) {
+      openCategoryPicker();
+      updateCategoryPickerUI();
+    }
+
+    closeOnlineModal();
+    closeLocalTeamsModal();
+  } finally {
+    isRestoringSessionState = false;
+  }
+
+  saveSessionGameState();
+  return true;
+}
 
 function serializeGameState() {
   return {
@@ -1135,6 +1281,7 @@ function applyRemoteGameState(game) {
   } finally {
     online.applyingRemote = false;
   }
+  saveSessionGameState();
 }
 
 function setOnlineStatus(text) { el.onlineStatusText.textContent = text; }
@@ -1227,6 +1374,7 @@ function initAnalytics() {
     }
     return null;
   }
+  saveSessionGameState();
 }
 
 function logAnalyticsEvent(eventName, params = {}) {
@@ -1238,6 +1386,7 @@ function logAnalyticsEvent(eventName, params = {}) {
   } catch (error) {
     console.warn("[Tasleya] Analytics event failed", { eventName, error });
   }
+  saveSessionGameState();
 }
 
 
@@ -1298,6 +1447,7 @@ async function createOnlineRoom() {
   } finally {
     setCreateRoomLoading(false);
   }
+  saveSessionGameState();
 }
 
 async function joinOnlineRoom(codeInput) {
@@ -1368,6 +1518,7 @@ async function joinOnlineRoom(codeInput) {
   } finally {
     setJoinRoomLoading(false);
   }
+  saveSessionGameState();
 }
 
 async function connectToRoom(code, teamSlot) {
@@ -1474,6 +1625,7 @@ function updateOnlineTeamCountControls() {
     el.onlineThreeTeamsBtn.setAttribute("aria-pressed", String(isThree));
     el.onlineThreeTeamsBtn.disabled = locked;
   }
+  saveSessionGameState();
 }
 
 function updateOnlineActionPermissions() {
@@ -1546,6 +1698,7 @@ async function startGameFromSelection() {
     teams_count: state.teamCount,
   });
   if (online.mode === "online") pushOnlineState();
+  saveSessionGameState();
 }
 
 async function startNewGame() {
@@ -1561,6 +1714,7 @@ async function startNewGame() {
     state.boardTiles = [];
     renderBoard();
     openCategoryPicker();
+    saveSessionGameState();
   } catch (error) {
     state.dataLoadFailed = true;
     state.allQuestions = [];
@@ -1572,6 +1726,7 @@ async function startNewGame() {
   } finally {
     el.newGameBtn.disabled = false;
   }
+  saveSessionGameState();
 }
 
 async function enterGame(mode) {
@@ -1587,6 +1742,7 @@ async function enterGame(mode) {
     preloadQuestionBank().catch(() => {});
     openLocalTeamsModal();
   }
+  saveSessionGameState();
 }
 
 function openLocalTeamsModal() {
@@ -1626,6 +1782,7 @@ function openInstructionsModal() {
   } catch (_) {
     // Ignore storage errors silently.
   }
+  saveSessionGameState();
 }
 
 function closeInstructionsModal() {
@@ -1868,9 +2025,27 @@ function initializeApp() {
   initAnalytics();
   logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
 
-  preloadQuestionBank().catch(() => {});
+  const roomFromUrl = normalizeCell(new URL(window.location.href).searchParams.get("room") || "").toUpperCase();
+  preloadQuestionBank().then(({ questions, categories }) => {
+    state.allQuestions = questions;
+    state.allCategories = categories;
+    if (!roomFromUrl) restoreSessionGameState();
+  }).catch(() => {});
 
-  tryAutoJoinFromUrl();
+  if (roomFromUrl) {
+    tryAutoJoinFromUrl();
+  }
+
+  if (el.questionMedia) {
+    el.questionMedia.addEventListener("touchstart", (event) => event.stopPropagation(), { passive: true });
+    el.questionMedia.addEventListener("touchend", (event) => event.stopPropagation(), { passive: true });
+    el.questionMedia.addEventListener("click", (event) => event.stopPropagation());
+  }
+  window.addEventListener("pagehide", saveSessionGameState);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") saveSessionGameState();
+  });
+
   registerServiceWorker();
 }
 
