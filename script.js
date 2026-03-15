@@ -1,9 +1,10 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
-const CATEGORIES_TO_SELECT = 6;
+const DEFAULT_CATEGORIES_TO_SELECT = 6;
+const SOLO_CATEGORIES_TO_SELECT = 3;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
-const SUPPORTED_TEAM_COUNTS = [2, 3];
+const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
@@ -105,9 +106,11 @@ function cacheElements() {
   hintText: document.getElementById("hintText"),
   questionStatus: document.getElementById("questionStatus"),
   categoryModal: document.getElementById("categoryModal"),
+  categoryModalTitle: document.getElementById("categoryModalTitle"),
   categoryList: document.getElementById("categoryList"),
   categoryTeam1NameInput: document.getElementById("categoryTeam1NameInput"),
   categoryTeam2NameInput: document.getElementById("categoryTeam2NameInput"),
+  categoryTeam2NameLabel: document.getElementById("categoryTeam2NameLabel"),
   categoryTeam3NameInput: document.getElementById("categoryTeam3NameInput"),
   categoryTeam3NameLabel: document.getElementById("categoryTeam3NameLabel"),
   categoryCounter: document.getElementById("categoryCounter"),
@@ -159,6 +162,7 @@ function cacheElements() {
   onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
   onlineFeedback: document.getElementById("onlineFeedback"),
   localTeamsModal: document.getElementById("localTeamsModal"),
+  localOneTeamBtn: document.getElementById("localOneTeamBtn"),
   localTwoTeamsBtn: document.getElementById("localTwoTeamsBtn"),
   localThreeTeamsBtn: document.getElementById("localThreeTeamsBtn"),
   cancelLocalTeamsBtn: document.getElementById("cancelLocalTeamsBtn"),
@@ -353,7 +357,8 @@ function updateQuestionActionLock() {
   el.revealBtn.disabled = disableActions || state.answerRevealed;
   el.correctBtn.disabled = disableActions || lockByReveal;
   el.wrongBtn.disabled = disableActions || lockByReveal;
-  el.otherTeamBtn.disabled = disableActions || lockByReveal;
+  const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
+  el.otherTeamBtn.disabled = disableActions || lockByReveal || soloNoOtherTeam;
   el.lifelineBtn.disabled = disableActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
   el.hintLifelineBtn.disabled = disableActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
   updateLateOtherTeamPrompt();
@@ -362,7 +367,7 @@ function updateQuestionActionLock() {
 
 function updateLateOtherTeamPrompt() {
   if (!el.lateOtherTeamPrompt) return;
-  const hasQuestion = !!getActiveQuestion() && !state.activeTile?.used && !state.activeTile?.timedOut;
+  const hasQuestion = !!getActiveQuestion() && !state.activeTile?.used && !state.activeTile?.timedOut && !(online.mode === "local" && state.teamCount === 1);
   const elapsed = timerStart ? Date.now() - timerStart : 0;
   const shouldShow = hasQuestion && elapsed >= QUESTION_WARNING_MS;
   el.lateOtherTeamPrompt.classList.toggle("hidden", !shouldShow);
@@ -436,6 +441,13 @@ function normalizeTeamCount(teamCount) {
   const normalized = Number(teamCount);
   return SUPPORTED_TEAM_COUNTS.includes(normalized) ? normalized : 2;
 }
+function getRequiredCategoryCount() {
+  return (online.mode === "local" && state.teamCount === 1) ? SOLO_CATEGORIES_TO_SELECT : DEFAULT_CATEGORIES_TO_SELECT;
+}
+function getCategoryModalTitleText() {
+  const required = getRequiredCategoryCount();
+  return `اختر ${required} ${required === 1 ? "فئة" : "فئات"} لبدء اللعبة`;
+}
 function getNextTeamNumber(team) {
   const activeTeams = getActiveTeamNumbers();
   const index = activeTeams.indexOf(team);
@@ -447,9 +459,13 @@ function setLocalTeamCount(teamCount) {
   updateOnlineActionPermissions();
 }
 function updateTeamModeUI() {
+  const isOneTeam = state.teamCount === 1;
   const isThreeTeams = state.teamCount === 3;
   document.body.classList.toggle("local-three-teams", isThreeTeams && online.mode !== "online");
+  el.team2Card.classList.toggle("hidden", isOneTeam);
   el.team3Card.classList.toggle("hidden", !isThreeTeams);
+  el.categoryTeam2NameInput.classList.toggle("hidden", isOneTeam);
+  el.categoryTeam2NameLabel.classList.toggle("hidden", isOneTeam);
   el.categoryTeam3NameInput.classList.toggle("hidden", !isThreeTeams);
   el.categoryTeam3NameLabel.classList.toggle("hidden", !isThreeTeams);
 }
@@ -568,7 +584,7 @@ function persistLocalProgress() {
     clearLocalProgress();
     return;
   }
-  const hasBoard = state.boardTiles.length > 0 && state.selectedCategories.length === CATEGORIES_TO_SELECT;
+  const hasBoard = state.boardTiles.length > 0 && state.selectedCategories.length === getRequiredCategoryCount();
   if (!hasBoard) return;
 
   const payload = {
@@ -607,7 +623,7 @@ function restoreLocalProgress() {
     if (!raw) return false;
     const saved = JSON.parse(raw);
     if (!saved || saved.mode !== "local" || saved.screen !== "game") return false;
-    if (!Array.isArray(saved.selectedCategories) || saved.selectedCategories.length !== CATEGORIES_TO_SELECT) return false;
+    if (!Array.isArray(saved.selectedCategories) || saved.selectedCategories.length !== getRequiredCategoryCount()) return false;
     if (!Array.isArray(saved.boardTiles) || saved.boardTiles.length === 0) return false;
 
     state.selectedCategories = [...saved.selectedCategories];
@@ -696,7 +712,7 @@ async function preloadQuestionBank() {
     const questions = await fetchQuestions();
     if (questions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
     const categories = getUniqueCategories(questions);
-    if (categories.length < CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
+    if (categories.length < DEFAULT_CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${DEFAULT_CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
 
     questionBankCache.questions = questions;
     questionBankCache.categories = categories;
@@ -787,7 +803,7 @@ function setTeamName(team, value, { commit = false } = {}) {
 }
 function setTeamNamesFromCategoryModal() {
   setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
-  setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
+  if (state.teamCount >= 2) setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
   if (state.teamCount === 3) setTeamName(3, el.categoryTeam3NameInput.value, { commit: true });
 }
 
@@ -799,7 +815,11 @@ function buildPodiumColumn(name, score, label, placeClass) {
 function showPodiumModal() {
   const activeTeams = getActiveTeamNumbers();
   const rankedTeams = [...activeTeams].sort((a, b) => state.scores[b] - state.scores[a]);
-  if (state.teamCount === 3) {
+  if (state.teamCount === 1) {
+    el.podiumTitle.textContent = "نهاية اللعبة";
+    el.podiumSubtitle.textContent = "نتيجة فريق واحد";
+    el.podiumBoard.innerHTML = buildPodiumColumn(state.teamNames[1], state.scores[1], "النتيجة النهائية", "winner");
+  } else if (state.teamCount === 3) {
     el.podiumTitle.textContent = "نهاية اللعبة";
     el.podiumSubtitle.textContent = "النتائج النهائية";
     el.podiumBoard.innerHTML = rankedTeams.map((team, index) => {
@@ -840,7 +860,7 @@ function checkEndOfGame() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed || state.selectedCategories.length !== CATEGORIES_TO_SELECT || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
+  if (state.dataLoadFailed || state.selectedCategories.length !== getRequiredCategoryCount() || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
   el.board.innerHTML = "";
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div"); header.className = "board-cell category"; header.textContent = category; el.board.appendChild(header);
@@ -1115,12 +1135,15 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 
 function updateCategoryPickerUI() {
   const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
-  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${CATEGORIES_TO_SELECT}`;
-  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== CATEGORIES_TO_SELECT;
+  const requiredCategories = getRequiredCategoryCount();
+  if (el.categoryModalTitle) el.categoryModalTitle.textContent = getCategoryModalTitleText();
+  el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${requiredCategories}`;
+  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== requiredCategories;
+  if (el.randomCategoriesBtn) el.randomCategoriesBtn.textContent = `اختيار عشوائي (${requiredCategories})`;
   if (el.categoryHostOnlyNote) {
     el.categoryHostOnlyNote.classList.toggle("hidden", !hostOnlyBlocked);
   }
-  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= CATEGORIES_TO_SELECT;
+  const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= requiredCategories;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = !checkbox.checked && reachedMax;
@@ -1144,7 +1167,7 @@ function renderCategoryOptions() {
       const label = document.createElement("label"); label.className = "category-option";
       const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
       checkbox.addEventListener("change", () => {
-        if (checkbox.checked) { if (state.selectedCategories.length < CATEGORIES_TO_SELECT) state.selectedCategories.push(category); }
+        if (checkbox.checked) { if (state.selectedCategories.length < getRequiredCategoryCount()) state.selectedCategories.push(category); }
         else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
         updateCategoryPickerUI();
       });
@@ -1189,7 +1212,7 @@ function openCategoryPicker() {
   } else {
     el.randomCategoriesBtn.disabled = false;
     el.categoryTeam1NameInput.disabled = false;
-    el.categoryTeam2NameInput.disabled = false;
+    el.categoryTeam2NameInput.disabled = state.teamCount === 1;
     el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
   }
   el.categoryModal.classList.remove("hidden");
@@ -1202,7 +1225,10 @@ function closeCategoryPicker() {
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
-function pickRandomCategories() { state.selectedCategories = shuffle(state.allCategories).slice(0, CATEGORIES_TO_SELECT); updateCategoryPickerUI(); }
+function pickRandomCategories() {
+  state.selectedCategories = shuffle(state.allCategories).slice(0, getRequiredCategoryCount());
+  updateCategoryPickerUI();
+}
 
 function serializeGameState() {
   return {
@@ -1632,7 +1658,7 @@ function disconnectOnlineListeners() {
 
 function pushOnlineState() {
   if (online.mode !== "online" || !online.roomRef || online.applyingRemote) return;
-  const isBoardReady = state.selectedCategories.length === CATEGORIES_TO_SELECT && state.boardTiles.length > 0;
+  const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
     teamCount: normalizeTeamCount(state.teamCount),
     gameStarted: isBoardReady,
@@ -1709,7 +1735,7 @@ function closeOnlineModal() {
 }
 
 async function startGameFromSelection() {
-  if (state.selectedCategories.length !== CATEGORIES_TO_SELECT) return;
+  if (state.selectedCategories.length !== getRequiredCategoryCount()) return;
   if (online.mode === "online" && online.role !== "host") {
     showHostOnlyStartMessage();
     return;
@@ -2081,6 +2107,7 @@ function initializeApp() {
     logAnalyticsEvent("local_game_started", { mode: "single_device" });
     enterGame("local");
   }, "startLocalBtn");
+  bindEvent(el.localOneTeamBtn, "click", () => chooseLocalTeamCount(1), "localOneTeamBtn");
   bindEvent(el.localTwoTeamsBtn, "click", () => chooseLocalTeamCount(2), "localTwoTeamsBtn");
   bindEvent(el.localThreeTeamsBtn, "click", () => chooseLocalTeamCount(3), "localThreeTeamsBtn");
   bindEvent(el.cancelLocalTeamsBtn, "click", () => {
