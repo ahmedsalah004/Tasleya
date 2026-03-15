@@ -56,7 +56,7 @@ const CATEGORY_DISPLAY_GROUPS = [
   },
   {
     name: "تخصصات الجامعة",
-    categories: ["طب", "هندسة"],
+    categories: ["طب", "هندسة", "صيدلة", "بزنس"],
   },
   {
     name: "مدن",
