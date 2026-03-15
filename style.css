@@ -184,6 +184,10 @@
   #instructionsBtn,
   #contactBtn,
   #installGuideBtn {
+    position: static;
+    left: auto;
+    top: auto;
+    transform: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -201,6 +205,16 @@
     overflow-wrap: normal;
     line-height: 1.2;
     font-size: clamp(24px, 2vw, 42px);
+  }
+}
+
+@media (min-width: 701px) and (hover: hover) and (pointer: fine) {
+  #startLocalBtn:hover,
+  #startOnlineBtn:hover,
+  #instructionsBtn:hover,
+  #contactBtn:hover,
+  #installGuideBtn:hover {
+    transform: scale(1.08);
   }
 }
 
