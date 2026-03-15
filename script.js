@@ -860,8 +860,13 @@ function checkEndOfGame() {
 }
 
 function renderBoard() {
-  if (state.dataLoadFailed || state.selectedCategories.length !== getRequiredCategoryCount() || state.pointLevels.length === 0) { el.board.innerHTML = ""; return; }
+  if (state.dataLoadFailed || state.selectedCategories.length !== getRequiredCategoryCount() || state.pointLevels.length === 0) {
+    el.board.innerHTML = "";
+    el.board.style.removeProperty("--board-columns");
+    return;
+  }
   el.board.innerHTML = "";
+  el.board.style.setProperty("--board-columns", String(state.selectedCategories.length));
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div"); header.className = "board-cell category"; header.textContent = category; el.board.appendChild(header);
   });

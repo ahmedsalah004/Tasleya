@@ -824,7 +824,7 @@ button:disabled {
 
 .board {
   display: grid;
-  grid-template-columns: repeat(6, minmax(var(--board-col-width), 1fr));
+  grid-template-columns: repeat(var(--board-columns, 6), minmax(var(--board-col-width), 1fr));
   gap: clamp(0.42rem, 0.8vw, 0.6rem);
   grid-auto-rows: minmax(96px, auto);
   min-width: fit-content;
