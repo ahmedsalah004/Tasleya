@@ -1883,13 +1883,23 @@ function isStandaloneMode() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
 
-function isMobileDevice() {
-  return window.matchMedia("(max-width: 700px), (pointer: coarse)").matches;
+function isIPhoneSafariBrowser() {
+  const userAgent = window.navigator.userAgent || "";
+  const isIPhone = /iPhone/i.test(userAgent);
+  const isWebKitEngine = /WebKit/i.test(userAgent);
+  const isSafariTokenPresent = /Safari/i.test(userAgent);
+  const isKnownAlternativeIOSBrowser = /(CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser|DuckDuckGo|Brave|GSA|Coast)/i.test(userAgent);
+
+  return isIPhone && isWebKitEngine && isSafariTokenPresent && !isKnownAlternativeIOSBrowser;
+}
+
+function shouldShowInstallGuideEntryPoint() {
+  return isIPhoneSafariBrowser() && !isStandaloneMode();
 }
 
 function updateInstallGuideVisibility() {
   if (!el.installGuideBtn) return;
-  el.installGuideBtn.classList.toggle("hidden", isStandaloneMode());
+  el.installGuideBtn.classList.toggle("hidden", !shouldShowInstallGuideEntryPoint());
 }
 
 function updateInstallGuideContent() {
@@ -1898,14 +1908,15 @@ function updateInstallGuideContent() {
   const desktopMessage = document.getElementById("installGuideDesktopMessage");
   if (!mobileIntro || !mobileSteps || !desktopMessage) return;
 
-  const isMobile = isMobileDevice();
-  mobileIntro.classList.toggle("hidden", !isMobile);
-  mobileSteps.classList.toggle("hidden", !isMobile);
-  desktopMessage.classList.toggle("hidden", isMobile);
+  const shouldShowInstallFlow = shouldShowInstallGuideEntryPoint();
+  mobileIntro.classList.toggle("hidden", !shouldShowInstallFlow);
+  mobileSteps.classList.toggle("hidden", !shouldShowInstallFlow);
+  desktopMessage.classList.toggle("hidden", shouldShowInstallFlow);
 }
 
 function openInstallGuide() {
   if (!el.installGuideModal) return;
+  if (!shouldShowInstallGuideEntryPoint()) return;
   updateInstallGuideContent();
   el.installGuideModal.classList.remove("hidden", "is-closing");
   void el.installGuideModal.offsetWidth;
