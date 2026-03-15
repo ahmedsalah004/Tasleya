@@ -1089,7 +1089,7 @@ button:disabled {
 
 .choices-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
@@ -1236,7 +1236,7 @@ button:disabled {
 
 .podium-board {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: end;
   gap: 1rem;
   margin-top: 0.5rem;
@@ -1399,7 +1399,7 @@ button:disabled {
 
   .sidebar {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.6rem;
     align-items: start;
   }
@@ -1614,7 +1614,7 @@ button:disabled {
 
 .local-team-count-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.6rem;
 }
 
