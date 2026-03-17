@@ -802,9 +802,22 @@ function setTeamName(team, value, { commit = false } = {}) {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 function setTeamNamesFromCategoryModal() {
-  setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
-  if (state.teamCount >= 2) setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
-  if (state.teamCount === 3) setTeamName(3, el.categoryTeam3NameInput.value, { commit: true });
+  const fallbackByTeam = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
+  const namesByTeam = {
+    1: normalizeCell(el.categoryTeam1NameInput.value) || fallbackByTeam[1],
+    2: normalizeCell(el.categoryTeam2NameInput.value) || fallbackByTeam[2],
+    3: normalizeCell(el.categoryTeam3NameInput.value) || fallbackByTeam[3],
+  };
+
+  getActiveTeamNumbers().forEach((team) => {
+    state.teamNames[team] = namesByTeam[team];
+  });
+
+  syncTeamNameInputs();
+  saveTeamNames();
+  updateScoreboard();
+  persistLocalProgress();
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
 function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question); }
