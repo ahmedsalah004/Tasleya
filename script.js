@@ -87,7 +87,6 @@ function cacheElements() {
   team3MinusBtn: document.getElementById("team3MinusBtn"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
-  backToHomeBtn: document.getElementById("backToHomeBtn"),
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionTimer: document.getElementById("questionTimer"),
@@ -1722,45 +1721,6 @@ function updateOnlineActionPermissions() {
   });
 }
 
-async function leaveOnlineRoom() {
-  if (online.mode !== "online" || !online.roomRef || !online.teamSlot) return;
-
-  try {
-    const updates = {
-      [`participantConnections/${online.teamSlot}`]: false,
-    };
-
-    if (online.teamSlot === 1) updates.hostConnected = false;
-    if (online.teamSlot === 2) updates.guestConnected = false;
-
-    await online.roomRef.update(updates);
-  } catch (error) {
-    console.warn("[Tasleya] Failed to update online room status while returning home", error);
-  }
-}
-
-async function returnToHomepage() {
-  closeModal({ silentSync: true });
-  closeCategoryPicker();
-  closePodiumModal();
-  closeLocalTeamsModal();
-  closeOnlineModal();
-  clearLocalProgress();
-
-  if (online.mode === "online") await leaveOnlineRoom();
-
-  resetOnlineMode();
-  resetGameState();
-  el.gameScreen.style.display = "none";
-  el.startScreen.style.display = "flex";
-
-  const url = new URL(window.location.href);
-  if (url.searchParams.has("room")) {
-    url.searchParams.delete("room");
-    window.history.replaceState({}, "", url);
-  }
-}
-
 function resetOnlineMode() {
   disconnectOnlineListeners();
   online.mode = "local";
@@ -2140,9 +2100,6 @@ function initializeApp() {
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
   }, "newGameBtn");
-  bindEvent(el.backToHomeBtn, "click", () => {
-    returnToHomepage();
-  }, "backToHomeBtn");
   bindEvent(el.closeModalBtn, "click", () => closeModal(), "closeModalBtn");
   bindEvent(el.revealBtn, "click", revealAnswer, "revealBtn");
   bindEvent(el.correctBtn, "click", () => applyScore(true), "correctBtn");
