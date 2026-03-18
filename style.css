@@ -631,18 +631,13 @@ body::after {
 
 .game-home-btn {
   position: absolute;
-  inset-block-start: calc(max(env(safe-area-inset-top), 0px) + clamp(0.65rem, 1vw, 0.95rem));
-  inset-inline-start: clamp(0.65rem, 1vw, 0.95rem);
-  z-index: 3;
+  inset-block-start: max(env(safe-area-inset-top), 0.75rem);
+  inset-inline-start: max(0.75rem, calc((100vw - min(100vw, var(--layout-max))) / 2 + 0.75rem));
+  z-index: 2;
   min-height: 0;
-  padding: 0.38rem 0.72rem;
-  font-size: 0.83rem;
-  line-height: 1.15;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.88rem;
   white-space: nowrap;
-  border-radius: 10px;
-  background: rgba(86, 109, 183, 0.12);
-  border-color: rgba(112, 140, 220, 0.5);
-  box-shadow: 0 10px 24px rgba(7, 12, 30, 0.2);
 }
 
 .app {
