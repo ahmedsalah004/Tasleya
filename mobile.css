@@ -71,10 +71,11 @@ main,
 }
 
 .game-home-btn {
-  inset-block-start: max(env(safe-area-inset-top), 0.5rem);
-  inset-inline-start: 0.5rem;
-  padding: 0.4rem 0.7rem;
-  font-size: 0.82rem;
+  inset-block-start: calc(max(env(safe-area-inset-top), 0px) + 0.45rem);
+  inset-inline-start: 0.45rem;
+  padding: 0.34rem 0.62rem;
+  font-size: 0.78rem;
+  border-radius: 9px;
 }
 
 .sidebar {
