@@ -70,11 +70,15 @@ main,
   gap: 0.55rem;
 }
 
-.game-home-btn {
-  inset-block-start: max(env(safe-area-inset-top), 0.5rem);
-  inset-inline-start: 0.5rem;
-  padding: 0.4rem 0.7rem;
-  font-size: 0.82rem;
+@media (max-width: 700px) {
+  .game-home-btn {
+    inset-block-start: calc(max(env(safe-area-inset-top), 0px) + 0.35rem);
+    inset-inline-start: 0.4rem;
+    padding: 0.34rem 0.62rem;
+    margin: 0;
+    max-width: calc(100vw - 0.8rem);
+    font-size: 0.78rem;
+  }
 }
 
 .sidebar {
