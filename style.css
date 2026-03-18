@@ -814,6 +814,31 @@ button:disabled {
   box-shadow: none;
 }
 
+.game-top-nav {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.15rem;
+  padding-inline: 0.2rem;
+}
+
+.game-home-btn {
+  border: 1px solid rgba(255, 209, 102, 0.52);
+  border-radius: 999px;
+  padding-inline: 1.2rem;
+  box-shadow:
+    0 10px 22px rgba(17, 24, 66, 0.34),
+    0 0 18px rgba(255, 209, 102, 0.22);
+  white-space: nowrap;
+}
+
+.game-home-btn:hover,
+.game-home-btn:focus-visible {
+  box-shadow:
+    0 12px 28px rgba(17, 24, 66, 0.42),
+    0 0 24px rgba(255, 209, 102, 0.3);
+}
+
 .board-wrap {
   padding: 0.9rem;
   overflow-x: auto;
