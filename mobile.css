@@ -169,20 +169,6 @@ main,
   top: calc(56% + 264px);
 }
 
-.game-top-nav {
-  justify-content: stretch;
-  padding-inline: 0;
-  margin-bottom: 0.1rem;
-}
-
-.game-home-btn {
-  width: 100%;
-  min-height: 48px;
-  padding-inline: 1rem;
-  font-size: 0.96rem;
-  white-space: normal;
-}
-
 .board-wrap {
   padding: 0.45rem;
   overflow-x: auto;
