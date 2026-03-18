@@ -125,6 +125,7 @@ function cacheElements() {
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
   startScreen: document.getElementById("startScreen"),
   gameScreen: document.getElementById("gameScreen"),
+  backToHomeBtn: document.getElementById("backToHomeBtn"),
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
   instructionsBtn: document.getElementById("instructionsBtn"),
@@ -1810,6 +1811,34 @@ async function startNewGame() {
   }
 }
 
+async function returnToHomeScreen() {
+  closeOnlineModal();
+  closeLocalTeamsModal();
+  resetGameState();
+  clearLocalProgress();
+
+  if (online.mode === "online" && online.roomRef && online.teamSlot) {
+    const updates = { [`participantConnections/${online.teamSlot}`]: false };
+    if (online.teamSlot === 1) updates.hostConnected = false;
+    if (online.teamSlot === 2) updates.guestConnected = false;
+    try {
+      await online.roomRef.update(updates);
+    } catch (_) {
+      // Ignore cleanup failures and continue returning home.
+    }
+  }
+
+  resetOnlineMode();
+  el.gameScreen.style.display = "none";
+  el.startScreen.style.display = "flex";
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("room")) {
+    url.searchParams.delete("room");
+    window.history.replaceState({}, "", url);
+  }
+}
+
 async function enterGame(mode) {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
@@ -2131,6 +2160,7 @@ function initializeApp() {
   bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
 
+  bindEvent(el.backToHomeBtn, "click", returnToHomeScreen, "backToHomeBtn");
   bindEvent(el.startLocalBtn, "click", () => {
     console.log("[Tasleya] Start local button clicked");
     logAnalyticsEvent("local_game_started", { mode: "single_device" });
