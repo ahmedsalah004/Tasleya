@@ -129,9 +129,11 @@ function cacheElements() {
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
   instructionsBtn: document.getElementById("instructionsBtn"),
+  footerInstructionsBtn: document.getElementById("footerInstructionsBtn"),
   instructionsModal: document.getElementById("instructionsModal"),
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
   contactBtn: document.getElementById("contactBtn"),
+  footerContactBtn: document.getElementById("footerContactBtn"),
   contactModal: document.getElementById("contactModal"),
   contactMessageInput: document.getElementById("contactMessageInput"),
   contactNameInput: document.getElementById("contactNameInput"),
@@ -2188,11 +2190,13 @@ function initializeApp() {
     enterGame("online");
   }, "startOnlineBtn");
   bindEvent(el.instructionsBtn, "click", openInstructionsModal, "instructionsBtn");
+  bindEvent(el.footerInstructionsBtn, "click", openInstructionsModal, "footerInstructionsBtn");
   bindEvent(el.closeInstructionsBtn, "click", closeInstructionsModal, "closeInstructionsBtn");
   bindEvent(el.instructionsModal, "click", (event) => {
     if (event.target === el.instructionsModal) closeInstructionsModal();
   }, "instructionsModal");
   bindEvent(el.contactBtn, "click", openContactModal, "contactBtn");
+  bindEvent(el.footerContactBtn, "click", openContactModal, "footerContactBtn");
   bindEvent(el.sendContactBtn, "click", submitContactMessage, "sendContactBtn");
   bindEvent(el.closeContactBtn, "click", closeContactModal, "closeContactBtn");
   bindEvent(el.contactModal, "click", (event) => {
