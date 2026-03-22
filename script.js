@@ -17,7 +17,7 @@ const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
-const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو القادر على اختيار الفئات";
+const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو الوحيد الذي يمكنه اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
 const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
@@ -1533,6 +1533,43 @@ function applyRemoteSetupState(game) {
   }
 }
 
+function buildJoinedGuestSetupPreview(room, records = {}) {
+  const roomTeamCount = normalizeTeamCount(room?.teamCount);
+  const fallbackNames = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
+  const nextTeamNames = {};
+
+  for (let slot = 1; slot <= 3; slot += 1) {
+    nextTeamNames[slot] = normalizeCell(room?.game?.teamNames?.[slot] ?? room?.game?.teamNames?.[`team${slot}`])
+      || normalizeCell(records?.[slot]?.displayName)
+      || normalizeCell(state.teamNames?.[slot])
+      || fallbackNames[slot];
+  }
+
+  return {
+    teamCount: roomTeamCount,
+    teamNames: nextTeamNames,
+    selectedCategories: Array.isArray(room?.game?.selectedCategories) ? [...room.game.selectedCategories] : [],
+  };
+}
+
+function showJoinedGuestSetupPreview(room, records = {}) {
+  if (online.mode !== "online" || online.role === "host" || room?.gameStarted) return;
+  const setupPreview = buildJoinedGuestSetupPreview(room, records);
+  online.applyingRemote = true;
+  try {
+    state.teamCount = setupPreview.teamCount;
+    state.teamNames = setupPreview.teamNames;
+    state.selectedCategories = setupPreview.selectedCategories;
+    syncTeamNameInputs();
+    updateTeamModeUI();
+    updateScoreboard();
+    renderCategoryOptions();
+    openCategoryPicker();
+  } finally {
+    online.applyingRemote = false;
+  }
+}
+
 function setOnlineStatus(text) { el.onlineStatusText.textContent = text; }
 function updateRoomCodeTag() { el.onlineRoomCodeText.textContent = online.roomCode ? `الغرفة: ${online.roomCode}` : ""; }
 function showHostOnlyStartMessage() {
@@ -2091,6 +2128,14 @@ async function connectToRoom(code, teamSlot) {
       ensureQuestionBankStateLoaded()
         .then(() => {
           if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(room.game);
+        })
+        .catch(() => {});
+    } else if (!room.gameStarted && online.role !== "host") {
+      ensureQuestionBankStateLoaded()
+        .then(() => {
+          if (online.mode === "online" && !online.applyingRemote && online.role !== "host") {
+            showJoinedGuestSetupPreview(room, records);
+          }
         })
         .catch(() => {});
     } else if (!room.gameStarted && !el.categoryModal.classList.contains("hidden")) {
