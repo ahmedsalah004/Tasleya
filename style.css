@@ -1193,6 +1193,17 @@ button:disabled {
   accent-color: var(--accent);
 }
 
+#categoryModal.is-readonly .category-option,
+#categoryModal.is-readonly .team-name-input[readonly],
+#categoryModal.is-readonly .modal-actions > button[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+#categoryModal.is-readonly .team-name-input[readonly],
+#categoryModal.is-readonly .modal-actions > button[aria-disabled="true"] {
+  opacity: 0.7;
+}
+
 
 .team-name-label {
   display: block;

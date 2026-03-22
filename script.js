@@ -17,6 +17,7 @@ const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
+const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو القادر على اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
 const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
@@ -820,6 +821,21 @@ async function preloadQuestionBank() {
     questionBankCache.loadPromise = null;
   }
 }
+async function ensureQuestionBankStateLoaded() {
+  const { questions, categories } = await preloadQuestionBank();
+  state.allQuestions = questions;
+  state.allCategories = categories;
+  if (!Array.isArray(state.pointLevels) || state.pointLevels.length === 0) {
+    state.pointLevels = [...POINT_LEVELS];
+  }
+  if (!state.usedHistory || typeof state.usedHistory !== "object" || Array.isArray(state.usedHistory)) {
+    state.usedHistory = loadUsedHistory();
+  }
+  if (!el.categoryModal.classList.contains("hidden")) {
+    renderCategoryOptions();
+  }
+  return { questions, categories };
+}
 function getUniqueCategories(questions) {
   const unique = [];
   questions.forEach((q) => { if (!unique.includes(q.category)) unique.push(q.category); });
@@ -1263,9 +1279,11 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 function updateCategoryPickerUI() {
   const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
   const requiredCategories = getRequiredCategoryCount();
+  el.categoryModal.classList.toggle("is-readonly", hostOnlyBlocked);
   if (el.categoryModalTitle) el.categoryModalTitle.textContent = getCategoryModalTitleText();
   el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${requiredCategories}`;
-  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== requiredCategories;
+  el.startGameBtn.disabled = !hostOnlyBlocked && state.selectedCategories.length !== requiredCategories;
+  el.startGameBtn.textContent = hostOnlyBlocked ? "بانتظار منشئ الغرفة" : "بدء اللعبة";
   if (el.randomCategoriesBtn) el.randomCategoriesBtn.textContent = `اختيار عشوائي (${requiredCategories})`;
   if (el.categoryHostOnlyNote) {
     el.categoryHostOnlyNote.classList.toggle("hidden", !hostOnlyBlocked);
@@ -1273,7 +1291,7 @@ function updateCategoryPickerUI() {
   const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= requiredCategories;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
-    checkbox.disabled = !checkbox.checked && reachedMax;
+    checkbox.disabled = hostOnlyBlocked ? false : !checkbox.checked && reachedMax;
   });
 }
 function renderCategoryOptions() {
@@ -1293,10 +1311,23 @@ function renderCategoryOptions() {
     categories.forEach((category) => {
       const label = document.createElement("label"); label.className = "category-option";
       const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
+      checkbox.addEventListener("click", (event) => {
+        if (online.mode === "online" && online.role !== "host") {
+          event.preventDefault();
+          showHostOnlySetupMessage();
+        }
+      });
       checkbox.addEventListener("change", () => {
+        if (online.mode === "online" && online.role !== "host") {
+          checkbox.checked = state.selectedCategories.includes(category);
+          showHostOnlySetupMessage();
+          updateCategoryPickerUI();
+          return;
+        }
         if (checkbox.checked) { if (state.selectedCategories.length < getRequiredCategoryCount()) state.selectedCategories.push(category); }
         else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
         updateCategoryPickerUI();
+        if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
       });
       const span = document.createElement("span"); span.textContent = category;
       label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
@@ -1323,25 +1354,24 @@ function getGroupedCategoryDisplay(categories) {
 
   return grouped;
 }
-function openCategoryPicker() {
-  state.selectedCategories = [];
+function openCategoryPicker({ resetSelection = false } = {}) {
+  if (resetSelection) state.selectedCategories = [];
   el.categoryTeam1NameInput.value = state.teamNames[1];
   el.categoryTeam2NameInput.value = state.teamNames[2];
   el.categoryTeam3NameInput.value = state.teamNames[3];
   updateTeamModeUI();
   renderCategoryOptions();
-  if (online.mode === "online" && online.role !== "host") {
-    el.startGameBtn.disabled = true;
-    el.randomCategoriesBtn.disabled = true;
-    el.categoryTeam1NameInput.disabled = true;
-    el.categoryTeam2NameInput.disabled = true;
-    el.categoryTeam3NameInput.disabled = true;
-  } else {
-    el.randomCategoriesBtn.disabled = false;
-    el.categoryTeam1NameInput.disabled = false;
-    el.categoryTeam2NameInput.disabled = state.teamCount === 1;
-    el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
-  }
+  const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
+  el.categoryModal.classList.toggle("is-readonly", hostOnlyBlocked);
+  el.randomCategoriesBtn.disabled = false;
+  el.randomCategoriesBtn.setAttribute("aria-disabled", String(hostOnlyBlocked));
+  el.startGameBtn.setAttribute("aria-disabled", String(hostOnlyBlocked));
+  el.categoryTeam1NameInput.readOnly = hostOnlyBlocked;
+  el.categoryTeam2NameInput.readOnly = hostOnlyBlocked || state.teamCount === 1;
+  el.categoryTeam3NameInput.readOnly = hostOnlyBlocked || state.teamCount !== 3;
+  el.categoryTeam1NameInput.disabled = false;
+  el.categoryTeam2NameInput.disabled = state.teamCount === 1;
+  el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
 }
@@ -1353,8 +1383,14 @@ function closeCategoryPicker() {
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
 function pickRandomCategories() {
+  if (online.mode === "online" && online.role !== "host") {
+    showHostOnlySetupMessage();
+    updateCategoryPickerUI();
+    return;
+  }
   state.selectedCategories = shuffle(state.allCategories).slice(0, getRequiredCategoryCount());
   updateCategoryPickerUI();
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
 function serializeGameState() {
@@ -1476,12 +1512,47 @@ function applyRemoteGameState(game) {
     online.applyingRemote = false;
   }
 }
+function applyRemoteSetupState(game) {
+  if (!game) return;
+  online.applyingRemote = true;
+  try {
+    state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
+    state.teamCount = normalizeTeamCount(game.teamCount);
+    state.teamNames = {
+      1: normalizeCell(game?.teamNames?.[1] ?? game?.teamNames?.team1) || "الفريق الأول",
+      2: normalizeCell(game?.teamNames?.[2] ?? game?.teamNames?.team2) || "الفريق الثاني",
+      3: normalizeCell(game?.teamNames?.[3] ?? game?.teamNames?.team3) || "الفريق الثالث",
+    };
+    syncTeamNameInputs();
+    updateTeamModeUI();
+    updateScoreboard();
+    renderCategoryOptions();
+    openCategoryPicker();
+  } finally {
+    online.applyingRemote = false;
+  }
+}
 
 function setOnlineStatus(text) { el.onlineStatusText.textContent = text; }
 function updateRoomCodeTag() { el.onlineRoomCodeText.textContent = online.roomCode ? `الغرفة: ${online.roomCode}` : ""; }
 function showHostOnlyStartMessage() {
   showError(HOST_ONLY_START_MESSAGE);
   setOnlineFeedback(HOST_ONLY_START_MESSAGE, "info");
+}
+function showHostOnlySetupMessage() {
+  showError(HOST_ONLY_SETUP_MESSAGE);
+  setOnlineFeedback(HOST_ONLY_SETUP_MESSAGE, "info");
+}
+function guardHostOnlySetupControl(event) {
+  if (online.mode === "online" && online.role !== "host") {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    showHostOnlySetupMessage();
+    return true;
+  }
+  return false;
 }
 function setOnlineFeedback(message = "", type = "error") {
   if (!el.onlineFeedback) return;
@@ -2016,6 +2087,14 @@ async function connectToRoom(code, teamSlot) {
     if (room.gameStarted && room.game) {
       closeCategoryPicker();
       applyRemoteGameState(room.game);
+    } else if (room.game) {
+      ensureQuestionBankStateLoaded()
+        .then(() => {
+          if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(room.game);
+        })
+        .catch(() => {});
+    } else if (!room.gameStarted && !el.categoryModal.classList.contains("hidden")) {
+      updateCategoryPickerUI();
     }
 
     saveOnlineSession();
@@ -2049,7 +2128,7 @@ function pushOnlineState() {
   online.roomRef.update({
     teamCount: normalizeTeamCount(state.teamCount),
     gameStarted: isBoardReady,
-    game: isBoardReady ? serializeGameState() : null,
+    game: serializeGameState(),
   });
 }
 
@@ -2131,7 +2210,7 @@ function closeOnlineModal() {
 async function startGameFromSelection() {
   if (state.selectedCategories.length !== getRequiredCategoryCount()) return;
   if (online.mode === "online" && online.role !== "host") {
-    showHostOnlyStartMessage();
+    showHostOnlySetupMessage();
     return;
   }
   setTeamNamesFromCategoryModal();
@@ -2165,14 +2244,12 @@ async function startNewGame() {
     resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
-    const { questions, categories } = await preloadQuestionBank();
-    state.allQuestions = questions;
-    state.allCategories = categories;
+    await ensureQuestionBankStateLoaded();
     state.pointLevels = [...POINT_LEVELS];
-    state.usedHistory = loadUsedHistory();
     state.boardTiles = [];
     renderBoard();
-    openCategoryPicker();
+    openCategoryPicker({ resetSelection: true });
+    if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   } catch (error) {
     state.dataLoadFailed = true;
     state.allQuestions = [];
@@ -2253,13 +2330,13 @@ async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = t
     if (bootstrapOnlineGame) {
       setOnlineTeamCount(2);
       resetGameState();
-      preloadQuestionBank().catch(() => {});
+      ensureQuestionBankStateLoaded().catch(() => {});
     }
     updateTeamModeUI();
     if (openOnlineLobby) openOnlineModal();
   } else {
     resetOnlineMode();
-    preloadQuestionBank().catch(() => {});
+    ensureQuestionBankStateLoaded().catch(() => {});
     openLocalTeamsModal();
   }
 }
@@ -2581,6 +2658,36 @@ function initializeApp() {
   bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");
   bindEvent(el.randomCategoriesBtn, "click", pickRandomCategories, "randomCategoriesBtn");
   bindEvent(el.cancelCategoryBtn, "click", closeCategoryPicker, "cancelCategoryBtn");
+  bindEvent(el.categoryTeam1NameInput, "click", guardHostOnlySetupControl, "categoryTeam1NameInput");
+  bindEvent(el.categoryTeam2NameInput, "click", guardHostOnlySetupControl, "categoryTeam2NameInput");
+  bindEvent(el.categoryTeam3NameInput, "click", guardHostOnlySetupControl, "categoryTeam3NameInput");
+  bindEvent(el.categoryTeam1NameInput, "focus", guardHostOnlySetupControl, "categoryTeam1NameInput");
+  bindEvent(el.categoryTeam2NameInput, "focus", guardHostOnlySetupControl, "categoryTeam2NameInput");
+  bindEvent(el.categoryTeam3NameInput, "focus", guardHostOnlySetupControl, "categoryTeam3NameInput");
+  bindEvent(el.categoryTeam1NameInput, "input", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(1, el.categoryTeam1NameInput.value);
+  }, "categoryTeam1NameInput");
+  bindEvent(el.categoryTeam2NameInput, "input", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(2, el.categoryTeam2NameInput.value);
+  }, "categoryTeam2NameInput");
+  bindEvent(el.categoryTeam3NameInput, "input", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(3, el.categoryTeam3NameInput.value);
+  }, "categoryTeam3NameInput");
+  bindEvent(el.categoryTeam1NameInput, "blur", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(1, el.categoryTeam1NameInput.value, { commit: true });
+  }, "categoryTeam1NameInput");
+  bindEvent(el.categoryTeam2NameInput, "blur", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(2, el.categoryTeam2NameInput.value, { commit: true });
+  }, "categoryTeam2NameInput");
+  bindEvent(el.categoryTeam3NameInput, "blur", () => {
+    if (online.mode === "online" && online.role !== "host") return;
+    setTeamName(3, el.categoryTeam3NameInput.value, { commit: true });
+  }, "categoryTeam3NameInput");
   bindEvent(el.podiumNewGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
