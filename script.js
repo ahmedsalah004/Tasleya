@@ -17,7 +17,7 @@ const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
-const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو القادر على اختيار الفئات";
+const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو الوحيد الذي يمكنه اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
 const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
@@ -1276,17 +1276,39 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   return true;
 }
 
+function getOnlineSetupJoinedCount() {
+  return getParticipantCount(online.participantSlots || {}, state.teamCount);
+}
+
+function canHostStartOnlineSetup() {
+  if (online.mode !== "online" || online.role !== "host") return true;
+  return getOnlineSetupJoinedCount() >= state.teamCount;
+}
+
+function getCategorySetupStatusMessage(hostOnlyBlocked, canHostStart) {
+  if (online.mode !== "online") return "";
+  if (hostOnlyBlocked) return HOST_ONLY_SETUP_MESSAGE;
+
+  const joinedCount = getOnlineSetupJoinedCount();
+  if (!canHostStart) return `بانتظار انضمام الفرق (${joinedCount}/${state.teamCount})...`;
+  if (state.selectedCategories.length !== getRequiredCategoryCount()) return "اختر الفئات ثم ابدأ اللعبة عندما تكون جاهزًا.";
+  return "اكتمل دخول جميع الفرق. يمكنك بدء اللعبة.";
+}
+
 function updateCategoryPickerUI() {
   const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
   const requiredCategories = getRequiredCategoryCount();
+  const canHostStart = canHostStartOnlineSetup();
   el.categoryModal.classList.toggle("is-readonly", hostOnlyBlocked);
   if (el.categoryModalTitle) el.categoryModalTitle.textContent = getCategoryModalTitleText();
   el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${requiredCategories}`;
-  el.startGameBtn.disabled = !hostOnlyBlocked && state.selectedCategories.length !== requiredCategories;
-  el.startGameBtn.textContent = hostOnlyBlocked ? "بانتظار منشئ الغرفة" : "بدء اللعبة";
+  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== requiredCategories || !canHostStart;
+  el.startGameBtn.textContent = hostOnlyBlocked ? "بانتظار منشئ الغرفة" : !canHostStart ? "بانتظار اكتمال الفرق" : "بدء اللعبة";
   if (el.randomCategoriesBtn) el.randomCategoriesBtn.textContent = `اختيار عشوائي (${requiredCategories})`;
   if (el.categoryHostOnlyNote) {
-    el.categoryHostOnlyNote.classList.toggle("hidden", !hostOnlyBlocked);
+    const statusMessage = getCategorySetupStatusMessage(hostOnlyBlocked, canHostStart);
+    el.categoryHostOnlyNote.textContent = statusMessage;
+    el.categoryHostOnlyNote.classList.toggle("hidden", !statusMessage);
   }
   const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= requiredCategories;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
@@ -1512,6 +1534,28 @@ function applyRemoteGameState(game) {
     online.applyingRemote = false;
   }
 }
+function buildOnlineSetupState(room) {
+  const setupState = room?.game || {};
+  const roomTeamCount = normalizeTeamCount(room?.teamCount ?? setupState?.teamCount ?? state.teamCount);
+  const participants = normalizeParticipantRecords(room);
+  const fallbackNames = {
+    1: normalizeCell(participants?.[1]?.displayName) || normalizeCell(state.teamNames?.[1]) || "الفريق الأول",
+    2: normalizeCell(participants?.[2]?.displayName) || normalizeCell(state.teamNames?.[2]) || "الفريق الثاني",
+    3: normalizeCell(participants?.[3]?.displayName) || normalizeCell(state.teamNames?.[3]) || "الفريق الثالث",
+  };
+
+  return {
+    ...setupState,
+    selectedCategories: Array.isArray(setupState.selectedCategories) ? [...setupState.selectedCategories] : [],
+    teamCount: roomTeamCount,
+    teamNames: {
+      1: normalizeCell(setupState?.teamNames?.[1] ?? setupState?.teamNames?.team1) || fallbackNames[1],
+      2: normalizeCell(setupState?.teamNames?.[2] ?? setupState?.teamNames?.team2) || fallbackNames[2],
+      3: normalizeCell(setupState?.teamNames?.[3] ?? setupState?.teamNames?.team3) || fallbackNames[3],
+    },
+  };
+}
+
 function applyRemoteSetupState(game) {
   if (!game) return;
   online.applyingRemote = true;
@@ -1527,6 +1571,7 @@ function applyRemoteSetupState(game) {
     updateTeamModeUI();
     updateScoreboard();
     renderCategoryOptions();
+    closeOnlineModal();
     openCategoryPicker();
   } finally {
     online.applyingRemote = false;
@@ -2087,14 +2132,13 @@ async function connectToRoom(code, teamSlot) {
     if (room.gameStarted && room.game) {
       closeCategoryPicker();
       applyRemoteGameState(room.game);
-    } else if (room.game) {
+    } else {
       ensureQuestionBankStateLoaded()
         .then(() => {
-          if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(room.game);
+          if (online.mode !== "online" || online.applyingRemote) return;
+          applyRemoteSetupState(buildOnlineSetupState(room));
         })
         .catch(() => {});
-    } else if (!room.gameStarted && !el.categoryModal.classList.contains("hidden")) {
-      updateCategoryPickerUI();
     }
 
     saveOnlineSession();
