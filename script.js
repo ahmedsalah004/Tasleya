@@ -16,6 +16,10 @@ const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
+const ONLINE_HEARTBEAT_INTERVAL_MS = 10000;
+const ONLINE_STALE_TIMEOUT_MS = 30000;
+const ONLINE_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const ONLINE_RESTORE_MESSAGE = "تم اكتشاف جلسة سابقة، جاري استعادة الاتصال...";
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let mcqHelpUsed = { 1: false, 2: false, 3: false };
@@ -24,6 +28,17 @@ let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
 let questionDeadlineTs = null;
+const initialOnlineSession = (() => {
+  try {
+    const raw = localStorage.getItem(ONLINE_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+})();
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
@@ -210,8 +225,11 @@ const online = {
   firestore: null,
   creatingRoom: false,
   joiningRoom: false,
+  heartbeatTimer: null,
+  restoringSession: false,
+  restoreFailed: false,
   selectedTeamCount: 2,
-  clientId: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()),
+  clientId: normalizeCell(initialOnlineSession?.playerId || initialOnlineSession?.clientId) || ((window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now())),
 };
 
 function buildEmptyParticipantSlots() {
@@ -220,6 +238,14 @@ function buildEmptyParticipantSlots() {
 
 function buildEmptyParticipantConnections() {
   return { 1: false, 2: false, 3: false };
+}
+
+function buildEmptyParticipantLastSeen() {
+  return { 1: 0, 2: 0, 3: 0 };
+}
+
+function buildEmptyParticipantNames() {
+  return { 1: "", 2: "", 3: "" };
 }
 
 function normalizeParticipantSlots(room = {}) {
@@ -247,6 +273,162 @@ function normalizeParticipantConnections(room = {}) {
   connections[1] = !!room.hostConnected;
   connections[2] = !!room.guestConnected;
   return connections;
+}
+
+function normalizeParticipantLastSeen(room = {}) {
+  const lastSeen = buildEmptyParticipantLastSeen();
+  if (room.participantLastSeen && typeof room.participantLastSeen === "object") {
+    [1, 2, 3].forEach((slot) => {
+      const value = Number(room.participantLastSeen[slot]);
+      lastSeen[slot] = Number.isFinite(value) ? value : 0;
+    });
+  }
+  return lastSeen;
+}
+
+function normalizeParticipantNames(room = {}) {
+  const names = buildEmptyParticipantNames();
+  if (room.participantNames && typeof room.participantNames === "object") {
+    [1, 2, 3].forEach((slot) => {
+      names[slot] = normalizeCell(room.participantNames[slot]);
+    });
+  }
+  return names;
+}
+
+function getStoredOnlineSession() {
+  try {
+    const raw = localStorage.getItem(ONLINE_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      roomCode: normalizeCell(parsed.roomCode).toUpperCase(),
+      teamSlot: Number(parsed.teamSlot ?? parsed.teamIndex ?? parsed.playerSlot) || null,
+      playerId: normalizeCell(parsed.playerId ?? parsed.clientId),
+      playerName: normalizeCell(parsed.playerName),
+      timestamp: Number(parsed.timestamp) || 0,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearOnlineSession() {
+  localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+}
+
+function getOnlinePlayerName(teamSlot = online.teamSlot) {
+  const fallbackNames = {
+    1: "الفريق الأول",
+    2: "الفريق الثاني",
+    3: "الفريق الثالث",
+  };
+  return normalizeCell(state.teamNames?.[teamSlot]) || fallbackNames[teamSlot] || fallbackNames[1];
+}
+
+function cleanupStaleParticipants(room = {}, { preservePlayerId = "" } = {}) {
+  const roomTeamCount = normalizeTeamCount(room.teamCount);
+  const slots = normalizeParticipantSlots(room);
+  const connections = normalizeParticipantConnections(room);
+  const lastSeen = normalizeParticipantLastSeen(room);
+  const names = normalizeParticipantNames(room);
+  const now = Date.now();
+  let changed = false;
+
+  for (let slot = 1; slot <= roomTeamCount; slot += 1) {
+    const playerId = slots[slot];
+    if (!playerId) {
+      if (connections[slot]) { connections[slot] = false; changed = true; }
+      if (lastSeen[slot]) { lastSeen[slot] = 0; changed = true; }
+      if (names[slot]) { names[slot] = ""; changed = true; }
+      continue;
+    }
+    const isPreserved = preservePlayerId && playerId === preservePlayerId;
+    const age = lastSeen[slot] ? now - lastSeen[slot] : Number.POSITIVE_INFINITY;
+    const isStale = age >= ONLINE_STALE_TIMEOUT_MS;
+    if (isStale && connections[slot]) {
+      connections[slot] = false;
+      changed = true;
+    }
+    if (isStale && !isPreserved) {
+      if (slots[slot]) { slots[slot] = null; changed = true; }
+      if (connections[slot]) { connections[slot] = false; changed = true; }
+      if (lastSeen[slot]) { lastSeen[slot] = 0; changed = true; }
+      if (names[slot]) { names[slot] = ""; changed = true; }
+    }
+  }
+
+  if (!changed) return { changed: false, room };
+  room.participantSlots = slots;
+  room.participantConnections = connections;
+  room.participantLastSeen = lastSeen;
+  room.participantNames = names;
+  room.hostClientId = slots[1] || null;
+  room.guestClientId = slots[2] || null;
+  room.hostConnected = !!connections[1];
+  room.guestConnected = !!connections[2];
+  return { changed: true, room };
+}
+
+function buildPresencePayload(teamSlot, { connected = true, includeName = true, lastSeen = Date.now() } = {}) {
+  const payload = {
+    [`participantConnections/${teamSlot}`]: !!connected,
+    [`participantLastSeen/${teamSlot}`]: Number(lastSeen) || Date.now(),
+  };
+  if (includeName) payload[`participantNames/${teamSlot}`] = getOnlinePlayerName(teamSlot);
+  if (teamSlot === 1) payload.hostConnected = !!connected;
+  if (teamSlot === 2) payload.guestConnected = !!connected;
+  return payload;
+}
+
+function getRoomRestUrl(code) {
+  const databaseUrl = normalizeCell(window.FIREBASE_CONFIG?.databaseURL);
+  if (!databaseUrl) return "";
+  return `${databaseUrl.replace(/\/$/, "")}/${FIREBASE_ROOMS_PATH}/${encodeURIComponent(code)}.json`;
+}
+
+function stopOnlineHeartbeat() {
+  if (online.heartbeatTimer) {
+    window.clearInterval(online.heartbeatTimer);
+    online.heartbeatTimer = null;
+  }
+}
+
+function sendHeartbeat() {
+  if (online.mode !== "online" || !online.roomRef || !online.teamSlot || document.visibilityState === "hidden") return;
+  online.roomRef.update(buildPresencePayload(online.teamSlot, { connected: true, includeName: true, lastSeen: Date.now() })).catch(() => {});
+}
+
+function startOnlineHeartbeat() {
+  stopOnlineHeartbeat();
+  if (online.mode !== "online" || !online.roomRef || !online.teamSlot) return;
+  sendHeartbeat();
+  online.heartbeatTimer = window.setInterval(sendHeartbeat, ONLINE_HEARTBEAT_INTERVAL_MS);
+}
+
+function sendOnlineDisconnectSignal(reason = "pagehide") {
+  if (online.mode !== "online" || !online.roomCode || !online.teamSlot) return;
+  const payload = buildPresencePayload(online.teamSlot, { connected: false, includeName: false, lastSeen: Date.now() });
+  const body = JSON.stringify(payload);
+  const restUrl = getRoomRestUrl(online.roomCode);
+  if (restUrl && navigator.sendBeacon) {
+    try {
+      navigator.sendBeacon(restUrl, new Blob([body], { type: "application/json" }));
+    } catch (_) {
+      // Ignore beacon failures and fall back to keepalive fetch below.
+    }
+  }
+  if (restUrl && typeof fetch === "function") {
+    fetch(restUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } else if (online.roomRef) {
+    online.roomRef.update(payload).catch(() => {});
+  }
 }
 
 function getParticipantCount(slots, teamCount) {
@@ -915,6 +1097,129 @@ function clearQuestionMedia() {
   el.questionMedia.innerHTML = "";
 }
 
+function makeZoomableMedia(container, image) {
+  let scale = 1;
+  let translateX = 0;
+  let translateY = 0;
+  let startScale = 1;
+  let startTranslateX = 0;
+  let startTranslateY = 0;
+  let startDistance = 0;
+  let startCenterX = 0;
+  let startCenterY = 0;
+  let panTouchId = null;
+  let panStartX = 0;
+  let panStartY = 0;
+
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+  const applyTransform = () => {
+    const maxOffsetX = Math.max(0, ((container.clientWidth * scale) - container.clientWidth) / 2);
+    const maxOffsetY = Math.max(0, ((container.clientHeight * scale) - container.clientHeight) / 2);
+    translateX = clamp(translateX, -maxOffsetX, maxOffsetX);
+    translateY = clamp(translateY, -maxOffsetY, maxOffsetY);
+    image.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+  };
+  const reset = () => {
+    scale = 1;
+    translateX = 0;
+    translateY = 0;
+    applyTransform();
+  };
+  const getTouchDistance = (touches) => {
+    if (touches.length < 2) return 0;
+    const [first, second] = touches;
+    return Math.hypot(second.clientX - first.clientX, second.clientY - first.clientY);
+  };
+  const getTouchCenter = (touches) => {
+    if (touches.length < 2) return { x: 0, y: 0 };
+    const [first, second] = touches;
+    return {
+      x: (first.clientX + second.clientX) / 2,
+      y: (first.clientY + second.clientY) / 2,
+    };
+  };
+
+  container.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    if (scale > 1) reset();
+    else {
+      scale = 2;
+      applyTransform();
+    }
+  });
+  container.addEventListener("gesturestart", (event) => event.preventDefault());
+  container.addEventListener("gesturechange", (event) => event.preventDefault());
+  container.addEventListener("gestureend", (event) => event.preventDefault());
+  container.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    scale = clamp(scale - (event.deltaY * 0.01), 1, 4);
+    if (scale === 1) {
+      translateX = 0;
+      translateY = 0;
+    }
+    applyTransform();
+  }, { passive: false });
+  container.addEventListener("touchstart", (event) => {
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      startDistance = getTouchDistance(event.touches);
+      startScale = scale;
+      startTranslateX = translateX;
+      startTranslateY = translateY;
+      const center = getTouchCenter(event.touches);
+      startCenterX = center.x;
+      startCenterY = center.y;
+      return;
+    }
+    if (event.touches.length === 1 && scale > 1) {
+      panTouchId = event.touches[0].identifier;
+      panStartX = event.touches[0].clientX - translateX;
+      panStartY = event.touches[0].clientY - translateY;
+    }
+  }, { passive: false });
+  container.addEventListener("touchmove", (event) => {
+    if (event.touches.length === 2) {
+      event.preventDefault();
+      const distance = getTouchDistance(event.touches);
+      if (!startDistance) {
+        startDistance = distance;
+        startScale = scale;
+      }
+      const center = getTouchCenter(event.touches);
+      scale = clamp(startScale * (distance / startDistance), 1, 4);
+      translateX = startTranslateX + (center.x - startCenterX);
+      translateY = startTranslateY + (center.y - startCenterY);
+      if (scale === 1) {
+        translateX = 0;
+        translateY = 0;
+      }
+      applyTransform();
+      return;
+    }
+    if (event.touches.length === 1 && scale > 1) {
+      const activeTouch = Array.from(event.touches).find((touch) => touch.identifier === panTouchId) || event.touches[0];
+      if (!activeTouch) return;
+      event.preventDefault();
+      translateX = activeTouch.clientX - panStartX;
+      translateY = activeTouch.clientY - panStartY;
+      applyTransform();
+    }
+  }, { passive: false });
+  container.addEventListener("touchend", () => {
+    if (scale <= 1) reset();
+    startDistance = 0;
+    panTouchId = null;
+  });
+  container.addEventListener("touchcancel", () => {
+    if (scale <= 1) reset();
+    startDistance = 0;
+    panTouchId = null;
+  });
+
+  reset();
+}
+
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
   const image = document.createElement("img");
@@ -926,6 +1231,14 @@ function renderQuestionImage(imagePath, question = null) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
     image.fetchPriority = "low";
+    const zoomContainer = document.createElement("div");
+    zoomContainer.className = "question-zoom-viewer";
+    zoomContainer.setAttribute("aria-label", "عارض الخريطة");
+    zoomContainer.appendChild(image);
+    image.src = imageSrc;
+    el.questionMedia.appendChild(zoomContainer);
+    makeZoomableMedia(zoomContainer, image);
+    return;
   }
   image.src = imageSrc;
   el.questionMedia.appendChild(image);
@@ -1407,10 +1720,18 @@ function setWaitingState(message, isConnected = false) {
 
 function saveOnlineSession() {
   if (online.mode !== "online") {
-    localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+    clearOnlineSession();
     return;
   }
-  localStorage.setItem(ONLINE_SESSION_STORAGE_KEY, JSON.stringify({ roomCode: online.roomCode, role: online.role, teamSlot: online.teamSlot, clientId: online.clientId }));
+  localStorage.setItem(ONLINE_SESSION_STORAGE_KEY, JSON.stringify({
+    roomCode: online.roomCode,
+    role: online.role,
+    teamSlot: online.teamSlot,
+    teamIndex: online.teamSlot,
+    playerId: online.clientId,
+    playerName: getOnlinePlayerName(),
+    timestamp: Date.now(),
+  }));
 }
 
 function hasFirebaseValue(config, key) {
@@ -1507,10 +1828,20 @@ async function createOnlineRoom() {
         2: null,
         3: null,
       },
+      participantNames: {
+        1: getOnlinePlayerName(1),
+        2: "",
+        3: "",
+      },
       participantConnections: {
         1: true,
         2: false,
         3: false,
+      },
+      participantLastSeen: {
+        1: Date.now(),
+        2: 0,
+        3: 0,
       },
       hostClientId: online.clientId,
       guestClientId: null,
@@ -1535,8 +1866,10 @@ async function createOnlineRoom() {
   }
 }
 
-async function joinOnlineRoom(codeInput) {
+async function joinOnlineRoom(codeInput, options = {}) {
   if (online.joiningRoom || online.creatingRoom) return;
+  const requestedPlayerId = normalizeCell(options.playerId || online.clientId) || online.clientId;
+  const requestedPlayerName = normalizeCell(options.playerName) || getOnlinePlayerName(options.teamSlot);
   setOnlineFeedback("جارٍ الانضمام إلى الغرفة...", "info");
   setJoinRoomLoading(true);
   try {
@@ -1548,12 +1881,15 @@ async function joinOnlineRoom(codeInput) {
       if (!room) return room;
       const roomTeamCount = normalizeTeamCount(room.teamCount);
       room.teamCount = roomTeamCount;
+      cleanupStaleParticipants(room, { preservePlayerId: requestedPlayerId });
       const slots = normalizeParticipantSlots(room);
       const connections = normalizeParticipantConnections(room);
+      const lastSeen = normalizeParticipantLastSeen(room);
+      const names = normalizeParticipantNames(room);
 
       let mySlot = null;
       for (let slot = 1; slot <= roomTeamCount; slot += 1) {
-        if (slots[slot] === online.clientId) {
+        if (slots[slot] === requestedPlayerId) {
           mySlot = slot;
           break;
         }
@@ -1561,7 +1897,7 @@ async function joinOnlineRoom(codeInput) {
       if (!mySlot) {
         for (let slot = 1; slot <= roomTeamCount; slot += 1) {
           if (!slots[slot]) {
-            slots[slot] = online.clientId;
+            slots[slot] = requestedPlayerId;
             mySlot = slot;
             break;
           }
@@ -1570,8 +1906,12 @@ async function joinOnlineRoom(codeInput) {
       if (!mySlot) return;
 
       connections[mySlot] = true;
+      lastSeen[mySlot] = Date.now();
+      names[mySlot] = requestedPlayerName || names[mySlot] || getOnlinePlayerName(mySlot);
       room.participantSlots = slots;
       room.participantConnections = connections;
+      room.participantLastSeen = lastSeen;
+      room.participantNames = names;
       room.hostClientId = slots[1] || null;
       room.guestClientId = slots[2] || null;
       room.hostConnected = !!connections[1];
@@ -1588,7 +1928,7 @@ async function joinOnlineRoom(codeInput) {
 
     const roomTeamCount = normalizeTeamCount(room.teamCount);
     const slots = normalizeParticipantSlots(room);
-    const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === online.clientId);
+    const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === requestedPlayerId);
     if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
 
     setLocalTeamCount(roomTeamCount);
@@ -1600,9 +1940,17 @@ async function joinOnlineRoom(codeInput) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "تعذّر الانضمام إلى الغرفة.";
     setOnlineFeedback(errorMessage, "error");
+    if (options.throwOnError) throw error;
   } finally {
     setJoinRoomLoading(false);
   }
+}
+
+async function reconnectRoom(roomCode, playerId, options = {}) {
+  return joinOnlineRoom(roomCode, {
+    ...options,
+    playerId,
+  });
 }
 
 async function connectToRoom(code, teamSlot) {
@@ -1617,27 +1965,44 @@ async function connectToRoom(code, teamSlot) {
   setOnlineStatus(teamSlot === 1 ? "تم إنشاء الغرفة" : "تم الانضمام بنجاح");
   updateOnlineActionPermissions();
 
-  const connectionRef = online.roomRef.child(`participantConnections/${teamSlot}`);
-  connectionRef.set(true);
-  connectionRef.onDisconnect().set(false);
-  if (teamSlot === 1) {
-    online.roomRef.child("hostConnected").set(true);
-    online.roomRef.child("hostConnected").onDisconnect().set(false);
-  }
-  if (teamSlot === 2) {
-    online.roomRef.child("guestConnected").set(true);
-    online.roomRef.child("guestConnected").onDisconnect().set(false);
-  }
+  const presencePayload = buildPresencePayload(teamSlot, { connected: true, includeName: true, lastSeen: Date.now() });
+  online.roomRef.update(presencePayload).catch(() => {});
+  online.roomRef.onDisconnect().update(buildPresencePayload(teamSlot, { connected: false, includeName: false, lastSeen: Date.now() }));
+  startOnlineHeartbeat();
 
   if (!online.listening) {
     online.roomRef.on("value", (snapshot) => {
       const room = snapshot.val();
-      if (!room) return;
-      const roomTeamCount = normalizeTeamCount(room.teamCount);
-      const slots = normalizeParticipantSlots(room);
-      const connections = normalizeParticipantConnections(room);
+      if (!room) {
+        if (online.restoringSession) {
+          clearOnlineSession();
+          online.restoreFailed = true;
+          resetOnlineMode();
+          el.gameScreen.style.display = "none";
+          el.startScreen.style.display = "flex";
+          showError("انتهت الجلسة السابقة أو لم تعد الغرفة موجودة.");
+        }
+        return;
+      }
+      const cleanupResult = cleanupStaleParticipants(room, { preservePlayerId: online.clientId });
+      if (cleanupResult.changed && online.roomRef) {
+        online.roomRef.update({
+          participantSlots: cleanupResult.room.participantSlots,
+          participantConnections: cleanupResult.room.participantConnections,
+          participantLastSeen: cleanupResult.room.participantLastSeen,
+          participantNames: cleanupResult.room.participantNames,
+          hostClientId: cleanupResult.room.hostClientId,
+          guestClientId: cleanupResult.room.guestClientId,
+          hostConnected: cleanupResult.room.hostConnected,
+          guestConnected: cleanupResult.room.guestConnected,
+        }).catch(() => {});
+      }
+      const effectiveRoom = cleanupResult.changed ? cleanupResult.room : room;
+      const roomTeamCount = normalizeTeamCount(effectiveRoom.teamCount);
+      const slots = normalizeParticipantSlots(effectiveRoom);
+      const connections = normalizeParticipantConnections(effectiveRoom);
       online.selectedTeamCount = roomTeamCount;
-      if (!room.gameStarted) {
+      if (!effectiveRoom.gameStarted) {
         setLocalTeamCount(roomTeamCount);
         updateTeamModeUI();
       }
@@ -1649,7 +2014,7 @@ async function connectToRoom(code, teamSlot) {
         el.startOnlineGameBtn.disabled = !allConnected;
         setWaitingState(allConnected ? "تم اكتمال اتصال جميع الفرق. يمكنك بدء اللعبة." : `بانتظار انضمام الفرق (${connectedCount}/${roomTeamCount})...`, allConnected);
       }
-      if (room.gameStarted) {
+      if (effectiveRoom.gameStarted) {
         setOnlineStatus("بدأت اللعبة");
       } else if (online.role === "host") {
         const joinedCount = getParticipantCount(slots, roomTeamCount);
@@ -1657,9 +2022,15 @@ async function connectToRoom(code, teamSlot) {
       } else {
         setOnlineStatus(`أنت في الفريق ${online.teamSlot || 1}`);
       }
-      if (room.gameStarted && room.game) {
+      if (effectiveRoom.gameStarted && effectiveRoom.game) {
         closeCategoryPicker();
-        applyRemoteGameState(room.game);
+        applyRemoteGameState(effectiveRoom.game);
+        closeOnlineModal();
+      }
+      if (slots[online.teamSlot] === online.clientId) saveOnlineSession();
+      if (online.restoringSession) {
+        online.restoringSession = false;
+        setOnlineFeedback("تمت استعادة الاتصال بنجاح.", "success");
       }
     });
     online.listening = true;
@@ -1673,6 +2044,7 @@ async function connectToRoom(code, teamSlot) {
 function disconnectOnlineListeners() {
   if (online.roomRef && online.listening) online.roomRef.off();
   online.listening = false;
+  stopOnlineHeartbeat();
 }
 
 function pushOnlineState() {
@@ -1730,7 +2102,9 @@ function resetOnlineMode() {
   online.roomCode = "";
   online.roomRef = null;
   online.connected = { 1: false, 2: false, 3: false };
-  localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+  online.restoringSession = false;
+  online.restoreFailed = false;
+  clearOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
   setOnlineStatus("غير متصل");
@@ -1818,9 +2192,7 @@ async function returnToHomeScreen() {
   clearLocalProgress();
 
   if (online.mode === "online" && online.roomRef && online.teamSlot) {
-    const updates = { [`participantConnections/${online.teamSlot}`]: false };
-    if (online.teamSlot === 1) updates.hostConnected = false;
-    if (online.teamSlot === 2) updates.guestConnected = false;
+    const updates = buildPresencePayload(online.teamSlot, { connected: false, includeName: false, lastSeen: Date.now() });
     try {
       await online.roomRef.update(updates);
     } catch (_) {
@@ -1839,7 +2211,7 @@ async function returnToHomeScreen() {
   }
 }
 
-async function enterGame(mode) {
+async function enterGame(mode, options = {}) {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
   if (mode === "online") {
@@ -1847,7 +2219,7 @@ async function enterGame(mode) {
     setOnlineTeamCount(2);
     updateTeamModeUI();
     openOnlineModal();
-    await startNewGame();
+    if (!options.skipNewGame) await startNewGame();
   } else {
     resetOnlineMode();
     preloadQuestionBank().catch(() => {});
@@ -1878,6 +2250,39 @@ function tryAutoJoinFromUrl() {
     el.roomCodeInput.value = room;
     joinOnlineRoom(room);
   });
+}
+
+async function tryRestoreOnlineSession() {
+  const savedSession = getStoredOnlineSession();
+  const roomFromUrl = normalizeCell(new URL(window.location.href).searchParams.get("room") || "").toUpperCase();
+  if (!savedSession?.roomCode || !savedSession.playerId) return false;
+  if (savedSession.timestamp && Date.now() - savedSession.timestamp > ONLINE_SESSION_MAX_AGE_MS) {
+    clearOnlineSession();
+    return false;
+  }
+  if (roomFromUrl && roomFromUrl !== savedSession.roomCode) return false;
+
+  online.clientId = savedSession.playerId;
+  online.restoringSession = true;
+  online.restoreFailed = false;
+  await enterGame("online", { skipNewGame: true });
+  setOnlineFeedback(ONLINE_RESTORE_MESSAGE, "info");
+  el.onlineJoinPanel.classList.add("hidden");
+
+  try {
+    await reconnectRoom(savedSession.roomCode, savedSession.playerId, {
+      playerName: savedSession.playerName,
+      teamSlot: savedSession.teamSlot,
+      throwOnError: true,
+    });
+    return true;
+  } catch (_) {
+    clearOnlineSession();
+    online.restoringSession = false;
+    await returnToHomeScreen();
+    online.restoreFailed = true;
+    return false;
+  }
 }
 
 
@@ -2285,11 +2690,24 @@ function initializeApp() {
   updateScoreboard();
   updateOnlineActionPermissions();
 
-  restoreLocalProgress();
+  const restoredLocal = restoreLocalProgress();
 
-  window.addEventListener("pagehide", persistLocalProgress);
+  window.addEventListener("pagehide", () => {
+    persistLocalProgress();
+    sendOnlineDisconnectSignal("pagehide");
+  });
+  window.addEventListener("beforeunload", () => {
+    persistLocalProgress();
+    sendOnlineDisconnectSignal("beforeunload");
+  });
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") persistLocalProgress();
+    if (document.visibilityState === "hidden") {
+      persistLocalProgress();
+      sendOnlineDisconnectSignal("hidden");
+      stopOnlineHeartbeat();
+      return;
+    }
+    if (online.mode === "online") startOnlineHeartbeat();
   });
 
   initAnalytics();
@@ -2297,7 +2715,11 @@ function initializeApp() {
 
   preloadQuestionBank().catch(() => {});
 
-  tryAutoJoinFromUrl();
+  if (!restoredLocal) {
+    tryRestoreOnlineSession().then((restoredOnline) => {
+      if (!restoredOnline && !online.restoreFailed) tryAutoJoinFromUrl();
+    });
+  }
   registerServiceWorker();
 }
 
