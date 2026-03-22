@@ -323,16 +323,10 @@ main,
   display: block;
 }
 
-.question-media.map-question-media .question-zoom-viewer {
-  max-height: min(70vh, 420px);
-  border-radius: 8px;
-  border-color: rgba(148, 178, 255, 0.22);
-}
-
 .question-media.map-question-media #questionImage.map-question-image {
   box-shadow: none;
-  border-radius: 0;
-  border-width: 0;
+  border-radius: 8px;
+  border-color: rgba(148, 178, 255, 0.22);
   contain: none;
   transform: none;
   backface-visibility: hidden;
