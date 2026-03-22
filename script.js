@@ -8,6 +8,7 @@ const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
+const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
@@ -16,6 +17,9 @@ const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
+const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
+const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
+const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let mcqHelpUsed = { 1: false, 2: false, 3: false };
@@ -202,6 +206,7 @@ const online = {
   teamSlot: null,
   roomCode: "",
   roomRef: null,
+  roomListener: null,
   connected: { 1: false, 2: false, 3: false },
   listening: false,
   applyingRemote: false,
@@ -211,7 +216,12 @@ const online = {
   creatingRoom: false,
   joiningRoom: false,
   selectedTeamCount: 2,
-  clientId: (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : String(Date.now()),
+  clientId: null,
+  sessionRestoreInProgress: false,
+  restoringFromSavedSession: false,
+  connectionStateRef: null,
+  connectionStateHandler: null,
+  heartbeatTimer: null,
 };
 
 function buildEmptyParticipantSlots() {
@@ -220,6 +230,10 @@ function buildEmptyParticipantSlots() {
 
 function buildEmptyParticipantConnections() {
   return { 1: false, 2: false, 3: false };
+}
+
+function buildEmptyParticipantRecords() {
+  return { 1: null, 2: null, 3: null };
 }
 
 function normalizeParticipantSlots(room = {}) {
@@ -247,6 +261,45 @@ function normalizeParticipantConnections(room = {}) {
   connections[1] = !!room.hostConnected;
   connections[2] = !!room.guestConnected;
   return connections;
+}
+
+function normalizeParticipantRecords(room = {}) {
+  const records = buildEmptyParticipantRecords();
+  const slots = normalizeParticipantSlots(room);
+  const connections = normalizeParticipantConnections(room);
+  const rawParticipants = room.participants && typeof room.participants === "object" ? room.participants : {};
+
+  [1, 2, 3].forEach((slot) => {
+    const rawRecord = rawParticipants[slot];
+    const fallbackClientId = slots[slot] || null;
+    if (rawRecord && typeof rawRecord === "object") {
+      records[slot] = {
+        clientId: normalizeCell(rawRecord.clientId) || fallbackClientId,
+        displayName: normalizeCell(rawRecord.displayName),
+        connected: rawRecord.connected ?? connections[slot],
+        joinedAt: Number(rawRecord.joinedAt) || null,
+        lastSeen: Number(rawRecord.lastSeen) || null,
+        heartbeatAt: Number(rawRecord.heartbeatAt) || null,
+        disconnectedAt: Number(rawRecord.disconnectedAt) || null,
+        teamSlot: slot,
+      };
+      return;
+    }
+
+    if (!fallbackClientId) return;
+    records[slot] = {
+      clientId: fallbackClientId,
+      displayName: "",
+      connected: connections[slot],
+      joinedAt: null,
+      lastSeen: null,
+      heartbeatAt: null,
+      disconnectedAt: null,
+      teamSlot: slot,
+    };
+  });
+
+  return records;
 }
 
 function getParticipantCount(slots, teamCount) {
@@ -312,6 +365,39 @@ const questionBankCache = {
 
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
+}
+function safeStorageGet(storage, key) {
+  try {
+    return storage.getItem(key);
+  } catch (_) {
+    return null;
+  }
+}
+function safeStorageSet(storage, key, value) {
+  try {
+    storage.setItem(key, value);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+function safeStorageRemove(storage, key) {
+  try {
+    storage.removeItem(key);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+function createRandomId() {
+  return (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+function getOrCreateStableClientId() {
+  const existing = normalizeCell(safeStorageGet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY));
+  if (existing) return existing;
+  const created = createRandomId();
+  safeStorageSet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY, created);
+  return created;
 }
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
@@ -1405,12 +1491,185 @@ function setWaitingState(message, isConnected = false) {
   el.waitingStatus.classList.toggle("is-connected", isConnected);
 }
 
+function getOnlinePlayerDisplayName() {
+  const slot = Number(online.teamSlot);
+  if (slot && normalizeCell(state.teamNames?.[slot])) return normalizeCell(state.teamNames[slot]);
+  return online.role === "host" ? "الفريق الأول" : "الفريق";
+}
+
 function saveOnlineSession() {
   if (online.mode !== "online") {
-    localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+    safeStorageRemove(localStorage, ONLINE_SESSION_STORAGE_KEY);
     return;
   }
-  localStorage.setItem(ONLINE_SESSION_STORAGE_KEY, JSON.stringify({ roomCode: online.roomCode, role: online.role, teamSlot: online.teamSlot, clientId: online.clientId }));
+  safeStorageSet(localStorage, ONLINE_SESSION_STORAGE_KEY, JSON.stringify({
+    mode: "online",
+    roomCode: online.roomCode,
+    role: online.role,
+    teamSlot: online.teamSlot,
+    clientId: online.clientId,
+    playerDisplayName: getOnlinePlayerDisplayName(),
+    savedAt: Date.now(),
+  }));
+}
+
+function loadSavedOnlineSession() {
+  try {
+    const raw = safeStorageGet(localStorage, ONLINE_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.mode !== "online") return null;
+    const roomCode = normalizeCell(parsed.roomCode).toUpperCase();
+    const clientId = normalizeCell(parsed.clientId);
+    const teamSlot = Number(parsed.teamSlot) || null;
+    if (!roomCode || !clientId || !teamSlot) return null;
+    return {
+      mode: "online",
+      roomCode,
+      role: normalizeCell(parsed.role) || (teamSlot === 1 ? "host" : "guest"),
+      teamSlot,
+      clientId,
+      playerDisplayName: normalizeCell(parsed.playerDisplayName),
+      savedAt: Number(parsed.savedAt) || null,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearSavedOnlineSession() {
+  safeStorageRemove(localStorage, ONLINE_SESSION_STORAGE_KEY);
+}
+
+function getFirebaseTimestampValue() {
+  return firebase.database.ServerValue.TIMESTAMP;
+}
+
+function getPlayerStaleTimeoutMs(room = {}) {
+  return room.gameStarted ? ONLINE_ACTIVE_GAME_STALE_MS : ONLINE_RECONNECT_GRACE_MS;
+}
+
+function isParticipantRecordStale(record, room = {}, now = Date.now()) {
+  if (!record?.clientId) return true;
+  if (record.connected) return false;
+  const staleSince = Number(record.lastSeen || record.heartbeatAt || record.disconnectedAt || record.joinedAt || 0);
+  if (!staleSince) return false;
+  return (now - staleSince) > getPlayerStaleTimeoutMs(room);
+}
+
+function buildParticipantRecord({ slot, clientId, displayName = "", existingRecord = null, connected = true, now = Date.now() }) {
+  const previous = existingRecord && typeof existingRecord === "object" ? existingRecord : {};
+  return {
+    clientId,
+    displayName: normalizeCell(displayName) || normalizeCell(previous.displayName),
+    connected,
+    joinedAt: Number(previous.joinedAt) || now,
+    lastSeen: now,
+    heartbeatAt: now,
+    disconnectedAt: connected ? null : now,
+    teamSlot: slot,
+  };
+}
+
+function cleanupStaleParticipants(room, slots, connections, records, roomTeamCount, now = Date.now()) {
+  for (let slot = 1; slot <= roomTeamCount; slot += 1) {
+    const record = records[slot];
+    if (!record?.clientId) {
+      slots[slot] = null;
+      connections[slot] = false;
+      records[slot] = null;
+      continue;
+    }
+    if (!isParticipantRecordStale(record, room, now)) continue;
+    slots[slot] = null;
+    connections[slot] = false;
+    records[slot] = null;
+  }
+}
+
+function syncRoomParticipantFields(room, slots, connections, records) {
+  room.participantSlots = slots;
+  room.participantConnections = connections;
+  room.participants = records;
+  room.hostClientId = slots[1] || null;
+  room.guestClientId = slots[2] || null;
+  room.hostConnected = !!connections[1];
+  room.guestConnected = !!connections[2];
+}
+
+function buildPresencePayload(slot, { connected = true, includeDisplayName = true } = {}) {
+  const timestamp = getFirebaseTimestampValue();
+  const updates = {
+    [`participantConnections/${slot}`]: connected,
+    [`participants/${slot}/clientId`]: online.clientId,
+    [`participants/${slot}/connected`]: connected,
+    [`participants/${slot}/teamSlot`]: slot,
+    [`participants/${slot}/lastSeen`]: timestamp,
+    [`participants/${slot}/heartbeatAt`]: timestamp,
+  };
+  if (includeDisplayName) {
+    updates[`participants/${slot}/displayName`] = getOnlinePlayerDisplayName();
+  }
+  if (connected) {
+    updates[`participants/${slot}/disconnectedAt`] = null;
+  } else {
+    updates[`participants/${slot}/disconnectedAt`] = timestamp;
+  }
+  if (slot === 1) updates.hostConnected = connected;
+  if (slot === 2) updates.guestConnected = connected;
+  return updates;
+}
+
+function stopOnlineHeartbeat() {
+  if (online.heartbeatTimer !== null) {
+    clearInterval(online.heartbeatTimer);
+    online.heartbeatTimer = null;
+  }
+}
+
+function disconnectPresenceListener() {
+  if (online.connectionStateRef && online.connectionStateHandler) {
+    online.connectionStateRef.off("value", online.connectionStateHandler);
+  }
+  online.connectionStateRef = null;
+  online.connectionStateHandler = null;
+}
+
+function disconnectOnlinePresence() {
+  stopOnlineHeartbeat();
+  disconnectPresenceListener();
+}
+
+function startOnlineHeartbeat() {
+  stopOnlineHeartbeat();
+  if (online.mode !== "online" || !online.roomRef || !online.teamSlot) return;
+  online.heartbeatTimer = window.setInterval(() => {
+    online.roomRef.update(buildPresencePayload(online.teamSlot)).catch(() => {});
+  }, ONLINE_PRESENCE_HEARTBEAT_MS);
+}
+
+function attachOnlinePresence(slot) {
+  disconnectOnlinePresence();
+  if (!online.db || !online.roomRef) return;
+
+  const connectionStateRef = online.db.ref(".info/connected");
+  const connectionStateHandler = (snapshot) => {
+    if (snapshot.val() !== true || online.mode !== "online" || !online.roomRef) return;
+
+    online.roomRef.update(buildPresencePayload(slot)).catch(() => {});
+    online.roomRef.child(`participantConnections/${slot}`).onDisconnect().set(false);
+    online.roomRef.child(`participants/${slot}/connected`).onDisconnect().set(false);
+    online.roomRef.child(`participants/${slot}/lastSeen`).onDisconnect().set(getFirebaseTimestampValue());
+    online.roomRef.child(`participants/${slot}/heartbeatAt`).onDisconnect().set(getFirebaseTimestampValue());
+    online.roomRef.child(`participants/${slot}/disconnectedAt`).onDisconnect().set(getFirebaseTimestampValue());
+    if (slot === 1) online.roomRef.child("hostConnected").onDisconnect().set(false);
+    if (slot === 2) online.roomRef.child("guestConnected").onDisconnect().set(false);
+  };
+
+  connectionStateRef.on("value", connectionStateHandler);
+  online.connectionStateRef = connectionStateRef;
+  online.connectionStateHandler = connectionStateHandler;
+  startOnlineHeartbeat();
 }
 
 function hasFirebaseValue(config, key) {
@@ -1512,6 +1771,15 @@ async function createOnlineRoom() {
         2: false,
         3: false,
       },
+      participants: {
+        1: buildParticipantRecord({
+          slot: 1,
+          clientId: online.clientId,
+          displayName: state.teamNames[1],
+        }),
+        2: null,
+        3: null,
+      },
       hostClientId: online.clientId,
       guestClientId: null,
       hostConnected: true,
@@ -1536,6 +1804,14 @@ async function createOnlineRoom() {
 }
 
 async function joinOnlineRoom(codeInput) {
+  try {
+    return await joinOnlineRoomInternal(codeInput, {});
+  } catch (_) {
+    return null;
+  }
+}
+
+async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, suppressSuccessFeedback = false } = {}) {
   if (online.joiningRoom || online.creatingRoom) return;
   setOnlineFeedback("جارٍ الانضمام إلى الغرفة...", "info");
   setJoinRoomLoading(true);
@@ -1546,16 +1822,28 @@ async function joinOnlineRoom(codeInput) {
     const ref = roomRefByCode(code);
     const transactionResult = await ref.transaction((room) => {
       if (!room) return room;
+      if (room.endedAt) return;
       const roomTeamCount = normalizeTeamCount(room.teamCount);
       room.teamCount = roomTeamCount;
       const slots = normalizeParticipantSlots(room);
       const connections = normalizeParticipantConnections(room);
+      const records = normalizeParticipantRecords(room);
+      const now = Date.now();
+
+      cleanupStaleParticipants(room, slots, connections, records, roomTeamCount, now);
 
       let mySlot = null;
       for (let slot = 1; slot <= roomTeamCount; slot += 1) {
         if (slots[slot] === online.clientId) {
           mySlot = slot;
           break;
+        }
+      }
+      if (!mySlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount) {
+        const preferredRecord = records[preferredTeamSlot];
+        if (!slots[preferredTeamSlot] || isParticipantRecordStale(preferredRecord, room, now)) {
+          mySlot = preferredTeamSlot;
+          slots[preferredTeamSlot] = online.clientId;
         }
       }
       if (!mySlot) {
@@ -1569,18 +1857,22 @@ async function joinOnlineRoom(codeInput) {
       }
       if (!mySlot) return;
 
+      records[mySlot] = buildParticipantRecord({
+        slot: mySlot,
+        clientId: online.clientId,
+        displayName: normalizeCell(state.teamNames?.[mySlot]) || normalizeCell(records[mySlot]?.displayName) || `الفريق ${mySlot}`,
+        existingRecord: records[mySlot],
+        connected: true,
+        now,
+      });
       connections[mySlot] = true;
-      room.participantSlots = slots;
-      room.participantConnections = connections;
-      room.hostClientId = slots[1] || null;
-      room.guestClientId = slots[2] || null;
-      room.hostConnected = !!connections[1];
-      room.guestConnected = !!connections[2];
+      syncRoomParticipantFields(room, slots, connections, records);
       return room;
     });
 
     const room = transactionResult.snapshot.val();
     if (!transactionResult.committed) {
+      if (room?.endedAt) throw new Error("تعذّر الاستعادة: الغرفة انتهت.");
       if (room) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
       throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
     }
@@ -1595,17 +1887,23 @@ async function joinOnlineRoom(codeInput) {
     updateTeamModeUI();
     await connectToRoom(code, mySlot);
     logAnalyticsEvent("room_joined", { room_code: code, team_slot: mySlot });
-    setOnlineFeedback("تم الانضمام بنجاح. جارٍ الدخول إلى الغرفة...", "success");
+    if (!suppressSuccessFeedback) {
+      setOnlineFeedback("تم الانضمام بنجاح. جارٍ الدخول إلى الغرفة...", "success");
+    }
     closeOnlineModal();
+    return { code, room, mySlot };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "تعذّر الانضمام إلى الغرفة.";
     setOnlineFeedback(errorMessage, "error");
+    throw error;
   } finally {
     setJoinRoomLoading(false);
   }
 }
 
 async function connectToRoom(code, teamSlot) {
+  disconnectOnlineListeners();
+  disconnectOnlinePresence();
   online.mode = "online";
   online.role = teamSlot === 1 ? "host" : "guest";
   online.teamSlot = teamSlot;
@@ -1616,54 +1914,69 @@ async function connectToRoom(code, teamSlot) {
   el.onlineStatusCard.classList.remove("hidden");
   setOnlineStatus(teamSlot === 1 ? "تم إنشاء الغرفة" : "تم الانضمام بنجاح");
   updateOnlineActionPermissions();
+  attachOnlinePresence(teamSlot);
 
-  const connectionRef = online.roomRef.child(`participantConnections/${teamSlot}`);
-  connectionRef.set(true);
-  connectionRef.onDisconnect().set(false);
-  if (teamSlot === 1) {
-    online.roomRef.child("hostConnected").set(true);
-    online.roomRef.child("hostConnected").onDisconnect().set(false);
-  }
-  if (teamSlot === 2) {
-    online.roomRef.child("guestConnected").set(true);
-    online.roomRef.child("guestConnected").onDisconnect().set(false);
-  }
+  const roomListener = (snapshot) => {
+    const room = snapshot.val();
+    if (!room) {
+      handleOnlineRoomUnavailable("انتهت الغرفة أو لم تعد متاحة.");
+      return;
+    }
+    if (room.endedAt) {
+      handleOnlineRoomUnavailable("انتهت الغرفة.");
+      return;
+    }
 
-  if (!online.listening) {
-    online.roomRef.on("value", (snapshot) => {
-      const room = snapshot.val();
-      if (!room) return;
-      const roomTeamCount = normalizeTeamCount(room.teamCount);
-      const slots = normalizeParticipantSlots(room);
-      const connections = normalizeParticipantConnections(room);
-      online.selectedTeamCount = roomTeamCount;
-      if (!room.gameStarted) {
-        setLocalTeamCount(roomTeamCount);
-        updateTeamModeUI();
-      }
-      updateOnlineTeamCountControls();
-      online.connected = connections;
-      if (online.role === "host") {
-        const connectedCount = Array.from({ length: roomTeamCount }, (_, index) => index + 1).filter((slot) => connections[slot]).length;
-        const allConnected = connectedCount >= roomTeamCount;
-        el.startOnlineGameBtn.disabled = !allConnected;
-        setWaitingState(allConnected ? "تم اكتمال اتصال جميع الفرق. يمكنك بدء اللعبة." : `بانتظار انضمام الفرق (${connectedCount}/${roomTeamCount})...`, allConnected);
-      }
-      if (room.gameStarted) {
-        setOnlineStatus("بدأت اللعبة");
-      } else if (online.role === "host") {
-        const joinedCount = getParticipantCount(slots, roomTeamCount);
-        setOnlineStatus(joinedCount >= roomTeamCount ? "جميع اللاعبين متصلون" : "بانتظار اللاعبين");
-      } else {
-        setOnlineStatus(`أنت في الفريق ${online.teamSlot || 1}`);
-      }
-      if (room.gameStarted && room.game) {
-        closeCategoryPicker();
-        applyRemoteGameState(room.game);
-      }
-    });
-    online.listening = true;
-  }
+    const roomTeamCount = normalizeTeamCount(room.teamCount);
+    const slots = normalizeParticipantSlots(room);
+    const connections = normalizeParticipantConnections(room);
+    const records = normalizeParticipantRecords(room);
+    const myRecord = records[teamSlot];
+
+    if (slots[teamSlot] && slots[teamSlot] !== online.clientId && normalizeCell(myRecord?.clientId) !== online.clientId) {
+      handleOnlineRoomUnavailable("تم فقدان مقعدك في الغرفة.");
+      return;
+    }
+
+    online.selectedTeamCount = roomTeamCount;
+    setLocalTeamCount(roomTeamCount);
+    updateTeamModeUI();
+    updateOnlineTeamCountControls();
+    online.connected = connections;
+    saveOnlineSession();
+
+    if (online.role === "host") {
+      const connectedCount = Array.from({ length: roomTeamCount }, (_, index) => index + 1).filter((slot) => connections[slot]).length;
+      const allConnected = connectedCount >= roomTeamCount;
+      el.startOnlineGameBtn.disabled = !allConnected;
+      setWaitingState(allConnected ? "تم اكتمال اتصال جميع الفرق. يمكنك بدء اللعبة." : `بانتظار انضمام الفرق (${connectedCount}/${roomTeamCount})...`, allConnected);
+    }
+
+    if (room.gameStarted) {
+      closeOnlineModal();
+      setOnlineStatus("بدأت اللعبة");
+    } else if (online.role === "host") {
+      const joinedCount = getParticipantCount(slots, roomTeamCount);
+      setOnlineStatus(joinedCount >= roomTeamCount ? "جميع اللاعبين متصلون" : "بانتظار اللاعبين");
+      if (online.restoringFromSavedSession) openOnlineModal();
+    } else {
+      setOnlineStatus(`أنت في الفريق ${online.teamSlot || 1}`);
+      if (online.restoringFromSavedSession) openOnlineModal();
+    }
+
+    if (room.gameStarted && room.game) {
+      closeCategoryPicker();
+      applyRemoteGameState(room.game);
+    }
+
+    saveOnlineSession();
+    online.restoringFromSavedSession = false;
+    online.sessionRestoreInProgress = false;
+  };
+
+  online.roomListener = roomListener;
+  online.roomRef.on("value", roomListener);
+  online.listening = true;
 
   const isHost = teamSlot === 1;
   el.onlineCreatePanel.classList.toggle("hidden", !isHost);
@@ -1671,8 +1984,13 @@ async function connectToRoom(code, teamSlot) {
 }
 
 function disconnectOnlineListeners() {
-  if (online.roomRef && online.listening) online.roomRef.off();
+  if (online.roomRef && online.listening && online.roomListener) {
+    online.roomRef.off("value", online.roomListener);
+  } else if (online.roomRef && online.listening) {
+    online.roomRef.off();
+  }
   online.listening = false;
+  online.roomListener = null;
 }
 
 function pushOnlineState() {
@@ -1724,13 +2042,16 @@ function updateOnlineActionPermissions() {
 
 function resetOnlineMode() {
   disconnectOnlineListeners();
+  disconnectOnlinePresence();
   online.mode = "local";
   online.role = null;
   online.teamSlot = null;
   online.roomCode = "";
   online.roomRef = null;
   online.connected = { 1: false, 2: false, 3: false };
-  localStorage.removeItem(ONLINE_SESSION_STORAGE_KEY);
+  online.restoringFromSavedSession = false;
+  online.sessionRestoreInProgress = false;
+  clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
   setOnlineStatus("غير متصل");
@@ -1745,7 +2066,7 @@ function openOnlineModal() {
   setCreateRoomLoading(false);
   setJoinRoomLoading(false);
   updateOnlineTeamCountControls();
-  setOnlineStatus("غير متصل");
+  if (online.mode !== "online") setOnlineStatus("غير متصل");
   requestAnimationFrame(() => el.onlineModal.classList.add("is-open"));
 }
 function closeOnlineModal() {
@@ -1811,26 +2132,58 @@ async function startNewGame() {
   }
 }
 
+function showGameScreen() {
+  el.startScreen.style.display = "none";
+  el.gameScreen.style.display = "block";
+}
+
+function showStartScreen() {
+  el.gameScreen.style.display = "none";
+  el.startScreen.style.display = "flex";
+}
+
+async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
+  if (online.mode !== "online" || !online.roomRef || !online.teamSlot) {
+    if (clearSession) clearSavedOnlineSession();
+    return;
+  }
+
+  disconnectOnlinePresence();
+  const updates = buildPresencePayload(online.teamSlot, { connected: false, includeDisplayName: false });
+  if (removeSeat) {
+    updates[`participantSlots/${online.teamSlot}`] = null;
+    updates[`participants/${online.teamSlot}`] = null;
+    if (online.teamSlot === 1) updates.hostClientId = null;
+    if (online.teamSlot === 2) updates.guestClientId = null;
+  }
+
+  try {
+    await online.roomRef.update(updates);
+  } catch (_) {
+    // Ignore cleanup failures on manual exit.
+  }
+
+  if (clearSession) clearSavedOnlineSession();
+}
+
+function handleOnlineRoomUnavailable(message = "الغرفة لم تعد متاحة.") {
+  const shouldReturnHome = online.sessionRestoreInProgress || online.mode === "online";
+  resetOnlineMode();
+  resetGameState();
+  clearLocalProgress();
+  if (shouldReturnHome) showStartScreen();
+  setOnlineFeedback(message, "info");
+}
+
 async function returnToHomeScreen() {
   closeOnlineModal();
   closeLocalTeamsModal();
   resetGameState();
   clearLocalProgress();
 
-  if (online.mode === "online" && online.roomRef && online.teamSlot) {
-    const updates = { [`participantConnections/${online.teamSlot}`]: false };
-    if (online.teamSlot === 1) updates.hostConnected = false;
-    if (online.teamSlot === 2) updates.guestConnected = false;
-    try {
-      await online.roomRef.update(updates);
-    } catch (_) {
-      // Ignore cleanup failures and continue returning home.
-    }
-  }
-
+  await releaseOnlineSeat({ clearSession: true, removeSeat: true });
   resetOnlineMode();
-  el.gameScreen.style.display = "none";
-  el.startScreen.style.display = "flex";
+  showStartScreen();
 
   const url = new URL(window.location.href);
   if (url.searchParams.has("room")) {
@@ -1839,15 +2192,16 @@ async function returnToHomeScreen() {
   }
 }
 
-async function enterGame(mode) {
-  el.startScreen.style.display = "none";
-  el.gameScreen.style.display = "block";
+async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = true } = {}) {
+  showGameScreen();
   if (mode === "online") {
     clearLocalProgress();
-    setOnlineTeamCount(2);
+    if (bootstrapOnlineGame) {
+      setOnlineTeamCount(2);
+      await startNewGame();
+    }
     updateTeamModeUI();
-    openOnlineModal();
-    await startNewGame();
+    if (openOnlineLobby) openOnlineModal();
   } else {
     resetOnlineMode();
     preloadQuestionBank().catch(() => {});
@@ -1876,8 +2230,37 @@ function tryAutoJoinFromUrl() {
   enterGame("online").then(() => {
     el.onlineJoinPanel.classList.remove("hidden");
     el.roomCodeInput.value = room;
-    joinOnlineRoom(room);
-  });
+    return joinOnlineRoom(room);
+  }).catch(() => {});
+}
+
+async function tryRestoreOnlineSession() {
+  const savedSession = loadSavedOnlineSession();
+  if (!savedSession) return false;
+
+  online.clientId = savedSession.clientId;
+  online.sessionRestoreInProgress = true;
+  online.restoringFromSavedSession = true;
+  if (savedSession.playerDisplayName && savedSession.teamSlot) {
+    state.teamNames[savedSession.teamSlot] = savedSession.playerDisplayName;
+    syncTeamNameInputs();
+  }
+
+  try {
+    await enterGame("online", { bootstrapOnlineGame: false, openOnlineLobby: false });
+    await joinOnlineRoomInternal(savedSession.roomCode, {
+      preferredTeamSlot: savedSession.teamSlot,
+      suppressSuccessFeedback: true,
+    });
+    return true;
+  } catch (_) {
+    clearSavedOnlineSession();
+    online.sessionRestoreInProgress = false;
+    online.restoringFromSavedSession = false;
+    resetOnlineMode();
+    showStartScreen();
+    return false;
+  }
 }
 
 
@@ -2124,6 +2507,7 @@ function bindEvent(element, eventName, handler, elementName) {
 
 function initializeApp() {
   cacheElements();
+  online.clientId = getOrCreateStableClientId();
 
   bindEvent(el.newGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
@@ -2171,15 +2555,13 @@ function initializeApp() {
   bindEvent(el.localThreeTeamsBtn, "click", () => chooseLocalTeamCount(3), "localThreeTeamsBtn");
   bindEvent(el.cancelLocalTeamsBtn, "click", () => {
     closeLocalTeamsModal();
-    el.gameScreen.style.display = "none";
-    el.startScreen.style.display = "flex";
+    showStartScreen();
     clearLocalProgress();
   }, "cancelLocalTeamsBtn");
   bindEvent(el.localTeamsModal, "click", (event) => {
     if (event.target !== el.localTeamsModal) return;
     closeLocalTeamsModal();
-    el.gameScreen.style.display = "none";
-    el.startScreen.style.display = "flex";
+    showStartScreen();
     clearLocalProgress();
   }, "localTeamsModal");
   bindEvent(el.startOnlineBtn, "click", () => {
@@ -2229,8 +2611,7 @@ function initializeApp() {
       closeOnlineModal();
       return;
     }
-    el.gameScreen.style.display = "none";
-    el.startScreen.style.display = "flex";
+    showStartScreen();
     clearLocalProgress();
     closeOnlineModal();
   }, "cancelOnlineBtn");
@@ -2289,7 +2670,22 @@ function initializeApp() {
 
   window.addEventListener("pagehide", persistLocalProgress);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") persistLocalProgress();
+    if (document.visibilityState === "hidden") {
+      persistLocalProgress();
+      if (online.mode === "online" && online.roomRef && online.teamSlot) {
+        online.roomRef.update(buildPresencePayload(online.teamSlot)).catch(() => {});
+      }
+      return;
+    }
+
+    if (document.visibilityState === "visible" && online.mode === "online" && online.roomRef && online.teamSlot) {
+      online.roomRef.update(buildPresencePayload(online.teamSlot)).catch(() => {});
+    }
+  });
+  window.addEventListener("online", () => {
+    if (online.mode === "online" && online.roomRef && online.teamSlot) {
+      online.roomRef.update(buildPresencePayload(online.teamSlot)).catch(() => {});
+    }
   });
 
   initAnalytics();
@@ -2297,7 +2693,9 @@ function initializeApp() {
 
   preloadQuestionBank().catch(() => {});
 
-  tryAutoJoinFromUrl();
+  tryRestoreOnlineSession().then((restored) => {
+    if (!restored) tryAutoJoinFromUrl();
+  });
   registerServiceWorker();
 }
 
