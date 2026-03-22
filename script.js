@@ -204,10 +204,13 @@ const online = {
   mode: "local",
   role: null,
   teamSlot: null,
+  resolvedTeamSlot: null,
   roomCode: "",
   roomRef: null,
   roomListener: null,
   connected: { 1: false, 2: false, 3: false },
+  participantSlots: { 1: null, 2: null, 3: null },
+  participantRecords: { 1: null, 2: null, 3: null },
   listening: false,
   applyingRemote: false,
   firebaseReady: false,
@@ -222,6 +225,7 @@ const online = {
   connectionStateRef: null,
   connectionStateHandler: null,
   heartbeatTimer: null,
+  currentTurnTeam: null,
 };
 
 function buildEmptyParticipantSlots() {
@@ -1026,14 +1030,32 @@ function renderQuestionAudio(audioPath) {
 function getMyTeamNumber() {
   return getMyControlledTeams()[0] || 1;
 }
+function resolveOnlineTeamSlot() {
+  if (online.mode !== "online") return null;
+  const participantSlots = online.participantSlots && typeof online.participantSlots === "object"
+    ? online.participantSlots
+    : buildEmptyParticipantSlots();
+  const participantRecords = online.participantRecords && typeof online.participantRecords === "object"
+    ? online.participantRecords
+    : buildEmptyParticipantRecords();
+
+  for (let slot = 1; slot <= 3; slot += 1) {
+    if (normalizeCell(participantSlots[slot]) === online.clientId) return slot;
+  }
+  for (let slot = 1; slot <= 3; slot += 1) {
+    if (normalizeCell(participantRecords[slot]?.clientId) === online.clientId) return slot;
+  }
+  return Number(online.resolvedTeamSlot || online.teamSlot) || null;
+}
 function getMyControlledTeams() {
   if (online.mode !== "online") return [state.currentTeam];
-  return [online.teamSlot || 1];
+  return [resolveOnlineTeamSlot() || 1];
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
   const controlledTeams = getMyControlledTeams();
-  return controlledTeams.includes(state.currentTeam);
+  const currentTurnTeam = Number(online.currentTurnTeam || state.currentTeam) || 1;
+  return controlledTeams.includes(currentTurnTeam);
 }
 
 function openQuestion(tileId, { restored = false, deadlineTs = null } = {}) {
@@ -1492,7 +1514,7 @@ function setWaitingState(message, isConnected = false) {
 }
 
 function getOnlinePlayerDisplayName() {
-  const slot = Number(online.teamSlot);
+  const slot = Number(resolveOnlineTeamSlot() || online.teamSlot);
   if (slot && normalizeCell(state.teamNames?.[slot])) return normalizeCell(state.teamNames[slot]);
   return online.role === "host" ? "الفريق الأول" : "الفريق";
 }
@@ -1506,7 +1528,7 @@ function saveOnlineSession() {
     mode: "online",
     roomCode: online.roomCode,
     role: online.role,
-    teamSlot: online.teamSlot,
+    teamSlot: resolveOnlineTeamSlot() || online.teamSlot,
     clientId: online.clientId,
     playerDisplayName: getOnlinePlayerDisplayName(),
     savedAt: Date.now(),
@@ -1907,6 +1929,7 @@ async function connectToRoom(code, teamSlot) {
   online.mode = "online";
   online.role = teamSlot === 1 ? "host" : "guest";
   online.teamSlot = teamSlot;
+  online.resolvedTeamSlot = teamSlot;
   online.roomCode = code;
   online.roomRef = roomRefByCode(code);
   saveOnlineSession();
@@ -1914,7 +1937,6 @@ async function connectToRoom(code, teamSlot) {
   el.onlineStatusCard.classList.remove("hidden");
   setOnlineStatus(teamSlot === 1 ? "تم إنشاء الغرفة" : "تم الانضمام بنجاح");
   updateOnlineActionPermissions();
-  attachOnlinePresence(teamSlot);
 
   const roomListener = (snapshot) => {
     const room = snapshot.val();
@@ -1931,25 +1953,52 @@ async function connectToRoom(code, teamSlot) {
     const slots = normalizeParticipantSlots(room);
     const connections = normalizeParticipantConnections(room);
     const records = normalizeParticipantRecords(room);
-    const myRecord = records[teamSlot];
+    const resolvedSlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => {
+      return normalizeCell(slots[slot]) === online.clientId || normalizeCell(records[slot]?.clientId) === online.clientId;
+    }) || Number(teamSlot) || null;
+    const myRecord = resolvedSlot ? records[resolvedSlot] : null;
 
-    if (slots[teamSlot] && slots[teamSlot] !== online.clientId && normalizeCell(myRecord?.clientId) !== online.clientId) {
+    online.participantSlots = slots;
+    online.participantRecords = records;
+    online.connected = connections;
+    const validRoomTeams = Array.from({ length: roomTeamCount }, (_, index) => index + 1);
+    online.currentTurnTeam = room.gameStarted && room.game && validRoomTeams.includes(Number(room.game.currentTeam))
+      ? Number(room.game.currentTeam)
+      : null;
+
+    if (!resolvedSlot || (slots[resolvedSlot] && slots[resolvedSlot] !== online.clientId && normalizeCell(myRecord?.clientId) !== online.clientId)) {
       handleOnlineRoomUnavailable("تم فقدان مقعدك في الغرفة.");
       return;
+    }
+
+    if (online.teamSlot !== resolvedSlot || online.resolvedTeamSlot !== resolvedSlot) {
+      online.teamSlot = resolvedSlot;
+      online.resolvedTeamSlot = resolvedSlot;
+      online.role = resolvedSlot === 1 ? "host" : "guest";
+      updateOnlineActionPermissions();
+      attachOnlinePresence(resolvedSlot);
+      saveOnlineSession();
     }
 
     online.selectedTeamCount = roomTeamCount;
     setLocalTeamCount(roomTeamCount);
     updateTeamModeUI();
     updateOnlineTeamCountControls();
-    online.connected = connections;
     saveOnlineSession();
 
     if (online.role === "host") {
+      const joinedCount = getParticipantCount(slots, roomTeamCount);
       const connectedCount = Array.from({ length: roomTeamCount }, (_, index) => index + 1).filter((slot) => connections[slot]).length;
+      const allJoined = joinedCount >= roomTeamCount;
       const allConnected = connectedCount >= roomTeamCount;
-      el.startOnlineGameBtn.disabled = !allConnected;
-      setWaitingState(allConnected ? "تم اكتمال اتصال جميع الفرق. يمكنك بدء اللعبة." : `بانتظار انضمام الفرق (${connectedCount}/${roomTeamCount})...`, allConnected);
+      el.startOnlineGameBtn.disabled = !allJoined;
+      if (!allJoined) {
+        setWaitingState(`بانتظار انضمام الفرق (${joinedCount}/${roomTeamCount})...`, false);
+      } else if (allConnected) {
+        setWaitingState("تم اكتمال اتصال جميع الفرق. يمكنك بدء اللعبة.", true);
+      } else {
+        setWaitingState("اكتمل الانضمام، جارٍ تثبيت الاتصال النهائي للفرق...", false);
+      }
     }
 
     if (room.gameStarted) {
@@ -1957,10 +2006,10 @@ async function connectToRoom(code, teamSlot) {
       setOnlineStatus("بدأت اللعبة");
     } else if (online.role === "host") {
       const joinedCount = getParticipantCount(slots, roomTeamCount);
-      setOnlineStatus(joinedCount >= roomTeamCount ? "جميع اللاعبين متصلون" : "بانتظار اللاعبين");
+      setOnlineStatus(joinedCount >= roomTeamCount ? "اكتمل دخول جميع اللاعبين" : "بانتظار اللاعبين");
       if (online.restoringFromSavedSession) openOnlineModal();
     } else {
-      setOnlineStatus(`أنت في الفريق ${online.teamSlot || 1}`);
+      setOnlineStatus(`أنت في الفريق ${online.resolvedTeamSlot || online.teamSlot || 1}`);
       if (online.restoringFromSavedSession) openOnlineModal();
     }
 
@@ -1977,6 +2026,7 @@ async function connectToRoom(code, teamSlot) {
   online.roomListener = roomListener;
   online.roomRef.on("value", roomListener);
   online.listening = true;
+  attachOnlinePresence(teamSlot);
 
   const isHost = teamSlot === 1;
   el.onlineCreatePanel.classList.toggle("hidden", !isHost);
@@ -2046,9 +2096,13 @@ function resetOnlineMode() {
   online.mode = "local";
   online.role = null;
   online.teamSlot = null;
+  online.resolvedTeamSlot = null;
   online.roomCode = "";
   online.roomRef = null;
   online.connected = { 1: false, 2: false, 3: false };
+  online.participantSlots = { 1: null, 2: null, 3: null };
+  online.participantRecords = { 1: null, 2: null, 3: null };
+  online.currentTurnTeam = null;
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
   clearSavedOnlineSession();
@@ -2198,7 +2252,8 @@ async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = t
     clearLocalProgress();
     if (bootstrapOnlineGame) {
       setOnlineTeamCount(2);
-      await startNewGame();
+      resetGameState();
+      preloadQuestionBank().catch(() => {});
     }
     updateTeamModeUI();
     if (openOnlineLobby) openOnlineModal();
@@ -2241,6 +2296,8 @@ async function tryRestoreOnlineSession() {
   online.clientId = savedSession.clientId;
   online.sessionRestoreInProgress = true;
   online.restoringFromSavedSession = true;
+  resetGameState();
+  clearLocalProgress();
   if (savedSession.playerDisplayName && savedSession.teamSlot) {
     state.teamNames[savedSession.teamSlot] = savedSession.playerDisplayName;
     syncTeamNameInputs();
