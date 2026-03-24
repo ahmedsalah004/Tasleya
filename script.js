@@ -3,6 +3,7 @@ const SOLO_CATEGORIES_TO_SELECT = 3;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
@@ -374,7 +375,7 @@ function normalizeCell(value) {
 function getConfiguredApiBaseUrl() {
   const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
   if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
-    return `${window.location.origin}${getBasePath()}api`;
+    return DEFAULT_WORKER_API_BASE_URL;
   }
   return configuredBaseUrl.replace(/\/+$/, "");
 }
