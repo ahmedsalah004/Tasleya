@@ -369,6 +369,12 @@ const questionBankCache = {
   loadPromise: null,
 };
 
+const mediaWarmupCache = {
+  images: new Map(),
+  audio: new Map(),
+  preconnectedOrigins: new Set(),
+};
+
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
@@ -1065,6 +1071,61 @@ function toMediaUrl(mediaPath) {
   const cleanedPath = normalized.replace(/^\.\//, "").replace(/^\//, "");
   return encodeURI(`${getBasePath()}${cleanedPath}`);
 }
+function ensureMediaOriginPreconnect(mediaUrl) {
+  const normalizedUrl = normalizeCell(mediaUrl);
+  if (!normalizedUrl) return;
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(normalizedUrl, window.location.origin);
+  } catch (_) {
+    return;
+  }
+  const origin = parsedUrl.origin;
+  if (!origin || origin === "null" || mediaWarmupCache.preconnectedOrigins.has(origin)) return;
+  const link = document.createElement("link");
+  link.rel = "preconnect";
+  link.href = origin;
+  link.crossOrigin = "anonymous";
+  document.head.appendChild(link);
+  mediaWarmupCache.preconnectedOrigins.add(origin);
+}
+function warmImageResource(mediaUrl, { highPriority = false } = {}) {
+  const normalizedUrl = normalizeCell(mediaUrl);
+  if (!normalizedUrl) return;
+  ensureMediaOriginPreconnect(normalizedUrl);
+  if (mediaWarmupCache.images.has(normalizedUrl)) return;
+  const image = new Image();
+  image.decoding = "async";
+  image.loading = "eager";
+  image.fetchPriority = highPriority ? "high" : "auto";
+  image.src = normalizedUrl;
+  mediaWarmupCache.images.set(normalizedUrl, image);
+}
+function warmAudioResource(mediaUrl) {
+  const normalizedUrl = normalizeCell(mediaUrl);
+  if (!normalizedUrl) return;
+  ensureMediaOriginPreconnect(normalizedUrl);
+  if (mediaWarmupCache.audio.has(normalizedUrl)) return;
+  const audio = document.createElement("audio");
+  audio.preload = "auto";
+  audio.src = normalizedUrl;
+  audio.load();
+  mediaWarmupCache.audio.set(normalizedUrl, audio);
+}
+function warmQuestionMedia(question, { highPriority = false } = {}) {
+  if (!question) return;
+  const mediaUrl = toMediaUrl(question.image_url);
+  if (!mediaUrl) return;
+  if (question.type === "image") warmImageResource(mediaUrl, { highPriority });
+  if (question.type === "audio") warmAudioResource(mediaUrl);
+}
+function preloadLikelyNextQuestionMedia() {
+  const nextTile = state.boardTiles.find((tile) => !tile.used && !tile.missing && normalizeCell(tile.questionId));
+  if (!nextTile) return;
+  const candidate = questionBankCache.questionsById.get(nextTile.questionId);
+  if (!candidate) return;
+  warmQuestionMedia(candidate, { highPriority: false });
+}
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
@@ -1098,10 +1159,10 @@ function renderQuestionImage(imagePath, question = null) {
   image.alt = "صورة السؤال";
   image.decoding = "async";
   image.loading = "eager";
+  image.fetchPriority = "high";
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
-    image.fetchPriority = "low";
   }
   image.src = imageSrc;
   el.questionMedia.appendChild(image);
@@ -1109,7 +1170,7 @@ function renderQuestionImage(imagePath, question = null) {
 }
 function renderQuestionAudio(audioPath) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
-  const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "none"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
+  const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "auto"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
   audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`; audio.load(); el.questionMedia.appendChild(audio);
 }
 
@@ -1169,6 +1230,8 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     }
     tile.questionId = q.id;
     state.activeQuestion = q;
+    warmQuestionMedia(q, { highPriority: true });
+    preloadLikelyNextQuestionMedia();
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
     renderQuestionContent(q);
