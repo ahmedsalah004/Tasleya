@@ -1,9 +1,8 @@
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv";
 const DEFAULT_CATEGORIES_TO_SELECT = 6;
 const SOLO_CATEGORIES_TO_SELECT = 3;
 const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
+const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_STORAGE_KEY = "tasleya_used_v1";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
@@ -176,7 +175,6 @@ function cacheElements() {
 }
 
 const state = {
-  allQuestions: [],
   allCategories: [],
   selectedCategories: [],
   boardTiles: [],
@@ -193,6 +191,7 @@ const state = {
   answerRevealed: false,
   currentChoices: [],
   currentHintText: "",
+  activeQuestion: null,
 };
 
 const contactState = {
@@ -363,13 +362,53 @@ const analyticsState = {
 };
 
 const questionBankCache = {
-  questions: null,
   categories: null,
+  questionsById: new Map(),
+  answersById: new Map(),
   loadPromise: null,
 };
 
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
+}
+function getConfiguredApiBaseUrl() {
+  const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+  if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+    return `${window.location.origin}${getBasePath()}api`;
+  }
+  return configuredBaseUrl.replace(/\/+$/, "");
+}
+function buildApiUrl(path, params = {}) {
+  const url = new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+    url.searchParams.set(key, String(value));
+  });
+  return url;
+}
+async function apiFetchJson(path, { params = {}, method = "GET", body = null } = {}) {
+  const response = await fetch(buildApiUrl(path, params), {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = normalizeCell(payload?.error) || `API request failed: ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+
+  return payload;
 }
 function safeStorageGet(storage, key) {
   try {
@@ -420,7 +459,7 @@ function showQuestionStatus(message = "") {
 
 function hasUnresolvedActiveQuestion() {
   const modalOpen = !el.modal?.classList.contains("hidden");
-  return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeTile.question);
+  return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeQuestion);
 }
 
 function shouldLockQuestionClose() {
@@ -490,7 +529,7 @@ function handleQuestionTimeout() {
   questionTimeoutToken = null;
   if (online.mode === "online" && !canCurrentClientAct()) return;
   const tile = state.activeTile;
-  if (!tile || tile.used || !tile.question || tile.timedOut || state.answerRevealed) return;
+  if (!tile || tile.used || !state.activeQuestion || tile.timedOut || state.answerRevealed) return;
   timerStart = Date.now() - QUESTION_TIMEOUT_MS;
   updateTimerUI();
   stopTimer();
@@ -581,64 +620,12 @@ function adjustTeamScore(team, delta) {
   persistLocalProgress();
 }
 
-function parseCSV(text) {
-  const rows = []; let row = []; let value = ""; let inQuotes = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i]; const next = text[i + 1];
-    if (char === '"') { if (inQuotes && next === '"') { value += '"'; i += 1; } else { inQuotes = !inQuotes; } continue; }
-    if (char === "," && !inQuotes) { row.push(normalizeCell(value)); value = ""; continue; }
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && next === "\n") i += 1;
-      row.push(normalizeCell(value)); value = "";
-      if (row.some((cell) => cell !== "")) rows.push(row);
-      row = []; continue;
-    }
-    value += char;
-  }
-  if (value.length || row.length) { row.push(normalizeCell(value)); if (row.some((cell) => cell !== "")) rows.push(row); }
-  return rows;
-}
-function normalizeHeader(header) { return normalizeCell(header).trim().toLowerCase().replace(/\s+/g, "_"); }
 function firstNonEmpty(...values) {
   for (const value of values) {
     const normalized = normalizeCell(value);
     if (normalized) return normalized;
   }
   return "";
-}
-function toPoints(question) {
-  const explicit = Number.parseInt(String(question.points ?? "").replace(/[^\d]/g, ""), 10);
-  return Number.isFinite(explicit) ? explicit : null;
-}
-function rowsToQuestions(rows) {
-  const [headers, ...dataRows] = rows;
-  const mapHeaders = headers.map(normalizeHeader);
-  return dataRows.map((row, index) => {
-    const q = {};
-    mapHeaders.forEach((key, i) => { q[key] = normalizeCell(row[i]); });
-    const hintValue = firstNonEmpty(
-      q["تلميح"],
-      q["تلميح_(hint)"],
-      q.hint,
-      q.hint_text,
-    );
-    const difficulty = Number.parseInt(String(q.difficulty ?? "").replace(/[^\d]/g, ""), 10);
-    const computedPoints = toPoints(q) ?? (difficulty >= 1 && difficulty <= 5 ? difficulty * 100 : null);
-    const question = {
-      id: q.id || String(index + 1), category: q.category || "", points: computedPoints,
-      question: q.question || "", answer: q.answer || "", type: (q.type || "text").toLowerCase(),
-      image_url: q.image_url || "", choice_a: q.choice_a || "", choice_b: q.choice_b || "", choice_c: q.choice_c || "", choice_d: q.choice_d || "",
-      hint: hintValue,
-      "تلميح": hintValue,
-    };
-    console.log("[Tasleya] Loaded question hint", {
-      id: question.id,
-      type: question.type,
-      question: question.question,
-      hint: question.hint,
-    });
-    return question;
-  }).filter((q) => q.question && q.answer && q.category);
 }
 
 function loadUsedHistory() {
@@ -688,12 +675,12 @@ function persistLocalProgress() {
     teamCount: state.teamCount,
     teamNames: { ...state.teamNames },
     scores: { ...state.scores },
-    usedQuestionIds: state.boardTiles.filter((tile) => tile.used && tile.question?.id).map((tile) => tile.question.id),
+    usedQuestionIds: state.boardTiles.filter((tile) => tile.used && tile.questionId).map((tile) => tile.questionId),
     currentTeam: state.currentTeam,
     mcqHelpUsed: { ...mcqHelpUsed },
     hintHelpUsed: { ...hintHelpUsed },
     activeTileId: state.activeTile?.id || null,
-    activeQuestionId: state.activeTile?.question?.id || null,
+    activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     activeCategory: state.activeTile?.category || null,
     modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
@@ -744,6 +731,7 @@ function restoreLocalProgress() {
       2: !!saved.hintHelpUsed?.[2],
       3: !!saved.hintHelpUsed?.[3],
     };
+    state.activeQuestion = null;
 
     el.startScreen.style.display = "none";
     el.gameScreen.style.display = "block";
@@ -762,6 +750,7 @@ function restoreLocalProgress() {
       openQuestion(savedActiveId, {
         restored: true,
         deadlineTs: Number.isFinite(restoredDeadline) ? restoredDeadline : fallbackDeadline,
+        questionId: saved.activeQuestionId,
       });
     }
 
@@ -781,40 +770,108 @@ function markQuestionAsUsed(category, points, questionId) {
   const bucket = ensureBucket(category, points);
   if (!bucket.includes(questionId)) { bucket.push(questionId); saveUsedHistory(); }
 }
+function clearUsedBucket(category, points) {
+  if (!state.usedHistory[category]) return;
+  state.usedHistory[category][String(points)] = [];
+  saveUsedHistory();
+}
+function getAssignedQuestionIds() {
+  return state.boardTiles
+    .map((tile) => normalizeCell(tile.questionId))
+    .filter(Boolean);
+}
+function getExcludedQuestionIds(category, points) {
+  const acrossGames = ensureBucket(category, points);
+  const inCurrentGame = state.boardTiles
+    .filter((tile) => tile.category === category && tile.points === points)
+    .map((tile) => normalizeCell(tile.questionId))
+    .filter(Boolean);
+  return uniqueByText([...acrossGames, ...inCurrentGame]);
+}
+async function fetchQuestionPayload({ id = "", category = "", points = null, resetUsedBucketOnExhaustion = false } = {}) {
+  const normalizedId = normalizeCell(id);
+  if (normalizedId && questionBankCache.questionsById.has(normalizedId)) {
+    return questionBankCache.questionsById.get(normalizedId);
+  }
+
+  const normalizedCategory = normalizeCell(category);
+  const normalizedPoints = Number(points) || null;
+  const excludeIds = normalizedId ? [] : getExcludedQuestionIds(normalizedCategory, normalizedPoints);
+
+  try {
+    const response = await apiFetchJson("/question", {
+      params: normalizedId
+        ? { id: normalizedId }
+        : {
+          category: normalizedCategory,
+          points: normalizedPoints,
+          exclude_ids: excludeIds.join(","),
+        },
+    });
+    if (!response?.question) return null;
+    const question = response.question;
+    questionBankCache.questionsById.set(question.id, question);
+    return question;
+  } catch (error) {
+    const isExhaustedPool = error?.status === 404 && error?.payload?.code === "QUESTION_POOL_EXHAUSTED";
+    if (!normalizedId && isExhaustedPool && !resetUsedBucketOnExhaustion) {
+      clearUsedBucket(normalizedCategory, normalizedPoints);
+      return fetchQuestionPayload({
+        category: normalizedCategory,
+        points: normalizedPoints,
+        resetUsedBucketOnExhaustion: true,
+      });
+    }
+    if (!normalizedId && error?.status === 404) return null;
+    throw error;
+  }
+}
+async function fetchAnswerPayload(questionId, submittedAnswer = "") {
+  const normalizedId = normalizeCell(questionId);
+  if (!normalizedId) throw new Error("معرّف السؤال غير صالح.");
+  const cacheKey = submittedAnswer ? `${normalizedId}::${submittedAnswer}` : normalizedId;
+  if (!submittedAnswer && questionBankCache.answersById.has(cacheKey)) {
+    return questionBankCache.answersById.get(cacheKey);
+  }
+
+  const response = await apiFetchJson("/validate-answer", {
+    method: "POST",
+    body: {
+      questionId: normalizedId,
+      submittedAnswer: normalizeCell(submittedAnswer) || undefined,
+    },
+  });
+
+  if (!submittedAnswer) {
+    questionBankCache.answersById.set(cacheKey, response);
+  }
+  return response;
+}
 
 async function fetchQuestions() {
-  const res = await fetch(CSV_URL);
-  if (!res.ok) throw new Error(`CSV fetch failed: ${res.status}`);
-  const rows = parseCSV(await res.text());
-  if (rows.length < 2) throw new Error("ملف CSV لا يحتوي بيانات كافية.");
-  return rowsToQuestions(rows);
+  const response = await apiFetchJson("/categories");
+  return Array.isArray(response.categories) ? response.categories.map(normalizeCell).filter(Boolean) : [];
 }
 
 async function preloadQuestionBank() {
-  if (questionBankCache.questions && questionBankCache.categories) {
-    return {
-      questions: questionBankCache.questions,
-      categories: questionBankCache.categories,
-    };
+  if (questionBankCache.categories) {
+    return { categories: questionBankCache.categories };
   }
 
   if (questionBankCache.loadPromise) return questionBankCache.loadPromise;
 
   questionBankCache.loadPromise = (async () => {
-    const questions = await fetchQuestions();
-    if (questions.length === 0) throw new Error("لا توجد أسئلة صالحة في الملف.");
-    const categories = getUniqueCategories(questions);
+    const categories = await fetchQuestions();
+    if (categories.length === 0) throw new Error("لا توجد فئات صالحة في مصدر الأسئلة.");
     if (categories.length < DEFAULT_CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${DEFAULT_CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
 
-    questionBankCache.questions = questions;
     questionBankCache.categories = categories;
-    return { questions, categories };
+    return { categories };
   })();
 
   try {
     return await questionBankCache.loadPromise;
   } catch (error) {
-    questionBankCache.questions = null;
     questionBankCache.categories = null;
     throw error;
   } finally {
@@ -822,8 +879,7 @@ async function preloadQuestionBank() {
   }
 }
 async function ensureQuestionBankStateLoaded() {
-  const { questions, categories } = await preloadQuestionBank();
-  state.allQuestions = questions;
+  const { categories } = await preloadQuestionBank();
   state.allCategories = categories;
   if (!Array.isArray(state.pointLevels) || state.pointLevels.length === 0) {
     state.pointLevels = [...POINT_LEVELS];
@@ -834,33 +890,27 @@ async function ensureQuestionBankStateLoaded() {
   if (!el.categoryModal.classList.contains("hidden")) {
     renderCategoryOptions();
   }
-  return { questions, categories };
+  return { categories };
 }
 function getUniqueCategories(questions) {
   const unique = [];
   questions.forEach((q) => { if (!unique.includes(q.category)) unique.push(q.category); });
   return unique;
 }
-function getQuestionForTile(category, points, usedIds) {
-  const candidates = state.allQuestions.filter((q) => q.category === category && q.points === points);
-  if (!candidates.length) return null;
-  const bucket = ensureBucket(category, points);
-  const unusedAcrossGames = candidates.filter((q) => !bucket.includes(q.id));
-  const scoped = (unusedAcrossGames.length ? unusedAcrossGames : candidates).filter((q) => !usedIds.has(q.id));
-  if (!unusedAcrossGames.length) { state.usedHistory[category][String(points)] = []; saveUsedHistory(); }
-  if (!scoped.length) return null;
-  const chosen = scoped[Math.floor(Math.random() * scoped.length)];
-  usedIds.add(chosen.id);
-  markQuestionAsUsed(category, points, chosen.id);
-  return chosen;
-}
 function buildBoardAssignment() {
   state.assignedQuestionIds = new Set();
   const tiles = [];
   state.selectedCategories.forEach((category) => {
     state.pointLevels.forEach((points) => {
-      const question = getQuestionForTile(category, points, state.assignedQuestionIds);
-      tiles.push({ id: `${category}-${points}`, category, points, question, used: !question, missing: !question });
+      tiles.push({
+        id: `${category}-${points}`,
+        category,
+        points,
+        questionId: null,
+        used: false,
+        missing: false,
+        timedOut: false,
+      });
     });
   });
   state.boardTiles = tiles;
@@ -927,7 +977,7 @@ function setTeamNamesFromCategoryModal() {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
-function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing && tile.question); }
+function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing); }
 function closePodiumModal() { el.podiumModal.classList.add("hidden"); el.podiumModal.classList.remove("is-open"); }
 function buildPodiumColumn(name, score, label, placeClass) {
   return `<div class="podium-column ${placeClass}"><p class="podium-label">${label}</p><p class="podium-team-name">${name}</p><p class="podium-score">${score}</p><div class="podium-step"></div></div>`;
@@ -1005,7 +1055,7 @@ function renderBoard() {
   });
 }
 
-function getActiveQuestion() { return state.activeTile?.question || null; }
+function getActiveQuestion() { return state.activeQuestion || null; }
 function getBasePath() { return window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/"; }
 function toMediaUrl(mediaPath) {
   const normalized = normalizeCell(mediaPath);
@@ -1019,6 +1069,25 @@ function clearQuestionMedia() {
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
+}
+function renderQuestionContent(question) {
+  el.questionText.textContent = question.question;
+  el.answerText.textContent = "الإجابة: ...";
+  el.answerText.classList.add("hidden");
+  state.answerRevealed = false;
+  el.choicesBox.classList.add("hidden");
+  el.choicesList.innerHTML = "";
+  state.currentChoices = [];
+  state.currentHintText = "";
+  el.hintText.textContent = "";
+  el.hintBox.classList.add("hidden");
+  showQuestionStatus("");
+  updateLateOtherTeamPrompt();
+  if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
+  if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url);
+  el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
+  el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
+  updateQuestionActionLock();
 }
 
 function renderQuestionImage(imagePath, question = null) {
@@ -1074,33 +1143,40 @@ function canCurrentClientAct() {
   return controlledTeams.includes(currentTurnTeam);
 }
 
-function openQuestion(tileId, { restored = false, deadlineTs = null } = {}) {
+async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (hasUnresolvedActiveQuestion()) return;
   stopAndResetTimer(); clearQuestionMedia();
   const tile = state.boardTiles.find((t) => t.id === tileId);
-  if (!tile || tile.used || !tile.question) return;
+  if (!tile || tile.used || tile.missing) return;
   state.activeTile = tile;
   tile.timedOut = false;
-  const q = tile.question;
-  console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint, rawHint: q["تلميح"] });
-  el.questionText.textContent = q.question;
-  el.answerText.textContent = `الإجابة: ${q.answer}`;
-  el.answerText.classList.add("hidden");
-  state.answerRevealed = false;
-  el.choicesBox.classList.add("hidden");
-  el.choicesList.innerHTML = "";
-  state.currentChoices = [];
-  state.currentHintText = "";
-  el.hintText.textContent = "";
-  el.hintBox.classList.add("hidden");
-  showQuestionStatus("");
-  updateLateOtherTeamPrompt();
-  if (q.type === "image" && q.image_url) renderQuestionImage(q.image_url, q);
-  if (q.type === "audio" && q.image_url) renderQuestionAudio(q.image_url);
-  el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
-  el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
-  updateQuestionActionLock();
+  try {
+    const q = await fetchQuestionPayload({
+      id: questionId || tile.questionId,
+      category: tile.category,
+      points: tile.points,
+    });
+    if (!q) {
+      tile.missing = true;
+      state.activeTile = null;
+      state.activeQuestion = null;
+      renderBoard();
+      persistLocalProgress();
+      showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
+      return;
+    }
+    tile.questionId = q.id;
+    state.activeQuestion = q;
+    clearError();
+    console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
+    renderQuestionContent(q);
+  } catch (error) {
+    state.activeTile = null;
+    state.activeQuestion = null;
+    showError(`تعذّر تحميل السؤال. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
+    return;
+  }
   const safeDeadline = Number(deadlineTs);
   const restoreDeadline = Number.isFinite(safeDeadline) ? safeDeadline : null;
   if (restored && restoreDeadline && restoreDeadline <= Date.now()) {
@@ -1127,12 +1203,12 @@ function closeModal({ silentSync = false, force = false } = {}) {
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
   updateLateOtherTeamPrompt();
-  if (el.modal.classList.contains("hidden")) { state.activeTile = null; return; }
+  if (el.modal.classList.contains("hidden")) { state.activeTile = null; state.activeQuestion = null; return; }
   if (prefersReducedMotion) {
-    el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null;
+    el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null; state.activeQuestion = null;
   } else {
     el.modal.classList.remove("is-open"); el.modal.classList.add("is-closing");
-    const onEnd = () => { el.modal.classList.add("hidden"); el.modal.classList.remove("is-closing"); state.activeTile = null; el.modal.removeEventListener("animationend", onEnd, true); };
+    const onEnd = () => { el.modal.classList.add("hidden"); el.modal.classList.remove("is-closing"); state.activeTile = null; state.activeQuestion = null; el.modal.removeEventListener("animationend", onEnd, true); };
     el.modal.addEventListener("animationend", onEnd, true);
   }
   updateCloseButtonLock();
@@ -1152,6 +1228,7 @@ function resetGameState() {
   mcqHelpUsed = { 1: false, 2: false, 3: false };
   hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
+  state.activeQuestion = null;
   state.answerRevealed = false;
   state.currentChoices = [];
   state.currentHintText = "";
@@ -1163,25 +1240,28 @@ function resetGameState() {
   renderBoard();
 }
 
-function revealAnswer() {
-  if (!getActiveQuestion() || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
-  el.answerText.classList.remove("hidden");
-  state.answerRevealed = true;
-  updateQuestionActionLock();
-  if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
-  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+async function revealAnswer() {
+  const question = getActiveQuestion();
+  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  try {
+    const response = await fetchAnswerPayload(question.id);
+    el.answerText.textContent = `الإجابة: ${response.correctAnswer || "غير متاحة"}`;
+    el.answerText.classList.remove("hidden");
+    state.answerRevealed = true;
+    updateQuestionActionLock();
+    if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
+    if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  } catch (error) {
+    showError(`تعذّر إظهار الإجابة. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
+  }
 }
 function uniqueByText(items) { const seen = new Set(); return items.filter((item) => { const key = item.trim(); if (!key || seen.has(key)) return false; seen.add(key); return true; }); }
 function generateChoices(question) {
-  const direct = [question.choice_a, question.choice_b, question.choice_c, question.choice_d].filter(Boolean);
-  if (direct.length === 4) return shuffle(direct);
-  const sameCategoryWrong = state.allQuestions.filter((q) => q.category === question.category && q.id !== question.id).map((q) => q.answer);
-  const allWrong = state.allQuestions.filter((q) => q.id !== question.id).map((q) => q.answer);
-  const wrongPool = uniqueByText([...sameCategoryWrong, ...allWrong]).filter((ans) => ans !== question.answer);
-  const wrongChoices = shuffle(wrongPool).slice(0, 3);
-  const built = uniqueByText([question.answer, ...wrongChoices]);
-  while (built.length < 4) built.push(`خيار ${built.length + 1}`);
-  return shuffle(built.slice(0, 4));
+  const workerChoices = Array.isArray(question?.choices) ? uniqueByText(question.choices.map(normalizeCell).filter(Boolean)) : [];
+  if (workerChoices.length >= 4) return workerChoices.slice(0, 4);
+  const fallback = [...workerChoices];
+  while (fallback.length < 4) fallback.push(`خيار ${fallback.length + 1}`);
+  return fallback.slice(0, 4);
 }
 function useLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
@@ -1243,7 +1323,7 @@ function awardPointsToOtherTeam() {
 
 function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = false, preventTimeoutAction = false } = {}) {
   const tile = state.activeTile;
-  if (!tile || tile.used || !tile.question) return false;
+  if (!tile || tile.used || !state.activeQuestion) return false;
   if (preventTimeoutAction && tile.timedOut) return false;
 
   if (scoreDelta && typeof scoreDelta === "object") {
@@ -1259,6 +1339,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
     tile.timedOut = true;
   }
   tile.used = true;
+  if (tile.questionId) markQuestionAsUsed(tile.category, tile.points, tile.questionId);
   getActiveTeamNumbers().forEach((team) => {
     state.scores[team] = Math.max(0, state.scores[team]);
   });
@@ -1405,6 +1486,7 @@ function serializeGameState() {
     mcqHelpUsed,
     hintHelpUsed,
     activeTileId: state.activeTile?.id || null,
+    activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     modalOpen: !el.modal.classList.contains("hidden") && !!state.activeTile,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
@@ -1415,7 +1497,7 @@ function serializeGameState() {
   };
 }
 
-function applyRemoteGameState(game) {
+async function applyRemoteGameState(game) {
   if (!game) return;
   online.applyingRemote = true;
   try {
@@ -1439,6 +1521,7 @@ function applyRemoteGameState(game) {
     state.answerRevealed = !!game.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
+    state.activeQuestion = null;
 
     syncTeamNameInputs();
     updateTeamModeUI();
@@ -1449,61 +1532,76 @@ function applyRemoteGameState(game) {
     const shouldOpen = !!game.modalOpen && activeId;
     let syncedOpenModal = false;
     if (shouldOpen) {
-      const tile = state.boardTiles.find((t) => t.id === activeId && !t.used && t.question);
+      const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
       if (tile) {
-        syncedOpenModal = true;
-        state.activeTile = tile;
-        clearQuestionMedia();
-        el.questionText.textContent = tile.question.question;
-        el.answerText.textContent = `الإجابة: ${tile.question.answer}`;
-        el.answerText.classList.toggle("hidden", !state.answerRevealed);
-        if (tile.question.type === "image" && tile.question.image_url) renderQuestionImage(tile.question.image_url, tile.question);
-        if (tile.question.type === "audio" && tile.question.image_url) renderQuestionAudio(tile.question.image_url);
-        el.choicesList.innerHTML = "";
-        if (state.currentChoices.length) {
-          state.currentChoices.forEach((option) => {
-            const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div);
+        try {
+          const remoteQuestion = await fetchQuestionPayload({
+            id: game.activeQuestionId || tile.questionId,
+            category: tile.category,
+            points: tile.points,
           });
-          el.choicesBox.classList.remove("hidden");
-        } else {
-          el.choicesBox.classList.add("hidden");
-        }
-        if (state.currentHintText) {
-          el.hintText.textContent = state.currentHintText;
-          el.hintBox.classList.remove("hidden");
-        } else {
-          el.hintText.textContent = "";
-          el.hintBox.classList.add("hidden");
-        }
-        const remoteTimedOut = !!tile.timedOut;
-        showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
-        el.lifelineBtn.disabled = remoteTimedOut || mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
-        el.hintLifelineBtn.disabled = remoteTimedOut || hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
-        updateQuestionActionLock();
-        el.modal.classList.remove("hidden");
-        el.modal.classList.add("is-open");
+          if (remoteQuestion) {
+            syncedOpenModal = true;
+            state.activeTile = tile;
+            tile.questionId = remoteQuestion.id;
+            state.activeQuestion = remoteQuestion;
+            clearQuestionMedia();
+            renderQuestionContent(remoteQuestion);
+            el.answerText.classList.toggle("hidden", !state.answerRevealed);
+            if (state.answerRevealed) {
+              const answerResponse = await fetchAnswerPayload(remoteQuestion.id);
+              el.answerText.textContent = `الإجابة: ${answerResponse.correctAnswer || "غير متاحة"}`;
+            }
+            el.choicesList.innerHTML = "";
+            if (state.currentChoices.length) {
+              state.currentChoices.forEach((option) => {
+                const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div);
+              });
+              el.choicesBox.classList.remove("hidden");
+            } else {
+              el.choicesBox.classList.add("hidden");
+            }
+            if (state.currentHintText) {
+              el.hintText.textContent = state.currentHintText;
+              el.hintBox.classList.remove("hidden");
+            } else {
+              el.hintText.textContent = "";
+              el.hintBox.classList.add("hidden");
+            }
+            const remoteTimedOut = !!tile.timedOut;
+            showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
+            el.lifelineBtn.disabled = remoteTimedOut || mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
+            el.hintLifelineBtn.disabled = remoteTimedOut || hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
+            updateQuestionActionLock();
+            el.modal.classList.remove("hidden");
+            el.modal.classList.add("is-open");
 
-        if (remoteTimedOut) {
-          stopAndResetTimer();
-          timerStart = Date.now() - QUESTION_TIMEOUT_MS;
-          questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
-          updateTimerUI();
-        } else {
-          const remoteDeadline = Number(game.questionDeadlineTs);
-          if (Number.isFinite(remoteDeadline)) {
-            startTimer({ deadlineTs: remoteDeadline });
-          } else if (game.questionStartedAt) {
-            const remoteStart = Number(game.questionStartedAt) || Date.now();
-            startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
-          } else {
-            startTimer();
+            if (remoteTimedOut) {
+              stopAndResetTimer();
+              timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+              questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
+              updateTimerUI();
+            } else {
+              const remoteDeadline = Number(game.questionDeadlineTs);
+              if (Number.isFinite(remoteDeadline)) {
+                startTimer({ deadlineTs: remoteDeadline });
+              } else if (game.questionStartedAt) {
+                const remoteStart = Number(game.questionStartedAt) || Date.now();
+                startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
+              } else {
+                startTimer();
+              }
+            }
           }
+        } catch (_) {
+          syncedOpenModal = false;
         }
       }
     }
 
     if (!syncedOpenModal) {
       state.activeTile = null;
+      state.activeQuestion = null;
       closeModal({ silentSync: true, force: true });
     }
 
@@ -2297,7 +2395,6 @@ async function startNewGame() {
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   } catch (error) {
     state.dataLoadFailed = true;
-    state.allQuestions = [];
     state.allCategories = [];
     state.pointLevels = [];
     resetGameState();

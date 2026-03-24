@@ -11,7 +11,7 @@
 
 ## الأونلاين (Firebase Realtime Database)
 
-تمت إضافة مزامنة لحالة المباراة مباشرة بين الجهازين باستخدام Firebase، مع الإبقاء على Google Sheets كمصدر بنك الأسئلة.
+تمت إضافة مزامنة لحالة المباراة مباشرة بين الجهازين باستخدام Firebase، مع الإبقاء على Google Sheets كمصدر بنك الأسئلة عبر **Cloudflare Worker** وسيط.
 
 ### ما يتم مزامنته مباشرة
 
@@ -50,7 +50,7 @@
 
 ## اختيار الفئات قبل بدء اللعبة
 
-بعد تحميل CSV بنجاح، تظهر نافذة اختيار الفئات بعنوان:
+بعد تحميل الفئات من الـ Worker بنجاح، تظهر نافذة اختيار الفئات بعنوان:
 
 - **اختر 6 فئات لبدء اللعبة**
 
@@ -59,9 +59,9 @@
 - يمكن اختيار **حتى 6 فئات** فقط (مع عدّاد مباشر).
 - زر **بدء اللعبة** يتفعّل فقط عند تحديد 6 فئات بالضبط.
 - زر **اختيار عشوائي (6)** يختار 6 فئات تلقائياً.
-- زر **لعبة جديدة** يعيد تحميل CSV ويفتح نافذة اختيار الفئات مرة أخرى (اختيار جديد).
+- زر **لعبة جديدة** يعيد تحميل الفئات ويفتح نافذة اختيار الفئات مرة أخرى (اختيار جديد).
 
-## إعداد Google Sheets (مصدر CSV)
+## إعداد Google Sheets + Cloudflare Worker
 
 الأعمدة المطلوبة في الشيت:
 
@@ -73,14 +73,58 @@
 - `type` (`text` أو `image` أو `audio`)
 - `image_url` (اختياري)
 - `choice_a`, `choice_b`, `choice_c`, `choice_d` (اختيارية)
+- `hint` (اختياري)
 
-## نشر الشيت كـ CSV
+يبقى Google Sheets هو **مصدر الحقيقة**، لكن الواجهة الأمامية لم تعد تتصل مباشرةً بـ `docs.google.com`. بدلاً من ذلك:
+
+1. الـ Worker يجلب CSV من Google Sheets على الخادم.
+2. الـ Worker يطبّق Cache.
+3. الواجهة الأمامية تتحدث فقط مع هذه المسارات:
+   - `GET /categories`
+   - `GET /question`
+   - `POST /validate-answer`
+
+## ملفات الإعداد الجديدة
+
+- `workers/sheets-proxy/src/index.js`
+- `workers/sheets-proxy/wrangler.toml`
+- `game-config.js`
+
+## إعداد Cloudflare Worker
 
 1. افتح Google Sheet.
 2. من القائمة: **File → Share → Publish to web**.
 3. اختر الورقة المطلوبة، واختر الصيغة **CSV**.
 4. انسخ رابط النشر.
-5. حدّث قيمة `CSV_URL` داخل `script.js` بالرابط المنشور.
+5. افتح الملف `workers/sheets-proxy/wrangler.toml`.
+6. حدّث قيمة `SHEET_CSV_URL` بالرابط المنشور.
+7. في الإنتاج الحالي، اضبط `ALLOWED_ORIGIN` على:
+
+```txt
+https://tasleya.online
+```
+
+8. انشر الـ Worker بالأمر:
+
+```bash
+npx wrangler deploy --config workers/sheets-proxy/wrangler.toml
+```
+
+9. بعد النشر، انسخ رابط الـ Worker النهائي.
+10. افتح `game-config.js` وضع الرابط داخل:
+
+```js
+window.TASLEYA_API_BASE_URL = "https://YOUR-WORKER-URL";
+```
+
+## ترتيب النشر من الدمج إلى التشغيل الفعلي
+
+1. ادمج التغييرات.
+2. انشر/حدّث Cloudflare Worker بعد ضبط `SHEET_CSV_URL` و`ALLOWED_ORIGIN`.
+3. انسخ رابط الـ Worker الناتج من Cloudflare.
+4. حدّث `game-config.js` بالرابط النهائي.
+5. انشر الواجهة الأمامية.
+6. افتح الموقع وتأكد أن الطلبات تذهب إلى الـ Worker وليس إلى `docs.google.com`.
 
 ## GitHub Pages (مسار /Tasleya/)
 
