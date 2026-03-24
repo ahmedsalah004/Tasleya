@@ -5,7 +5,7 @@ workers_dev = true
 
 [vars]
 # Replace with your published Google Sheet CSV URL.
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/REPLACE_WITH_YOUR_PUBLISHED_SHEET/pub?gid=0&single=true&output=csv"
+SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/...../pub?gid=0&single=true&output=csv"
 # Production frontend origin.
 ALLOWED_ORIGIN = "https://tasleya.online"
 CACHE_TTL_SECONDS = "300"
