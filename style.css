@@ -224,9 +224,9 @@
   top: calc(59% + 312px);
 }
 
+/* Keep primary mode buttons wide; only make the two secondary action buttons narrower. */
 #instructionsBtn,
-#contactBtn,
-#installGuideBtn {
+#contactBtn {
   width: 74%;
   min-width: 250px;
   min-height: 38px;
