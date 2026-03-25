@@ -248,6 +248,57 @@
   border-color: rgba(255, 215, 0, 0.75);
 }
 
+@media screen and (min-width: 701px) and (hover: hover) and (pointer: fine) {
+  @supports (-webkit-hyphens: none) and (not (hyphens: none)) {
+    #startScreen {
+      padding-bottom: 9.8rem;
+    }
+
+    .start-actions {
+      min-width: 324px;
+      max-width: 440px;
+      gap: 16px;
+    }
+
+    #startLocalBtn,
+    #startOnlineBtn {
+      min-width: 324px;
+      max-width: 440px;
+      min-height: 60px;
+      padding: 10px 22px;
+      font-size: clamp(22px, 1.85vw, 38px);
+      line-height: 1.15;
+    }
+
+    #instructionsBtn,
+    #contactBtn,
+    #installGuideBtn {
+      width: 220px;
+      min-width: 220px;
+      max-width: 220px;
+      min-height: 35px;
+      padding: 5px 13px;
+      font-size: clamp(13px, 0.82vw, 15px);
+      line-height: 1.2;
+    }
+
+    .seo-text {
+      width: min(88vw, 600px);
+      padding: 0.74rem 0.9rem 0.86rem;
+    }
+
+    .seo-text h2 {
+      font-size: clamp(0.9rem, 1.58vw, 1.05rem);
+      line-height: 1.25;
+    }
+
+    .seo-text p {
+      font-size: clamp(0.74rem, 1.08vw, 0.84rem);
+      line-height: 1.58;
+    }
+  }
+}
+
 
 .contact-modal-content {
   width: min(560px, 100%);
