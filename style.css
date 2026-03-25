@@ -101,9 +101,6 @@
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  appearance: none;
-  -webkit-appearance: none;
-  box-sizing: border-box;
 }
 
 #startLocalBtn::before,
@@ -204,13 +201,6 @@
     overflow-wrap: normal;
     line-height: 1.2;
     font-size: clamp(24px, 2vw, 42px);
-  }
-
-  #startLocalBtn,
-  #startOnlineBtn {
-    min-height: 72px;
-    padding: 14px 30px;
-    line-height: 1.3;
   }
 }
 
