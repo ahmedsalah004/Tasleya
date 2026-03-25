@@ -234,6 +234,15 @@
   font-size: clamp(14px, 0.95vw, 16px);
 }
 
+@media (min-width: 701px) {
+  #instructionsBtn,
+  #contactBtn {
+    width: 230px;
+    min-width: 230px;
+    max-width: 230px;
+  }
+}
+
 .secondary-button {
   opacity: 0.88;
   border-color: rgba(255, 215, 0, 0.75);
