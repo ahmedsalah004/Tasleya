@@ -120,8 +120,8 @@ main,
 /* Keep primary mode buttons wide; only make the two secondary action buttons narrower. */
 #instructionsBtn,
 #contactBtn {
-  width: 74%;
-  max-width: 74%;
+  width: 72%;
+  max-width: 320px;
   min-width: 0;
   padding: 5px 12px;
   font-size: clamp(0.82rem, 3.1vw, 0.9rem);
