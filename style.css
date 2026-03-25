@@ -12,9 +12,6 @@
   justify-content: center;
   align-items: center;
   padding-bottom: 10.5rem;
-  font-family: "Geeza Pro", "SF Pro Arabic", "Noto Sans Arabic", "Noto Naskh Arabic", "Tahoma", "Arial", sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
 }
 
 .start-screen-title {
@@ -104,7 +101,6 @@
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  line-height: 1.15;
 }
 
 #startLocalBtn::before,
@@ -203,14 +199,8 @@
     white-space: nowrap;
     word-break: normal;
     overflow-wrap: normal;
-    line-height: 1.15;
-  }
-
-  #startLocalBtn,
-  #startOnlineBtn {
-    font-size: 30px;
-    min-height: 68px;
-    padding: 14px 28px;
+    line-height: 1.2;
+    font-size: clamp(24px, 2vw, 42px);
   }
 }
 
