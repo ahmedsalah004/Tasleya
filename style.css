@@ -235,11 +235,12 @@
 }
 
 @media (min-width: 701px) {
-  #instructionsBtn,
-  #contactBtn {
+  .start-actions > #instructionsBtn.secondary-button,
+  .start-actions > #contactBtn.secondary-button {
     width: 230px;
     min-width: 230px;
     max-width: 230px;
+    justify-self: center;
   }
 }
 
