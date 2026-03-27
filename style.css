@@ -201,15 +201,15 @@ html {
 
 .home-sections {
   display: grid;
-  gap: clamp(0.9rem, 2.3vw, 1.3rem);
-  margin-top: clamp(0.4rem, 1.7vw, 0.8rem);
+  gap: clamp(1.05rem, 2.6vw, 1.55rem);
+  margin-top: clamp(0.5rem, 2vw, 1rem);
 }
 
 .home-panel {
   background: rgba(8, 14, 36, 0.66);
   border: 1px solid rgba(255, 215, 120, 0.35);
   border-radius: 18px;
-  padding: clamp(0.9rem, 2.7vw, 1.35rem);
+  padding: clamp(1rem, 3.1vw, 1.5rem);
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.34),
     0 0 16px rgba(255, 193, 67, 0.12),
@@ -277,12 +277,6 @@ html {
   color: rgba(210, 226, 255, 0.84);
 }
 
-#about-section,
-#privacy-section,
-#contact-section {
-  padding: clamp(0.8rem, 2.2vw, 1.1rem);
-}
-
 .chips-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -325,11 +319,6 @@ html {
 }
 
 @media (min-width: 701px) {
-  .hero-section {
-    min-height: min(90svh, 760px);
-    padding: clamp(4.2rem, 8.2vh, 5.8rem) 0 clamp(0.95rem, 2.7vh, 1.7rem);
-  }
-
   #startLocalBtn,
   #startOnlineBtn,
   #instructionsBtn,
