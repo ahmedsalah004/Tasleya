@@ -2868,6 +2868,32 @@ function bindEvent(element, eventName, handler, elementName) {
   element.addEventListener(eventName, handler);
 }
 
+function setupFooterAnchorLinks() {
+  const footerLinks = Array.from(document.querySelectorAll(".home-footer .footer-link[href^='#']"));
+  if (!footerLinks.length) return;
+
+  footerLinks.forEach((link) => {
+    link.addEventListener("click", (event) => {
+      const targetSelector = link.getAttribute("href");
+      if (!targetSelector || targetSelector.length < 2) return;
+      const targetSection = document.querySelector(targetSelector);
+      if (!targetSection) return;
+
+      event.preventDefault();
+      targetSection.scrollIntoView({
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+
+      if (!window.history?.replaceState) return;
+      window.setTimeout(() => {
+        const cleanUrl = `${window.location.pathname}${window.location.search}`;
+        window.history.replaceState(null, "", cleanUrl);
+      }, prefersReducedMotion ? 0 : 500);
+    });
+  });
+}
+
 function initializeApp() {
   if (appInitialized) return;
   appInitialized = true;
@@ -3049,6 +3075,7 @@ function initializeApp() {
   }, "copyLinkBtn");
 
   updateInstallGuideVisibility();
+  setupFooterAnchorLinks();
   updateOnlineTeamCountControls();
   updateInstallGuideContent();
   maybeOpenInstructionsForFirstVisit();
