@@ -29,6 +29,7 @@ let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
 let questionDeadlineTs = null;
+let appInitialized = false;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
@@ -1044,19 +1045,19 @@ function renderBoard() {
   }
   el.board.innerHTML = "";
   el.board.style.setProperty("--board-columns", String(state.selectedCategories.length));
+  const tileByCategoryPoints = new Map(state.boardTiles.map((tile) => [`${tile.category}::${tile.points}`, tile]));
   state.selectedCategories.forEach((category) => {
     const header = document.createElement("div"); header.className = "board-cell category"; header.textContent = category; el.board.appendChild(header);
   });
   state.pointLevels.forEach((points) => {
     state.selectedCategories.forEach((category) => {
-      const tile = state.boardTiles.find((t) => t.category === category && t.points === points);
+      const tile = tileByCategoryPoints.get(`${category}::${points}`);
       if (!tile) return;
       const btn = document.createElement("button");
       btn.type = "button"; btn.className = "board-cell tile"; btn.dataset.tileId = tile.id; btn.setAttribute("aria-label", `${category} ${points}`);
       if (tile.missing) { btn.textContent = "نقص أسئلة"; btn.disabled = true; btn.classList.add("missing", "used"); }
       else if (tile.used) { btn.textContent = ""; btn.disabled = true; btn.classList.add("used"); }
       else { btn.textContent = String(points); btn.disabled = false; }
-      btn.addEventListener("click", () => openQuestion(tile.id));
       el.board.appendChild(btn);
     });
   });
@@ -1213,6 +1214,24 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   if (!tile || tile.used || tile.missing) return;
   state.activeTile = tile;
   tile.timedOut = false;
+  el.modal.classList.remove("hidden");
+  requestAnimationFrame(() => {
+    el.modal.classList.remove("is-closing");
+    el.modal.classList.add("is-open");
+  });
+  el.questionText.textContent = "جارٍ تحميل السؤال...";
+  el.answerText.textContent = "الإجابة: ...";
+  el.answerText.classList.add("hidden");
+  showQuestionStatus("");
+  el.choicesBox.classList.add("hidden");
+  el.hintBox.classList.add("hidden");
+  el.lifelineBtn.disabled = true;
+  el.hintLifelineBtn.disabled = true;
+  el.revealBtn.disabled = true;
+  el.correctBtn.disabled = true;
+  el.wrongBtn.disabled = true;
+  el.otherTeamBtn.disabled = true;
+  updateCloseButtonLock();
   try {
     const q = await fetchQuestionPayload({
       id: questionId || tile.questionId,
@@ -1236,6 +1255,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
     renderQuestionContent(q);
   } catch (error) {
+    closeModal({ silentSync: true, force: true });
     state.activeTile = null;
     state.activeQuestion = null;
     showError(`تعذّر تحميل السؤال. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
@@ -1250,8 +1270,6 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   } else {
     startTimer({ deadlineTs: restored ? restoreDeadline : null });
   }
-  el.modal.classList.remove("hidden");
-  requestAnimationFrame(() => { el.modal.classList.remove("is-closing"); el.modal.classList.add("is-open"); });
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
@@ -1307,15 +1325,20 @@ function resetGameState() {
 async function revealAnswer() {
   const question = getActiveQuestion();
   if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  el.revealBtn.disabled = true;
+  showQuestionStatus("جارٍ إظهار الإجابة...");
   try {
     const response = await fetchAnswerPayload(question.id);
     el.answerText.textContent = `الإجابة: ${response.correctAnswer || "غير متاحة"}`;
     el.answerText.classList.remove("hidden");
     state.answerRevealed = true;
+    showQuestionStatus("");
     updateQuestionActionLock();
     if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   } catch (error) {
+    showQuestionStatus("");
+    el.revealBtn.disabled = false;
     showError(`تعذّر إظهار الإجابة. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
   }
 }
@@ -2846,6 +2869,8 @@ function bindEvent(element, eventName, handler, elementName) {
 }
 
 function initializeApp() {
+  if (appInitialized) return;
+  appInitialized = true;
   cacheElements();
   online.clientId = getOrCreateStableClientId();
 
@@ -2912,6 +2937,11 @@ function initializeApp() {
   });
 
   bindEvent(el.modal, "click", (event) => { if (event.target === el.modal) closeModal(); }, "questionModal");
+  bindEvent(el.board, "click", (event) => {
+    const tileBtn = event.target?.closest?.("[data-tile-id]");
+    if (!tileBtn || !el.board.contains(tileBtn)) return;
+    openQuestion(tileBtn.dataset.tileId);
+  }, "board");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
 
   bindEvent(el.backToHomeBtn, "click", returnToHomeScreen, "backToHomeBtn");
@@ -2957,7 +2987,6 @@ function initializeApp() {
     }
   }, "contactMessageInput");
   bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");
-  bindEvent(el.installGuideBtn, "touchstart", handleInstallGuidePointerOpen, "installGuideBtn");
   bindEvent(el.closeInstallGuideBtn, "click", closeInstallGuide, "closeInstallGuideBtn");
   bindEvent(el.installGuideModal, "click", (event) => {
     if (event.target === el.installGuideModal) closeInstallGuide();
@@ -2991,14 +3020,14 @@ function initializeApp() {
       return;
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
-      await online.roomRef.update({
+      online.roomRef.update({
         teamCount: normalizeTeamCount(state.teamCount),
         gameStarted: false,
         game: null,
-      });
+      }).catch(() => {});
     }
     closeOnlineModal();
-    startNewGame();
+    await startNewGame();
   }, "startOnlineGameBtn");
   bindEvent(el.copyCodeBtn, "click", async () => {
     if (!online.roomCode) return;
