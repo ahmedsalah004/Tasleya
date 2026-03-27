@@ -61,23 +61,98 @@
   </head>
   <body>
     <div id="startScreen">
-      <h1 class="start-screen-title">تسلية</h1>
-      <div class="start-actions">
-        <button id="startLocalBtn" type="button">لعب على جهاز واحد</button>
-        <button id="startOnlineBtn" type="button">لعب على أجهزة مختلفة</button>
-        <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
-        <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
-        <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
-      </div>
-      <section class="seo-text info-box">
-        <h2>تسلية | لعبة أسئلة عربية فردية وجماعية</h2>
-        <p>
-          تسلية هي لعبة أسئلة عربية ممتعة ومناسبة للجوال والكمبيوتر. يمكنك اللعب بمفردك أو مع الأصدقاء
-          والعائلة، سواء على نفس الجهاز أو على أجهزة مختلفة. تضم اللعبة أكثر من 30 فئة متنوعة تشمل
-          المعلومات العامة، الرياضة، كرة القدم، الجغرافيا، التاريخ، العلوم الإسلامية، الدول العربية،
-          والتخصصات الجامعية.
-        </p>
+      <div class="home-page-overlay" aria-hidden="true"></div>
+      <section class="hero-section" aria-label="واجهة البدء">
+        <h1 class="start-screen-title">تسلية</h1>
+        <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
+        <div class="start-actions">
+          <button id="startLocalBtn" type="button">لعب على جهاز واحد</button>
+          <button id="startOnlineBtn" type="button">لعب على أجهزة مختلفة</button>
+          <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
+          <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
+          <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
+        </div>
+        <p class="scroll-hint">↓ اكتشف المزيد</p>
       </section>
+
+      <main class="home-sections" aria-label="محتوى الصفحة الرئيسية">
+        <section class="home-panel seo-text intro-section">
+          <h2>تسلية | لعبة أسئلة عربية ممتعة</h2>
+          <p>
+            تسلية هي لعبة أسئلة عربية ممتعة للعب الفردي والجماعي، تعمل بسلاسة على الجوال والكمبيوتر،
+            وتضم فئات كثيرة تناسب الأصدقاء والعائلة ومحبي التحدي.
+          </p>
+        </section>
+
+        <section class="home-panel" aria-labelledby="howToPlayTitle">
+          <h2 id="howToPlayTitle">كيف تلعب؟</h2>
+          <div class="card-grid steps-grid">
+            <article class="mini-card">اختر نمط اللعب</article>
+            <article class="mini-card">اختر الفرق</article>
+            <article class="mini-card">اختر الفئات</article>
+            <article class="mini-card">ابدأ اللعب</article>
+          </div>
+        </section>
+
+        <section class="home-panel" aria-labelledby="whyTasleyaTitle">
+          <h2 id="whyTasleyaTitle">لماذا تسلية؟</h2>
+          <div class="card-grid features-grid">
+            <article class="mini-card">أكثر من 30 فئة</article>
+            <article class="mini-card">لعب فردي وجماعي</article>
+            <article class="mini-card">تعمل على الجوال والكمبيوتر</article>
+            <article class="mini-card">تجربة سريعة وسهلة</article>
+            <article class="mini-card">مناسبة للأصدقاء والعائلة</article>
+            <article class="mini-card">مستويات متنوعة من الأسئلة</article>
+          </div>
+        </section>
+
+        <section class="home-panel" aria-labelledby="modesTitle">
+          <h2 id="modesTitle">أنماط اللعب</h2>
+          <div class="card-grid mode-grid">
+            <article class="mode-card">
+              <h3>لعب على جهاز واحد</h3>
+              <p>مناسب للعب المباشر مع الأصدقاء أو العائلة على نفس الجهاز.</p>
+            </article>
+            <article class="mode-card">
+              <h3>لعب على أجهزة مختلفة</h3>
+              <p>مثالي للفرق أو الأصدقاء عندما يلعب كل شخص من جهاز منفصل.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="home-panel" aria-labelledby="categoriesTitle">
+          <h2 id="categoriesTitle">فئات متنوعة</h2>
+          <div class="chips-wrap" aria-label="أمثلة على فئات اللعبة">
+            <span class="chip">معلومات عامة</span>
+            <span class="chip">كرة القدم</span>
+            <span class="chip">التاريخ</span>
+            <span class="chip">الجغرافيا</span>
+            <span class="chip">العلوم الإسلامية</span>
+            <span class="chip">الفن</span>
+            <span class="chip">الدول العربية</span>
+            <span class="chip">التخصصات الجامعية</span>
+          </div>
+          <p class="more-text">وغيرها الكثير</p>
+        </section>
+
+        <section class="home-panel" aria-labelledby="faqTitle">
+          <h2 id="faqTitle">الأسئلة الشائعة</h2>
+          <div class="faq-list">
+            <article class="mini-card faq-item"><h3>هل اللعبة مجانية؟</h3><p>نعم، يمكنك اللعب مباشرة عبر المتصفح بدون رسوم.</p></article>
+            <article class="mini-card faq-item"><h3>هل تعمل على الجوال؟</h3><p>نعم، الواجهة مهيأة للجوال والكمبيوتر.</p></article>
+            <article class="mini-card faq-item"><h3>هل يمكن اللعب مع الأصدقاء؟</h3><p>بالتأكيد، يمكنك اللعب على جهاز واحد أو أجهزة مختلفة.</p></article>
+            <article class="mini-card faq-item"><h3>هل أحتاج إلى تحميل أي تطبيق؟</h3><p>لا، لا حاجة لتحميل تطبيق، اللعب يتم عبر المتصفح.</p></article>
+            <article class="mini-card faq-item"><h3>هل توجد فئات كثيرة؟</h3><p>نعم، اللعبة تضم عشرات الفئات المتنوعة.</p></article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="home-footer" aria-label="روابط إضافية">
+        <a href="#" class="footer-link">من نحن</a>
+        <a href="#" class="footer-link">سياسة الخصوصية</a>
+        <a href="#" class="footer-link">تواصل معنا</a>
+      </footer>
+
     </div>
 
     <div id="instructionsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="instructionsTitle">
