@@ -1,4 +1,8 @@
 
+html {
+  scroll-behavior: smooth;
+}
+
 #startScreen {
   position: relative;
   isolation: isolate;
@@ -257,6 +261,20 @@
   margin: 0;
   color: rgba(224, 234, 255, 0.9);
   line-height: 1.7;
+}
+
+
+.section-body-text,
+.section-body-note {
+  margin: 0;
+  color: rgba(224, 234, 255, 0.9);
+  line-height: 1.75;
+}
+
+.section-body-note {
+  margin-top: 0.55rem;
+  font-size: 0.93rem;
+  color: rgba(210, 226, 255, 0.84);
 }
 
 .chips-wrap {
