@@ -1174,15 +1174,36 @@ async function copyResultShareText() {
     return false;
   }
 }
+function isIPhoneSafariBrowser() {
+  const ua = navigator.userAgent || "";
+  const isIPhone = /iPhone/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS|YaBrowser/i.test(ua);
+  return isIPhone && isSafari;
+}
 function openWhatsappShare() {
   const shareText = buildArabicShareMessage();
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  let pageHidden = document.visibilityState === "hidden";
+  const markPageHidden = () => {
+    pageHidden = true;
+  };
+  document.addEventListener("visibilitychange", markPageHidden);
+  window.addEventListener("pagehide", markPageHidden);
   const popup = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+
+  const showFallbackHint = () => {
+    document.removeEventListener("visibilitychange", markPageHidden);
+    window.removeEventListener("pagehide", markPageHidden);
+    if (pageHidden || isIPhoneSafariBrowser()) return;
+    setResultShareFeedback("إذا لم يفتح واتساب، جرّب نسخ النص.", "neutral");
+  };
+
   if (!popup) {
-    setResultShareFeedback("تعذّر فتح واتساب تلقائيًا. جرّب نسخ النص.", "error");
+    window.setTimeout(showFallbackHint, 2200);
     return false;
   }
-  setResultShareFeedback("تم فتح واتساب للمشاركة.", "success");
+
+  window.setTimeout(showFallbackHint, 1800);
   return true;
 }
 async function handlePrimaryShare() {
