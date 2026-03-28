@@ -933,6 +933,10 @@ body::after {
   align-self: flex-start;
 }
 
+.sound-toggle-btn {
+  width: 100%;
+}
+
 .primary-btn:hover,
 .secondary-btn:hover,
 .success-btn:hover,
@@ -1620,6 +1624,7 @@ button:disabled {
   .sidebar h1,
   .error-banner,
   .status-card,
+  .sound-toggle-btn,
   #newGameBtn {
     grid-column: 1 / -1;
   }

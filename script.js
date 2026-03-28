@@ -11,6 +11,7 @@ const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
+const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
 const FIREBASE_ROOMS_PATH = "tasleyaRooms";
 const CONTACT_MESSAGES_COLLECTION = "contactMessages";
 const CONTACT_MIN_LENGTH = 3;
@@ -174,6 +175,7 @@ function cacheElements() {
   onlineStatusText: document.getElementById("onlineStatusText"),
   onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
   onlineFeedback: document.getElementById("onlineFeedback"),
+  soundToggleBtn: document.getElementById("soundToggleBtn"),
   localTeamsModal: document.getElementById("localTeamsModal"),
   localOneTeamBtn: document.getElementById("localOneTeamBtn"),
   localTwoTeamsBtn: document.getElementById("localTwoTeamsBtn"),
@@ -200,6 +202,7 @@ const state = {
   currentChoices: [],
   currentHintText: "",
   activeQuestion: null,
+  revealRequested: false,
 };
 
 const contactState = {
@@ -234,6 +237,15 @@ const online = {
   connectionStateHandler: null,
   heartbeatTimer: null,
   currentTurnTeam: null,
+};
+
+const soundState = {
+  muted: false,
+  ready: false,
+  correct: null,
+  wrong: null,
+  timerWarning: null,
+  timerWarningPlaying: false,
 };
 
 function buildEmptyParticipantSlots() {
@@ -460,6 +472,85 @@ function getOrCreateStableClientId() {
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
 
+function initializeSoundSystem() {
+  if (soundState.ready) return;
+  soundState.muted = safeStorageGet(localStorage, SOUND_MUTED_STORAGE_KEY) === "1";
+  soundState.correct = new Audio(toMediaUrl("assets/sounds/correct.mp3"));
+  soundState.wrong = new Audio(toMediaUrl("assets/sounds/wrong.mp3"));
+  soundState.timerWarning = new Audio(toMediaUrl("assets/sounds/timer-warning.mp3"));
+  [soundState.correct, soundState.wrong].forEach((audio) => {
+    audio.preload = "auto";
+    audio.volume = 0.85;
+  });
+  soundState.timerWarning.preload = "auto";
+  soundState.timerWarning.loop = true;
+  soundState.timerWarning.volume = 0.5;
+  soundState.ready = true;
+  updateSoundToggleUI();
+}
+
+function updateSoundToggleUI() {
+  if (!el.soundToggleBtn) return;
+  const muted = !!soundState.muted;
+  el.soundToggleBtn.textContent = muted ? "🔇 الصوت: مكتوم" : "🔊 الصوت: يعمل";
+  el.soundToggleBtn.setAttribute("aria-pressed", muted ? "true" : "false");
+}
+
+function setMutedSound(muted) {
+  soundState.muted = !!muted;
+  safeStorageSet(localStorage, SOUND_MUTED_STORAGE_KEY, soundState.muted ? "1" : "0");
+  if (soundState.muted) stopTimerWarningSound();
+  updateSoundToggleUI();
+}
+
+function playOutcomeSound(type) {
+  if (soundState.muted) return;
+  const audio = type === "correct" ? soundState.correct : soundState.wrong;
+  if (!audio) return;
+  try {
+    audio.currentTime = 0;
+    const maybePromise = audio.play();
+    if (maybePromise && typeof maybePromise.catch === "function") maybePromise.catch(() => {});
+  } catch (_) {}
+}
+
+function startTimerWarningSound() {
+  if (soundState.muted || !soundState.timerWarning || soundState.timerWarningPlaying) return;
+  try {
+    const maybePromise = soundState.timerWarning.play();
+    soundState.timerWarningPlaying = true;
+    if (maybePromise && typeof maybePromise.catch === "function") {
+      maybePromise.catch(() => { soundState.timerWarningPlaying = false; });
+    }
+  } catch (_) {
+    soundState.timerWarningPlaying = false;
+  }
+}
+
+function stopTimerWarningSound() {
+  if (!soundState.timerWarning) return;
+  soundState.timerWarning.pause();
+  soundState.timerWarning.currentTime = 0;
+  soundState.timerWarningPlaying = false;
+}
+
+function shouldPlayTimerWarning(elapsedMs) {
+  return hasUnresolvedActiveQuestion()
+    && !state.answerRevealed
+    && !state.revealRequested
+    && !state.activeTile?.timedOut
+    && elapsedMs >= QUESTION_WARNING_MS
+    && elapsedMs < QUESTION_TIMEOUT_MS;
+}
+
+function syncTimerWarningSound(elapsedMs) {
+  if (shouldPlayTimerWarning(elapsedMs)) {
+    startTimerWarningSound();
+    return;
+  }
+  stopTimerWarningSound();
+}
+
 
 function formatElapsedTime(elapsedMs) {
   const totalSeconds = Math.floor(elapsedMs / 1000);
@@ -532,11 +623,12 @@ function updateTimerUI() {
   const elapsed = timerStart ? Date.now() - timerStart : 0;
   el.questionTimer.textContent = formatElapsedTime(Math.max(0, elapsed));
   el.questionTimer.classList.toggle("timer-red", elapsed >= QUESTION_WARNING_MS);
+  syncTimerWarningSound(elapsed);
   updateLateOtherTeamPrompt();
 }
 function stopTimer() { if (timerInterval !== null) { clearInterval(timerInterval); timerInterval = null; } }
 function stopQuestionTimeout() { if (questionTimeoutToken !== null) { clearTimeout(questionTimeoutToken); questionTimeoutToken = null; } }
-function resetTimer() { timerStart = null; questionDeadlineTs = null; updateTimerUI(); }
+function resetTimer() { timerStart = null; questionDeadlineTs = null; stopTimerWarningSound(); updateTimerUI(); }
 function stopAndResetTimer() { stopTimer(); stopQuestionTimeout(); resetTimer(); }
 function handleQuestionTimeout() {
   if (questionTimeoutToken === null) return;
@@ -1164,6 +1256,13 @@ function renderBoard() {
   });
 }
 
+function animateTileSelection(tileButton) {
+  if (!tileButton || prefersReducedMotion) return;
+  tileButton.classList.remove("tile-pulse");
+  void tileButton.offsetWidth;
+  tileButton.classList.add("tile-pulse");
+}
+
 function getActiveQuestion() { return state.activeQuestion || null; }
 function getBasePath() { return window.location.pathname.includes("/Tasleya/") ? "/Tasleya/" : "/"; }
 function toMediaUrl(mediaPath) {
@@ -1239,6 +1338,7 @@ function renderQuestionContent(question) {
   el.answerText.textContent = "الإجابة: ...";
   el.answerText.classList.add("hidden");
   state.answerRevealed = false;
+  state.revealRequested = false;
   el.choicesBox.classList.add("hidden");
   el.choicesList.innerHTML = "";
   state.currentChoices = [];
@@ -1314,6 +1414,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || tile.missing) return;
   state.activeTile = tile;
+  state.revealRequested = false;
   tile.timedOut = false;
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => {
@@ -1381,6 +1482,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
     return false;
   }
   stopAndResetTimer(); clearQuestionMedia();
+  state.revealRequested = false;
   state.currentHintText = "";
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
@@ -1413,6 +1515,7 @@ function resetGameState() {
   state.activeTile = null;
   state.activeQuestion = null;
   state.answerRevealed = false;
+  state.revealRequested = false;
   state.currentChoices = [];
   state.currentHintText = "";
   closeModal({ silentSync: true });
@@ -1426,6 +1529,8 @@ function resetGameState() {
 async function revealAnswer() {
   const question = getActiveQuestion();
   if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  state.revealRequested = true;
+  stopTimerWarningSound();
   el.revealBtn.disabled = true;
   showQuestionStatus("جارٍ إظهار الإجابة...");
   try {
@@ -1493,10 +1598,11 @@ function applyScore(isCorrect) {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (!state.answerRevealed) return;
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
-  resolveActiveQuestion({
+  const resolved = resolveActiveQuestion({
     scoreDelta,
     nextTeam: getNextTeamNumber(state.currentTeam),
   });
+  if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
 }
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
@@ -1707,6 +1813,7 @@ async function applyRemoteGameState(game) {
     mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false, 3: false };
     hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false, 3: false };
     state.answerRevealed = !!game.answerRevealed;
+    state.revealRequested = state.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
     state.activeQuestion = null;
@@ -2553,6 +2660,7 @@ async function startGameFromSelection() {
   hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
   state.answerRevealed = false;
+  state.revealRequested = false;
   state.currentChoices = [];
   state.currentHintText = "";
   clearError();
@@ -2973,6 +3081,7 @@ function initializeApp() {
   if (appInitialized) return;
   appInitialized = true;
   cacheElements();
+  initializeSoundSystem();
   online.clientId = getOrCreateStableClientId();
 
   bindEvent(el.newGameBtn, "click", () => {
@@ -2987,6 +3096,7 @@ function initializeApp() {
   bindEvent(el.lateOtherTeamPrompt, "click", awardPointsToOtherTeam, "lateOtherTeamPrompt");
   bindEvent(el.lifelineBtn, "click", useLifeline, "lifelineBtn");
   bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
+  bindEvent(el.soundToggleBtn, "click", () => setMutedSound(!soundState.muted), "soundToggleBtn");
   bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");
   bindEvent(el.randomCategoriesBtn, "click", pickRandomCategories, "randomCategoriesBtn");
   bindEvent(el.cancelCategoryBtn, "click", closeCategoryPicker, "cancelCategoryBtn");
@@ -3044,6 +3154,7 @@ function initializeApp() {
   bindEvent(el.board, "click", (event) => {
     const tileBtn = event.target?.closest?.("[data-tile-id]");
     if (!tileBtn || !el.board.contains(tileBtn)) return;
+    animateTileSelection(tileBtn);
     openQuestion(tileBtn.dataset.tileId);
   }, "board");
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
