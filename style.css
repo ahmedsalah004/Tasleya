@@ -1392,6 +1392,69 @@ button:disabled {
   margin-top: 0.5rem;
 }
 
+.result-share-section {
+  margin-top: 0.85rem;
+  border: 1px solid rgba(255, 209, 102, 0.34);
+  border-radius: 14px;
+  padding: 0.75rem;
+  background: rgba(15, 27, 61, 0.8);
+  text-align: right;
+}
+
+.result-share-summary {
+  border-radius: 11px;
+  border: 1px solid rgba(140, 170, 255, 0.28);
+  background: rgba(11, 19, 45, 0.74);
+  padding: 0.65rem;
+  margin-bottom: 0.72rem;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.result-share-summary-title,
+.result-share-summary-score,
+.result-share-summary-line {
+  margin: 0;
+}
+
+.result-share-summary-title {
+  font-weight: 900;
+  color: #ffe7a6;
+}
+
+.result-share-summary-score {
+  font-weight: 800;
+}
+
+.result-share-summary-line {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.result-share-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.result-share-actions > button {
+  min-height: 46px;
+}
+
+.result-share-feedback {
+  margin: 0.6rem 0 0;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.result-share-feedback.is-success {
+  color: #86efac;
+}
+
+.result-share-feedback.is-error {
+  color: #fda4af;
+}
+
 .podium-column {
   background: rgba(20, 36, 79, 0.72);
   border: 1px solid rgba(93, 128, 220, 0.62);

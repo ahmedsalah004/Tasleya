@@ -128,6 +128,12 @@ function cacheElements() {
   podiumTitle: document.getElementById("podiumTitle"),
   podiumSubtitle: document.getElementById("podiumSubtitle"),
   podiumBoard: document.getElementById("podiumBoard"),
+  resultShareSection: document.getElementById("resultShareSection"),
+  resultShareSummary: document.getElementById("resultShareSummary"),
+  resultShareFeedback: document.getElementById("resultShareFeedback"),
+  shareResultBtn: document.getElementById("shareResultBtn"),
+  shareWhatsappBtn: document.getElementById("shareWhatsappBtn"),
+  copyResultBtn: document.getElementById("copyResultBtn"),
   podiumNewGameBtn: document.getElementById("podiumNewGameBtn"),
   startScreen: document.getElementById("startScreen"),
   gameScreen: document.getElementById("gameScreen"),
@@ -990,6 +996,100 @@ function closePodiumModal() { el.podiumModal.classList.add("hidden"); el.podiumM
 function buildPodiumColumn(name, score, label, placeClass) {
   return `<div class="podium-column ${placeClass}"><p class="podium-label">${label}</p><p class="podium-team-name">${name}</p><p class="podium-score">${score}</p><div class="podium-step"></div></div>`;
 }
+function buildFinalResultSnapshot() {
+  const activeTeams = getActiveTeamNumbers();
+  const rankedTeams = [...activeTeams].sort((a, b) => state.scores[b] - state.scores[a]);
+  const bestScore = rankedTeams.length ? state.scores[rankedTeams[0]] : 0;
+  const winners = rankedTeams.filter((team) => state.scores[team] === bestScore);
+  const winnerNames = winners.map((team) => state.teamNames[team]);
+  const scoreLine = rankedTeams
+    .map((team) => `${state.teamNames[team]}: ${state.scores[team]} نقطة`)
+    .join(" | ");
+  return {
+    winners,
+    winnerNames,
+    bestScore,
+    scoreLine,
+    rankedTeams,
+  };
+}
+function buildArabicShareMessage() {
+  const result = buildFinalResultSnapshot();
+  const hasTie = result.winners.length > 1;
+  const winnerLine = hasTie
+    ? `🤝 انتهت المباراة بتعادل بين: ${result.winnerNames.join(" و ")} (${result.bestScore} نقطة)`
+    : `🏆 المتصدر: ${result.winnerNames[0]} (${result.bestScore} نقطة)`;
+  return [
+    "أنهيت لعبة في تسلية!",
+    winnerLine,
+    `📊 النتيجة النهائية: ${result.scoreLine}`,
+    "هل تقدر تغلبني؟",
+    "العب الآن: https://tasleya.online",
+  ].join("\n");
+}
+function setResultShareFeedback(message, type = "neutral") {
+  if (!el.resultShareFeedback) return;
+  const hasMessage = !!normalizeCell(message);
+  el.resultShareFeedback.textContent = hasMessage ? message : "";
+  el.resultShareFeedback.classList.toggle("hidden", !hasMessage);
+  el.resultShareFeedback.classList.toggle("is-error", hasMessage && type === "error");
+  el.resultShareFeedback.classList.toggle("is-success", hasMessage && type === "success");
+}
+function updateResultShareUI() {
+  if (!el.resultShareSummary || !el.resultShareSection) return;
+  const result = buildFinalResultSnapshot();
+  const winnerText = result.winnerNames.length > 1
+    ? `تعادل القمة: ${result.winnerNames.join(" و ")}`
+    : `المتصدر: ${result.winnerNames[0]}`;
+  el.resultShareSummary.innerHTML = `
+    <p class="result-share-summary-title">${winnerText}</p>
+    <p class="result-share-summary-score">${result.bestScore} نقطة</p>
+    <p class="result-share-summary-line">${result.scoreLine}</p>
+  `;
+  el.resultShareSection.classList.remove("hidden");
+  setResultShareFeedback("");
+}
+async function copyResultShareText() {
+  const shareText = buildArabicShareMessage();
+  try {
+    await navigator.clipboard.writeText(shareText);
+    setResultShareFeedback("تم نسخ النص. شاركه مع التحدي 🔥", "success");
+    return true;
+  } catch (_) {
+    setResultShareFeedback("تعذّر النسخ تلقائيًا. انسخ النص يدويًا.", "error");
+    return false;
+  }
+}
+function openWhatsappShare() {
+  const shareText = buildArabicShareMessage();
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+  const popup = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  if (!popup) {
+    setResultShareFeedback("تعذّر فتح واتساب تلقائيًا. جرّب نسخ النص.", "error");
+    return false;
+  }
+  setResultShareFeedback("تم فتح واتساب للمشاركة.", "success");
+  return true;
+}
+async function handlePrimaryShare() {
+  const shareText = buildArabicShareMessage();
+  const canUseNativeShare = typeof navigator.share === "function";
+  if (canUseNativeShare) {
+    try {
+      await navigator.share({
+        title: "نتيجتي في تسلية",
+        text: shareText,
+        url: "https://tasleya.online",
+      });
+      setResultShareFeedback("تمت المشاركة بنجاح 👏", "success");
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  if (openWhatsappShare()) return;
+  await copyResultShareText();
+}
 function showPodiumModal() {
   const activeTeams = getActiveTeamNumbers();
   const rankedTeams = [...activeTeams].sort((a, b) => state.scores[b] - state.scores[a]);
@@ -1020,6 +1120,7 @@ function showPodiumModal() {
         buildPodiumColumn(state.teamNames[loserTeam], state.scores[loserTeam], "إشتغل علي نفسك", "loser");
     }
   }
+  updateResultShareUI();
   el.podiumModal.classList.remove("hidden");
   requestAnimationFrame(() => el.podiumModal.classList.add("is-open"));
 }
@@ -2923,6 +3024,9 @@ function initializeApp() {
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
   }, "podiumNewGameBtn");
+  bindEvent(el.shareResultBtn, "click", handlePrimaryShare, "shareResultBtn");
+  bindEvent(el.shareWhatsappBtn, "click", openWhatsappShare, "shareWhatsappBtn");
+  bindEvent(el.copyResultBtn, "click", copyResultShareText, "copyResultBtn");
 
   bindEvent(el.team1NameInput, "input", () => setTeamName(1, el.team1NameInput.value), "team1NameInput");
   bindEvent(el.team2NameInput, "input", () => setTeamName(2, el.team2NameInput.value), "team2NameInput");
