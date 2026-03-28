@@ -225,6 +225,10 @@ main,
   grid-template-columns: 1fr;
 }
 
+.result-share-actions {
+  grid-template-columns: 1fr;
+}
+
 @media (hover: none), (pointer: coarse) {
   #startLocalBtn:hover,
   #startOnlineBtn:hover,
