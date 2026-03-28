@@ -23,9 +23,9 @@
       "purpose": "any maskable"
     },
     {
-      "src": "assets/start-bg-v2.png",
+      "src": "assets/start-bg-v2.webp",
       "sizes": "180x180",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any"
     }
   ]
