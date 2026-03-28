@@ -241,7 +241,7 @@ const online = {
 
 const soundState = {
   muted: false,
-  ready: false,
+  preferenceLoaded: false,
   correct: null,
   wrong: null,
   timerWarning: null,
@@ -390,7 +390,6 @@ const questionBankCache = {
 
 const mediaWarmupCache = {
   images: new Map(),
-  audio: new Map(),
   preconnectedOrigins: new Set(),
 };
 
@@ -472,21 +471,41 @@ function getOrCreateStableClientId() {
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
 
-function initializeSoundSystem() {
-  if (soundState.ready) return;
+function ensureSoundPreferenceLoaded() {
+  if (soundState.preferenceLoaded) return;
   soundState.muted = safeStorageGet(localStorage, SOUND_MUTED_STORAGE_KEY) === "1";
-  soundState.correct = new Audio(toMediaUrl("assets/sounds/correct.mp3"));
-  soundState.wrong = new Audio(toMediaUrl("assets/sounds/wrong.mp3"));
-  soundState.timerWarning = new Audio(toMediaUrl("assets/sounds/timer-warning.mp3"));
-  [soundState.correct, soundState.wrong].forEach((audio) => {
-    audio.preload = "auto";
-    audio.volume = 0.85;
-  });
-  soundState.timerWarning.preload = "auto";
-  soundState.timerWarning.loop = true;
-  soundState.timerWarning.volume = 0.5;
-  soundState.ready = true;
+  soundState.preferenceLoaded = true;
   updateSoundToggleUI();
+}
+
+function ensureSoundClip(type) {
+  ensureSoundPreferenceLoaded();
+  if (type === "correct") {
+    if (!soundState.correct) {
+      const audio = new Audio(toMediaUrl("assets/sounds/correct.mp3"));
+      audio.preload = "none";
+      audio.volume = 0.85;
+      soundState.correct = audio;
+    }
+    return soundState.correct;
+  }
+  if (type === "wrong") {
+    if (!soundState.wrong) {
+      const audio = new Audio(toMediaUrl("assets/sounds/wrong.mp3"));
+      audio.preload = "none";
+      audio.volume = 0.85;
+      soundState.wrong = audio;
+    }
+    return soundState.wrong;
+  }
+  if (!soundState.timerWarning) {
+    const audio = new Audio(toMediaUrl("assets/sounds/timer-warning.mp3"));
+    audio.preload = "none";
+    audio.loop = true;
+    audio.volume = 0.5;
+    soundState.timerWarning = audio;
+  }
+  return soundState.timerWarning;
 }
 
 function updateSoundToggleUI() {
@@ -497,6 +516,7 @@ function updateSoundToggleUI() {
 }
 
 function setMutedSound(muted) {
+  ensureSoundPreferenceLoaded();
   soundState.muted = !!muted;
   safeStorageSet(localStorage, SOUND_MUTED_STORAGE_KEY, soundState.muted ? "1" : "0");
   if (soundState.muted) stopTimerWarningSound();
@@ -505,7 +525,7 @@ function setMutedSound(muted) {
 
 function playOutcomeSound(type) {
   if (soundState.muted) return;
-  const audio = type === "correct" ? soundState.correct : soundState.wrong;
+  const audio = ensureSoundClip(type === "correct" ? "correct" : "wrong");
   if (!audio) return;
   try {
     audio.currentTime = 0;
@@ -515,9 +535,11 @@ function playOutcomeSound(type) {
 }
 
 function startTimerWarningSound() {
-  if (soundState.muted || !soundState.timerWarning || soundState.timerWarningPlaying) return;
+  if (soundState.muted || soundState.timerWarningPlaying) return;
+  const timerWarning = ensureSoundClip("timerWarning");
+  if (!timerWarning) return;
   try {
-    const maybePromise = soundState.timerWarning.play();
+    const maybePromise = timerWarning.play();
     soundState.timerWarningPlaying = true;
     if (maybePromise && typeof maybePromise.catch === "function") {
       maybePromise.catch(() => { soundState.timerWarningPlaying = false; });
@@ -528,7 +550,7 @@ function startTimerWarningSound() {
 }
 
 function stopTimerWarningSound() {
-  if (!soundState.timerWarning) return;
+  if (!soundState.timerWarning || !soundState.timerWarningPlaying) return;
   soundState.timerWarning.pause();
   soundState.timerWarning.currentTime = 0;
   soundState.timerWarningPlaying = false;
@@ -1302,23 +1324,11 @@ function warmImageResource(mediaUrl, { highPriority = false } = {}) {
   image.src = normalizedUrl;
   mediaWarmupCache.images.set(normalizedUrl, image);
 }
-function warmAudioResource(mediaUrl) {
-  const normalizedUrl = normalizeCell(mediaUrl);
-  if (!normalizedUrl) return;
-  ensureMediaOriginPreconnect(normalizedUrl);
-  if (mediaWarmupCache.audio.has(normalizedUrl)) return;
-  const audio = document.createElement("audio");
-  audio.preload = "auto";
-  audio.src = normalizedUrl;
-  audio.load();
-  mediaWarmupCache.audio.set(normalizedUrl, audio);
-}
 function warmQuestionMedia(question, { highPriority = false } = {}) {
   if (!question) return;
   const mediaUrl = toMediaUrl(question.image_url);
   if (!mediaUrl) return;
   if (question.type === "image") warmImageResource(mediaUrl, { highPriority });
-  if (question.type === "audio") warmAudioResource(mediaUrl);
 }
 function preloadLikelyNextQuestionMedia() {
   const nextTile = state.boardTiles.find((tile) => !tile.used && !tile.missing && normalizeCell(tile.questionId));
@@ -1372,8 +1382,8 @@ function renderQuestionImage(imagePath, question = null) {
 }
 function renderQuestionAudio(audioPath) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
-  const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "auto"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
-  audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`; audio.load(); el.questionMedia.appendChild(audio);
+  const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "metadata"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
+  audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`; el.questionMedia.appendChild(audio);
 }
 
 function getMyTeamNumber() {
@@ -3081,7 +3091,7 @@ function initializeApp() {
   if (appInitialized) return;
   appInitialized = true;
   cacheElements();
-  initializeSoundSystem();
+  ensureSoundPreferenceLoaded();
   online.clientId = getOrCreateStableClientId();
 
   bindEvent(el.newGameBtn, "click", () => {
