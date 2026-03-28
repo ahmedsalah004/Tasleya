@@ -12,7 +12,7 @@ const CORE_FILES = [
   `script.js?v=${ASSET_VERSION}`,
   "firebase-config.js",
   "manifest.json",
-  "assets/start-bg-v2.png",
+  "assets/start-bg-v2.webp",
   "assets/icons/icon-192.svg",
   "assets/icons/icon-512.svg"
 ];
