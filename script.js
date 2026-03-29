@@ -47,7 +47,7 @@ const CATEGORY_DISPLAY_GROUPS = [
   },
   {
     name: "الدول",
-    categories: ["مصر", "المغرب", "السعودية", "الكويت", "فلسطين", "لبنان", "سوريا", "الأردن", "قطر", "العراق", "الجزائر", "تونس", "ليبيا", "موريتانيا", "السودان", "اليمن", "عُمان", "البحرين"],
+    categories: ["مصر", "المغرب", "السعودية", "الإمارات", "الكويت", "فلسطين", "لبنان", "سوريا", "الأردن", "اليمن", "قطر", "العراق", "الجزائر", "تونس", "السودان", "الصومال", "ليبيا", "البحرين", "عُمان", "موريتانيا", "جيبوتي"],
   },
   {
     name: "رياضة",
@@ -1746,8 +1746,10 @@ function getGroupedCategoryDisplay(categories) {
   const grouped = CATEGORY_DISPLAY_GROUPS.map((group) => ({ groupName: group.name, categories: [] }));
   const indexByName = new Map(CATEGORY_DISPLAY_GROUPS.map((group, index) => [group.name, index]));
   const categoryToGroup = new Map();
+  const categoryOrderByGroup = new Map();
 
   CATEGORY_DISPLAY_GROUPS.forEach((group) => {
+    categoryOrderByGroup.set(group.name, new Map(group.categories.map((category, index) => [category, index])));
     group.categories.forEach((category) => categoryToGroup.set(category, group.name));
   });
 
@@ -1756,6 +1758,16 @@ function getGroupedCategoryDisplay(categories) {
     const groupIndex = indexByName.get(targetGroupName);
     if (groupIndex === undefined) return;
     grouped[groupIndex].categories.push(category);
+  });
+
+  grouped.forEach((group) => {
+    const orderMap = categoryOrderByGroup.get(group.groupName);
+    if (!orderMap) return;
+    group.categories.sort((a, b) => {
+      const aIndex = orderMap.has(a) ? orderMap.get(a) : Number.POSITIVE_INFINITY;
+      const bIndex = orderMap.has(b) ? orderMap.get(b) : Number.POSITIVE_INFINITY;
+      return aIndex - bIndex;
+    });
   });
 
   return grouped;
