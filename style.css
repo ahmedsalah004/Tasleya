@@ -277,6 +277,19 @@ html {
   color: rgba(210, 226, 255, 0.84);
 }
 
+.inline-email-link {
+  color: rgba(255, 225, 142, 0.95);
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 215, 120, 0.75);
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.inline-email-link:hover,
+.inline-email-link:focus-visible {
+  color: #ffe9ab;
+}
+
 .chips-wrap {
   display: flex;
   flex-wrap: wrap;
