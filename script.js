@@ -112,6 +112,8 @@ function cacheElements() {
   hintBox: document.getElementById("hintBox"),
   hintText: document.getElementById("hintText"),
   questionStatus: document.getElementById("questionStatus"),
+  otherTeamSelector: document.getElementById("otherTeamSelector"),
+  otherTeamChoices: document.getElementById("otherTeamChoices"),
   categoryModal: document.getElementById("categoryModal"),
   categoryModalTitle: document.getElementById("categoryModalTitle"),
   categoryList: document.getElementById("categoryList"),
@@ -203,6 +205,8 @@ const state = {
   currentHintText: "",
   activeQuestion: null,
   revealRequested: false,
+  pendingOtherTeamSelection: false,
+  resolvingOtherTeam: false,
 };
 
 const contactState = {
@@ -613,11 +617,12 @@ function updateQuestionActionLock() {
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
   const lockByReveal = hasUnresolvedActiveQuestion() && !state.answerRevealed;
   const disableActions = lockByTimeout || lockByTurn;
+  const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
   el.revealBtn.disabled = disableActions || state.answerRevealed;
   el.correctBtn.disabled = disableActions || lockByReveal;
   el.wrongBtn.disabled = disableActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
-  el.otherTeamBtn.disabled = disableActions || lockByReveal || soloNoOtherTeam;
+  el.otherTeamBtn.disabled = disableActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
   el.lifelineBtn.disabled = disableActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
   el.hintLifelineBtn.disabled = disableActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
   updateLateOtherTeamPrompt();
@@ -696,6 +701,49 @@ function shuffle(input) {
 
 function getActiveTeamNumbers() {
   return Array.from({ length: state.teamCount }, (_, index) => index + 1);
+}
+function getEligibleOtherTeams(currentTeam = state.currentTeam) {
+  return getActiveTeamNumbers().filter((team) => team !== currentTeam);
+}
+function closeOtherTeamSelector() {
+  state.pendingOtherTeamSelection = false;
+  if (!el.otherTeamSelector || !el.otherTeamChoices) return;
+  el.otherTeamSelector.classList.add("hidden");
+  el.otherTeamChoices.innerHTML = "";
+}
+function openOtherTeamSelector() {
+  if (!el.otherTeamSelector || !el.otherTeamChoices) return;
+  const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
+  if (eligibleTeams.length <= 1) return;
+  state.pendingOtherTeamSelection = true;
+  el.otherTeamChoices.innerHTML = "";
+  eligibleTeams.forEach((team) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary-btn";
+    button.dataset.team = String(team);
+    button.textContent = state.teamNames[team] || `الفريق ${team}`;
+    el.otherTeamChoices.appendChild(button);
+  });
+  el.otherTeamSelector.classList.remove("hidden");
+}
+function handleOtherTeamSelection(teamNumber) {
+  const selectedTeam = Number(teamNumber);
+  const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
+  if (!eligibleTeams.includes(selectedTeam) || state.resolvingOtherTeam) return;
+  state.resolvingOtherTeam = true;
+  state.pendingOtherTeamSelection = false;
+  if (el.otherTeamChoices) {
+    el.otherTeamChoices.querySelectorAll("button").forEach((button) => {
+      button.disabled = true;
+    });
+  }
+  resolveActiveQuestion({
+    preventTimeoutAction: true,
+    scoreDelta: { [selectedTeam]: state.activeTile?.points ?? 0 },
+    nextTeam: selectedTeam,
+  });
+  state.resolvingOtherTeam = false;
 }
 function normalizeTeamCount(teamCount) {
   const normalized = Number(teamCount);
@@ -1484,6 +1532,8 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   el.correctBtn.disabled = true;
   el.wrongBtn.disabled = true;
   el.otherTeamBtn.disabled = true;
+  closeOtherTeamSelector();
+  state.resolvingOtherTeam = false;
   updateCloseButtonLock();
   try {
     const q = await fetchQuestionPayload({
@@ -1536,6 +1586,8 @@ function closeModal({ silentSync = false, force = false } = {}) {
   stopAndResetTimer(); clearQuestionMedia();
   state.revealRequested = false;
   state.currentHintText = "";
+  closeOtherTeamSelector();
+  state.resolvingOtherTeam = false;
   el.hintText.textContent = "";
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
@@ -1570,6 +1622,8 @@ function resetGameState() {
   state.revealRequested = false;
   state.currentChoices = [];
   state.currentHintText = "";
+  closeOtherTeamSelector();
+  state.resolvingOtherTeam = false;
   closeModal({ silentSync: true });
   closeCategoryPicker();
   closePodiumModal();
@@ -1681,12 +1735,23 @@ function applyScore(isCorrect) {
 function awardPointsToOtherTeam() {
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (!state.answerRevealed) return;
+  if (state.resolvingOtherTeam) return;
+  if (state.teamCount === 3) {
+    const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
+    if (eligibleTeams.length > 1) {
+      if (!state.pendingOtherTeamSelection) openOtherTeamSelector();
+      updateQuestionActionLock();
+      return;
+    }
+  }
   const otherTeam = getNextTeamNumber(state.currentTeam);
+  state.resolvingOtherTeam = true;
   resolveActiveQuestion({
     preventTimeoutAction: true,
     scoreDelta: { [otherTeam]: state.activeTile?.points ?? 0 },
     nextTeam: otherTeam,
   });
+  state.resolvingOtherTeam = false;
 }
 
 function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = false, preventTimeoutAction = false } = {}) {
@@ -1718,6 +1783,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 
   updateScoreboard();
   renderBoard();
+  closeOtherTeamSelector();
   closeModal({ silentSync: true });
   persistLocalProgress();
   checkEndOfGame();
@@ -3180,6 +3246,11 @@ function initializeApp() {
   bindEvent(el.wrongBtn, "click", () => applyScore(false), "wrongBtn");
   bindEvent(el.otherTeamBtn, "click", awardPointsToOtherTeam, "otherTeamBtn");
   bindEvent(el.lateOtherTeamPrompt, "click", awardPointsToOtherTeam, "lateOtherTeamPrompt");
+  bindEvent(el.otherTeamChoices, "click", (event) => {
+    const teamButton = event.target.closest("button[data-team]");
+    if (!teamButton) return;
+    handleOtherTeamSelection(teamButton.dataset.team);
+  }, "otherTeamChoices");
   bindEvent(el.lifelineBtn, "click", useLifeline, "lifelineBtn");
   bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
   bindEvent(el.soundToggleBtn, "click", () => setMutedSound(!soundState.muted), "soundToggleBtn");
