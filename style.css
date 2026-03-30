@@ -1167,6 +1167,24 @@ button:disabled {
   color: var(--danger);
 }
 
+.other-team-selector {
+  padding: 0.9rem;
+  border-radius: 12px;
+  border: 1px solid rgba(112, 140, 220, 0.45);
+  background: rgba(12, 22, 52, 0.42);
+}
+
+.other-team-selector h3 {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  color: #f3f7ff;
+  font-size: 1rem;
+}
+
+.other-team-options {
+  justify-content: center;
+}
+
 .question-media {
   display: grid;
   gap: 0.6rem;
