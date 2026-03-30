@@ -385,6 +385,7 @@ const questionBankCache = {
   categories: null,
   questionsById: new Map(),
   answersById: new Map(),
+  answerPrefetchPromises: new Map(),
   loadPromise: null,
 };
 
@@ -975,6 +976,25 @@ async function fetchAnswerPayload(questionId, submittedAnswer = "") {
   }
   return response;
 }
+function prefetchAnswerPayload(questionId) {
+  const normalizedId = normalizeCell(questionId);
+  if (!normalizedId || questionBankCache.answersById.has(normalizedId)) {
+    return Promise.resolve(questionBankCache.answersById.get(normalizedId) || null);
+  }
+  if (questionBankCache.answerPrefetchPromises.has(normalizedId)) {
+    return questionBankCache.answerPrefetchPromises.get(normalizedId);
+  }
+  const promise = fetchAnswerPayload(normalizedId)
+    .catch((error) => {
+      console.warn("[Tasleya] Answer prefetch failed", { questionId: normalizedId, error });
+      return null;
+    })
+    .finally(() => {
+      questionBankCache.answerPrefetchPromises.delete(normalizedId);
+    });
+  questionBankCache.answerPrefetchPromises.set(normalizedId, promise);
+  return promise;
+}
 
 async function fetchQuestions() {
   const response = await apiFetchJson("/categories");
@@ -1483,6 +1503,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     tile.questionId = q.id;
     state.activeQuestion = q;
     warmQuestionMedia(q, { highPriority: true });
+    prefetchAnswerPayload(q.id);
     preloadLikelyNextQuestionMedia();
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
@@ -1560,22 +1581,44 @@ function resetGameState() {
 async function revealAnswer() {
   const question = getActiveQuestion();
   if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  console.time("[Tasleya][reveal] click_to_answer_visible");
+  console.time("[Tasleya][reveal] local_state_update");
   state.revealRequested = true;
   stopTimerWarningSound();
   el.revealBtn.disabled = true;
-  showQuestionStatus("جارٍ إظهار الإجابة...");
+  const cachedResponse = questionBankCache.answersById.get(question.id);
+  el.answerText.textContent = `الإجابة: ${cachedResponse?.correctAnswer || "جارٍ التحميل..."}`;
+  el.answerText.classList.remove("hidden");
+  showQuestionStatus(cachedResponse?.correctAnswer ? "" : "جارٍ إظهار الإجابة...");
+  console.timeEnd("[Tasleya][reveal] local_state_update");
+  requestAnimationFrame(() => {
+    console.timeEnd("[Tasleya][reveal] click_to_answer_visible");
+    console.log("[Tasleya][reveal] render_complete");
+  });
   try {
-    const response = await fetchAnswerPayload(question.id);
+    const response = cachedResponse || await prefetchAnswerPayload(question.id) || await fetchAnswerPayload(question.id);
     el.answerText.textContent = `الإجابة: ${response.correctAnswer || "غير متاحة"}`;
-    el.answerText.classList.remove("hidden");
     state.answerRevealed = true;
     showQuestionStatus("");
     updateQuestionActionLock();
-    if (!prefersReducedMotion) { el.answerText.classList.remove("reveal-anim"); void el.answerText.offsetWidth; el.answerText.classList.add("reveal-anim"); }
-    if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+    if (!prefersReducedMotion) {
+      requestAnimationFrame(() => {
+        el.answerText.classList.remove("reveal-anim");
+        el.answerText.classList.add("reveal-anim");
+      });
+    }
+    if (online.mode === "online" && !online.applyingRemote) {
+      console.time("[Tasleya][reveal] firebase_sync");
+      requestAnimationFrame(() => {
+        pushOnlineState();
+        console.timeEnd("[Tasleya][reveal] firebase_sync");
+      });
+    }
   } catch (error) {
     showQuestionStatus("");
     el.revealBtn.disabled = false;
+    el.answerText.classList.add("hidden");
+    state.revealRequested = false;
     showError(`تعذّر إظهار الإجابة. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
   }
 }
