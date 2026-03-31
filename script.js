@@ -5,7 +5,7 @@ const POINT_LEVELS = [100, 200, 300, 400, 500];
 const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
 const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
-const USED_STORAGE_KEY = "tasleya_used_v1";
+const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
@@ -805,11 +805,28 @@ function firstNonEmpty(...values) {
   return "";
 }
 
-function loadUsedHistory() {
-  try { const raw = localStorage.getItem(USED_STORAGE_KEY); if (!raw) return {}; const parsed = JSON.parse(raw); return parsed && typeof parsed === "object" ? parsed : {}; }
-  catch { return {}; }
+function normalizeUsedHistoryByCategory(rawHistory) {
+  if (!rawHistory || typeof rawHistory !== "object" || Array.isArray(rawHistory)) return {};
+  const normalized = {};
+  Object.entries(rawHistory).forEach(([category, usedIds]) => {
+    const normalizedCategory = normalizeCell(category);
+    if (!normalizedCategory || !Array.isArray(usedIds)) return;
+    normalized[normalizedCategory] = uniqueByText(usedIds.map(normalizeCell).filter(Boolean));
+  });
+  return normalized;
 }
-function saveUsedHistory() { localStorage.setItem(USED_STORAGE_KEY, JSON.stringify(state.usedHistory)); }
+function loadUsedHistory() {
+  try {
+    const raw = localStorage.getItem(USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY);
+    if (!raw) return {};
+    return normalizeUsedHistoryByCategory(JSON.parse(raw));
+  } catch {
+    return {};
+  }
+}
+function saveUsedHistory() {
+  localStorage.setItem(USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY, JSON.stringify(state.usedHistory));
+}
 function loadTeamNames() {
   state.teamNames = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
   try {
@@ -936,20 +953,24 @@ function restoreLocalProgress() {
     return false;
   }
 }
-function ensureBucket(category, points) {
-  if (!state.usedHistory[category]) state.usedHistory[category] = {};
-  const key = String(points);
-  if (!Array.isArray(state.usedHistory[category][key])) state.usedHistory[category][key] = [];
-  return state.usedHistory[category][key];
+function ensureCategoryHistoryBucket(category) {
+  const normalizedCategory = normalizeCell(category);
+  if (!normalizedCategory) return [];
+  if (!Array.isArray(state.usedHistory[normalizedCategory])) state.usedHistory[normalizedCategory] = [];
+  return state.usedHistory[normalizedCategory];
 }
-function markQuestionAsUsed(category, points, questionId) {
-  if (!questionId) return;
-  const bucket = ensureBucket(category, points);
-  if (!bucket.includes(questionId)) { bucket.push(questionId); saveUsedHistory(); }
+function markQuestionAsUsed(category, questionId) {
+  if (online.mode !== "local" || !questionId) return;
+  const bucket = ensureCategoryHistoryBucket(category);
+  if (!bucket.includes(questionId)) {
+    bucket.push(questionId);
+    saveUsedHistory();
+  }
 }
-function clearUsedBucket(category, points) {
-  if (!state.usedHistory[category]) return;
-  state.usedHistory[category][String(points)] = [];
+function clearUsedCategoryHistory(category) {
+  const normalizedCategory = normalizeCell(category);
+  if (!normalizedCategory || !state.usedHistory[normalizedCategory]) return;
+  state.usedHistory[normalizedCategory] = [];
   saveUsedHistory();
 }
 function getAssignedQuestionIds() {
@@ -957,15 +978,21 @@ function getAssignedQuestionIds() {
     .map((tile) => normalizeCell(tile.questionId))
     .filter(Boolean);
 }
-function getExcludedQuestionIds(category, points) {
-  const acrossGames = ensureBucket(category, points);
+function getExcludedQuestionIds(category) {
+  const acrossGames = ensureCategoryHistoryBucket(category);
   const inCurrentGame = state.boardTiles
-    .filter((tile) => tile.category === category && tile.points === points)
+    .filter((tile) => tile.category === category)
     .map((tile) => normalizeCell(tile.questionId))
     .filter(Boolean);
   return uniqueByText([...acrossGames, ...inCurrentGame]);
 }
-async function fetchQuestionPayload({ id = "", category = "", points = null, resetUsedBucketOnExhaustion = false } = {}) {
+async function fetchQuestionPayload({
+  id = "",
+  category = "",
+  points = null,
+  resetUsedBucketOnExhaustion = false,
+  preferFullCategoryPool = false,
+} = {}) {
   const normalizedId = normalizeCell(id);
   if (normalizedId && questionBankCache.questionsById.has(normalizedId)) {
     return questionBankCache.questionsById.get(normalizedId);
@@ -973,7 +1000,9 @@ async function fetchQuestionPayload({ id = "", category = "", points = null, res
 
   const normalizedCategory = normalizeCell(category);
   const normalizedPoints = Number(points) || null;
-  const excludeIds = normalizedId ? [] : getExcludedQuestionIds(normalizedCategory, normalizedPoints);
+  const shouldExcludeUsedByCategory = online.mode === "local";
+  const excludeIds = (!normalizedId && shouldExcludeUsedByCategory) ? getExcludedQuestionIds(normalizedCategory) : [];
+  const requestFullCategoryPool = preferFullCategoryPool || normalizedPoints === null;
 
   try {
     const response = await apiFetchJson("/question", {
@@ -981,7 +1010,7 @@ async function fetchQuestionPayload({ id = "", category = "", points = null, res
         ? { id: normalizedId }
         : {
           category: normalizedCategory,
-          points: normalizedPoints,
+          points: requestFullCategoryPool ? null : normalizedPoints,
           exclude_ids: excludeIds.join(","),
         },
     });
@@ -991,11 +1020,19 @@ async function fetchQuestionPayload({ id = "", category = "", points = null, res
     return question;
   } catch (error) {
     const isExhaustedPool = error?.status === 404 && error?.payload?.code === "QUESTION_POOL_EXHAUSTED";
-    if (!normalizedId && isExhaustedPool && !resetUsedBucketOnExhaustion) {
-      clearUsedBucket(normalizedCategory, normalizedPoints);
+    if (!normalizedId && shouldExcludeUsedByCategory && isExhaustedPool && !resetUsedBucketOnExhaustion) {
+      if (!requestFullCategoryPool && normalizedPoints !== null) {
+        return fetchQuestionPayload({
+          category: normalizedCategory,
+          points: normalizedPoints,
+          preferFullCategoryPool: true,
+        });
+      }
+      clearUsedCategoryHistory(normalizedCategory);
       return fetchQuestionPayload({
         category: normalizedCategory,
-        points: normalizedPoints,
+        points: null,
+        preferFullCategoryPool: true,
         resetUsedBucketOnExhaustion: true,
       });
     }
@@ -1772,7 +1809,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
     tile.timedOut = true;
   }
   tile.used = true;
-  if (tile.questionId) markQuestionAsUsed(tile.category, tile.points, tile.questionId);
+  if (tile.questionId) markQuestionAsUsed(tile.category, tile.questionId);
   getActiveTeamNumbers().forEach((team) => {
     state.scores[team] = Math.max(0, state.scores[team]);
   });
