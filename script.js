@@ -241,6 +241,7 @@ const online = {
   connectionStateHandler: null,
   heartbeatTimer: null,
   currentTurnTeam: null,
+  usedQuestionsByCategory: {},
 };
 
 const soundState = {
@@ -959,6 +960,37 @@ function ensureCategoryHistoryBucket(category) {
   if (!Array.isArray(state.usedHistory[normalizedCategory])) state.usedHistory[normalizedCategory] = [];
   return state.usedHistory[normalizedCategory];
 }
+function ensureOnlineCategoryHistoryBucket(category) {
+  const normalizedCategory = normalizeCell(category);
+  if (!normalizedCategory) return [];
+  if (!online.usedQuestionsByCategory || typeof online.usedQuestionsByCategory !== "object" || Array.isArray(online.usedQuestionsByCategory)) {
+    online.usedQuestionsByCategory = {};
+  }
+  if (!Array.isArray(online.usedQuestionsByCategory[normalizedCategory])) online.usedQuestionsByCategory[normalizedCategory] = [];
+  return online.usedQuestionsByCategory[normalizedCategory];
+}
+async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset = false } = {}) {
+  const normalizedCategory = normalizeCell(category);
+  const normalizedQuestionId = normalizeCell(questionId);
+  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote) return;
+  const usedHistoryRef = online.roomRef.child("usedQuestionsByCategory");
+  const result = await usedHistoryRef.transaction((rawHistory) => {
+    const history = normalizeUsedHistoryByCategory(rawHistory);
+    const bucket = Array.isArray(history[normalizedCategory]) ? history[normalizedCategory] : [];
+    if (reset) {
+      history[normalizedCategory] = [];
+      return history;
+    }
+    if (!normalizedQuestionId) return history;
+    if (!bucket.includes(normalizedQuestionId)) {
+      history[normalizedCategory] = [...bucket, normalizedQuestionId];
+    }
+    return history;
+  });
+  if (result?.committed) {
+    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(result.snapshot?.val());
+  }
+}
 function markQuestionAsUsed(category, questionId) {
   if (online.mode !== "local" || !questionId) return;
   const bucket = ensureCategoryHistoryBucket(category);
@@ -979,7 +1011,9 @@ function getAssignedQuestionIds() {
     .filter(Boolean);
 }
 function getExcludedQuestionIds(category) {
-  const acrossGames = ensureCategoryHistoryBucket(category);
+  const acrossGames = online.mode === "online"
+    ? ensureOnlineCategoryHistoryBucket(category)
+    : ensureCategoryHistoryBucket(category);
   const inCurrentGame = state.boardTiles
     .filter((tile) => tile.category === category)
     .map((tile) => normalizeCell(tile.questionId))
@@ -1000,7 +1034,7 @@ async function fetchQuestionPayload({
 
   const normalizedCategory = normalizeCell(category);
   const normalizedPoints = Number(points) || null;
-  const shouldExcludeUsedByCategory = online.mode === "local";
+  const shouldExcludeUsedByCategory = online.mode === "local" || online.mode === "online";
   const excludeIds = (!normalizedId && shouldExcludeUsedByCategory) ? getExcludedQuestionIds(normalizedCategory) : [];
   const requestFullCategoryPool = preferFullCategoryPool || normalizedPoints === null;
 
@@ -1028,7 +1062,11 @@ async function fetchQuestionPayload({
           preferFullCategoryPool: true,
         });
       }
-      clearUsedCategoryHistory(normalizedCategory);
+      if (online.mode === "online") {
+        await syncOnlineUsedCategoryHistory(normalizedCategory, { reset: true });
+      } else {
+        clearUsedCategoryHistory(normalizedCategory);
+      }
       return fetchQuestionPayload({
         category: normalizedCategory,
         points: null,
@@ -1588,6 +1626,13 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       return;
     }
     tile.questionId = q.id;
+    if (online.mode === "online") {
+      try {
+        await syncOnlineUsedCategoryHistory(tile.category, { questionId: q.id });
+      } catch (error) {
+        console.warn("[Tasleya] Unable to sync used online question history", { category: tile.category, questionId: q.id, error });
+      }
+    }
     state.activeQuestion = q;
     warmQuestionMedia(q, { highPriority: true });
     prefetchAnswerPayload(q.id);
@@ -2498,6 +2543,7 @@ async function createOnlineRoom() {
       guestConnected: false,
       gameStarted: false,
       game: null,
+      usedQuestionsByCategory: {},
     };
     await ref.set(roomPayload);
     await connectToRoom(code, 1);
@@ -2591,6 +2637,7 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
     if (!room) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
 
     const roomTeamCount = normalizeTeamCount(room.teamCount);
+    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
     const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === online.clientId);
     if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
@@ -2640,6 +2687,7 @@ async function connectToRoom(code, teamSlot) {
     }
 
     const roomTeamCount = normalizeTeamCount(room.teamCount);
+    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
     const connections = normalizeParticipantConnections(room);
     const records = normalizeParticipantRecords(room);
@@ -2809,6 +2857,7 @@ function resetOnlineMode() {
   online.participantSlots = { 1: null, 2: null, 3: null };
   online.participantRecords = { 1: null, 2: null, 3: null };
   online.currentTurnTeam = null;
+  online.usedQuestionsByCategory = {};
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
   clearSavedOnlineSession();
