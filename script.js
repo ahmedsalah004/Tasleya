@@ -203,6 +203,7 @@ const state = {
   currentChoices: [],
   currentHintText: "",
   activeQuestion: null,
+  loadingQuestion: false,
   revealRequested: false,
   pendingOtherTeamSelection: false,
   resolvingOtherTeam: false,
@@ -1388,6 +1389,14 @@ function checkEndOfGame() {
 }
 
 function renderBoard() {
+  if (online.mode === "online") {
+    console.log("[Tasleya][renderBoard] render run", {
+      activeTileId: state.activeTile?.id || null,
+      activeQuestionId: state.activeQuestion?.id || null,
+      loadingQuestion: !!state.loadingQuestion,
+      modalOpen: !el.modal?.classList.contains("hidden"),
+    });
+  }
   if (state.dataLoadFailed || state.selectedCategories.length !== getRequiredCategoryCount() || state.pointLevels.length === 0) {
     el.board.innerHTML = "";
     el.board.style.removeProperty("--board-columns");
@@ -1572,6 +1581,12 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || tile.missing) return;
   state.activeTile = tile;
+  state.loadingQuestion = true;
+  console.log("[Tasleya][openQuestion] loading-question set", {
+    tileId,
+    activeTileId: state.activeTile?.id || null,
+    reason: restored ? "restored-open" : "tile-click-open",
+  });
   state.revealRequested = false;
   tile.timedOut = false;
   console.log("[Tasleya][openQuestion] preparing modal show", {
@@ -1614,8 +1629,13 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     });
     if (!q) {
       tile.missing = true;
+      console.log("[Tasleya][openQuestion] clearing question state", {
+        reason: "question-not-found",
+        activeTileId: state.activeTile?.id || null,
+      });
       state.activeTile = null;
       state.activeQuestion = null;
+      state.loadingQuestion = false;
       renderBoard();
       persistLocalProgress();
       showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
@@ -1630,6 +1650,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       }
     }
     state.activeQuestion = q;
+    state.loadingQuestion = false;
     console.log("[Tasleya][openQuestion] active question assigned", {
       activeTileId: state.activeTile?.id || null,
       activeQuestionId: state.activeQuestion?.id || null,
@@ -1652,9 +1673,15 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       zIndex: modalStyleAfterRender.zIndex,
     });
   } catch (error) {
+    console.log("[Tasleya][openQuestion] clearing question state", {
+      reason: "question-fetch-failed",
+      error: error?.message || String(error),
+      activeTileId: state.activeTile?.id || null,
+    });
     closeModal({ silentSync: true, force: true });
     state.activeTile = null;
     state.activeQuestion = null;
+    state.loadingQuestion = false;
     if (error?.code === "QUESTION_RESPONSE_SHAPE_INVALID") {
       showError(error.message);
       return;
@@ -1689,12 +1716,31 @@ function closeModal({ silentSync = false, force = false } = {}) {
   el.hintBox.classList.add("hidden");
   showQuestionStatus("");
   updateLateOtherTeamPrompt();
-  if (el.modal.classList.contains("hidden")) { state.activeTile = null; state.activeQuestion = null; return; }
+  if (el.modal.classList.contains("hidden")) {
+    console.log("[Tasleya][question-state] clearing question state", { reason: "closeModal:hidden" });
+    state.activeTile = null;
+    state.activeQuestion = null;
+    state.loadingQuestion = false;
+    return;
+  }
   if (prefersReducedMotion) {
-    el.modal.classList.add("hidden"); el.modal.classList.remove("is-open", "is-closing"); state.activeTile = null; state.activeQuestion = null;
+    el.modal.classList.add("hidden");
+    el.modal.classList.remove("is-open", "is-closing");
+    console.log("[Tasleya][question-state] clearing question state", { reason: "closeModal:reduced-motion" });
+    state.activeTile = null;
+    state.activeQuestion = null;
+    state.loadingQuestion = false;
   } else {
     el.modal.classList.remove("is-open"); el.modal.classList.add("is-closing");
-    const onEnd = () => { el.modal.classList.add("hidden"); el.modal.classList.remove("is-closing"); state.activeTile = null; state.activeQuestion = null; el.modal.removeEventListener("animationend", onEnd, true); };
+    const onEnd = () => {
+      el.modal.classList.add("hidden");
+      el.modal.classList.remove("is-closing");
+      console.log("[Tasleya][question-state] clearing question state", { reason: "closeModal:animation-end" });
+      state.activeTile = null;
+      state.activeQuestion = null;
+      state.loadingQuestion = false;
+      el.modal.removeEventListener("animationend", onEnd, true);
+    };
     el.modal.addEventListener("animationend", onEnd, true);
   }
   updateCloseButtonLock();
@@ -1715,6 +1761,7 @@ function resetGameState() {
   hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
   state.activeQuestion = null;
+  state.loadingQuestion = false;
   state.answerRevealed = false;
   state.revealRequested = false;
   state.currentChoices = [];
@@ -2042,7 +2089,18 @@ function serializeGameState() {
 
 async function applyRemoteGameState(game) {
   if (!game) return;
-  const localQuestionInFlight = !!state.activeTile && !!state.activeQuestion && !state.activeTile.used;
+  console.log("[Tasleya][sync] applyRemoteGameState run", {
+    remoteModalOpen: !!game.modalOpen,
+    remoteActiveTileId: game.activeTileId || null,
+    remoteActiveQuestionId: game.activeQuestionId || null,
+    localActiveTileId: state.activeTile?.id || null,
+    localActiveQuestionId: state.activeQuestion?.id || null,
+    localLoadingQuestion: !!state.loadingQuestion,
+    localModalOpen: !el.modal?.classList.contains("hidden"),
+  });
+  const localQuestionInFlight = !!state.activeTile && !state.activeTile.used && (
+    !!state.activeQuestion || !!state.loadingQuestion || !el.modal?.classList.contains("hidden")
+  );
   const staleModalCloseForHost = online.role === "host" && localQuestionInFlight && !game.modalOpen;
   if (staleModalCloseForHost) {
     console.log("[Tasleya][sync] skipped stale remote clear after openQuestion", {
@@ -2050,6 +2108,7 @@ async function applyRemoteGameState(game) {
       localActiveQuestionId: state.activeQuestion?.id || null,
       remoteModalOpen: !!game.modalOpen,
       remoteActiveTileId: game.activeTileId || null,
+      localLoadingQuestion: !!state.loadingQuestion,
     });
     return;
   }
@@ -2076,7 +2135,13 @@ async function applyRemoteGameState(game) {
     state.revealRequested = state.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
+    console.log("[Tasleya][sync] replacing active question from remote baseline", {
+      reason: "remote-state-apply-start",
+      previousActiveQuestionId: state.activeQuestion?.id || null,
+      previousLoadingQuestion: !!state.loadingQuestion,
+    });
     state.activeQuestion = null;
+    state.loadingQuestion = false;
 
     syncTeamNameInputs();
     updateTeamModeUI();
@@ -2100,6 +2165,7 @@ async function applyRemoteGameState(game) {
             state.activeTile = tile;
             tile.questionId = remoteQuestion.id;
             state.activeQuestion = remoteQuestion;
+            state.loadingQuestion = false;
             clearQuestionMedia();
             renderQuestionContent(remoteQuestion);
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
@@ -2163,6 +2229,7 @@ async function applyRemoteGameState(game) {
       });
       state.activeTile = null;
       state.activeQuestion = null;
+      state.loadingQuestion = false;
       closeModal({ silentSync: true, force: true });
     }
 
@@ -3377,6 +3444,11 @@ function initializeApp() {
   bindEvent(el.board, "click", (event) => {
     const tileBtn = event.target?.closest?.("[data-tile-id]");
     if (!tileBtn || !el.board.contains(tileBtn)) return;
+    console.log("[Tasleya][board] tile click", {
+      tileId: tileBtn.dataset.tileId,
+      mode: online.mode,
+      role: online.role,
+    });
     animateTileSelection(tileBtn);
     openQuestion(tileBtn.dataset.tileId);
   }, "board");
