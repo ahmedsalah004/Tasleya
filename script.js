@@ -590,7 +590,7 @@ function updateQuestionActionLock() {
   const disableAnsweringActions = lockByTimeout || lockByTurn;
   const disableHostActions = lockByTimeout || lockByHostControl;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
-  el.revealBtn.disabled = disableHostActions || state.answerRevealed;
+  el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed;
   el.correctBtn.disabled = disableHostActions || lockByReveal;
   el.wrongBtn.disabled = disableHostActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
@@ -1878,7 +1878,7 @@ function resetGameState() {
 
 async function revealAnswer() {
   const question = getActiveQuestion();
-  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !isOnlineHostClient())) return;
+  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
   console.time("[Tasleya][reveal] click_to_answer_visible");
   console.time("[Tasleya][reveal] local_state_update");
   state.revealRequested = true;
