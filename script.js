@@ -2922,10 +2922,11 @@ async function connectToRoom(code, teamSlot) {
     if (room?.meta?.status === "playing" && remoteGameState) {
       closeCategoryPicker();
       const applyNonce = ++online.remoteApplyNonce;
-      applyRemoteGameState(remoteGameState, { applyNonce });
-      processPendingTilePickRequest(room, remoteGameState).catch((error) => {
-        console.warn("[Tasleya][online] pending tile-pick processing failed", error);
-      });
+      applyRemoteGameState(remoteGameState, { applyNonce })
+        .then(() => processPendingTilePickRequest(room, remoteGameState))
+        .catch((error) => {
+          console.warn("[Tasleya][online] playing-state sync failed", error);
+        });
     } else if (remoteGameState) {
       ensureQuestionBankStateLoaded()
         .then(() => {
