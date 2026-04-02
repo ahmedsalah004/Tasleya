@@ -1541,6 +1541,7 @@ function getMyTeamNumber() {
 }
 function resolveOnlineTeamSlot() {
   if (online.mode !== "online") return null;
+  const currentUid = normalizeCell(online.uid);
   const participantSlots = online.participantSlots && typeof online.participantSlots === "object"
     ? online.participantSlots
     : buildEmptyParticipantSlots();
@@ -1549,12 +1550,22 @@ function resolveOnlineTeamSlot() {
     : buildEmptyParticipantRecords();
 
   for (let slot = 1; slot <= 3; slot += 1) {
-    if (normalizeCell(participantSlots[slot]) === online.uid) return slot;
+    if (currentUid && normalizeCell(participantSlots[slot]) === currentUid) return slot;
   }
   for (let slot = 1; slot <= 3; slot += 1) {
-    if (normalizeCell(participantRecords[slot]?.uid) === online.uid) return slot;
+    if (currentUid && normalizeCell(participantRecords[slot]?.uid) === currentUid) return slot;
   }
   return Number(online.resolvedTeamSlot || online.teamSlot) || null;
+}
+function resolveCurrentTurnTeam() {
+  const activeTeams = getActiveTeamNumbers();
+  if (online.mode === "online" && activeTeams.includes(Number(online.currentTurnTeam))) {
+    return Number(online.currentTurnTeam);
+  }
+  if (activeTeams.includes(Number(state.currentTeam))) {
+    return Number(state.currentTeam);
+  }
+  return activeTeams[0] || 1;
 }
 function getMyControlledTeams() {
   if (online.mode !== "online") return [state.currentTeam];
@@ -1576,11 +1587,8 @@ function isOnlineHostClient() {
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
-  const activeTeams = getActiveTeamNumbers();
-  const resolvedCurrentTeam = activeTeams.includes(Number(state.currentTeam))
-    ? Number(state.currentTeam)
-    : (activeTeams[0] || 1);
-  const myTeamSlot = Number(resolveOnlineTeamSlot());
+  const resolvedCurrentTeam = resolveCurrentTurnTeam();
+  const myTeamSlot = Number(resolveOnlineTeamSlot() || online.resolvedTeamSlot || online.teamSlot);
   return !!(myTeamSlot && myTeamSlot === resolvedCurrentTeam);
 }
 
