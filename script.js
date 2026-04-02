@@ -3113,10 +3113,10 @@ async function connectToRoom(code, teamSlot) {
     }
 
     if (room?.meta?.status === "playing" && remoteGameState) {
-      const hostSetupScreenVisible = online.role === "host"
+      const hostSetupScreenVisible = isOnlineHostClient()
         && !el.categoryModal.classList.contains("hidden")
         && state.boardTiles.length === 0;
-      if (online.role === "host" && (online.hostSetupInFlight || hostSetupScreenVisible)) {
+      if (online.hostSetupInFlight || hostSetupScreenVisible) {
         saveOnlineSession();
         online.restoringFromSavedSession = false;
         online.sessionRestoreInProgress = false;
