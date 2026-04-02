@@ -250,6 +250,7 @@ const online = {
   processingScoreRequestId: "",
   remoteApplyNonce: 0,
   activeRemoteApplyNonce: 0,
+  hostStartInFlight: false,
 };
 
 const soundState = {
@@ -3099,6 +3100,7 @@ async function connectToRoom(code, teamSlot) {
     }
 
     if (room?.meta?.status === "playing") {
+      online.hostStartInFlight = false;
       closeOnlineModal();
       setOnlineStatus("بدأت اللعبة");
     } else if (online.role === "host") {
@@ -3121,11 +3123,14 @@ async function connectToRoom(code, teamSlot) {
           console.warn("[Tasleya][online] playing-state sync failed", error);
         });
     } else if (remoteGameState) {
-      ensureQuestionBankStateLoaded()
-        .then(() => {
-          if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(remoteGameState);
-        })
-        .catch(() => {});
+      const shouldSkipHostLobbyHydration = online.role === "host" && online.hostStartInFlight;
+      if (!shouldSkipHostLobbyHydration) {
+        ensureQuestionBankStateLoaded()
+          .then(() => {
+            if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(remoteGameState);
+          })
+          .catch(() => {});
+      }
     } else if (room?.meta?.status !== "playing" && online.role !== "host") {
       ensureQuestionBankStateLoaded()
         .then(() => {
@@ -3238,6 +3243,7 @@ function resetOnlineMode() {
   online.sessionRestoreInProgress = false;
   online.remoteApplyNonce = 0;
   online.activeRemoteApplyNonce = 0;
+  online.hostStartInFlight = false;
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -3266,6 +3272,9 @@ async function startGameFromSelection() {
   if (online.mode === "online" && online.role !== "host") {
     showHostOnlySetupMessage();
     return;
+  }
+  if (online.mode === "online" && online.role === "host") {
+    online.hostStartInFlight = true;
   }
   setTeamNamesFromCategoryModal();
   closeCategoryPicker();
