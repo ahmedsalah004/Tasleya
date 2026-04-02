@@ -244,6 +244,7 @@ const online = {
   heartbeatTimer: null,
   currentTurnTeam: null,
   usedQuestionsByCategory: {},
+  processingTilePickRequestId: "",
 };
 
 const soundState = {
@@ -1579,7 +1580,24 @@ function canCurrentClientAct() {
   return !!(myTeamSlot && myTeamSlot === resolvedCurrentTeam);
 }
 
-async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
+async function requestHostTilePick(tileId) {
+  if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  const normalizedTileId = normalizeCell(tileId);
+  if (!normalizedTileId) return false;
+  try {
+    await online.roomRef.child(`players/${online.uid}/pendingTilePick`).set({
+      id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      tileId: normalizedTileId,
+      requestedAt: getFirebaseTimestampValue(),
+    });
+    return true;
+  } catch (error) {
+    console.warn("[Tasleya][online] tile-pick request failed", { tileId: normalizedTileId, error });
+    return false;
+  }
+}
+
+async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false } = {}) {
   console.log("[Tasleya][openQuestion] entered", {
     tileId,
     restored,
@@ -1588,7 +1606,11 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     role: online.role,
     applyingRemote: online.applyingRemote,
   });
-  if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipTurnGuard && !isOnlineHostClient()) {
+    await requestHostTilePick(tileId);
+    return;
+  }
   if (hasUnresolvedActiveQuestion()) return;
   stopAndResetTimer(); clearQuestionMedia();
   const tile = state.boardTiles.find((t) => t.id === tileId);
@@ -1713,6 +1735,42 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   }
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+}
+
+async function processPendingTilePickRequest(room, remoteGameState) {
+  if (online.mode !== "online" || !isOnlineHostClient() || !online.roomRef) return;
+  if (!remoteGameState || !!remoteGameState.modalOpen) return;
+  if (hasUnresolvedActiveQuestion() || state.loadingQuestion) return;
+  const players = room?.players && typeof room.players === "object" ? room.players : {};
+  const activeTeams = getActiveTeamNumbers();
+  const currentTeam = activeTeams.includes(Number(remoteGameState.currentTeam))
+    ? Number(remoteGameState.currentTeam)
+    : (activeTeams[0] || 1);
+
+  let selectedRequest = null;
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    if (selectedRequest) return;
+    const slot = Number(rawRecord?.teamIndex);
+    const request = rawRecord?.pendingTilePick;
+    const requestedTileId = normalizeCell(request?.tileId);
+    const requestId = normalizeCell(request?.id);
+    if (slot !== currentTeam || !requestedTileId || !requestId) return;
+    selectedRequest = { uid: normalizeCell(uid), slot, requestedTileId, requestId };
+  });
+
+  if (!selectedRequest) return;
+  if (online.processingTilePickRequestId === selectedRequest.requestId) return;
+
+  const tile = state.boardTiles.find((candidate) => candidate.id === selectedRequest.requestedTileId);
+  const canOpenTile = !!tile && !tile.used && !tile.missing;
+  online.processingTilePickRequestId = selectedRequest.requestId;
+  try {
+    await online.roomRef.child(`players/${selectedRequest.uid}/pendingTilePick`).remove();
+    if (!canOpenTile) return;
+    await openQuestion(selectedRequest.requestedTileId, { skipTurnGuard: true });
+  } finally {
+    online.processingTilePickRequestId = "";
+  }
 }
 
 function closeModal({ silentSync = false, force = false } = {}) {
@@ -2816,6 +2874,9 @@ async function connectToRoom(code, teamSlot) {
     if (room?.meta?.status === "playing" && remoteGameState) {
       closeCategoryPicker();
       applyRemoteGameState(remoteGameState);
+      processPendingTilePickRequest(room, remoteGameState).catch((error) => {
+        console.warn("[Tasleya][online] pending tile-pick processing failed", error);
+      });
     } else if (remoteGameState) {
       ensureQuestionBankStateLoaded()
         .then(() => {
