@@ -2494,48 +2494,61 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
     const code = normalizeCell(codeInput).toUpperCase();
     if (!code) throw new Error("أدخل كود الغرفة أولاً.");
     const ref = roomRefByCode(code);
-    const transactionResult = await ref.transaction((room) => {
-      if (!room) return room;
-      if (room.endedAt || room?.meta?.status === "ended") return;
+    const maxAttempts = 3;
+    let room = null;
+    let mySlot = null;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const snapshot = await ref.get();
+      room = snapshot.val();
+      if (!room) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
+      if (room.endedAt || room?.meta?.status === "ended") {
+        throw new Error("تعذّر الاستعادة: الغرفة انتهت.");
+      }
+
       const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
       const players = room.players && typeof room.players === "object" ? room.players : {};
       const slots = normalizeParticipantSlots(room);
-      let mySlot = Number(players?.[online.uid]?.teamIndex) || null;
-      if (!mySlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount && !slots[preferredTeamSlot]) mySlot = preferredTeamSlot;
-      if (!mySlot) {
+      const existingSlot = Number(players?.[online.uid]?.teamIndex) || null;
+      let selectedSlot = existingSlot;
+
+      if (!selectedSlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount && !slots[preferredTeamSlot]) {
+        selectedSlot = preferredTeamSlot;
+      }
+      if (!selectedSlot) {
         for (let slot = 1; slot <= roomTeamCount; slot += 1) {
           if (!slots[slot]) {
-            mySlot = slot;
+            selectedSlot = slot;
             break;
           }
         }
       }
-      if (!mySlot) return;
-      room.players = {
-        ...players,
-        [online.uid]: {
-          name: normalizeCell(state.teamNames?.[mySlot]) || normalizeCell(players?.[online.uid]?.name) || `الفريق ${mySlot}`,
-          teamIndex: mySlot,
-          connected: true,
-          joinedAt: players?.[online.uid]?.joinedAt || Date.now(),
-        },
-      };
-      return room;
-    });
+      if (!selectedSlot) {
+        throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
+      }
 
-    const room = transactionResult.snapshot.val();
-    if (!transactionResult.committed) {
-      if (room?.endedAt) throw new Error("تعذّر الاستعادة: الغرفة انتهت.");
-      if (room) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
-      throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
+      await ref.child(`players/${online.uid}`).update({
+        name: normalizeCell(state.teamNames?.[selectedSlot]) || normalizeCell(players?.[online.uid]?.name) || `الفريق ${selectedSlot}`,
+        teamIndex: selectedSlot,
+        connected: true,
+        joinedAt: players?.[online.uid]?.joinedAt || Date.now(),
+      });
+
+      const verification = await ref.get();
+      room = verification.val();
+      if (!room) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
+      const verifiedSlots = normalizeParticipantSlots(room);
+      if (verifiedSlots[selectedSlot] === online.uid) {
+        mySlot = selectedSlot;
+        break;
+      }
     }
+
     if (!room) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
+    if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
 
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
     online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
-    const slots = normalizeParticipantSlots(room);
-    const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === online.uid);
-    if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
 
     setLocalTeamCount(roomTeamCount);
     updateTeamModeUI();
