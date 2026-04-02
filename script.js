@@ -2921,8 +2921,10 @@ function disconnectOnlineListeners() {
 }
 
 function pushOnlineState() {
-  const canSync = canCurrentClientAct() || isOnlineHostClient();
-  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !canSync) return;
+  // In online mode the host is the single writer for the authoritative game lifecycle.
+  // Allowing non-host clients to publish full `public/gameState` snapshots can overwrite
+  // freshly advanced host state (reveal/score/close/turn handoff) with stale values.
+  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !isOnlineHostClient()) return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
     "meta/maxTeams": normalizeTeamCount(state.teamCount),
