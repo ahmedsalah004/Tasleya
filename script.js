@@ -1558,6 +1558,14 @@ function canCurrentClientAct() {
 }
 
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
+  console.log("[Tasleya][openQuestion] entered", {
+    tileId,
+    restored,
+    questionId: questionId || null,
+    mode: online.mode,
+    role: online.role,
+    applyingRemote: online.applyingRemote,
+  });
   if (online.mode === "online" && !canCurrentClientAct()) return;
   if (hasUnresolvedActiveQuestion()) return;
   stopAndResetTimer(); clearQuestionMedia();
@@ -1566,10 +1574,22 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   state.activeTile = tile;
   state.revealRequested = false;
   tile.timedOut = false;
+  console.log("[Tasleya][openQuestion] preparing modal show", {
+    hasModalElement: !!el.modal,
+    modalInitiallyHidden: el.modal?.classList.contains("hidden"),
+  });
   el.modal.classList.remove("hidden");
   requestAnimationFrame(() => {
     el.modal.classList.remove("is-closing");
     el.modal.classList.add("is-open");
+    const modalStyle = window.getComputedStyle(el.modal);
+    console.log("[Tasleya][openQuestion] modal show called", {
+      classList: Array.from(el.modal.classList),
+      display: modalStyle.display,
+      visibility: modalStyle.visibility,
+      opacity: modalStyle.opacity,
+      zIndex: modalStyle.zIndex,
+    });
   });
   el.questionText.textContent = "جارٍ تحميل السؤال...";
   el.answerText.textContent = "الإجابة: ...";
@@ -1610,12 +1630,27 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       }
     }
     state.activeQuestion = q;
+    console.log("[Tasleya][openQuestion] active question assigned", {
+      activeTileId: state.activeTile?.id || null,
+      activeQuestionId: state.activeQuestion?.id || null,
+      modalHidden: el.modal?.classList.contains("hidden"),
+    });
     warmQuestionMedia(q, { highPriority: true });
     prefetchAnswerPayload(q.id);
     preloadLikelyNextQuestionMedia();
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
     renderQuestionContent(q);
+    const modalStyleAfterRender = window.getComputedStyle(el.modal);
+    console.log("[Tasleya][openQuestion] question rendered", {
+      hasModalElement: !!el.modal,
+      modalHidden: el.modal?.classList.contains("hidden"),
+      classList: el.modal ? Array.from(el.modal.classList) : [],
+      display: modalStyleAfterRender.display,
+      visibility: modalStyleAfterRender.visibility,
+      opacity: modalStyleAfterRender.opacity,
+      zIndex: modalStyleAfterRender.zIndex,
+    });
   } catch (error) {
     closeModal({ silentSync: true, force: true });
     state.activeTile = null;
@@ -2007,6 +2042,17 @@ function serializeGameState() {
 
 async function applyRemoteGameState(game) {
   if (!game) return;
+  const localQuestionInFlight = !!state.activeTile && !!state.activeQuestion && !state.activeTile.used;
+  const staleModalCloseForHost = online.role === "host" && localQuestionInFlight && !game.modalOpen;
+  if (staleModalCloseForHost) {
+    console.log("[Tasleya][sync] skipped stale remote clear after openQuestion", {
+      localActiveTileId: state.activeTile?.id || null,
+      localActiveQuestionId: state.activeQuestion?.id || null,
+      remoteModalOpen: !!game.modalOpen,
+      remoteActiveTileId: game.activeTileId || null,
+    });
+    return;
+  }
   online.applyingRemote = true;
   try {
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
@@ -2109,6 +2155,12 @@ async function applyRemoteGameState(game) {
     }
 
     if (!syncedOpenModal) {
+      console.log("[Tasleya][sync] remote state cleared active question/modal", {
+        remoteModalOpen: !!game.modalOpen,
+        remoteActiveTileId: game.activeTileId || null,
+        localActiveTileIdBeforeClear: state.activeTile?.id || null,
+        localActiveQuestionIdBeforeClear: state.activeQuestion?.id || null,
+      });
       state.activeTile = null;
       state.activeQuestion = null;
       closeModal({ silentSync: true, force: true });
