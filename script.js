@@ -937,7 +937,7 @@ function ensureOnlineCategoryHistoryBucket(category) {
 async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset = false } = {}) {
   const normalizedCategory = normalizeCell(category);
   const normalizedQuestionId = normalizeCell(questionId);
-  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote) return;
+  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !isOnlineHostClient()) return;
   const usedHistoryRef = online.roomRef.child("public/gameState/usedQuestionsByCategory");
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
@@ -1539,9 +1539,16 @@ function getMyControlledTeams() {
   if (online.mode !== "online") return [state.currentTeam];
   return [resolveOnlineTeamSlot() || 1];
 }
+function isOnlineHostClient() {
+  if (online.mode !== "online") return true;
+  const currentUid = normalizeCell(online.uid);
+  const hostUid = normalizeCell(online.participantRecords?.[1]?.uid || online.participantSlots?.[1]);
+  if (!currentUid) return online.role === "host";
+  return online.role === "host" || (hostUid && hostUid === currentUid);
+}
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
-  return online.role === "host";
+  return isOnlineHostClient();
 }
 
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
@@ -2604,6 +2611,7 @@ async function connectToRoom(code, teamSlot) {
     }) || Number(teamSlot) || null;
     const myRecord = resolvedSlot ? records[resolvedSlot] : null;
     const hostUid = normalizeCell(room?.meta?.hostUid);
+    const currentUid = normalizeCell(online.uid);
 
     online.participantSlots = slots;
     online.participantRecords = records;
@@ -2613,7 +2621,9 @@ async function connectToRoom(code, teamSlot) {
     online.currentTurnTeam = remoteGameState && validRoomTeams.includes(Number(remoteGameState.currentTeam))
       ? Number(remoteGameState.currentTeam)
       : null;
-    online.role = hostUid && hostUid === online.uid ? "host" : "guest";
+    const slotOneUid = normalizeCell(slots[1]) || normalizeCell(records[1]?.uid);
+    const isHostClient = (hostUid && hostUid === currentUid) || (!hostUid && slotOneUid && slotOneUid === currentUid);
+    online.role = isHostClient ? "host" : "guest";
 
     if (!resolvedSlot || (slots[resolvedSlot] && slots[resolvedSlot] !== online.uid && normalizeCell(myRecord?.uid) !== online.uid)) {
       handleOnlineRoomUnavailable("تم فقدان مقعدك في الغرفة.");
@@ -2708,7 +2718,7 @@ function disconnectOnlineListeners() {
 }
 
 function pushOnlineState() {
-  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || online.role !== "host") return;
+  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !isOnlineHostClient()) return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
     "meta/maxTeams": normalizeTeamCount(state.teamCount),
