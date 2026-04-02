@@ -251,6 +251,7 @@ const online = {
   remoteApplyNonce: 0,
   activeRemoteApplyNonce: 0,
   hostStartInFlight: false,
+  hostSetupInFlight: false,
 };
 
 const soundState = {
@@ -3083,6 +3084,9 @@ async function connectToRoom(code, teamSlot) {
     updateTeamModeUI();
     updateOnlineTeamCountControls();
     saveOnlineSession();
+    if (online.role === "host" && online.hostSetupInFlight && room?.meta?.status !== "playing") {
+      online.hostSetupInFlight = false;
+    }
 
     if (online.role === "host") {
       const joinedCount = getParticipantCount(slots, roomTeamCount);
@@ -3113,6 +3117,12 @@ async function connectToRoom(code, teamSlot) {
     }
 
     if (room?.meta?.status === "playing" && remoteGameState) {
+      if (online.role === "host" && online.hostSetupInFlight) {
+        saveOnlineSession();
+        online.restoringFromSavedSession = false;
+        online.sessionRestoreInProgress = false;
+        return;
+      }
       closeCategoryPicker();
       const applyNonce = ++online.remoteApplyNonce;
       applyRemoteGameState(remoteGameState, { applyNonce })
@@ -3244,6 +3254,7 @@ function resetOnlineMode() {
   online.remoteApplyNonce = 0;
   online.activeRemoteApplyNonce = 0;
   online.hostStartInFlight = false;
+  online.hostSetupInFlight = false;
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -3869,6 +3880,9 @@ function initializeApp() {
       showHostOnlyStartMessage();
       return;
     }
+    if (online.mode === "online" && online.role === "host") {
+      online.hostSetupInFlight = true;
+    }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
       online.roomRef.update({
         "meta/maxTeams": normalizeTeamCount(state.teamCount),
@@ -3878,9 +3892,15 @@ function initializeApp() {
         "public/scores": { 1: 0, 2: 0, 3: 0 },
       }).catch(() => {});
     }
-    await startNewGame({
-      onBeforeOpenCategoryPicker: () => closeOnlineModal(),
-    });
+    try {
+      await startNewGame({
+        onBeforeOpenCategoryPicker: () => closeOnlineModal(),
+      });
+    } catch (_) {
+      if (online.mode === "online" && online.role === "host") {
+        online.hostSetupInFlight = false;
+      }
+    }
   }, "startOnlineGameBtn");
   bindEvent(el.copyCodeBtn, "click", async () => {
     if (!online.roomCode) return;
