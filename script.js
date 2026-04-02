@@ -1559,11 +1559,11 @@ function resolveOnlineTeamSlot() {
 }
 function resolveCurrentTurnTeam() {
   const activeTeams = getActiveTeamNumbers();
-  if (online.mode === "online" && activeTeams.includes(Number(online.currentTurnTeam))) {
-    return Number(online.currentTurnTeam);
-  }
   if (activeTeams.includes(Number(state.currentTeam))) {
     return Number(state.currentTeam);
+  }
+  if (online.mode === "online" && activeTeams.includes(Number(online.currentTurnTeam))) {
+    return Number(online.currentTurnTeam);
   }
   return activeTeams[0] || 1;
 }
@@ -1880,6 +1880,7 @@ async function revealAnswer() {
   console.time("[Tasleya][reveal] click_to_answer_visible");
   console.time("[Tasleya][reveal] local_state_update");
   state.revealRequested = true;
+  state.answerRevealed = true;
   stopTimerWarningSound();
   el.revealBtn.disabled = true;
   const cachedResponse = questionBankCache.answersById.get(question.id);
@@ -1892,9 +1893,11 @@ async function revealAnswer() {
     console.log("[Tasleya][reveal] render_complete");
   });
   try {
+    if (online.mode === "online" && !online.applyingRemote) {
+      pushOnlineState();
+    }
     const response = cachedResponse || await prefetchAnswerPayload(question.id) || await fetchAnswerPayload(question.id);
     el.answerText.textContent = `الإجابة: ${response.correctAnswer || "غير متاحة"}`;
-    state.answerRevealed = true;
     showQuestionStatus("");
     updateQuestionActionLock();
     if (!prefersReducedMotion) {
@@ -1912,9 +1915,11 @@ async function revealAnswer() {
     }
   } catch (error) {
     showQuestionStatus("");
+    state.answerRevealed = false;
     el.revealBtn.disabled = false;
     el.answerText.classList.add("hidden");
     state.revealRequested = false;
+    updateQuestionActionLock();
     showError(`تعذّر إظهار الإجابة. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
   }
 }
@@ -2231,9 +2236,12 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
       3: normalizeCell(game?.teamNames?.[3] ?? game?.teamNames?.team3) || "الفريق الثالث",
     };
     state.currentTeam = getActiveTeamNumbers().includes(Number(game.currentTeam)) ? Number(game.currentTeam) : 1;
+    online.currentTurnTeam = state.currentTeam;
     mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false, 3: false };
     hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false, 3: false };
-    state.answerRevealed = !!game.answerRevealed;
+    const remoteAnswerRevealed = !!game.answerRevealed;
+    const preserveLocalReveal = online.role === "host" && state.revealRequested && !remoteAnswerRevealed;
+    state.answerRevealed = preserveLocalReveal ? true : remoteAnswerRevealed;
     state.revealRequested = state.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
@@ -2277,6 +2285,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             renderQuestionContent(remoteQuestion);
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
             if (state.answerRevealed) {
+              el.answerText.textContent = "الإجابة: جارٍ التحميل...";
               const answerResponse = await fetchAnswerPayload(remoteQuestion.id);
               el.answerText.textContent = `الإجابة: ${answerResponse.correctAnswer || "غير متاحة"}`;
             }
