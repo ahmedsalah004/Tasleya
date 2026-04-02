@@ -8,11 +8,10 @@ const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
-const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
-const FIREBASE_ROOMS_PATH = "tasleyaRooms";
+const FIREBASE_ROOMS_PATH = "rooms";
 const CONTACT_MESSAGES_COLLECTION = "contactMessages";
 const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
@@ -230,11 +229,13 @@ const online = {
   applyingRemote: false,
   firebaseReady: false,
   db: null,
+  auth: null,
   firestore: null,
   creatingRoom: false,
   joiningRoom: false,
   selectedTeamCount: 2,
-  clientId: null,
+  uid: null,
+  authReadyPromise: null,
   sessionRestoreInProgress: false,
   restoringFromSavedSession: false,
   connectionStateRef: null,
@@ -267,67 +268,38 @@ function buildEmptyParticipantRecords() {
 
 function normalizeParticipantSlots(room = {}) {
   const slots = buildEmptyParticipantSlots();
-  if (room.participantSlots && typeof room.participantSlots === "object") {
-    [1, 2, 3].forEach((slot) => {
-      const clientId = normalizeCell(room.participantSlots[slot]);
-      slots[slot] = clientId || null;
-    });
-    return slots;
-  }
-  slots[1] = normalizeCell(room.hostClientId) || null;
-  slots[2] = normalizeCell(room.guestClientId) || null;
+  const players = room.players && typeof room.players === "object" ? room.players : {};
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    const slot = Number(rawRecord?.teamIndex);
+    if (slot >= 1 && slot <= 3 && !slots[slot]) slots[slot] = normalizeCell(uid) || null;
+  });
   return slots;
 }
 
 function normalizeParticipantConnections(room = {}) {
   const connections = buildEmptyParticipantConnections();
-  if (room.participantConnections && typeof room.participantConnections === "object") {
-    [1, 2, 3].forEach((slot) => {
-      connections[slot] = !!room.participantConnections[slot];
-    });
-    return connections;
-  }
-  connections[1] = !!room.hostConnected;
-  connections[2] = !!room.guestConnected;
+  const players = room.players && typeof room.players === "object" ? room.players : {};
+  Object.values(players).forEach((rawRecord) => {
+    const slot = Number(rawRecord?.teamIndex);
+    if (slot >= 1 && slot <= 3) connections[slot] = !!rawRecord?.connected;
+  });
   return connections;
 }
 
 function normalizeParticipantRecords(room = {}) {
   const records = buildEmptyParticipantRecords();
-  const slots = normalizeParticipantSlots(room);
-  const connections = normalizeParticipantConnections(room);
-  const rawParticipants = room.participants && typeof room.participants === "object" ? room.participants : {};
-
-  [1, 2, 3].forEach((slot) => {
-    const rawRecord = rawParticipants[slot];
-    const fallbackClientId = slots[slot] || null;
-    if (rawRecord && typeof rawRecord === "object") {
-      records[slot] = {
-        clientId: normalizeCell(rawRecord.clientId) || fallbackClientId,
-        displayName: normalizeCell(rawRecord.displayName),
-        connected: rawRecord.connected ?? connections[slot],
-        joinedAt: Number(rawRecord.joinedAt) || null,
-        lastSeen: Number(rawRecord.lastSeen) || null,
-        heartbeatAt: Number(rawRecord.heartbeatAt) || null,
-        disconnectedAt: Number(rawRecord.disconnectedAt) || null,
-        teamSlot: slot,
-      };
-      return;
-    }
-
-    if (!fallbackClientId) return;
+  const players = room.players && typeof room.players === "object" ? room.players : {};
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    const slot = Number(rawRecord?.teamIndex);
+    if (!(slot >= 1 && slot <= 3)) return;
     records[slot] = {
-      clientId: fallbackClientId,
-      displayName: "",
-      connected: connections[slot],
-      joinedAt: null,
-      lastSeen: null,
-      heartbeatAt: null,
-      disconnectedAt: null,
+      uid: normalizeCell(uid),
+      displayName: normalizeCell(rawRecord?.name),
+      connected: !!rawRecord?.connected,
+      joinedAt: Number(rawRecord?.joinedAt) || null,
       teamSlot: slot,
     };
   });
-
   return records;
 }
 
@@ -466,13 +438,6 @@ function safeStorageRemove(storage, key) {
 }
 function createRandomId() {
   return (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-function getOrCreateStableClientId() {
-  const existing = normalizeCell(safeStorageGet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY));
-  if (existing) return existing;
-  const created = createRandomId();
-  safeStorageSet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY, created);
-  return created;
 }
 function showError(message) { el.errorBanner.textContent = message; el.errorBanner.classList.remove("hidden"); }
 function clearError() { el.errorBanner.textContent = ""; el.errorBanner.classList.add("hidden"); }
@@ -973,7 +938,7 @@ async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset 
   const normalizedCategory = normalizeCell(category);
   const normalizedQuestionId = normalizeCell(questionId);
   if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote) return;
-  const usedHistoryRef = online.roomRef.child("usedQuestionsByCategory");
+  const usedHistoryRef = online.roomRef.child("public/gameState/usedQuestionsByCategory");
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
     const bucket = Array.isArray(history[normalizedCategory]) ? history[normalizedCategory] : [];
@@ -1563,10 +1528,10 @@ function resolveOnlineTeamSlot() {
     : buildEmptyParticipantRecords();
 
   for (let slot = 1; slot <= 3; slot += 1) {
-    if (normalizeCell(participantSlots[slot]) === online.clientId) return slot;
+    if (normalizeCell(participantSlots[slot]) === online.uid) return slot;
   }
   for (let slot = 1; slot <= 3; slot += 1) {
-    if (normalizeCell(participantRecords[slot]?.clientId) === online.clientId) return slot;
+    if (normalizeCell(participantRecords[slot]?.uid) === online.uid) return slot;
   }
   return Number(online.resolvedTeamSlot || online.teamSlot) || null;
 }
@@ -1576,9 +1541,7 @@ function getMyControlledTeams() {
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
-  const controlledTeams = getMyControlledTeams();
-  const currentTurnTeam = Number(online.currentTurnTeam || state.currentTeam) || 1;
-  return controlledTeams.includes(currentTurnTeam);
+  return online.role === "host";
 }
 
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
@@ -2161,12 +2124,13 @@ function applyRemoteSetupState(game) {
 }
 
 function buildJoinedGuestSetupPreview(room, records = {}) {
-  const roomTeamCount = normalizeTeamCount(room?.teamCount);
+  const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
   const fallbackNames = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
   const nextTeamNames = {};
+  const remoteGameState = room?.public?.gameState || {};
 
   for (let slot = 1; slot <= 3; slot += 1) {
-    nextTeamNames[slot] = normalizeCell(room?.game?.teamNames?.[slot] ?? room?.game?.teamNames?.[`team${slot}`])
+    nextTeamNames[slot] = normalizeCell(remoteGameState?.teamNames?.[slot] ?? remoteGameState?.teamNames?.[`team${slot}`])
       || normalizeCell(records?.[slot]?.displayName)
       || normalizeCell(state.teamNames?.[slot])
       || fallbackNames[slot];
@@ -2175,12 +2139,12 @@ function buildJoinedGuestSetupPreview(room, records = {}) {
   return {
     teamCount: roomTeamCount,
     teamNames: nextTeamNames,
-    selectedCategories: Array.isArray(room?.game?.selectedCategories) ? [...room.game.selectedCategories] : [],
+    selectedCategories: Array.isArray(room?.public?.selectedCategories) ? [...room.public.selectedCategories] : [],
   };
 }
 
 function showJoinedGuestSetupPreview(room, records = {}) {
-  if (online.mode !== "online" || online.role === "host" || room?.gameStarted) return;
+  if (online.mode !== "online" || online.role === "host" || room?.meta?.status === "playing") return;
   const setupPreview = buildJoinedGuestSetupPreview(room, records);
   online.applyingRemote = true;
   try {
@@ -2264,7 +2228,7 @@ function saveOnlineSession() {
     roomCode: online.roomCode,
     role: online.role,
     teamSlot: resolveOnlineTeamSlot() || online.teamSlot,
-    clientId: online.clientId,
+    uid: online.uid,
     playerDisplayName: getOnlinePlayerDisplayName(),
     savedAt: Date.now(),
   }));
@@ -2277,15 +2241,15 @@ function loadSavedOnlineSession() {
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.mode !== "online") return null;
     const roomCode = normalizeCell(parsed.roomCode).toUpperCase();
-    const clientId = normalizeCell(parsed.clientId);
+    const uid = normalizeCell(parsed.uid);
     const teamSlot = Number(parsed.teamSlot) || null;
-    if (!roomCode || !clientId || !teamSlot) return null;
+    if (!roomCode || !uid || !teamSlot) return null;
     return {
       mode: "online",
       roomCode,
       role: normalizeCell(parsed.role) || (teamSlot === 1 ? "host" : "guest"),
       teamSlot,
-      clientId,
+      uid,
       playerDisplayName: normalizeCell(parsed.playerDisplayName),
       savedAt: Number(parsed.savedAt) || null,
     };
@@ -2302,78 +2266,16 @@ function getFirebaseTimestampValue() {
   return firebase.database.ServerValue.TIMESTAMP;
 }
 
-function getPlayerStaleTimeoutMs(room = {}) {
-  return room.gameStarted ? ONLINE_ACTIVE_GAME_STALE_MS : ONLINE_RECONNECT_GRACE_MS;
-}
-
-function isParticipantRecordStale(record, room = {}, now = Date.now()) {
-  if (!record?.clientId) return true;
-  if (record.connected) return false;
-  const staleSince = Number(record.lastSeen || record.heartbeatAt || record.disconnectedAt || record.joinedAt || 0);
-  if (!staleSince) return false;
-  return (now - staleSince) > getPlayerStaleTimeoutMs(room);
-}
-
-function buildParticipantRecord({ slot, clientId, displayName = "", existingRecord = null, connected = true, now = Date.now() }) {
-  const previous = existingRecord && typeof existingRecord === "object" ? existingRecord : {};
-  return {
-    clientId,
-    displayName: normalizeCell(displayName) || normalizeCell(previous.displayName),
-    connected,
-    joinedAt: Number(previous.joinedAt) || now,
-    lastSeen: now,
-    heartbeatAt: now,
-    disconnectedAt: connected ? null : now,
-    teamSlot: slot,
-  };
-}
-
-function cleanupStaleParticipants(room, slots, connections, records, roomTeamCount, now = Date.now()) {
-  for (let slot = 1; slot <= roomTeamCount; slot += 1) {
-    const record = records[slot];
-    if (!record?.clientId) {
-      slots[slot] = null;
-      connections[slot] = false;
-      records[slot] = null;
-      continue;
-    }
-    if (!isParticipantRecordStale(record, room, now)) continue;
-    slots[slot] = null;
-    connections[slot] = false;
-    records[slot] = null;
-  }
-}
-
-function syncRoomParticipantFields(room, slots, connections, records) {
-  room.participantSlots = slots;
-  room.participantConnections = connections;
-  room.participants = records;
-  room.hostClientId = slots[1] || null;
-  room.guestClientId = slots[2] || null;
-  room.hostConnected = !!connections[1];
-  room.guestConnected = !!connections[2];
-}
-
 function buildPresencePayload(slot, { connected = true, includeDisplayName = true } = {}) {
   const timestamp = getFirebaseTimestampValue();
   const updates = {
-    [`participantConnections/${slot}`]: connected,
-    [`participants/${slot}/clientId`]: online.clientId,
-    [`participants/${slot}/connected`]: connected,
-    [`participants/${slot}/teamSlot`]: slot,
-    [`participants/${slot}/lastSeen`]: timestamp,
-    [`participants/${slot}/heartbeatAt`]: timestamp,
+    [`players/${online.uid}/connected`]: connected,
+    [`players/${online.uid}/teamIndex`]: slot,
+    [`players/${online.uid}/joinedAt`]: timestamp,
   };
   if (includeDisplayName) {
-    updates[`participants/${slot}/displayName`] = getOnlinePlayerDisplayName();
+    updates[`players/${online.uid}/name`] = getOnlinePlayerDisplayName();
   }
-  if (connected) {
-    updates[`participants/${slot}/disconnectedAt`] = null;
-  } else {
-    updates[`participants/${slot}/disconnectedAt`] = timestamp;
-  }
-  if (slot === 1) updates.hostConnected = connected;
-  if (slot === 2) updates.guestConnected = connected;
   return updates;
 }
 
@@ -2414,13 +2316,7 @@ function attachOnlinePresence(slot) {
     if (snapshot.val() !== true || online.mode !== "online" || !online.roomRef) return;
 
     online.roomRef.update(buildPresencePayload(slot)).catch(() => {});
-    online.roomRef.child(`participantConnections/${slot}`).onDisconnect().set(false);
-    online.roomRef.child(`participants/${slot}/connected`).onDisconnect().set(false);
-    online.roomRef.child(`participants/${slot}/lastSeen`).onDisconnect().set(getFirebaseTimestampValue());
-    online.roomRef.child(`participants/${slot}/heartbeatAt`).onDisconnect().set(getFirebaseTimestampValue());
-    online.roomRef.child(`participants/${slot}/disconnectedAt`).onDisconnect().set(getFirebaseTimestampValue());
-    if (slot === 1) online.roomRef.child("hostConnected").onDisconnect().set(false);
-    if (slot === 2) online.roomRef.child("guestConnected").onDisconnect().set(false);
+    online.roomRef.child(`players/${online.uid}/connected`).onDisconnect().set(false);
   };
 
   connectionStateRef.on("value", connectionStateHandler);
@@ -2445,11 +2341,36 @@ function initFirebase() {
     console.log("[Tasleya] Firebase app initialized");
   }
   online.db = firebase.database();
+  if (typeof firebase.auth === "function") {
+    online.auth = firebase.auth();
+  }
   if (typeof firebase.firestore === "function") {
     online.firestore = firebase.firestore();
   }
   online.firebaseReady = true;
   return true;
+}
+
+async function ensureOnlineAuth() {
+  if (!initFirebase() || !online.auth) {
+    throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً");
+  }
+  if (online.auth.currentUser?.uid) {
+    online.uid = online.auth.currentUser.uid;
+    return online.uid;
+  }
+  if (!online.authReadyPromise) {
+    online.authReadyPromise = online.auth.signInAnonymously()
+      .then((result) => {
+        online.uid = result?.user?.uid || online.auth.currentUser?.uid || null;
+        if (!online.uid) throw new Error("تعذّر تفعيل هوية اللاعب.");
+        return online.uid;
+      })
+      .finally(() => {
+        online.authReadyPromise = null;
+      });
+  }
+  return online.authReadyPromise;
 }
 
 function initAnalytics() {
@@ -2510,40 +2431,35 @@ async function createOnlineRoom() {
   setOnlineFeedback("جارٍ إنشاء الغرفة...", "info");
   setCreateRoomLoading(true);
   try {
-    if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js قبل إنشاء غرفة أونلاين");
+    await ensureOnlineAuth();
     const code = randomRoomCode();
     const ref = roomRefByCode(code);
     const selectedTeamCount = normalizeTeamCount(online.selectedTeamCount);
+    const initialGameState = serializeGameState();
+    initialGameState.teamCount = selectedTeamCount;
+    initialGameState.selectedCategories = [];
+    initialGameState.scores = { 1: 0, 2: 0, 3: 0 };
     const roomPayload = {
-      roomCode: code,
-      teamCount: selectedTeamCount,
-      createdAt: Date.now(),
-      participantSlots: {
-        1: online.clientId,
-        2: null,
-        3: null,
+      meta: {
+        createdAt: getFirebaseTimestampValue(),
+        hostUid: online.uid,
+        status: "lobby",
+        mode: "online",
+        maxTeams: selectedTeamCount,
       },
-      participantConnections: {
-        1: true,
-        2: false,
-        3: false,
+      players: {
+        [online.uid]: {
+          name: state.teamNames[1],
+          teamIndex: 1,
+          connected: true,
+          joinedAt: getFirebaseTimestampValue(),
+        },
       },
-      participants: {
-        1: buildParticipantRecord({
-          slot: 1,
-          clientId: online.clientId,
-          displayName: state.teamNames[1],
-        }),
-        2: null,
-        3: null,
+      public: {
+        selectedCategories: [],
+        gameState: initialGameState,
+        scores: { 1: 0, 2: 0, 3: 0 },
       },
-      hostClientId: online.clientId,
-      guestClientId: null,
-      hostConnected: true,
-      guestConnected: false,
-      gameStarted: false,
-      game: null,
-      usedQuestionsByCategory: {},
     };
     await ref.set(roomPayload);
     await connectToRoom(code, 1);
@@ -2574,57 +2490,36 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
   setOnlineFeedback("جارٍ الانضمام إلى الغرفة...", "info");
   setJoinRoomLoading(true);
   try {
-    if (!initFirebase()) throw new Error("يرجى إدخال إعدادات Firebase الصحيحة داخل firebase-config.js أولاً");
+    await ensureOnlineAuth();
     const code = normalizeCell(codeInput).toUpperCase();
     if (!code) throw new Error("أدخل كود الغرفة أولاً.");
     const ref = roomRefByCode(code);
     const transactionResult = await ref.transaction((room) => {
       if (!room) return room;
-      if (room.endedAt) return;
-      const roomTeamCount = normalizeTeamCount(room.teamCount);
-      room.teamCount = roomTeamCount;
+      if (room.endedAt || room?.meta?.status === "ended") return;
+      const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
+      const players = room.players && typeof room.players === "object" ? room.players : {};
       const slots = normalizeParticipantSlots(room);
-      const connections = normalizeParticipantConnections(room);
-      const records = normalizeParticipantRecords(room);
-      const now = Date.now();
-
-      cleanupStaleParticipants(room, slots, connections, records, roomTeamCount, now);
-
-      let mySlot = null;
-      for (let slot = 1; slot <= roomTeamCount; slot += 1) {
-        if (slots[slot] === online.clientId) {
-          mySlot = slot;
-          break;
-        }
-      }
-      if (!mySlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount) {
-        const preferredRecord = records[preferredTeamSlot];
-        if (!slots[preferredTeamSlot] || isParticipantRecordStale(preferredRecord, room, now)) {
-          mySlot = preferredTeamSlot;
-          slots[preferredTeamSlot] = online.clientId;
-        }
-      }
+      let mySlot = Number(players?.[online.uid]?.teamIndex) || null;
+      if (!mySlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount && !slots[preferredTeamSlot]) mySlot = preferredTeamSlot;
       if (!mySlot) {
         for (let slot = 1; slot <= roomTeamCount; slot += 1) {
           if (!slots[slot]) {
-            slots[slot] = online.clientId;
             mySlot = slot;
             break;
           }
         }
       }
       if (!mySlot) return;
-
-      records[mySlot] = buildParticipantRecord({
-        slot: mySlot,
-        clientId: online.clientId,
-        displayName: normalizeCell(state.teamNames?.[mySlot]) || normalizeCell(records[mySlot]?.displayName) || `الفريق ${mySlot}`,
-        existingRecord: records[mySlot],
-        connected: true,
-        now,
-      });
-      connections[mySlot] = true;
-      syncRoomParticipantFields(room, slots, connections, records);
+      room.players = {
+        ...players,
+        [online.uid]: {
+          name: normalizeCell(state.teamNames?.[mySlot]) || normalizeCell(players?.[online.uid]?.name) || `الفريق ${mySlot}`,
+          teamIndex: mySlot,
+          connected: true,
+          joinedAt: players?.[online.uid]?.joinedAt || Date.now(),
+        },
+      };
       return room;
     });
 
@@ -2636,10 +2531,10 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
     }
     if (!room) throw new Error("تعذّر الانضمام: الغرفة غير موجودة.");
 
-    const roomTeamCount = normalizeTeamCount(room.teamCount);
-    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room.usedQuestionsByCategory);
+    const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
+    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
-    const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === online.clientId);
+    const mySlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => slots[slot] === online.uid);
     if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
 
     setLocalTeamCount(roomTeamCount);
@@ -2681,30 +2576,33 @@ async function connectToRoom(code, teamSlot) {
       handleOnlineRoomUnavailable("انتهت الغرفة أو لم تعد متاحة.");
       return;
     }
-    if (room.endedAt) {
+    if (room.endedAt || room?.meta?.status === "ended") {
       handleOnlineRoomUnavailable("انتهت الغرفة.");
       return;
     }
 
-    const roomTeamCount = normalizeTeamCount(room.teamCount);
-    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room.usedQuestionsByCategory);
+    const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
+    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
     const connections = normalizeParticipantConnections(room);
     const records = normalizeParticipantRecords(room);
     const resolvedSlot = Array.from({ length: roomTeamCount }, (_, index) => index + 1).find((slot) => {
-      return normalizeCell(slots[slot]) === online.clientId || normalizeCell(records[slot]?.clientId) === online.clientId;
+      return normalizeCell(slots[slot]) === online.uid || normalizeCell(records[slot]?.uid) === online.uid;
     }) || Number(teamSlot) || null;
     const myRecord = resolvedSlot ? records[resolvedSlot] : null;
+    const hostUid = normalizeCell(room?.meta?.hostUid);
 
     online.participantSlots = slots;
     online.participantRecords = records;
     online.connected = connections;
     const validRoomTeams = Array.from({ length: roomTeamCount }, (_, index) => index + 1);
-    online.currentTurnTeam = room.gameStarted && room.game && validRoomTeams.includes(Number(room.game.currentTeam))
-      ? Number(room.game.currentTeam)
+    const remoteGameState = room?.public?.gameState;
+    online.currentTurnTeam = remoteGameState && validRoomTeams.includes(Number(remoteGameState.currentTeam))
+      ? Number(remoteGameState.currentTeam)
       : null;
+    online.role = hostUid && hostUid === online.uid ? "host" : "guest";
 
-    if (!resolvedSlot || (slots[resolvedSlot] && slots[resolvedSlot] !== online.clientId && normalizeCell(myRecord?.clientId) !== online.clientId)) {
+    if (!resolvedSlot || (slots[resolvedSlot] && slots[resolvedSlot] !== online.uid && normalizeCell(myRecord?.uid) !== online.uid)) {
       handleOnlineRoomUnavailable("تم فقدان مقعدك في الغرفة.");
       return;
     }
@@ -2712,7 +2610,6 @@ async function connectToRoom(code, teamSlot) {
     if (online.teamSlot !== resolvedSlot || online.resolvedTeamSlot !== resolvedSlot) {
       online.teamSlot = resolvedSlot;
       online.resolvedTeamSlot = resolvedSlot;
-      online.role = resolvedSlot === 1 ? "host" : "guest";
       updateOnlineActionPermissions();
       attachOnlinePresence(resolvedSlot);
       saveOnlineSession();
@@ -2739,7 +2636,7 @@ async function connectToRoom(code, teamSlot) {
       }
     }
 
-    if (room.gameStarted) {
+    if (room?.meta?.status === "playing") {
       closeOnlineModal();
       setOnlineStatus("بدأت اللعبة");
     } else if (online.role === "host") {
@@ -2751,16 +2648,16 @@ async function connectToRoom(code, teamSlot) {
       if (online.restoringFromSavedSession) openOnlineModal();
     }
 
-    if (room.gameStarted && room.game) {
+    if (room?.meta?.status === "playing" && remoteGameState) {
       closeCategoryPicker();
-      applyRemoteGameState(room.game);
-    } else if (room.game) {
+      applyRemoteGameState(remoteGameState);
+    } else if (remoteGameState) {
       ensureQuestionBankStateLoaded()
         .then(() => {
-          if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(room.game);
+          if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(remoteGameState);
         })
         .catch(() => {});
-    } else if (!room.gameStarted && online.role !== "host") {
+    } else if (room?.meta?.status !== "playing" && online.role !== "host") {
       ensureQuestionBankStateLoaded()
         .then(() => {
           if (online.mode === "online" && !online.applyingRemote && online.role !== "host") {
@@ -2768,7 +2665,7 @@ async function connectToRoom(code, teamSlot) {
           }
         })
         .catch(() => {});
-    } else if (!room.gameStarted && !el.categoryModal.classList.contains("hidden")) {
+    } else if (room?.meta?.status !== "playing" && !el.categoryModal.classList.contains("hidden")) {
       updateCategoryPickerUI();
     }
 
@@ -2798,12 +2695,14 @@ function disconnectOnlineListeners() {
 }
 
 function pushOnlineState() {
-  if (online.mode !== "online" || !online.roomRef || online.applyingRemote) return;
+  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || online.role !== "host") return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
-    teamCount: normalizeTeamCount(state.teamCount),
-    gameStarted: isBoardReady,
-    game: serializeGameState(),
+    "meta/maxTeams": normalizeTeamCount(state.teamCount),
+    "meta/status": isBoardReady ? "playing" : "lobby",
+    "public/selectedCategories": [...state.selectedCategories],
+    "public/gameState": serializeGameState(),
+    "public/scores": { ...state.scores },
   });
 }
 
@@ -2950,7 +2849,7 @@ function showStartScreen() {
 }
 
 async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
-  if (online.mode !== "online" || !online.roomRef || !online.teamSlot) {
+  if (online.mode !== "online" || !online.roomRef || !online.teamSlot || !online.uid) {
     if (clearSession) clearSavedOnlineSession();
     return;
   }
@@ -2958,10 +2857,7 @@ async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {
   disconnectOnlinePresence();
   const updates = buildPresencePayload(online.teamSlot, { connected: false, includeDisplayName: false });
   if (removeSeat) {
-    updates[`participantSlots/${online.teamSlot}`] = null;
-    updates[`participants/${online.teamSlot}`] = null;
-    if (online.teamSlot === 1) updates.hostClientId = null;
-    if (online.teamSlot === 2) updates.guestClientId = null;
+    updates[`players/${online.uid}`] = null;
   }
 
   try {
@@ -3046,7 +2942,7 @@ async function tryRestoreOnlineSession() {
   const savedSession = loadSavedOnlineSession();
   if (!savedSession) return false;
 
-  online.clientId = savedSession.clientId;
+  online.uid = savedSession.uid;
   online.sessionRestoreInProgress = true;
   online.restoringFromSavedSession = true;
   resetGameState();
@@ -3320,7 +3216,6 @@ function initializeApp() {
   appInitialized = true;
   cacheElements();
   ensureSoundPreferenceLoaded();
-  online.clientId = getOrCreateStableClientId();
 
   bindEvent(el.newGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
@@ -3479,9 +3374,11 @@ function initializeApp() {
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
       online.roomRef.update({
-        teamCount: normalizeTeamCount(state.teamCount),
-        gameStarted: false,
-        game: null,
+        "meta/maxTeams": normalizeTeamCount(state.teamCount),
+        "meta/status": "lobby",
+        "public/selectedCategories": [],
+        "public/gameState": null,
+        "public/scores": { 1: 0, 2: 0, 3: 0 },
       }).catch(() => {});
     }
     closeOnlineModal();
