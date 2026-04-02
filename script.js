@@ -247,6 +247,7 @@ const online = {
   usedQuestionsByCategory: {},
   processingTilePickRequestId: "",
   processingRevealRequestId: "",
+  processingScoreRequestId: "",
   remoteApplyNonce: 0,
   activeRemoteApplyNonce: 0,
 };
@@ -586,16 +587,15 @@ function updateCloseButtonLock() {
 function updateQuestionActionLock() {
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
-  const lockByHostControl = online.mode === "online" && !isOnlineHostClient();
   const lockByReveal = hasUnresolvedActiveQuestion() && !state.answerRevealed;
   const disableAnsweringActions = lockByTimeout || lockByTurn;
-  const disableHostActions = lockByTimeout || lockByHostControl;
+  const disableScoringActions = lockByTimeout || lockByTurn;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
   el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed;
-  el.correctBtn.disabled = disableHostActions || lockByReveal;
-  el.wrongBtn.disabled = disableHostActions || lockByReveal;
+  el.correctBtn.disabled = disableScoringActions || lockByReveal;
+  el.wrongBtn.disabled = disableScoringActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
-  el.otherTeamBtn.disabled = disableHostActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
+  el.otherTeamBtn.disabled = disableScoringActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
   el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
   el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
   updateLateOtherTeamPrompt();
@@ -701,9 +701,16 @@ function openOtherTeamSelector() {
   el.otherTeamSelector.classList.remove("hidden");
 }
 function handleOtherTeamSelection(teamNumber) {
+  if (online.mode === "online" && !canCurrentClientAct()) return;
   const selectedTeam = Number(teamNumber);
   const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
   if (!eligibleTeams.includes(selectedTeam) || state.resolvingOtherTeam) return;
+  if (online.mode === "online" && !isOnlineHostClient()) {
+    requestHostScoreAction({ action: "other", targetTeam: selectedTeam });
+    closeOtherTeamSelector();
+    updateQuestionActionLock();
+    return;
+  }
   state.resolvingOtherTeam = true;
   state.pendingOtherTeamSelection = false;
   if (el.otherTeamChoices) {
@@ -1639,6 +1646,29 @@ async function requestHostRevealAnswer() {
   }
 }
 
+async function requestHostScoreAction({ action, targetTeam = null } = {}) {
+  if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  const normalizedAction = normalizeCell(action);
+  if (!["correct", "wrong", "other"].includes(normalizedAction)) return false;
+  const normalizedTargetTeam = Number(targetTeam);
+  const payload = {
+    id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    action: normalizedAction,
+    questionSessionId: normalizeCell(state.questionSessionId) || "",
+    requestedAt: getFirebaseTimestampValue(),
+  };
+  if (Number.isFinite(normalizedTargetTeam) && normalizedTargetTeam >= 1 && normalizedTargetTeam <= 3) {
+    payload.targetTeam = normalizedTargetTeam;
+  }
+  try {
+    await online.roomRef.child(`players/${online.uid}/pendingScoreAction`).set(payload);
+    return true;
+  } catch (error) {
+    console.warn("[Tasleya][online] pending score action request failed", { action: normalizedAction, targetTeam, error });
+    return false;
+  }
+}
+
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false } = {}) {
   console.log("[Tasleya][openQuestion] entered", {
     tileId,
@@ -1854,6 +1884,61 @@ async function processPendingRevealRequest(room, remoteGameState) {
   }
 }
 
+async function processPendingScoreRequest(room, remoteGameState) {
+  if (online.mode !== "online" || !isOnlineHostClient() || !online.roomRef) return;
+  if (!remoteGameState || !remoteGameState.modalOpen || !remoteGameState.answerRevealed) return;
+  if (!hasUnresolvedActiveQuestion() || state.loadingQuestion || !state.activeQuestion) return;
+
+  const players = room?.players && typeof room.players === "object" ? room.players : {};
+  const activeTeams = getActiveTeamNumbers();
+  const currentTeam = activeTeams.includes(Number(remoteGameState.currentTeam))
+    ? Number(remoteGameState.currentTeam)
+    : (activeTeams[0] || 1);
+  const currentSessionId = normalizeCell(state.questionSessionId);
+
+  let selectedRequest = null;
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    if (selectedRequest) return;
+    const slot = Number(rawRecord?.teamIndex);
+    const request = rawRecord?.pendingScoreAction;
+    const requestId = normalizeCell(request?.id);
+    const requestedAction = normalizeCell(request?.action);
+    const requestedSessionId = normalizeCell(request?.questionSessionId);
+    const requestedTargetTeam = Number(request?.targetTeam);
+    if (slot !== currentTeam || !requestId || !["correct", "wrong", "other"].includes(requestedAction)) return;
+    if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
+    selectedRequest = {
+      uid: normalizeCell(uid),
+      requestId,
+      action: requestedAction,
+      targetTeam: Number.isFinite(requestedTargetTeam) ? requestedTargetTeam : null,
+    };
+  });
+
+  if (!selectedRequest) return;
+  if (online.processingScoreRequestId === selectedRequest.requestId) return;
+
+  online.processingScoreRequestId = selectedRequest.requestId;
+  try {
+    await online.roomRef.child(`players/${selectedRequest.uid}/pendingScoreAction`).remove();
+    if (selectedRequest.action === "correct") {
+      applyScore(true, { skipHostGuard: true, skipTurnGuard: true });
+      return;
+    }
+    if (selectedRequest.action === "wrong") {
+      applyScore(false, { skipHostGuard: true, skipTurnGuard: true });
+      return;
+    }
+    awardPointsToOtherTeam({
+      skipHostGuard: true,
+      skipTurnGuard: true,
+      selectedTeam: selectedRequest.targetTeam,
+    });
+  } finally {
+    online.processingScoreRequestId = "";
+  }
+}
+
 function closeModal({ silentSync = false, force = false } = {}) {
   if (!force && shouldLockQuestionClose()) {
     updateCloseButtonLock();
@@ -2036,8 +2121,12 @@ function useHintLifeline() {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
-function applyScore(isCorrect) {
-  if (online.mode === "online" && !isOnlineHostClient()) return;
+function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } = {}) {
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    requestHostScoreAction({ action: isCorrect ? "correct" : "wrong" });
+    return;
+  }
   if (!state.answerRevealed) return;
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
   const resolved = resolveActiveQuestion({
@@ -2046,19 +2135,46 @@ function applyScore(isCorrect) {
   });
   if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
 }
-function awardPointsToOtherTeam() {
-  if (online.mode === "online" && !isOnlineHostClient()) return;
+function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, selectedTeam = null } = {}) {
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    if (state.teamCount === 3) {
+      const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
+      if (eligibleTeams.length > 1) {
+        if (!state.pendingOtherTeamSelection) openOtherTeamSelector();
+        updateQuestionActionLock();
+        return;
+      }
+    }
+    const targetTeam = Number.isFinite(Number(selectedTeam)) ? Number(selectedTeam) : getNextTeamNumber(state.currentTeam);
+    requestHostScoreAction({ action: "other", targetTeam });
+    return;
+  }
   if (!state.answerRevealed) return;
   if (state.resolvingOtherTeam) return;
   if (state.teamCount === 3) {
     const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
     if (eligibleTeams.length > 1) {
+      if (Number.isFinite(Number(selectedTeam)) && eligibleTeams.includes(Number(selectedTeam))) {
+        state.resolvingOtherTeam = true;
+        state.pendingOtherTeamSelection = false;
+        resolveActiveQuestion({
+          preventTimeoutAction: true,
+          scoreDelta: { [Number(selectedTeam)]: state.activeTile?.points ?? 0 },
+          nextTeam: Number(selectedTeam),
+        });
+        state.resolvingOtherTeam = false;
+        return;
+      }
       if (!state.pendingOtherTeamSelection) openOtherTeamSelector();
       updateQuestionActionLock();
       return;
     }
   }
-  const otherTeam = getNextTeamNumber(state.currentTeam);
+  const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
+  const otherTeam = Number.isFinite(Number(selectedTeam)) && eligibleTeams.includes(Number(selectedTeam))
+    ? Number(selectedTeam)
+    : getNextTeamNumber(state.currentTeam);
   state.resolvingOtherTeam = true;
   resolveActiveQuestion({
     preventTimeoutAction: true,
@@ -3000,6 +3116,7 @@ async function connectToRoom(code, teamSlot) {
       applyRemoteGameState(remoteGameState, { applyNonce })
         .then(() => processPendingTilePickRequest(room, remoteGameState))
         .then(() => processPendingRevealRequest(room, remoteGameState))
+        .then(() => processPendingScoreRequest(room, remoteGameState))
         .catch((error) => {
           console.warn("[Tasleya][online] playing-state sync failed", error);
         });
@@ -3114,7 +3231,9 @@ function resetOnlineMode() {
   online.participantRecords = { 1: null, 2: null, 3: null };
   online.currentTurnTeam = null;
   online.usedQuestionsByCategory = {};
+  online.processingTilePickRequestId = "";
   online.processingRevealRequestId = "";
+  online.processingScoreRequestId = "";
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
   online.remoteApplyNonce = 0;
