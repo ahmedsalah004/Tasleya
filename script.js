@@ -1493,18 +1493,20 @@ function clearQuestionMedia() {
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
 }
-function renderQuestionContent(question) {
+function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   el.questionText.textContent = question.question;
-  el.answerText.textContent = "الإجابة: ...";
-  el.answerText.classList.add("hidden");
-  state.answerRevealed = false;
-  state.revealRequested = false;
-  el.choicesBox.classList.add("hidden");
-  el.choicesList.innerHTML = "";
-  state.currentChoices = [];
-  state.currentHintText = "";
-  el.hintText.textContent = "";
-  el.hintBox.classList.add("hidden");
+  if (resetLifecycleState) {
+    el.answerText.textContent = "الإجابة: ...";
+    el.answerText.classList.add("hidden");
+    state.answerRevealed = false;
+    state.revealRequested = false;
+    el.choicesBox.classList.add("hidden");
+    el.choicesList.innerHTML = "";
+    state.currentChoices = [];
+    state.currentHintText = "";
+    el.hintText.textContent = "";
+    el.hintBox.classList.add("hidden");
+  }
   showQuestionStatus("");
   updateLateOtherTeamPrompt();
   if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
@@ -1559,11 +1561,11 @@ function resolveOnlineTeamSlot() {
 }
 function resolveCurrentTurnTeam() {
   const activeTeams = getActiveTeamNumbers();
-  if (activeTeams.includes(Number(state.currentTeam))) {
-    return Number(state.currentTeam);
-  }
   if (online.mode === "online" && activeTeams.includes(Number(online.currentTurnTeam))) {
     return Number(online.currentTurnTeam);
+  }
+  if (activeTeams.includes(Number(state.currentTeam))) {
+    return Number(state.currentTeam);
   }
   return activeTeams[0] || 1;
 }
@@ -2169,6 +2171,9 @@ function pickRandomCategories() {
 }
 
 function serializeGameState() {
+  const hasActiveLifecycleQuestion = !!state.activeTile
+    && !state.activeTile.used
+    && (state.loadingQuestion || !!state.activeQuestion);
   return {
     selectedCategories: state.selectedCategories,
     pointLevels: state.pointLevels,
@@ -2179,10 +2184,10 @@ function serializeGameState() {
     currentTeam: state.currentTeam,
     mcqHelpUsed,
     hintHelpUsed,
-    activeTileId: state.activeTile?.id || null,
-    activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
+    activeTileId: hasActiveLifecycleQuestion ? (state.activeTile?.id || null) : null,
+    activeQuestionId: hasActiveLifecycleQuestion ? (state.activeQuestion?.id || state.activeTile?.questionId || null) : null,
     questionSessionId: state.questionSessionId || null,
-    modalOpen: !el.modal.classList.contains("hidden") && !!state.activeTile,
+    modalOpen: !el.modal.classList.contains("hidden") && hasActiveLifecycleQuestion,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
     currentHintText: state.currentHintText,
@@ -2282,12 +2287,17 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             state.loadingQuestion = false;
             state.questionSessionId = normalizeCell(game.questionSessionId) || createQuestionSessionId();
             clearQuestionMedia();
-            renderQuestionContent(remoteQuestion);
+            renderQuestionContent(remoteQuestion, { resetLifecycleState: false });
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
             if (state.answerRevealed) {
-              el.answerText.textContent = "الإجابة: جارٍ التحميل...";
-              const answerResponse = await fetchAnswerPayload(remoteQuestion.id);
-              el.answerText.textContent = `الإجابة: ${answerResponse.correctAnswer || "غير متاحة"}`;
+              const cachedAnswer = questionBankCache.answersById.get(remoteQuestion.id);
+              if (cachedAnswer?.correctAnswer) {
+                el.answerText.textContent = `الإجابة: ${cachedAnswer.correctAnswer}`;
+              } else {
+                el.answerText.textContent = "الإجابة: جارٍ التحميل...";
+                const answerResponse = await fetchAnswerPayload(remoteQuestion.id);
+                el.answerText.textContent = `الإجابة: ${answerResponse.correctAnswer || "غير متاحة"}`;
+              }
             }
             el.choicesList.innerHTML = "";
             if (state.currentChoices.length) {
@@ -2982,6 +2992,8 @@ function pushOnlineState() {
     "public/selectedCategories": [...state.selectedCategories],
     "public/gameState": serializeGameState(),
     "public/scores": { ...state.scores },
+  }).catch((error) => {
+    console.warn("[Tasleya][online] pushOnlineState failed", { error });
   });
 }
 
