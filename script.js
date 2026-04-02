@@ -2982,7 +2982,7 @@ async function startGameFromSelection() {
   if (online.mode === "online") pushOnlineState();
 }
 
-async function startNewGame() {
+async function startNewGame({ onBeforeOpenCategoryPicker = null } = {}) {
   try {
     clearLocalProgress();
     resetGameState();
@@ -2992,6 +2992,9 @@ async function startNewGame() {
     state.pointLevels = [...POINT_LEVELS];
     state.boardTiles = [];
     renderBoard();
+    if (typeof onBeforeOpenCategoryPicker === "function") {
+      onBeforeOpenCategoryPicker();
+    }
     openCategoryPicker({ resetSelection: true });
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   } catch (error) {
@@ -3554,8 +3557,9 @@ function initializeApp() {
         "public/scores": { 1: 0, 2: 0, 3: 0 },
       }).catch(() => {});
     }
-    closeOnlineModal();
-    await startNewGame();
+    await startNewGame({
+      onBeforeOpenCategoryPicker: () => closeOnlineModal(),
+    });
   }, "startOnlineGameBtn");
   bindEvent(el.copyCodeBtn, "click", async () => {
     if (!online.roomCode) return;
