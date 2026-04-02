@@ -246,6 +246,7 @@ const online = {
   currentTurnTeam: null,
   usedQuestionsByCategory: {},
   processingTilePickRequestId: "",
+  processingRevealRequestId: "",
   remoteApplyNonce: 0,
   activeRemoteApplyNonce: 0,
 };
@@ -590,7 +591,7 @@ function updateQuestionActionLock() {
   const disableAnsweringActions = lockByTimeout || lockByTurn;
   const disableHostActions = lockByTimeout || lockByHostControl;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
-  el.revealBtn.disabled = disableHostActions || state.answerRevealed;
+  el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed;
   el.correctBtn.disabled = disableHostActions || lockByReveal;
   el.wrongBtn.disabled = disableHostActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
@@ -1591,7 +1592,11 @@ function canCurrentClientAct() {
   if (online.mode !== "online") return true;
   const resolvedCurrentTeam = resolveCurrentTurnTeam();
   const myTeamSlot = Number(resolveOnlineTeamSlot() || online.resolvedTeamSlot || online.teamSlot);
-  return !!(myTeamSlot && myTeamSlot === resolvedCurrentTeam);
+  if (myTeamSlot && myTeamSlot === resolvedCurrentTeam) return true;
+  // Fallback for host clients when slot resolution is temporarily missing:
+  // the host controls team 1 turn authority.
+  if (!myTeamSlot && isOnlineHostClient() && resolvedCurrentTeam === 1) return true;
+  return false;
 }
 
 function createQuestionSessionId() {
@@ -1615,6 +1620,21 @@ async function requestHostTilePick(tileId) {
     return true;
   } catch (error) {
     console.warn("[Tasleya][online] tile-pick request failed", { tileId: normalizedTileId, error });
+    return false;
+  }
+}
+
+async function requestHostRevealAnswer() {
+  if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  try {
+    await online.roomRef.child(`players/${online.uid}/pendingRevealAnswer`).set({
+      id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      questionSessionId: normalizeCell(state.questionSessionId) || "",
+      requestedAt: getFirebaseTimestampValue(),
+    });
+    return true;
+  } catch (error) {
+    console.warn("[Tasleya][online] pending reveal request failed", error);
     return false;
   }
 }
@@ -1798,6 +1818,42 @@ async function processPendingTilePickRequest(room, remoteGameState) {
   }
 }
 
+async function processPendingRevealRequest(room, remoteGameState) {
+  if (online.mode !== "online" || !isOnlineHostClient() || !online.roomRef) return;
+  if (!remoteGameState || !remoteGameState.modalOpen || remoteGameState.answerRevealed) return;
+  if (!hasUnresolvedActiveQuestion() || state.loadingQuestion || !state.activeQuestion) return;
+
+  const players = room?.players && typeof room.players === "object" ? room.players : {};
+  const activeTeams = getActiveTeamNumbers();
+  const currentTeam = activeTeams.includes(Number(remoteGameState.currentTeam))
+    ? Number(remoteGameState.currentTeam)
+    : (activeTeams[0] || 1);
+  const currentSessionId = normalizeCell(state.questionSessionId);
+
+  let selectedRequest = null;
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    if (selectedRequest) return;
+    const slot = Number(rawRecord?.teamIndex);
+    const request = rawRecord?.pendingRevealAnswer;
+    const requestId = normalizeCell(request?.id);
+    const requestedSessionId = normalizeCell(request?.questionSessionId);
+    if (slot !== currentTeam || !requestId) return;
+    if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
+    selectedRequest = { uid: normalizeCell(uid), requestId };
+  });
+
+  if (!selectedRequest) return;
+  if (online.processingRevealRequestId === selectedRequest.requestId) return;
+
+  online.processingRevealRequestId = selectedRequest.requestId;
+  try {
+    await online.roomRef.child(`players/${selectedRequest.uid}/pendingRevealAnswer`).remove();
+    await revealAnswer({ skipTurnGuard: true });
+  } finally {
+    online.processingRevealRequestId = "";
+  }
+}
+
 function closeModal({ silentSync = false, force = false } = {}) {
   if (!force && shouldLockQuestionClose()) {
     updateCloseButtonLock();
@@ -1876,9 +1932,18 @@ function resetGameState() {
   renderBoard();
 }
 
-async function revealAnswer() {
+async function revealAnswer({ skipTurnGuard = false } = {}) {
   const question = getActiveQuestion();
-  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !isOnlineHostClient())) return;
+  if (!question || state.answerRevealed || state.activeTile?.timedOut) return;
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipTurnGuard && !isOnlineHostClient()) {
+    const requested = await requestHostRevealAnswer();
+    if (requested) {
+      el.revealBtn.disabled = true;
+      showQuestionStatus("تم إرسال طلب إظهار الإجابة...");
+    }
+    return;
+  }
   console.time("[Tasleya][reveal] click_to_answer_visible");
   console.time("[Tasleya][reveal] local_state_update");
   state.revealRequested = true;
@@ -2934,6 +2999,7 @@ async function connectToRoom(code, teamSlot) {
       const applyNonce = ++online.remoteApplyNonce;
       applyRemoteGameState(remoteGameState, { applyNonce })
         .then(() => processPendingTilePickRequest(room, remoteGameState))
+        .then(() => processPendingRevealRequest(room, remoteGameState))
         .catch((error) => {
           console.warn("[Tasleya][online] playing-state sync failed", error);
         });
@@ -3048,6 +3114,7 @@ function resetOnlineMode() {
   online.participantRecords = { 1: null, 2: null, 3: null };
   online.currentTurnTeam = null;
   online.usedQuestionsByCategory = {};
+  online.processingRevealRequestId = "";
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
   online.remoteApplyNonce = 0;
