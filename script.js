@@ -207,6 +207,7 @@ const state = {
   revealRequested: false,
   pendingOtherTeamSelection: false,
   resolvingOtherTeam: false,
+  questionSessionId: "",
 };
 
 const contactState = {
@@ -245,6 +246,8 @@ const online = {
   currentTurnTeam: null,
   usedQuestionsByCategory: {},
   processingTilePickRequestId: "",
+  remoteApplyNonce: 0,
+  activeRemoteApplyNonce: 0,
 };
 
 const soundState = {
@@ -940,7 +943,7 @@ function ensureOnlineCategoryHistoryBucket(category) {
 async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset = false } = {}) {
   const normalizedCategory = normalizeCell(category);
   const normalizedQuestionId = normalizeCell(questionId);
-  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !canCurrentClientAct()) return;
+  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !isOnlineHostClient()) return;
   const usedHistoryRef = online.roomRef.child("public/gameState/usedQuestionsByCategory");
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
@@ -1416,9 +1419,10 @@ function renderBoard() {
       if (!tile) return;
       const btn = document.createElement("button");
       btn.type = "button"; btn.className = "board-cell tile"; btn.dataset.tileId = tile.id; btn.setAttribute("aria-label", `${category} ${points}`);
+      const turnLocked = online.mode === "online" && !canCurrentClientAct();
       if (tile.missing) { btn.textContent = "نقص أسئلة"; btn.disabled = true; btn.classList.add("missing", "used"); }
       else if (tile.used) { btn.textContent = ""; btn.disabled = true; btn.classList.add("used"); }
-      else { btn.textContent = String(points); btn.disabled = false; }
+      else { btn.textContent = String(points); btn.disabled = turnLocked; }
       el.board.appendChild(btn);
     });
   });
@@ -1580,6 +1584,14 @@ function canCurrentClientAct() {
   return !!(myTeamSlot && myTeamSlot === resolvedCurrentTeam);
 }
 
+function createQuestionSessionId() {
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function shouldAbortRemoteApply(applyNonce) {
+  return online.mode !== "online" || applyNonce !== online.activeRemoteApplyNonce;
+}
+
 async function requestHostTilePick(tileId) {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
   const normalizedTileId = normalizeCell(tileId);
@@ -1615,6 +1627,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   stopAndResetTimer(); clearQuestionMedia();
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || tile.missing) return;
+  state.questionSessionId = createQuestionSessionId();
   state.activeTile = tile;
   state.loadingQuestion = true;
   console.log("[Tasleya][openQuestion] loading-question set", {
@@ -1671,6 +1684,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       state.activeTile = null;
       state.activeQuestion = null;
       state.loadingQuestion = false;
+      state.questionSessionId = "";
       renderBoard();
       persistLocalProgress();
       showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
@@ -1717,6 +1731,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     state.activeTile = null;
     state.activeQuestion = null;
     state.loadingQuestion = false;
+    state.questionSessionId = "";
     if (error?.code === "QUESTION_RESPONSE_SHAPE_INVALID") {
       showError(error.message);
       return;
@@ -1792,6 +1807,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
     state.activeTile = null;
     state.activeQuestion = null;
     state.loadingQuestion = false;
+    state.questionSessionId = "";
     return;
   }
   if (prefersReducedMotion) {
@@ -1801,6 +1817,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
     state.activeTile = null;
     state.activeQuestion = null;
     state.loadingQuestion = false;
+    state.questionSessionId = "";
   } else {
     el.modal.classList.remove("is-open"); el.modal.classList.add("is-closing");
     const onEnd = () => {
@@ -1810,6 +1827,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
       state.activeTile = null;
       state.activeQuestion = null;
       state.loadingQuestion = false;
+      state.questionSessionId = "";
       el.modal.removeEventListener("animationend", onEnd, true);
     };
     el.modal.addEventListener("animationend", onEnd, true);
@@ -1833,6 +1851,7 @@ function resetGameState() {
   state.activeTile = null;
   state.activeQuestion = null;
   state.loadingQuestion = false;
+  state.questionSessionId = "";
   state.answerRevealed = false;
   state.revealRequested = false;
   state.currentChoices = [];
@@ -1999,6 +2018,7 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
   updateScoreboard();
   renderBoard();
   closeOtherTeamSelector();
+  state.questionSessionId = "";
   closeModal({ silentSync: true });
   persistLocalProgress();
   checkEndOfGame();
@@ -2148,6 +2168,7 @@ function serializeGameState() {
     hintHelpUsed,
     activeTileId: state.activeTile?.id || null,
     activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
+    questionSessionId: state.questionSessionId || null,
     modalOpen: !el.modal.classList.contains("hidden") && !!state.activeTile,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
@@ -2158,7 +2179,7 @@ function serializeGameState() {
   };
 }
 
-async function applyRemoteGameState(game) {
+async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
   if (!game) return;
   console.log("[Tasleya][sync] applyRemoteGameState run", {
     remoteModalOpen: !!game.modalOpen,
@@ -2183,8 +2204,10 @@ async function applyRemoteGameState(game) {
     });
     return;
   }
+  online.activeRemoteApplyNonce = applyNonce;
   online.applyingRemote = true;
   try {
+    if (shouldAbortRemoteApply(applyNonce)) return;
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
     state.pointLevels = Array.isArray(game.pointLevels) ? [...game.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = Array.isArray(game.boardTiles) ? [...game.boardTiles] : [];
@@ -2213,11 +2236,13 @@ async function applyRemoteGameState(game) {
     });
     state.activeQuestion = null;
     state.loadingQuestion = false;
+    state.questionSessionId = "";
 
     syncTeamNameInputs();
     updateTeamModeUI();
     updateScoreboard();
     renderBoard();
+    if (shouldAbortRemoteApply(applyNonce)) return;
 
     const activeId = game.activeTileId;
     const shouldOpen = !!game.modalOpen && activeId;
@@ -2226,17 +2251,20 @@ async function applyRemoteGameState(game) {
       const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
       if (tile) {
         try {
+          if (shouldAbortRemoteApply(applyNonce)) return;
           const remoteQuestion = await fetchQuestionPayload({
             id: game.activeQuestionId || tile.questionId,
             category: tile.category,
             points: tile.points,
           });
+          if (shouldAbortRemoteApply(applyNonce)) return;
           if (remoteQuestion) {
             syncedOpenModal = true;
             state.activeTile = tile;
             tile.questionId = remoteQuestion.id;
             state.activeQuestion = remoteQuestion;
             state.loadingQuestion = false;
+            state.questionSessionId = normalizeCell(game.questionSessionId) || createQuestionSessionId();
             clearQuestionMedia();
             renderQuestionContent(remoteQuestion);
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
@@ -2301,12 +2329,15 @@ async function applyRemoteGameState(game) {
       state.activeTile = null;
       state.activeQuestion = null;
       state.loadingQuestion = false;
+      state.questionSessionId = "";
       closeModal({ silentSync: true, force: true });
     }
 
     if (game.finished) showPodiumModal();
   } finally {
-    online.applyingRemote = false;
+    if (online.activeRemoteApplyNonce === applyNonce) {
+      online.applyingRemote = false;
+    }
   }
 }
 function applyRemoteSetupState(game) {
@@ -2873,7 +2904,8 @@ async function connectToRoom(code, teamSlot) {
 
     if (room?.meta?.status === "playing" && remoteGameState) {
       closeCategoryPicker();
-      applyRemoteGameState(remoteGameState);
+      const applyNonce = ++online.remoteApplyNonce;
+      applyRemoteGameState(remoteGameState, { applyNonce });
       processPendingTilePickRequest(room, remoteGameState).catch((error) => {
         console.warn("[Tasleya][online] pending tile-pick processing failed", error);
       });
@@ -2988,6 +3020,8 @@ function resetOnlineMode() {
   online.usedQuestionsByCategory = {};
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
+  online.remoteApplyNonce = 0;
+  online.activeRemoteApplyNonce = 0;
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -3025,6 +3059,7 @@ async function startGameFromSelection() {
   mcqHelpUsed = { 1: false, 2: false, 3: false };
   hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
+  state.questionSessionId = "";
   state.answerRevealed = false;
   state.revealRequested = false;
   state.currentChoices = [];
