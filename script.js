@@ -938,7 +938,7 @@ function ensureOnlineCategoryHistoryBucket(category) {
 async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset = false } = {}) {
   const normalizedCategory = normalizeCell(category);
   const normalizedQuestionId = normalizeCell(questionId);
-  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !isOnlineHostClient()) return;
+  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !canCurrentClientAct()) return;
   const usedHistoryRef = online.roomRef.child("public/gameState/usedQuestionsByCategory");
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
@@ -1554,6 +1554,13 @@ function getMyControlledTeams() {
   if (online.mode !== "online") return [state.currentTeam];
   return [resolveOnlineTeamSlot() || 1];
 }
+function hasOnlineSeatOccupant(slot) {
+  const normalizedSlot = Number(slot);
+  if (!(normalizedSlot >= 1 && normalizedSlot <= 3)) return false;
+  const slotUid = normalizeCell(online.participantSlots?.[normalizedSlot]);
+  const recordUid = normalizeCell(online.participantRecords?.[normalizedSlot]?.uid);
+  return !!(slotUid || recordUid);
+}
 function isOnlineHostClient() {
   if (online.mode !== "online") return true;
   const currentUid = normalizeCell(online.uid);
@@ -1563,7 +1570,16 @@ function isOnlineHostClient() {
 }
 function canCurrentClientAct() {
   if (online.mode !== "online") return true;
-  return isOnlineHostClient();
+  const activeTeams = getActiveTeamNumbers();
+  const resolvedCurrentTeam = activeTeams.includes(Number(state.currentTeam))
+    ? Number(state.currentTeam)
+    : (activeTeams[0] || 1);
+  const myTeamSlot = Number(resolveOnlineTeamSlot());
+  if (myTeamSlot && myTeamSlot === resolvedCurrentTeam) return true;
+
+  if (!isOnlineHostClient()) return false;
+  if (resolvedCurrentTeam === 1) return true;
+  return !hasOnlineSeatOccupant(resolvedCurrentTeam);
 }
 
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
@@ -2847,7 +2863,7 @@ function disconnectOnlineListeners() {
 }
 
 function pushOnlineState() {
-  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !isOnlineHostClient()) return;
+  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !canCurrentClientAct()) return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
     "meta/maxTeams": normalizeTeamCount(state.teamCount),
