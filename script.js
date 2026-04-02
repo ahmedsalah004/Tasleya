@@ -563,8 +563,7 @@ function hasUnresolvedActiveQuestion() {
 
 function shouldLockQuestionClose() {
   if (!hasUnresolvedActiveQuestion()) return false;
-  if (online.mode !== "online") return true;
-  return canCurrentClientAct();
+  return true;
 }
 
 function updateCloseButtonLock() {
@@ -582,16 +581,18 @@ function updateCloseButtonLock() {
 function updateQuestionActionLock() {
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
+  const lockByHostControl = online.mode === "online" && !isOnlineHostClient();
   const lockByReveal = hasUnresolvedActiveQuestion() && !state.answerRevealed;
-  const disableActions = lockByTimeout || lockByTurn;
+  const disableAnsweringActions = lockByTimeout || lockByTurn;
+  const disableHostActions = lockByTimeout || lockByHostControl;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
-  el.revealBtn.disabled = disableActions || state.answerRevealed;
-  el.correctBtn.disabled = disableActions || lockByReveal;
-  el.wrongBtn.disabled = disableActions || lockByReveal;
+  el.revealBtn.disabled = disableHostActions || state.answerRevealed;
+  el.correctBtn.disabled = disableHostActions || lockByReveal;
+  el.wrongBtn.disabled = disableHostActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
-  el.otherTeamBtn.disabled = disableActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
-  el.lifelineBtn.disabled = disableActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
-  el.hintLifelineBtn.disabled = disableActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
+  el.otherTeamBtn.disabled = disableHostActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
+  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
+  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
   updateLateOtherTeamPrompt();
   updateCloseButtonLock();
 }
@@ -628,7 +629,7 @@ function stopAndResetTimer() { stopTimer(); stopQuestionTimeout(); resetTimer();
 function handleQuestionTimeout() {
   if (questionTimeoutToken === null) return;
   questionTimeoutToken = null;
-  if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !isOnlineHostClient()) return;
   const tile = state.activeTile;
   if (!tile || tile.used || !state.activeQuestion || tile.timedOut || state.answerRevealed) return;
   timerStart = Date.now() - QUESTION_TIMEOUT_MS;
@@ -651,7 +652,7 @@ function startTimer({ deadlineTs = null } = {}) {
   updateTimerUI();
   timerInterval = setInterval(updateTimerUI, 250);
   const timeoutInMs = Math.max(0, questionDeadlineTs - now);
-  if (online.mode !== "online" || canCurrentClientAct()) {
+  if (online.mode !== "online" || isOnlineHostClient()) {
     questionTimeoutToken = setTimeout(handleQuestionTimeout, timeoutInMs);
   }
 }
@@ -1575,11 +1576,7 @@ function canCurrentClientAct() {
     ? Number(state.currentTeam)
     : (activeTeams[0] || 1);
   const myTeamSlot = Number(resolveOnlineTeamSlot());
-  if (myTeamSlot && myTeamSlot === resolvedCurrentTeam) return true;
-
-  if (!isOnlineHostClient()) return false;
-  if (resolvedCurrentTeam === 1) return true;
-  return !hasOnlineSeatOccupant(resolvedCurrentTeam);
+  return !!(myTeamSlot && myTeamSlot === resolvedCurrentTeam);
 }
 
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "" } = {}) {
@@ -1794,7 +1791,7 @@ function resetGameState() {
 
 async function revealAnswer() {
   const question = getActiveQuestion();
-  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.answerRevealed || state.activeTile?.timedOut || (online.mode === "online" && !isOnlineHostClient())) return;
   console.time("[Tasleya][reveal] click_to_answer_visible");
   console.time("[Tasleya][reveal] local_state_update");
   state.revealRequested = true;
@@ -1883,7 +1880,7 @@ function useHintLifeline() {
 }
 
 function applyScore(isCorrect) {
-  if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !isOnlineHostClient()) return;
   if (!state.answerRevealed) return;
   const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
   const resolved = resolveActiveQuestion({
@@ -1893,7 +1890,7 @@ function applyScore(isCorrect) {
   if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
 }
 function awardPointsToOtherTeam() {
-  if (online.mode === "online" && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !isOnlineHostClient()) return;
   if (!state.answerRevealed) return;
   if (state.resolvingOtherTeam) return;
   if (state.teamCount === 3) {
@@ -2863,7 +2860,8 @@ function disconnectOnlineListeners() {
 }
 
 function pushOnlineState() {
-  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !canCurrentClientAct()) return;
+  const canSync = canCurrentClientAct() || isOnlineHostClient();
+  if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !canSync) return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
   online.roomRef.update({
     "meta/maxTeams": normalizeTeamCount(state.teamCount),
