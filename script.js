@@ -1013,8 +1013,14 @@ async function fetchQuestionPayload({
           exclude_ids: excludeIds.join(","),
         },
     });
-    if (!response?.question) return null;
-    const question = response.question;
+    console.log("[Tasleya] Raw /question response", response);
+    const question = response?.question ?? null;
+    console.log("[Tasleya] Resolved question payload", question);
+    if (!question) {
+      const invalidShapeError = new Error("تعذّر معالجة استجابة السؤال (بنية غير متوقعة).");
+      invalidShapeError.code = "QUESTION_RESPONSE_SHAPE_INVALID";
+      throw invalidShapeError;
+    }
     questionBankCache.questionsById.set(question.id, question);
     return question;
   } catch (error) {
@@ -1614,6 +1620,10 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     closeModal({ silentSync: true, force: true });
     state.activeTile = null;
     state.activeQuestion = null;
+    if (error?.code === "QUESTION_RESPONSE_SHAPE_INVALID") {
+      showError(error.message);
+      return;
+    }
     showError(`تعذّر تحميل السؤال. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
     return;
   }
