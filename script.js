@@ -3084,10 +3084,6 @@ async function connectToRoom(code, teamSlot) {
     updateTeamModeUI();
     updateOnlineTeamCountControls();
     saveOnlineSession();
-    if (online.role === "host" && online.hostSetupInFlight && room?.meta?.status !== "playing") {
-      online.hostSetupInFlight = false;
-    }
-
     if (online.role === "host") {
       const joinedCount = getParticipantCount(slots, roomTeamCount);
       const connectedCount = Array.from({ length: roomTeamCount }, (_, index) => index + 1).filter((slot) => connections[slot]).length;
@@ -3117,7 +3113,10 @@ async function connectToRoom(code, teamSlot) {
     }
 
     if (room?.meta?.status === "playing" && remoteGameState) {
-      if (online.role === "host" && online.hostSetupInFlight) {
+      const hostSetupScreenVisible = online.role === "host"
+        && !el.categoryModal.classList.contains("hidden")
+        && state.boardTiles.length === 0;
+      if (online.role === "host" && (online.hostSetupInFlight || hostSetupScreenVisible)) {
         saveOnlineSession();
         online.restoringFromSavedSession = false;
         online.sessionRestoreInProgress = false;
@@ -3286,6 +3285,7 @@ async function startGameFromSelection() {
   }
   if (online.mode === "online" && online.role === "host") {
     online.hostStartInFlight = true;
+    online.hostSetupInFlight = false;
   }
   setTeamNamesFromCategoryModal();
   closeCategoryPicker();
