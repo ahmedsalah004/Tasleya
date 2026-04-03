@@ -1270,11 +1270,10 @@ async function preloadQuestionBank() {
 async function ensureQuestionBankStateLoaded() {
   const { categories } = await preloadQuestionBank();
   state.allCategories = categories;
-  console.log("[Tasleya][online] categories data ready", {
+  console.log("[Tasleya][online] categories hydrated", {
     count: categories.length,
     mode: online.mode,
     role: online.role,
-    timestamp: new Date().toISOString(),
     roomCode: online.roomCode || null,
   });
   if (!Array.isArray(state.pointLevels) || state.pointLevels.length === 0) {
