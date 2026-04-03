@@ -19,6 +19,8 @@ const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
 const CONTACT_FORM_ACTION = "https://formspree.io/f/mnjobyeq";
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو الوحيد الذي يمكنه اختيار الفئات";
+const NEW_GAME_BUTTON_TEXT = "لعبة جديدة";
+const HOST_CATEGORY_CTA_BUTTON_TEXT = "اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
 const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
@@ -94,6 +96,7 @@ function cacheElements() {
   team3MinusBtn: document.getElementById("team3MinusBtn"),
   currentTurn: document.getElementById("currentTurn"),
   newGameBtn: document.getElementById("newGameBtn"),
+  hostCategoryCtaHint: document.getElementById("hostCategoryCtaHint"),
   modal: document.getElementById("questionModal"),
   closeModalBtn: document.getElementById("closeModalBtn"),
   questionTimer: document.getElementById("questionTimer"),
@@ -255,6 +258,7 @@ const online = {
   activeRemoteApplyNonce: 0,
   hostStartInFlight: false,
   hostSetupInFlight: false,
+  roomStatus: null,
 };
 
 const viewportGuardState = {
@@ -746,6 +750,24 @@ function normalizeTeamCount(teamCount) {
 }
 function getRequiredCategoryCount() {
   return (online.mode === "local" && state.teamCount === 1) ? SOLO_CATEGORIES_TO_SELECT : DEFAULT_CATEGORIES_TO_SELECT;
+}
+function shouldShowHostCategorySelectionCTA() {
+  const isOnlineHost = online.mode === "online" && online.role === "host";
+  const normalizedRoomStatus = normalizeCell(online.roomStatus);
+  const isPreGameRoomState = normalizedRoomStatus !== "playing" && normalizedRoomStatus !== "ended";
+  const isPreCategorySelectionState = isPreGameRoomState && state.boardTiles.length === 0;
+  const categoriesNotSelected = state.selectedCategories.length === 0;
+  const categoryPickerClosed = el.categoryModal.classList.contains("hidden");
+  return isOnlineHost && isPreCategorySelectionState && categoriesNotSelected && categoryPickerClosed;
+}
+function updateHostCategorySelectionCTA() {
+  const showHostCategoryCta = shouldShowHostCategorySelectionCTA();
+  if (el.newGameBtn) {
+    el.newGameBtn.textContent = showHostCategoryCta ? HOST_CATEGORY_CTA_BUTTON_TEXT : NEW_GAME_BUTTON_TEXT;
+  }
+  if (el.hostCategoryCtaHint) {
+    el.hostCategoryCtaHint.classList.toggle("hidden", !showHostCategoryCta);
+  }
 }
 function getCategoryModalTitleText() {
   const required = getRequiredCategoryCount();
@@ -2464,12 +2486,23 @@ function openCategoryPicker({ resetSelection = false } = {}) {
   el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
+  updateHostCategorySelectionCTA();
 }
 function closeCategoryPicker() {
   if (el.categoryModal.classList.contains("hidden")) return;
-  if (prefersReducedMotion) { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-open", "is-closing"); return; }
+  if (prefersReducedMotion) {
+    el.categoryModal.classList.add("hidden");
+    el.categoryModal.classList.remove("is-open", "is-closing");
+    updateHostCategorySelectionCTA();
+    return;
+  }
   el.categoryModal.classList.remove("is-open"); el.categoryModal.classList.add("is-closing");
-  const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
+  const onEnd = () => {
+    el.categoryModal.classList.add("hidden");
+    el.categoryModal.classList.remove("is-closing");
+    el.categoryModal.removeEventListener("animationend", onEnd, true);
+    updateHostCategorySelectionCTA();
+  };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
 function pickRandomCategories() {
@@ -3149,6 +3182,7 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
     if (!mySlot) throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
 
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
+    online.roomStatus = normalizeCell(room?.meta?.status) || "lobby";
     online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
 
     setLocalTeamCount(roomTeamCount);
@@ -3196,6 +3230,7 @@ async function connectToRoom(code, teamSlot) {
     }
 
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
+    online.roomStatus = normalizeCell(room?.meta?.status) || "lobby";
     online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
     const connections = normalizeParticipantConnections(room);
@@ -3264,6 +3299,7 @@ async function connectToRoom(code, teamSlot) {
       setOnlineStatus(`أنت في الفريق ${online.resolvedTeamSlot || online.teamSlot || 1}`);
       if (online.restoringFromSavedSession) openOnlineModal();
     }
+    updateHostCategorySelectionCTA();
 
     if (room?.meta?.status === "playing" && remoteGameState) {
       const hostSetupScreenVisible = isOnlineHostClient()
@@ -3407,11 +3443,13 @@ function resetOnlineMode() {
   online.activeRemoteApplyNonce = 0;
   online.hostStartInFlight = false;
   online.hostSetupInFlight = false;
+  online.roomStatus = null;
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
   setOnlineStatus("غير متصل");
   updateOnlineActionPermissions();
+  updateHostCategorySelectionCTA();
 }
 
 function openOnlineModal() {
@@ -3467,7 +3505,7 @@ async function startGameFromSelection() {
   if (online.mode === "online") pushOnlineState();
 }
 
-async function startNewGame({ onBeforeOpenCategoryPicker = null } = {}) {
+async function startNewGame({ onBeforeOpenCategoryPicker = null, autoOpenCategoryPicker = true } = {}) {
   try {
     clearLocalProgress();
     resetGameState();
@@ -3480,7 +3518,11 @@ async function startNewGame({ onBeforeOpenCategoryPicker = null } = {}) {
     if (typeof onBeforeOpenCategoryPicker === "function") {
       onBeforeOpenCategoryPicker();
     }
-    openCategoryPicker({ resetSelection: true });
+    if (autoOpenCategoryPicker) {
+      openCategoryPicker({ resetSelection: true });
+    } else {
+      updateHostCategorySelectionCTA();
+    }
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
   } catch (error) {
     state.dataLoadFailed = true;
@@ -3882,8 +3924,13 @@ function initializeApp() {
   ensureSoundPreferenceLoaded();
   ensureStableOnlineClientId();
   document.body.classList.remove("gameplay-active");
+  updateHostCategorySelectionCTA();
 
   bindEvent(el.newGameBtn, "click", () => {
+    if (shouldShowHostCategorySelectionCTA()) {
+      openCategoryPicker({ resetSelection: true });
+      return;
+    }
     if (online.mode === "online" && online.role !== "host") return;
     startNewGame();
   }, "newGameBtn");
@@ -4061,6 +4108,7 @@ function initializeApp() {
     try {
       await startNewGame({
         onBeforeOpenCategoryPicker: () => closeOnlineModal(),
+        autoOpenCategoryPicker: false,
       });
     } catch (_) {
       if (online.mode === "online" && online.role === "host") {
