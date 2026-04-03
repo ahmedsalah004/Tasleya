@@ -255,6 +255,8 @@ const online = {
   activeRemoteApplyNonce: 0,
   hostStartInFlight: false,
   hostSetupInFlight: false,
+  latestRoomStatus: "lobby",
+  uiPhase: "room",
 };
 
 const viewportGuardState = {
@@ -1268,6 +1270,13 @@ async function preloadQuestionBank() {
 async function ensureQuestionBankStateLoaded() {
   const { categories } = await preloadQuestionBank();
   state.allCategories = categories;
+  console.log("[Tasleya][online] categories data ready", {
+    count: categories.length,
+    mode: online.mode,
+    role: online.role,
+    timestamp: new Date().toISOString(),
+    roomCode: online.roomCode || null,
+  });
   if (!Array.isArray(state.pointLevels) || state.pointLevels.length === 0) {
     state.pointLevels = [...POINT_LEVELS];
   }
@@ -2141,7 +2150,9 @@ function resetGameState() {
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
   closeModal({ silentSync: true });
-  closeCategoryPicker();
+  if (!(online.mode === "online" && online.uiPhase === "categories")) {
+    closeCategoryPicker();
+  }
   closePodiumModal();
   clearError();
   updateScoreboard();
@@ -2377,6 +2388,18 @@ function renderCategoryOptions() {
     return;
   }
   el.categoryList.innerHTML = "";
+  if (!Array.isArray(state.allCategories) || state.allCategories.length === 0) {
+    const skeletonCount = getRequiredCategoryCount();
+    for (let i = 0; i < skeletonCount; i += 1) {
+      const placeholder = document.createElement("div");
+      placeholder.className = "category-option category-option-skeleton";
+      placeholder.setAttribute("aria-hidden", "true");
+      placeholder.textContent = "جارٍ تحميل الفئات...";
+      el.categoryList.appendChild(placeholder);
+    }
+    updateCategoryPickerUI();
+    return;
+  }
   const groupedCategories = getGroupedCategoryDisplay(state.allCategories);
   groupedCategories.forEach(({ groupName, categories }) => {
     if (!categories.length) return;
@@ -2445,6 +2468,9 @@ function getGroupedCategoryDisplay(categories) {
   return grouped;
 }
 function openCategoryPicker({ resetSelection = false } = {}) {
+  if (online.mode === "online") {
+    setOnlineUiPhase("categories", { reason: "open-category-picker" });
+  }
   if (resetSelection) state.selectedCategories = [];
   el.categoryTeam1NameInput.value = state.teamNames[1];
   el.categoryTeam2NameInput.value = state.teamNames[2];
@@ -2471,6 +2497,34 @@ function closeCategoryPicker() {
   el.categoryModal.classList.remove("is-open"); el.categoryModal.classList.add("is-closing");
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
+}
+function setOnlineUiPhase(phase, { reason = "unknown" } = {}) {
+  if (online.uiPhase === phase) return;
+  online.uiPhase = phase;
+  console.log("[Tasleya][online] local UI phase changed", {
+    phase,
+    reason,
+    timestamp: new Date().toISOString(),
+    roomCode: online.roomCode || null,
+    role: online.role,
+  });
+}
+function openCategoryShellImmediately({ reason = "unknown", roomStatus = "" } = {}) {
+  if (online.mode !== "online") return;
+  setOnlineUiPhase("categories", { reason });
+  console.log("[Tasleya][online] local transition fired", {
+    reason,
+    roomStatus: normalizeCell(roomStatus) || null,
+    timestamp: new Date().toISOString(),
+    role: online.role,
+    roomCode: online.roomCode || null,
+  });
+  closeOnlineModal();
+  if (el.categoryModal.classList.contains("hidden")) {
+    openCategoryPicker();
+  } else {
+    updateCategoryPickerUI();
+  }
 }
 function pickRandomCategories() {
   if (online.mode === "online" && online.role !== "host") {
@@ -3195,6 +3249,15 @@ async function connectToRoom(code, teamSlot) {
       return;
     }
 
+    const roomStatus = normalizeCell(room?.meta?.status) || "lobby";
+    online.latestRoomStatus = roomStatus;
+    console.log("[Tasleya][online] remote snapshot received", {
+      status: roomStatus,
+      hasGameState: !!room?.public?.gameState,
+      role: online.role,
+      timestamp: new Date().toISOString(),
+      roomCode: online.roomCode || null,
+    });
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
     online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
     const slots = normalizeParticipantSlots(room);
@@ -3252,7 +3315,7 @@ async function connectToRoom(code, teamSlot) {
       }
     }
 
-    if (room?.meta?.status === "playing") {
+    if (roomStatus === "playing") {
       online.hostStartInFlight = false;
       closeOnlineModal();
       setOnlineStatus("بدأت اللعبة");
@@ -3265,7 +3328,19 @@ async function connectToRoom(code, teamSlot) {
       if (online.restoringFromSavedSession) openOnlineModal();
     }
 
-    if (room?.meta?.status === "playing" && remoteGameState) {
+    if (roomStatus === "starting" || roomStatus === "playing") {
+      console.log("[Tasleya][online] remote start snapshot received", {
+        status: roomStatus,
+        timestamp: new Date().toISOString(),
+        roomCode: online.roomCode || null,
+      });
+      openCategoryShellImmediately({
+        reason: roomStatus === "starting" ? "remote-starting-signal" : "remote-playing-signal",
+        roomStatus,
+      });
+    }
+
+    if (roomStatus === "playing" && remoteGameState) {
       const hostSetupScreenVisible = isOnlineHostClient()
         && !el.categoryModal.classList.contains("hidden")
         && state.boardTiles.length === 0;
@@ -3293,7 +3368,7 @@ async function connectToRoom(code, teamSlot) {
           })
           .catch(() => {});
       }
-    } else if (room?.meta?.status !== "playing" && online.role !== "host") {
+    } else if (roomStatus !== "playing" && online.role !== "host") {
       ensureQuestionBankStateLoaded()
         .then(() => {
           if (online.mode === "online" && !online.applyingRemote && online.role !== "host") {
@@ -3301,7 +3376,7 @@ async function connectToRoom(code, teamSlot) {
           }
         })
         .catch(() => {});
-    } else if (room?.meta?.status !== "playing" && !el.categoryModal.classList.contains("hidden")) {
+    } else if (roomStatus !== "playing" && !el.categoryModal.classList.contains("hidden")) {
       updateCategoryPickerUI();
     }
 
@@ -3336,9 +3411,12 @@ function pushOnlineState() {
   // freshly advanced host state (reveal/score/close/turn handoff) with stale values.
   if (online.mode !== "online" || !online.roomRef || online.applyingRemote || !isOnlineHostClient()) return;
   const isBoardReady = state.selectedCategories.length === getRequiredCategoryCount() && state.boardTiles.length > 0;
+  const nextStatus = isBoardReady
+    ? "playing"
+    : (online.latestRoomStatus === "starting" ? "starting" : "lobby");
   online.roomRef.update({
     "meta/maxTeams": normalizeTeamCount(state.teamCount),
-    "meta/status": isBoardReady ? "playing" : "lobby",
+    "meta/status": nextStatus,
     "public/selectedCategories": [...state.selectedCategories],
     "public/gameState": serializeGameState(),
     "public/scores": { ...state.scores },
@@ -3407,6 +3485,8 @@ function resetOnlineMode() {
   online.activeRemoteApplyNonce = 0;
   online.hostStartInFlight = false;
   online.hostSetupInFlight = false;
+  online.latestRoomStatus = "lobby";
+  online.uiPhase = "room";
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -3415,6 +3495,7 @@ function resetOnlineMode() {
 }
 
 function openOnlineModal() {
+  setOnlineUiPhase("room", { reason: "open-online-modal" });
   el.onlineModal.classList.remove("hidden");
   el.onlineCreatePanel.classList.add("hidden");
   el.onlineJoinPanel.classList.add("hidden");
@@ -3455,6 +3536,13 @@ async function startGameFromSelection() {
   state.currentHintText = "";
   clearError();
   buildBoardAssignment();
+  console.log("[Tasleya][online] board ready", {
+    tiles: state.boardTiles.length,
+    mode: online.mode,
+    role: online.role,
+    timestamp: new Date().toISOString(),
+    roomCode: online.roomCode || null,
+  });
   updateScoreboard();
   renderBoard();
   checkEndOfGame();
@@ -4046,17 +4134,41 @@ function initializeApp() {
       showHostOnlyStartMessage();
       return;
     }
+    console.log("[Tasleya][online] host pressed start", {
+      roomCode: online.roomCode || null,
+      role: online.role,
+      timestamp: new Date().toISOString(),
+    });
+    openCategoryShellImmediately({ reason: "host-pressed-start", roomStatus: "starting" });
     if (online.mode === "online" && online.role === "host") {
       online.hostSetupInFlight = true;
+      online.latestRoomStatus = "starting";
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
+      console.log("[Tasleya][online] Firebase write started", {
+        roomCode: online.roomCode || null,
+        status: "starting",
+        timestamp: new Date().toISOString(),
+      });
       online.roomRef.update({
         "meta/maxTeams": normalizeTeamCount(state.teamCount),
-        "meta/status": "lobby",
+        "meta/status": "starting",
         "public/selectedCategories": [],
         "public/gameState": null,
         "public/scores": { 1: 0, 2: 0, 3: 0 },
-      }).catch(() => {});
+      }).then(() => {
+        console.log("[Tasleya][online] remote game-start write completed", {
+          roomCode: online.roomCode || null,
+          status: "starting",
+          timestamp: new Date().toISOString(),
+        });
+      }).catch((error) => {
+        console.warn("[Tasleya][online] remote game-start write failed", {
+          error,
+          roomCode: online.roomCode || null,
+          timestamp: new Date().toISOString(),
+        });
+      });
     }
     try {
       await startNewGame({
