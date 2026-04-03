@@ -11,6 +11,7 @@ const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
+const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
 const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
@@ -238,6 +239,7 @@ const online = {
   joiningRoom: false,
   selectedTeamCount: 2,
   uid: null,
+  clientId: "",
   authReadyPromise: null,
   sessionRestoreInProgress: false,
   restoringFromSavedSession: false,
@@ -254,6 +256,15 @@ const online = {
   hostStartInFlight: false,
   hostSetupInFlight: false,
 };
+
+const viewportGuardState = {
+  touchStartY: null,
+  touchStartX: null,
+  isPullGuardActive: false,
+};
+
+let gameplayPersistDebounceTimer = null;
+let gameplayViewportGuardsAttached = false;
 
 const soundState = {
   muted: false,
@@ -304,6 +315,7 @@ function normalizeParticipantRecords(room = {}) {
     if (!(slot >= 1 && slot <= 3)) return;
     records[slot] = {
       uid: normalizeCell(uid),
+      clientId: normalizeCell(rawRecord?.clientId),
       displayName: normalizeCell(rawRecord?.name),
       connected: !!rawRecord?.connected,
       joinedAt: Number(rawRecord?.joinedAt) || null,
@@ -835,6 +847,123 @@ function clearLocalProgress() {
   }
 }
 
+function canScrollUpFromNode(startNode) {
+  let node = startNode instanceof Element ? startNode : null;
+  while (node && node !== document.body) {
+    const style = window.getComputedStyle(node);
+    const allowsScroll = /(auto|scroll|overlay)/.test(style.overflowY || "");
+    if (allowsScroll && node.scrollTop > 0) return true;
+    node = node.parentElement;
+  }
+  return window.scrollY > 0;
+}
+
+function resetGameScreenTouchGuard() {
+  viewportGuardState.touchStartY = null;
+  viewportGuardState.touchStartX = null;
+  viewportGuardState.isPullGuardActive = false;
+}
+
+function shouldBypassPullToRefreshGuard(target) {
+  if (!(target instanceof Element)) return false;
+  if (target.closest("input, textarea, select, [contenteditable='true']")) return true;
+  if (target.closest("#questionMedia, #questionMedia *")) return true;
+  return false;
+}
+
+function scheduleGameplayProgressPersist(delayMs = 120) {
+  if (gameplayPersistDebounceTimer !== null) {
+    clearTimeout(gameplayPersistDebounceTimer);
+  }
+  gameplayPersistDebounceTimer = window.setTimeout(() => {
+    gameplayPersistDebounceTimer = null;
+    persistLocalProgress();
+  }, Math.max(0, Number(delayMs) || 0));
+}
+
+function handleGameScreenTouchStart(event) {
+  resetGameScreenTouchGuard();
+  if (el.gameScreen?.style.display !== "block" || !event.touches || event.touches.length !== 1) return;
+  if (shouldBypassPullToRefreshGuard(event.target)) return;
+  if (canScrollUpFromNode(event.target)) return;
+  const touch = event.touches[0];
+  if (touch.clientY > 72) return;
+  viewportGuardState.touchStartY = touch.clientY;
+  viewportGuardState.touchStartX = touch.clientX;
+  viewportGuardState.isPullGuardActive = true;
+}
+
+function handleGameScreenTouchMove(event) {
+  if (el.gameScreen?.style.display !== "block") return;
+  if (!event.touches || event.touches.length !== 1) return;
+  if (event.scale && event.scale !== 1) return;
+  if (!viewportGuardState.isPullGuardActive) return;
+
+  const touch = event.touches[0];
+  const startY = Number(viewportGuardState.touchStartY);
+  const startX = Number(viewportGuardState.touchStartX);
+  if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
+
+  const deltaY = touch.clientY - startY;
+  const deltaX = Math.abs(touch.clientX - startX);
+  if (deltaY <= 0 || deltaX > Math.abs(deltaY)) return;
+  if (canScrollUpFromNode(event.target)) return;
+
+  event.preventDefault();
+}
+
+function handleViewportGeometryChange() {
+  if (el.gameScreen?.style.display !== "block") return;
+  scheduleGameplayProgressPersist(160);
+  if (online.mode === "online" && online.roomRef && online.teamSlot) {
+    online.roomRef.update(buildPresencePayload(online.teamSlot)).catch(() => {});
+  }
+}
+
+function attachGameplayViewportGuards() {
+  if (gameplayViewportGuardsAttached || !el.gameScreen) return;
+  el.gameScreen.addEventListener("touchstart", handleGameScreenTouchStart);
+  el.gameScreen.addEventListener("touchmove", handleGameScreenTouchMove, { passive: false });
+  el.gameScreen.addEventListener("touchend", resetGameScreenTouchGuard, { passive: true });
+  el.gameScreen.addEventListener("touchcancel", resetGameScreenTouchGuard, { passive: true });
+  window.addEventListener("resize", handleViewportGeometryChange, { passive: true });
+  window.addEventListener("orientationchange", handleViewportGeometryChange, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", handleViewportGeometryChange, { passive: true });
+    window.visualViewport.addEventListener("scroll", handleViewportGeometryChange, { passive: true });
+  }
+  gameplayViewportGuardsAttached = true;
+}
+
+function detachGameplayViewportGuards() {
+  if (!gameplayViewportGuardsAttached || !el.gameScreen) return;
+  el.gameScreen.removeEventListener("touchstart", handleGameScreenTouchStart);
+  el.gameScreen.removeEventListener("touchmove", handleGameScreenTouchMove);
+  el.gameScreen.removeEventListener("touchend", resetGameScreenTouchGuard);
+  el.gameScreen.removeEventListener("touchcancel", resetGameScreenTouchGuard);
+  window.removeEventListener("resize", handleViewportGeometryChange);
+  window.removeEventListener("orientationchange", handleViewportGeometryChange);
+  if (window.visualViewport) {
+    window.visualViewport.removeEventListener("resize", handleViewportGeometryChange);
+    window.visualViewport.removeEventListener("scroll", handleViewportGeometryChange);
+  }
+  resetGameScreenTouchGuard();
+  gameplayViewportGuardsAttached = false;
+}
+
+function ensureStableOnlineClientId() {
+  if (online.clientId) return online.clientId;
+  const existing = normalizeCell(safeStorageGet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY));
+  if (existing) {
+    online.clientId = existing;
+    return online.clientId;
+  }
+  const generated = `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  online.clientId = generated;
+  safeStorageSet(localStorage, ONLINE_CLIENT_ID_STORAGE_KEY, generated);
+  return online.clientId;
+}
+
 function persistLocalProgress() {
   if (online.mode !== "local") {
     clearLocalProgress();
@@ -910,8 +1039,7 @@ function restoreLocalProgress() {
     };
     state.activeQuestion = null;
 
-    el.startScreen.style.display = "none";
-    el.gameScreen.style.display = "block";
+    showGameScreen();
     updateTeamModeUI();
     syncTeamNameInputs();
     updateScoreboard();
@@ -2276,6 +2404,7 @@ function renderCategoryOptions() {
         if (checkbox.checked) { if (state.selectedCategories.length < getRequiredCategoryCount()) state.selectedCategories.push(category); }
         else state.selectedCategories = state.selectedCategories.filter((c) => c !== category);
         updateCategoryPickerUI();
+        scheduleGameplayProgressPersist();
         if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
       });
       const span = document.createElement("span"); span.textContent = category;
@@ -2351,6 +2480,7 @@ function pickRandomCategories() {
   }
   state.selectedCategories = shuffle(state.allCategories).slice(0, getRequiredCategoryCount());
   updateCategoryPickerUI();
+  scheduleGameplayProgressPersist();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -2678,6 +2808,7 @@ function saveOnlineSession() {
     role: online.role,
     teamSlot: resolveOnlineTeamSlot() || online.teamSlot,
     uid: online.uid,
+    clientId: ensureStableOnlineClientId(),
     playerDisplayName: getOnlinePlayerDisplayName(),
     savedAt: Date.now(),
   }));
@@ -2692,6 +2823,7 @@ function loadSavedOnlineSession() {
     const roomCode = normalizeCell(parsed.roomCode).toUpperCase();
     const uid = normalizeCell(parsed.uid);
     const teamSlot = Number(parsed.teamSlot) || null;
+    const clientId = normalizeCell(parsed.clientId);
     if (!roomCode || !uid || !teamSlot) return null;
     return {
       mode: "online",
@@ -2699,6 +2831,7 @@ function loadSavedOnlineSession() {
       role: normalizeCell(parsed.role) || (teamSlot === 1 ? "host" : "guest"),
       teamSlot,
       uid,
+      clientId,
       playerDisplayName: normalizeCell(parsed.playerDisplayName),
       savedAt: Number(parsed.savedAt) || null,
     };
@@ -2721,6 +2854,7 @@ function buildPresencePayload(slot, { connected = true, includeDisplayName = tru
     [`players/${online.uid}/connected`]: connected,
     [`players/${online.uid}/teamIndex`]: slot,
     [`players/${online.uid}/joinedAt`]: timestamp,
+    [`players/${online.uid}/clientId`]: ensureStableOnlineClientId(),
   };
   if (includeDisplayName) {
     updates[`players/${online.uid}/name`] = getOnlinePlayerDisplayName();
@@ -2900,6 +3034,7 @@ async function createOnlineRoom() {
         [online.uid]: {
           name: state.teamNames[1],
           teamIndex: 1,
+          clientId: ensureStableOnlineClientId(),
           connected: true,
           joinedAt: getFirebaseTimestampValue(),
         },
@@ -2940,6 +3075,7 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
   setJoinRoomLoading(true);
   try {
     await ensureOnlineAuth();
+    const stableClientId = ensureStableOnlineClientId();
     const code = normalizeCell(codeInput).toUpperCase();
     if (!code) throw new Error("أدخل كود الغرفة أولاً.");
     const ref = roomRefByCode(code);
@@ -2959,10 +3095,19 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
       const players = room.players && typeof room.players === "object" ? room.players : {};
       const slots = normalizeParticipantSlots(room);
       const existingSlot = Number(players?.[online.uid]?.teamIndex) || null;
+      const previousUidForClient = Object.entries(players).find(([uid, rawRecord]) => {
+        return uid !== online.uid && normalizeCell(rawRecord?.clientId) === stableClientId;
+      })?.[0] || null;
+      const existingSlotByClientId = previousUidForClient ? Number(players?.[previousUidForClient]?.teamIndex) || null : null;
       let selectedSlot = existingSlot;
+      if (!selectedSlot && existingSlotByClientId) selectedSlot = existingSlotByClientId;
 
-      if (!selectedSlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount && !slots[preferredTeamSlot]) {
-        selectedSlot = preferredTeamSlot;
+      if (!selectedSlot && preferredTeamSlot >= 1 && preferredTeamSlot <= roomTeamCount) {
+        const slotOccupantUid = normalizeCell(slots[preferredTeamSlot]);
+        const slotOccupantClientId = normalizeCell(players?.[slotOccupantUid]?.clientId);
+        if (!slotOccupantUid || slotOccupantClientId === stableClientId) {
+          selectedSlot = preferredTeamSlot;
+        }
       }
       if (!selectedSlot) {
         for (let slot = 1; slot <= roomTeamCount; slot += 1) {
@@ -2976,12 +3121,19 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
         throw new Error("تعذّر الانضمام: الغرفة ممتلئة.");
       }
 
-      await ref.child(`players/${online.uid}`).update({
-        name: normalizeCell(state.teamNames?.[selectedSlot]) || normalizeCell(players?.[online.uid]?.name) || `الفريق ${selectedSlot}`,
-        teamIndex: selectedSlot,
-        connected: true,
-        joinedAt: players?.[online.uid]?.joinedAt || Date.now(),
-      });
+      const updates = {
+        [`players/${online.uid}`]: {
+          name: normalizeCell(state.teamNames?.[selectedSlot]) || normalizeCell(players?.[online.uid]?.name) || `الفريق ${selectedSlot}`,
+          teamIndex: selectedSlot,
+          clientId: stableClientId,
+          connected: true,
+          joinedAt: players?.[online.uid]?.joinedAt || Date.now(),
+        },
+      };
+      if (previousUidForClient && previousUidForClient !== online.uid) {
+        updates[`players/${previousUidForClient}`] = null;
+      }
+      await ref.update(updates);
 
       const verification = await ref.get();
       room = verification.val();
@@ -3345,11 +3497,15 @@ async function startNewGame({ onBeforeOpenCategoryPicker = null } = {}) {
 function showGameScreen() {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
+  document.body.classList.add("gameplay-active");
+  attachGameplayViewportGuards();
 }
 
 function showStartScreen() {
   el.gameScreen.style.display = "none";
   el.startScreen.style.display = "flex";
+  document.body.classList.remove("gameplay-active");
+  detachGameplayViewportGuards();
 }
 
 async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
@@ -3447,6 +3603,7 @@ async function tryRestoreOnlineSession() {
   if (!savedSession) return false;
 
   online.uid = savedSession.uid;
+  online.clientId = savedSession.clientId || ensureStableOnlineClientId();
   online.sessionRestoreInProgress = true;
   online.restoringFromSavedSession = true;
   resetGameState();
@@ -3723,6 +3880,8 @@ function initializeApp() {
   appInitialized = true;
   cacheElements();
   ensureSoundPreferenceLoaded();
+  ensureStableOnlineClientId();
+  document.body.classList.remove("gameplay-active");
 
   bindEvent(el.newGameBtn, "click", () => {
     if (online.mode === "online" && online.role !== "host") return;
@@ -3946,8 +4105,14 @@ function initializeApp() {
   updateOnlineActionPermissions();
 
   restoreLocalProgress();
+  if (el.gameScreen?.style.display === "block") {
+    attachGameplayViewportGuards();
+  } else {
+    detachGameplayViewportGuards();
+  }
 
   window.addEventListener("pagehide", persistLocalProgress);
+  window.addEventListener("beforeunload", persistLocalProgress);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       persistLocalProgress();
