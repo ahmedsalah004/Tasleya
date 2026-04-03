@@ -1359,13 +1359,6 @@ button:disabled {
   accent-color: var(--accent);
 }
 
-.category-option-skeleton {
-  justify-content: center;
-  color: var(--muted);
-  border-style: dashed;
-  opacity: 0.82;
-}
-
 #categoryModal.is-readonly .category-option,
 #categoryModal.is-readonly .team-name-input[readonly],
 #categoryModal.is-readonly .modal-actions > button[aria-disabled="true"] {
