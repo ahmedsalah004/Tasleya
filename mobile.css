@@ -3,6 +3,15 @@ body {
   overflow-x: hidden;
 }
 
+body.gameplay-active {
+  overscroll-behavior-y: none;
+}
+
+#gameScreen {
+  overscroll-behavior-y: contain;
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
 
 
 
