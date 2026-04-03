@@ -12,10 +12,10 @@ const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
-const CONTACT_MESSAGES_COLLECTION = "contactMessages";
 const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
+const CONTACT_FORM_ACTION = "https://formspree.io/f/mnjobyeq";
 const HOST_ONLY_START_MESSAGE = "فقط منشئ الغرفة يمكنه بدء اللعبة";
 const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة هو الوحيد الذي يمكنه اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
@@ -147,6 +147,7 @@ function cacheElements() {
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
   contactBtn: document.getElementById("contactBtn"),
   contactModal: document.getElementById("contactModal"),
+  contactForm: document.getElementById("contactForm"),
   contactMessageInput: document.getElementById("contactMessageInput"),
   contactNameInput: document.getElementById("contactNameInput"),
   contactEmailInput: document.getElementById("contactEmailInput"),
@@ -3668,8 +3669,8 @@ async function submitContactMessage() {
     return;
   }
 
-  if (!initFirebase() || !online.firestore) {
-    setContactFeedback("تعذّر الاتصال بالخدمة الآن. حاول مرة أخرى لاحقًا.", "error");
+  if (!el.contactForm) {
+    setContactFeedback("تعذّر إرسال الرسالة. حاول مرة أخرى.", "error");
     return;
   }
 
@@ -3678,21 +3679,24 @@ async function submitContactMessage() {
   setContactFeedback("جارٍ الإرسال...", "info");
 
   try {
-    await online.firestore.collection(CONTACT_MESSAGES_COLLECTION).add({
-      message,
-      name,
-      email,
-      wantsReply: !!email,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      page: "start-screen",
-      userAgent: navigator.userAgent || "",
-      language: navigator.language || "",
+    const formData = new FormData(el.contactForm);
+    formData.set("message", message);
+    formData.set("name", name);
+    formData.set("email", email);
+
+    const response = await fetch(CONTACT_FORM_ACTION, {
+      method: "POST",
+      body: formData,
+      headers: {
+        Accept: "application/json",
+      },
     });
+    if (!response.ok) {
+      throw new Error(`Formspree request failed with status ${response.status}`);
+    }
 
     contactState.cooldownUntil = Date.now() + CONTACT_SUBMIT_COOLDOWN_MS;
-    if (el.contactMessageInput) el.contactMessageInput.value = "";
-    if (el.contactNameInput) el.contactNameInput.value = "";
-    if (el.contactEmailInput) el.contactEmailInput.value = "";
+    el.contactForm.reset();
     setContactFeedback("تم إرسال رسالتك بنجاح", "success");
 
     window.setTimeout(() => {
@@ -3836,7 +3840,10 @@ function initializeApp() {
     if (event.target === el.instructionsModal) closeInstructionsModal();
   }, "instructionsModal");
   bindEvent(el.contactBtn, "click", openContactModal, "contactBtn");
-  bindEvent(el.sendContactBtn, "click", submitContactMessage, "sendContactBtn");
+  bindEvent(el.contactForm, "submit", (event) => {
+    event.preventDefault();
+    submitContactMessage();
+  }, "contactForm");
   bindEvent(el.closeContactBtn, "click", closeContactModal, "closeContactBtn");
   bindEvent(el.contactModal, "click", (event) => {
     if (event.target === el.contactModal) closeContactModal();
@@ -3844,7 +3851,7 @@ function initializeApp() {
   bindEvent(el.contactMessageInput, "keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       event.preventDefault();
-      submitContactMessage();
+      el.contactForm?.requestSubmit();
     }
   }, "contactMessageInput");
   bindEvent(el.installGuideBtn, "click", handleInstallGuidePointerOpen, "installGuideBtn");

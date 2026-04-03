@@ -239,42 +239,47 @@
       <div class="modal-content contact-modal-content">
         <h2 id="contactTitle">تواصل معنا</h2>
         <p class="contact-modal-subtitle">اكتب رسالتك هنا</p>
-        <textarea
-          id="contactMessageInput"
-          class="contact-message-input"
-          rows="7"
-          maxlength="1000"
-          placeholder="اكتب رسالتك هنا"
-          aria-label="رسالة التواصل"
-        ></textarea>
-        <p class="contact-helper-text">للتواصل المباشر عبر البريد الإلكتروني: <a href="mailto:tasleyaonline@gmail.com" class="inline-email-link">tasleyaonline@gmail.com</a></p>
-        <p class="contact-helper-text">إذا رغبت في الحصول على رد، يمكنك كتابة اسمك وبريدك الإلكتروني.</p>
-        <label class="contact-input-label" for="contactNameInput">الاسم (اختياري)</label>
-        <input
-          id="contactNameInput"
-          class="contact-optional-input"
-          type="text"
-          maxlength="100"
-          placeholder="الاسم (اختياري)"
-          aria-label="الاسم (اختياري)"
-        />
-        <label class="contact-input-label" for="contactEmailInput">البريد الإلكتروني (اختياري)</label>
-        <input
-          id="contactEmailInput"
-          class="contact-optional-input"
-          type="email"
-          maxlength="254"
-          inputmode="email"
-          autocomplete="email"
-          placeholder="البريد الإلكتروني (اختياري)"
-          aria-label="البريد الإلكتروني (اختياري)"
-        />
-        <p class="contact-privacy-note">لن نستخدم بياناتك إلا إذا كنت ترغب في تلقي رد.</p>
-        <p id="contactFeedback" class="contact-feedback hidden" role="status" aria-live="polite"></p>
-        <div class="modal-actions contact-modal-actions">
-          <button id="sendContactBtn" class="primary-btn" type="button">إرسال</button>
-          <button id="closeContactBtn" class="ghost-btn" type="button">إغلاق</button>
-        </div>
+        <form id="contactForm" action="https://formspree.io/f/mnjobyeq" method="POST">
+          <textarea
+            id="contactMessageInput"
+            name="message"
+            class="contact-message-input"
+            rows="7"
+            maxlength="1000"
+            placeholder="اكتب رسالتك هنا"
+            aria-label="رسالة التواصل"
+          ></textarea>
+          <p class="contact-helper-text">للتواصل المباشر عبر البريد الإلكتروني: <a href="mailto:tasleyaonline@gmail.com" class="inline-email-link">tasleyaonline@gmail.com</a></p>
+          <p class="contact-helper-text">إذا رغبت في الحصول على رد، يمكنك كتابة اسمك وبريدك الإلكتروني.</p>
+          <label class="contact-input-label" for="contactNameInput">الاسم (اختياري)</label>
+          <input
+            id="contactNameInput"
+            name="name"
+            class="contact-optional-input"
+            type="text"
+            maxlength="100"
+            placeholder="الاسم (اختياري)"
+            aria-label="الاسم (اختياري)"
+          />
+          <label class="contact-input-label" for="contactEmailInput">البريد الإلكتروني (اختياري)</label>
+          <input
+            id="contactEmailInput"
+            name="email"
+            class="contact-optional-input"
+            type="email"
+            maxlength="254"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="البريد الإلكتروني (اختياري)"
+            aria-label="البريد الإلكتروني (اختياري)"
+          />
+          <p class="contact-privacy-note">لن نستخدم بياناتك إلا إذا كنت ترغب في تلقي رد.</p>
+          <p id="contactFeedback" class="contact-feedback hidden" role="status" aria-live="polite"></p>
+          <div class="modal-actions contact-modal-actions">
+            <button id="sendContactBtn" class="primary-btn" type="submit">إرسال</button>
+            <button id="closeContactBtn" class="ghost-btn" type="button">إغلاق</button>
+          </div>
+        </form>
       </div>
     </div>
 
