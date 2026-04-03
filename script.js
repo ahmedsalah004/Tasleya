@@ -256,6 +256,7 @@ const online = {
   hostStartInFlight: false,
   hostSetupInFlight: false,
   latestRoomStatus: "lobby",
+  uiPhase: "room",
 };
 
 const viewportGuardState = {
@@ -2148,7 +2149,9 @@ function resetGameState() {
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
   closeModal({ silentSync: true });
-  closeCategoryPicker();
+  if (!(online.mode === "online" && online.uiPhase === "categories")) {
+    closeCategoryPicker();
+  }
   closePodiumModal();
   clearError();
   updateScoreboard();
@@ -2464,6 +2467,9 @@ function getGroupedCategoryDisplay(categories) {
   return grouped;
 }
 function openCategoryPicker({ resetSelection = false } = {}) {
+  if (online.mode === "online") {
+    setOnlineUiPhase("categories", { reason: "open-category-picker" });
+  }
   if (resetSelection) state.selectedCategories = [];
   el.categoryTeam1NameInput.value = state.teamNames[1];
   el.categoryTeam2NameInput.value = state.teamNames[2];
@@ -2491,11 +2497,24 @@ function closeCategoryPicker() {
   const onEnd = () => { el.categoryModal.classList.add("hidden"); el.categoryModal.classList.remove("is-closing"); el.categoryModal.removeEventListener("animationend", onEnd, true); };
   el.categoryModal.addEventListener("animationend", onEnd, true);
 }
+function setOnlineUiPhase(phase, { reason = "unknown" } = {}) {
+  if (online.uiPhase === phase) return;
+  online.uiPhase = phase;
+  console.log("[Tasleya][online] local UI phase changed", {
+    phase,
+    reason,
+    timestamp: new Date().toISOString(),
+    roomCode: online.roomCode || null,
+    role: online.role,
+  });
+}
 function openCategoryShellImmediately({ reason = "unknown", roomStatus = "" } = {}) {
   if (online.mode !== "online") return;
+  setOnlineUiPhase("categories", { reason });
   console.log("[Tasleya][online] local transition fired", {
     reason,
     roomStatus: normalizeCell(roomStatus) || null,
+    timestamp: new Date().toISOString(),
     role: online.role,
     roomCode: online.roomCode || null,
   });
@@ -3235,6 +3254,7 @@ async function connectToRoom(code, teamSlot) {
       status: roomStatus,
       hasGameState: !!room?.public?.gameState,
       role: online.role,
+      timestamp: new Date().toISOString(),
       roomCode: online.roomCode || null,
     });
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
@@ -3308,6 +3328,11 @@ async function connectToRoom(code, teamSlot) {
     }
 
     if (roomStatus === "starting" || roomStatus === "playing") {
+      console.log("[Tasleya][online] remote start snapshot received", {
+        status: roomStatus,
+        timestamp: new Date().toISOString(),
+        roomCode: online.roomCode || null,
+      });
       openCategoryShellImmediately({
         reason: roomStatus === "starting" ? "remote-starting-signal" : "remote-playing-signal",
         roomStatus,
@@ -3460,6 +3485,7 @@ function resetOnlineMode() {
   online.hostStartInFlight = false;
   online.hostSetupInFlight = false;
   online.latestRoomStatus = "lobby";
+  online.uiPhase = "room";
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -3468,6 +3494,7 @@ function resetOnlineMode() {
 }
 
 function openOnlineModal() {
+  setOnlineUiPhase("room", { reason: "open-online-modal" });
   el.onlineModal.classList.remove("hidden");
   el.onlineCreatePanel.classList.add("hidden");
   el.onlineJoinPanel.classList.add("hidden");
@@ -3508,6 +3535,13 @@ async function startGameFromSelection() {
   state.currentHintText = "";
   clearError();
   buildBoardAssignment();
+  console.log("[Tasleya][online] board ready", {
+    tiles: state.boardTiles.length,
+    mode: online.mode,
+    role: online.role,
+    timestamp: new Date().toISOString(),
+    roomCode: online.roomCode || null,
+  });
   updateScoreboard();
   renderBoard();
   checkEndOfGame();
@@ -4102,6 +4136,7 @@ function initializeApp() {
     console.log("[Tasleya][online] host pressed start", {
       roomCode: online.roomCode || null,
       role: online.role,
+      timestamp: new Date().toISOString(),
     });
     openCategoryShellImmediately({ reason: "host-pressed-start", roomStatus: "starting" });
     if (online.mode === "online" && online.role === "host") {
@@ -4109,6 +4144,11 @@ function initializeApp() {
       online.latestRoomStatus = "starting";
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
+      console.log("[Tasleya][online] Firebase write started", {
+        roomCode: online.roomCode || null,
+        status: "starting",
+        timestamp: new Date().toISOString(),
+      });
       online.roomRef.update({
         "meta/maxTeams": normalizeTeamCount(state.teamCount),
         "meta/status": "starting",
@@ -4119,11 +4159,13 @@ function initializeApp() {
         console.log("[Tasleya][online] remote game-start write completed", {
           roomCode: online.roomCode || null,
           status: "starting",
+          timestamp: new Date().toISOString(),
         });
       }).catch((error) => {
         console.warn("[Tasleya][online] remote game-start write failed", {
           error,
           roomCode: online.roomCode || null,
+          timestamp: new Date().toISOString(),
         });
       });
     }
