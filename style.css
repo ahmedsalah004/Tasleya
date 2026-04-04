@@ -367,24 +367,24 @@ html {
 }
 
 .home-footer {
-  margin-top: clamp(0.85rem, 2.1vw, 1.2rem);
+  margin-top: clamp(0.9rem, 2.2vw, 1.25rem);
   display: grid;
-  gap: 0.62rem;
-  padding: clamp(0.78rem, 1.8vw, 0.98rem) clamp(0.9rem, 2vw, 1.2rem);
+  gap: 0.74rem;
+  padding: clamp(0.92rem, 2.2vw, 1.15rem) clamp(0.98rem, 2.2vw, 1.3rem);
   border-radius: 14px;
-  border: 1px solid rgba(255, 215, 120, 0.2);
-  border-top-color: rgba(255, 215, 120, 0.36);
-  background: linear-gradient(180deg, rgba(8, 13, 34, 0.84), rgba(5, 10, 28, 0.84));
+  border: 1px solid rgba(255, 215, 120, 0.14);
+  border-top-color: rgba(255, 215, 120, 0.24);
+  background: linear-gradient(180deg, rgba(7, 12, 30, 0.72), rgba(5, 10, 24, 0.72));
 }
 
 .footer-closure {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
   align-items: center;
   justify-content: center;
-  gap: 0.4rem 0.9rem;
-  color: rgba(221, 231, 250, 0.86);
-  font-size: 0.82rem;
+  gap: 0.35rem 1rem;
+  color: rgba(221, 231, 250, 0.84);
+  font-size: 0.81rem;
 }
 
 .footer-brand {
@@ -397,13 +397,13 @@ html {
 
 .footer-meta {
   margin: 0;
-  color: rgba(206, 221, 248, 0.8);
+  color: rgba(202, 217, 244, 0.78);
 }
 
 .footer-email {
-  color: rgba(255, 230, 162, 0.88);
+  color: rgba(248, 227, 169, 0.86);
   text-decoration: none;
-  border-bottom: 1px solid rgba(255, 215, 120, 0.4);
+  border-bottom: 1px solid rgba(255, 215, 120, 0.28);
   line-height: 1.25;
 }
 
@@ -417,25 +417,37 @@ html {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.36rem;
+  gap: 0.2rem;
+  padding-top: 0.05rem;
+  border-top: 1px solid rgba(122, 146, 198, 0.18);
 }
 
 .footer-link {
   text-decoration: none;
-  color: rgba(222, 233, 254, 0.88);
-  background: rgba(12, 19, 48, 0.35);
-  border: 1px solid rgba(133, 159, 214, 0.24);
-  border-radius: 9px;
-  padding: 0.28rem 0.58rem;
-  font-size: 0.79rem;
-  transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease;
+  color: rgba(211, 224, 248, 0.84);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0.26rem 0.5rem;
+  font-size: 0.77rem;
+  line-height: 1.35;
+  transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.footer-link + .footer-link {
+  position: relative;
+}
+
+.footer-link + .footer-link::before {
+  content: "•";
+  position: absolute;
+  inset-inline-start: -0.08rem;
+  color: rgba(157, 179, 226, 0.52);
 }
 
 .footer-link:hover,
 .footer-link:focus-visible {
-  color: rgba(255, 232, 172, 0.94);
-  border-color: rgba(255, 215, 120, 0.42);
-  background: rgba(19, 29, 63, 0.45);
+  color: rgba(255, 231, 169, 0.92);
 }
 
 .secondary-button {
@@ -451,22 +463,34 @@ html {
   }
 
   .home-footer {
-    padding: 0.72rem 0.72rem 0.78rem;
-    gap: 0.52rem;
+    padding: 0.84rem 0.76rem 0.9rem;
+    gap: 0.62rem;
   }
 
   .footer-closure {
+    grid-template-columns: 1fr;
     justify-content: flex-start;
-    gap: 0.32rem 0.72rem;
+    text-align: right;
+    gap: 0.18rem;
     font-size: 0.79rem;
   }
 
   .footer-brand {
-    width: 100%;
+    width: auto;
   }
 
   .footer-nav {
     justify-content: flex-start;
+    gap: 0.12rem;
+    padding-top: 0.45rem;
+  }
+
+  .footer-link {
+    padding-inline: 0.35rem;
+  }
+
+  .footer-link + .footer-link::before {
+    inset-inline-start: -0.02rem;
   }
 }
 
