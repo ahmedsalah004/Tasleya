@@ -72,8 +72,20 @@
         <h1 class="start-screen-title">تسلية</h1>
         <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
         <div class="start-actions">
-          <button id="startLocalBtn" type="button">العب بمفردك</button>
-          <button id="startOnlineBtn" type="button">لعب جماعي</button>
+          <div id="homepagePrimaryStep" class="home-flow-step">
+            <button id="startLocalBtn" type="button">العب بمفردك</button>
+            <button id="startOnlineBtn" type="button">لعب جماعي</button>
+          </div>
+          <div id="homepageGroupDeviceStep" class="home-flow-step hidden">
+            <button id="homeGroupOneDeviceBtn" type="button">لعب على جهاز واحد</button>
+            <button id="homeGroupMultiDeviceBtn" type="button">لعب على أجهزة مختلفة</button>
+            <button id="homeGroupDeviceBackBtn" type="button">رجوع</button>
+          </div>
+          <div id="homepageGroupTeamsStep" class="home-flow-step hidden">
+            <button id="homeGroupTwoTeamsBtn" type="button">فريقان</button>
+            <button id="homeGroupThreeTeamsBtn" type="button">3 فرق</button>
+            <button id="homeGroupTeamsBackBtn" type="button">رجوع</button>
+          </div>
           <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
           <button id="contactBtn" class="secondary-button" type="button">تواصل معنا لتحسين اللعبة</button>
           <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
