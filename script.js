@@ -15,6 +15,8 @@ const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
+const ROOM_USED_HISTORY_FIELD = "usedQuestionIdsByCategory";
+const LEGACY_ROOM_USED_HISTORY_FIELD = "usedQuestionsByCategory";
 const CONTACT_MIN_LENGTH = 3;
 const CONTACT_MAX_LENGTH = 1000;
 const CONTACT_SUBMIT_COOLDOWN_MS = 5000;
@@ -923,6 +925,13 @@ function normalizeUsedHistoryByCategory(rawHistory) {
   });
   return normalized;
 }
+function getRoomUsedQuestionHistory(room = {}) {
+  const gameState = room?.public?.gameState;
+  return normalizeUsedHistoryByCategory(
+    gameState?.[ROOM_USED_HISTORY_FIELD]
+    || gameState?.[LEGACY_ROOM_USED_HISTORY_FIELD]
+  );
+}
 function getQuestionHistoryId(question, { category = "", points = null } = {}) {
   const normalizedDirectId = firstNonEmpty(question?.id, question?.questionId);
   if (normalizedDirectId) return normalizedDirectId;
@@ -1214,7 +1223,7 @@ async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset 
   const normalizedCategory = normalizeCell(category);
   const normalizedQuestionId = normalizeCell(questionId);
   if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !isOnlineHostClient()) return;
-  const usedHistoryRef = online.roomRef.child("public/gameState/usedQuestionsByCategory");
+  const usedHistoryRef = online.roomRef.child(`public/gameState/${ROOM_USED_HISTORY_FIELD}`);
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
     const bucket = Array.isArray(history[normalizedCategory]) ? history[normalizedCategory] : [];
@@ -2669,6 +2678,9 @@ function serializeGameState() {
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
     finished: state.boardTiles.length > 0 && !hasPlayableTiles(),
+    [ROOM_USED_HISTORY_FIELD]: online.mode === "online"
+      ? normalizeUsedHistoryByCategory(online.usedQuestionsByCategory)
+      : undefined,
   };
 }
 
@@ -3184,6 +3196,7 @@ async function createOnlineRoom() {
     initialGameState.teamCount = selectedTeamCount;
     initialGameState.selectedCategories = [];
     initialGameState.scores = { 1: 0, 2: 0, 3: 0 };
+    initialGameState[ROOM_USED_HISTORY_FIELD] = normalizeUsedHistoryByCategory(initialGameState[ROOM_USED_HISTORY_FIELD]);
     const roomPayload = {
       meta: {
         createdAt: getFirebaseTimestampValue(),
@@ -3312,7 +3325,7 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
 
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
     online.roomStatus = normalizeCell(room?.meta?.status) || "lobby";
-    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
+    online.usedQuestionsByCategory = getRoomUsedQuestionHistory(room);
 
     setLocalTeamCount(roomTeamCount);
     updateTeamModeUI();
@@ -3360,7 +3373,7 @@ async function connectToRoom(code, teamSlot) {
 
     const roomTeamCount = normalizeTeamCount(room?.meta?.maxTeams || room?.teamCount);
     online.roomStatus = normalizeCell(room?.meta?.status) || "lobby";
-    online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(room?.public?.gameState?.usedQuestionsByCategory);
+    online.usedQuestionsByCategory = getRoomUsedQuestionHistory(room);
     const slots = normalizeParticipantSlots(room);
     const connections = normalizeParticipantConnections(room);
     const records = normalizeParticipantRecords(room);
@@ -4365,11 +4378,14 @@ function initializeApp() {
       online.hostSetupInFlight = true;
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
+      const preservedUsedHistory = normalizeUsedHistoryByCategory(online.usedQuestionsByCategory);
       online.roomRef.update({
         "meta/maxTeams": normalizeTeamCount(state.teamCount),
         "meta/status": "lobby",
         "public/selectedCategories": [],
-        "public/gameState": null,
+        "public/gameState": {
+          [ROOM_USED_HISTORY_FIELD]: preservedUsedHistory,
+        },
         "public/scores": { 1: 0, 2: 0, 3: 0 },
       }).catch(() => {});
     }
