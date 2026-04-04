@@ -1730,7 +1730,7 @@ button:disabled {
 
 .category-help-floating-popover {
   position: fixed;
-  z-index: 2000;
+  z-index: 4700;
   width: min(290px, calc(100vw - 20px));
   border-radius: 11px;
   border: 1px solid rgba(131, 158, 223, 0.34);
@@ -1765,7 +1765,7 @@ button:disabled {
 .category-help-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2100;
+  z-index: 4800;
   display: flex;
   align-items: flex-end;
   justify-content: center;
