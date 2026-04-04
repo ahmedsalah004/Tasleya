@@ -58,9 +58,9 @@
     <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest" />
-    <!-- Deployment versioning: bump v=... below when releasing updated CSS/JS files. -->
-    <link rel="stylesheet" href="style.css?v=1.2.0" />
-    <link rel="stylesheet" href="mobile.css?v=1.2.0" media="screen and (max-width: 700px)" />
+    <!-- Deployment version token: keep all homepage shell assets on the same v to avoid stale mix. -->
+    <link rel="stylesheet" href="style.css?v=1.2.2" />
+    <link rel="stylesheet" href="mobile.css?v=1.2.2" media="screen and (max-width: 700px)" />
   </head>
   <body>
     <div id="startScreen">
@@ -513,13 +513,14 @@
       </div>
     </div>
 
+    <!-- deploy-version: 1.2.2 -->
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js"></script>
-    <script src="game-config.js?v=1.1.0"></script>
-    <script src="script.js?v=1.2.0"></script>
+    <script src="firebase-config.js?v=1.2.2"></script>
+    <script src="game-config.js?v=1.2.2"></script>
+    <script src="script.js?v=1.2.2"></script>
   </body>
 </html>
