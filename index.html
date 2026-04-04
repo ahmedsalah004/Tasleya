@@ -69,8 +69,8 @@
         <h1 class="start-screen-title">تسلية</h1>
         <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
         <div class="start-actions">
-          <button id="startLocalBtn" type="button">لعب على جهاز واحد</button>
-          <button id="startOnlineBtn" type="button">لعب على أجهزة مختلفة</button>
+          <button id="startLocalBtn" type="button">العب بمفردك</button>
+          <button id="startOnlineBtn" type="button">لعب جماعي</button>
           <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
           <button id="contactBtn" class="secondary-button" type="button">تواصل معنا لتحسين اللعبة</button>
           <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
@@ -110,12 +110,12 @@
           <h2 id="modesTitle">أنماط اللعب</h2>
           <div class="card-grid mode-grid">
             <article class="mode-card">
-              <h3>لعب على جهاز واحد</h3>
-              <p>مناسب للعب المباشر مع الأصدقاء أو العائلة على نفس الجهاز.</p>
+              <h3>العب بمفردك</h3>
+              <p>اختر 3 فئات وابدأ اللعب الفردي مباشرة دون إعداد فرق.</p>
             </article>
             <article class="mode-card">
-              <h3>لعب على أجهزة مختلفة</h3>
-              <p>مثالي للفرق أو الأصدقاء عندما يلعب كل شخص من جهاز منفصل.</p>
+              <h3>لعب جماعي</h3>
+              <p>اختر أولًا طريقة اللعب الجماعي: على جهاز واحد أو على أجهزة مختلفة.</p>
             </article>
           </div>
         </section>
@@ -387,7 +387,7 @@
       <div class="modal-content category-modal-content">
         <h2 id="categoryModalTitle">اختر 6 فئات لبدء اللعبة</h2>
         <div class="category-team-inputs" aria-label="أسماء الفرق">
-          <label for="categoryTeam1NameInput" class="team-name-label">اسم الفريق الأول</label>
+          <label for="categoryTeam1NameInput" id="categoryTeam1NameLabel" class="team-name-label">اسم الفريق الأول</label>
           <input
             id="categoryTeam1NameInput"
             class="team-name-input"
@@ -449,7 +449,7 @@
         <div class="online-team-count" aria-label="عدد الفرق">
           <h2 id="onlineModalTitle" class="online-team-count-label">عدد الفرق في اللعبة الأونلاين</h2>
           <div class="online-team-count-actions">
-            <button id="onlineTwoTeamsBtn" class="primary-btn" type="button" aria-pressed="true">2 فرق</button>
+            <button id="onlineTwoTeamsBtn" class="primary-btn" type="button" aria-pressed="true">فريقان</button>
             <button id="onlineThreeTeamsBtn" class="secondary-btn" type="button" aria-pressed="false">3 فرق</button>
           </div>
         </div>
@@ -491,12 +491,24 @@
       <div class="modal-content local-teams-modal-content">
         <h2 id="localTeamsModalTitle">كم عدد الفرق؟</h2>
         <div class="local-team-count-actions">
-          <button id="localOneTeamBtn" class="secondary-btn" type="button">1</button>
-          <button id="localTwoTeamsBtn" class="primary-btn" type="button">2</button>
-          <button id="localThreeTeamsBtn" class="secondary-btn" type="button">3</button>
+          <button id="localTwoTeamsBtn" class="primary-btn" type="button">فريقان</button>
+          <button id="localThreeTeamsBtn" class="secondary-btn" type="button">3 فرق</button>
         </div>
         <div class="modal-actions">
           <button id="cancelLocalTeamsBtn" class="ghost-btn" type="button">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="groupModeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="groupModeModalTitle">
+      <div class="modal-content local-teams-modal-content">
+        <h2 id="groupModeModalTitle">اختر طريقة اللعب الجماعي</h2>
+        <div class="local-team-count-actions">
+          <button id="groupOneDeviceBtn" class="primary-btn" type="button">على جهاز واحد</button>
+          <button id="groupMultiDeviceBtn" class="secondary-btn" type="button">على أجهزة مختلفة</button>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelGroupModeBtn" class="ghost-btn" type="button">إلغاء</button>
         </div>
       </div>
     </div>
