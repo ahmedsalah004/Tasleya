@@ -3690,7 +3690,7 @@ async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = t
 }
 
 function startSoloFromHomepage() {
-  closeGroupModeModal();
+  closeGroupModeModal({ force: true });
   closeOnlineModal();
   closeLocalTeamsModal();
   resetOnlineMode();
@@ -3700,27 +3700,29 @@ function startSoloFromHomepage() {
   startNewGame();
 }
 
-function startGroupFromHomepage() {
-  closeOnlineModal();
-  closeLocalTeamsModal();
-  closeGroupModeModal();
-  openGroupModeModal();
-}
-
 function openGroupModeModal() {
   if (!el.groupModeModal) return;
   closeOnlineModal();
   closeLocalTeamsModal();
   el.groupModeModal.classList.remove("hidden", "is-closing");
+  void el.groupModeModal.offsetWidth;
   el.groupModeModal.classList.add("is-open");
+  el.groupModeModal.setAttribute("aria-hidden", "false");
   if (el.groupOneDeviceBtn) {
     window.setTimeout(() => el.groupOneDeviceBtn.focus(), 0);
   }
 }
-function closeGroupModeModal() {
+function closeGroupModeModal({ force = false } = {}) {
   if (!el.groupModeModal) return;
-  el.groupModeModal.classList.remove("is-open");
+  if (force) {
+    el.groupModeModal.classList.remove("is-open", "is-closing");
+    el.groupModeModal.classList.add("hidden");
+    el.groupModeModal.setAttribute("aria-hidden", "true");
+    return;
+  }
+  el.groupModeModal.classList.remove("is-open", "is-closing");
   el.groupModeModal.classList.add("hidden");
+  el.groupModeModal.setAttribute("aria-hidden", "true");
 }
 
 function openLocalTeamsModal() {
@@ -4127,7 +4129,9 @@ function initializeApp() {
   bindEvent(el.categoryModal, "click", (event) => { if (event.target === el.categoryModal) closeCategoryPicker(); }, "categoryModal");
 
   bindEvent(el.backToHomeBtn, "click", returnToHomeScreen, "backToHomeBtn");
-  bindEvent(el.startLocalBtn, "click", () => {
+  bindEvent(el.startLocalBtn, "click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
     console.log("[Tasleya] Start solo button clicked");
     logAnalyticsEvent("local_game_started", { mode: "solo" });
     startSoloFromHomepage();
@@ -4145,9 +4149,11 @@ function initializeApp() {
     showStartScreen();
     clearLocalProgress();
   }, "localTeamsModal");
-  bindEvent(el.startOnlineBtn, "click", () => {
-    console.log("[Tasleya] Start group button clicked");
-    startGroupFromHomepage();
+  bindEvent(el.startOnlineBtn, "click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log("[Tasleya] Start group button clicked: opening group-mode modal directly");
+    openGroupModeModal();
   }, "startOnlineBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
