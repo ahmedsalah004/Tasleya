@@ -99,13 +99,13 @@ const CATEGORY_GROUP_GRADIENTS = {
   [DEFAULT_CATEGORY_GROUP]: "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
 };
 const CATEGORY_HELP_TEXTS = {
-  "خمن الدولة من المكان GeoGuessr": "تظهر لك صورة أو مشهد من مكان حول العالم، والمطلوب تخمين الدولة الأقرب.\nالنوع: صورة",
-  "خمن اللغة من الصوت": "تسمع مقطعاً صوتياً قصيراً، ثم تختار اللغة المتوقعة.\nالنوع: صوت",
-  "رتب التالي": "ستظهر عناصر متعددة، وعليك ترتيبها حسب المطلوب في السؤال (زمنياً أو رقمياً أو منطقياً).\nالنوع: نص",
-  "من هو المشهور (جزء من وجه)": "تظهر لك لقطة مقرّبة من وجه شخصية مشهورة، وعليك تحديد الاسم الصحيح.\nالنوع: صورة",
-  "خمن اللاعب (فرق فقط)": "يُعرض سجل الفرق التي لعب لها اللاعب، والمطلوب معرفة اسمه.\nالنوع: نص",
-  "خمن الفيلم بالتمثيل (فرق فقط)": "يعتمد على تمثيل مشهد من الفيلم بدون ذكر الاسم مباشرة، ثم تخمين العنوان.\nالنوع: تمثيل",
-  "اسم الإصابة من الأشعة": "تُعرض صورة أشعة أو لقطة طبية، والمطلوب تحديد نوع الإصابة الأقرب.\nالنوع: صورة",
+  "خمن الدولة من المكان GeoGuessr": "تظهر صورة من مكان حول العالم، وعليك اختيار الدولة الأقرب.",
+  "خمن اللغة من الصوت": "تسمع مقطعًا قصيرًا، ثم تختار اللغة الصحيحة.",
+  "رتب التالي": "تظهر عناصر متعددة، وعليك ترتيبها بالشكل المطلوب في السؤال.",
+  "من هو المشهور (جزء من وجه)": "تظهر لقطة مقرّبة من وجه مشهور، وعليك تحديد اسمه.",
+  "خمن اللاعب (فرق فقط)": "تظهر مسيرة اللاعب بين الأندية، وعليك معرفة اسمه.",
+  "خمن الفيلم بالتمثيل (فرق فقط)": "يظهر تمثيل لمشهد، وعليك تخمين اسم الفيلم.",
+  "اسم الإصابة من الأشعة": "تظهر صورة أشعة، وعليك تحديد الإصابة الأقرب.",
 };
 const CATEGORY_DISPLAY_ALIASES = {
   "خمن الدولة من المكان GeoGuessr": "خمن الدولة من المكان",
@@ -114,6 +114,21 @@ const CATEGORY_DISPLAY_ALIASES = {
   "خمن الفيلم بالتمثيل (فرق فقط)": "خمن الفلم بالتمثيل",
 };
 const CATEGORY_THUMBNAILS = {};
+const MOBILE_CATEGORY_HELP_MEDIA_QUERY = "(max-width: 859px), (hover: none), (pointer: coarse)";
+const categoryHelpState = {
+  desktopPopover: null,
+  desktopTitle: null,
+  desktopText: null,
+  mobileSheet: null,
+  mobileTitle: null,
+  mobileText: null,
+  mobileBackdrop: null,
+  activeButton: null,
+  activeOption: null,
+  desktopOpen: false,
+  mobileOpen: false,
+  listenersBound: false,
+};
 
 let el = {};
 
@@ -2565,6 +2580,157 @@ function getCategoryVisualMeta(category, groupName) {
   };
 }
 
+function isMobileCategoryHelpMode() {
+  return window.matchMedia(MOBILE_CATEGORY_HELP_MEDIA_QUERY).matches;
+}
+
+function ensureCategoryHelpUI() {
+  if (!categoryHelpState.desktopPopover) {
+    const desktopPopover = document.createElement("div");
+    desktopPopover.className = "category-help-floating-popover";
+    desktopPopover.setAttribute("role", "tooltip");
+    desktopPopover.innerHTML = '<strong class="category-help-floating-title"></strong><p class="category-help-floating-text"></p>';
+    document.body.appendChild(desktopPopover);
+    categoryHelpState.desktopPopover = desktopPopover;
+    categoryHelpState.desktopTitle = desktopPopover.querySelector(".category-help-floating-title");
+    categoryHelpState.desktopText = desktopPopover.querySelector(".category-help-floating-text");
+  }
+  if (!categoryHelpState.mobileBackdrop) {
+    const mobileBackdrop = document.createElement("div");
+    mobileBackdrop.className = "category-help-sheet-backdrop";
+    mobileBackdrop.innerHTML = `
+      <section class="category-help-sheet" role="dialog" aria-modal="true" aria-label="شرح الفئة">
+        <header class="category-help-sheet-header">
+          <h3 class="category-help-sheet-title"></h3>
+          <button type="button" class="category-help-sheet-close-btn" aria-label="إغلاق">✕</button>
+        </header>
+        <p class="category-help-sheet-text"></p>
+      </section>
+    `;
+    document.body.appendChild(mobileBackdrop);
+    categoryHelpState.mobileBackdrop = mobileBackdrop;
+    categoryHelpState.mobileSheet = mobileBackdrop.querySelector(".category-help-sheet");
+    categoryHelpState.mobileTitle = mobileBackdrop.querySelector(".category-help-sheet-title");
+    categoryHelpState.mobileText = mobileBackdrop.querySelector(".category-help-sheet-text");
+    mobileBackdrop.querySelector(".category-help-sheet-close-btn")?.addEventListener("click", closeMobileCategoryHelpSheet);
+    mobileBackdrop.addEventListener("click", (event) => {
+      if (event.target === mobileBackdrop) closeMobileCategoryHelpSheet();
+    });
+  }
+  if (!categoryHelpState.listenersBound) {
+    document.addEventListener("pointerdown", handleCategoryHelpOutsidePointerDown);
+    window.addEventListener("resize", handleCategoryHelpViewportChange, { passive: true });
+    window.addEventListener("scroll", handleCategoryHelpViewportChange, { passive: true, capture: true });
+    categoryHelpState.listenersBound = true;
+  }
+}
+
+function closeDesktopCategoryHelp() {
+  if (!categoryHelpState.desktopOpen) return;
+  categoryHelpState.desktopOpen = false;
+  categoryHelpState.desktopPopover?.classList.remove("is-open");
+  if (categoryHelpState.activeOption) categoryHelpState.activeOption.classList.remove("is-help-open");
+  if (categoryHelpState.activeButton) categoryHelpState.activeButton.setAttribute("aria-expanded", "false");
+  categoryHelpState.activeButton = null;
+  categoryHelpState.activeOption = null;
+}
+
+function closeMobileCategoryHelpSheet() {
+  if (!categoryHelpState.mobileOpen) return;
+  categoryHelpState.mobileOpen = false;
+  categoryHelpState.mobileBackdrop?.classList.remove("is-open");
+  if (categoryHelpState.activeOption) categoryHelpState.activeOption.classList.remove("is-help-open");
+  if (categoryHelpState.activeButton) categoryHelpState.activeButton.setAttribute("aria-expanded", "false");
+  categoryHelpState.activeButton = null;
+  categoryHelpState.activeOption = null;
+}
+
+function closeCategoryHelpOverlays() {
+  closeDesktopCategoryHelp();
+  closeMobileCategoryHelpSheet();
+}
+
+function positionDesktopCategoryHelp(anchorButton) {
+  if (!categoryHelpState.desktopPopover || !anchorButton) return;
+  const spacing = 10;
+  const viewportPadding = 10;
+  const anchorRect = anchorButton.getBoundingClientRect();
+  const popoverRect = categoryHelpState.desktopPopover.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = anchorRect.left + (anchorRect.width / 2) - (popoverRect.width / 2);
+  left = Math.max(viewportPadding, Math.min(left, viewportWidth - popoverRect.width - viewportPadding));
+
+  let top = anchorRect.bottom + spacing;
+  if (top + popoverRect.height > viewportHeight - viewportPadding) {
+    top = anchorRect.top - popoverRect.height - spacing;
+  }
+  top = Math.max(viewportPadding, Math.min(top, viewportHeight - popoverRect.height - viewportPadding));
+
+  categoryHelpState.desktopPopover.style.left = `${left}px`;
+  categoryHelpState.desktopPopover.style.top = `${top}px`;
+}
+
+function openDesktopCategoryHelp({ helpButton, option, title, text, toggle = true }) {
+  ensureCategoryHelpUI();
+  const isSame = categoryHelpState.desktopOpen && categoryHelpState.activeButton === helpButton;
+  if (isSame && toggle) {
+    closeDesktopCategoryHelp();
+    return;
+  }
+  if (isSame) return;
+  closeMobileCategoryHelpSheet();
+  closeDesktopCategoryHelp();
+  categoryHelpState.activeButton = helpButton;
+  categoryHelpState.activeOption = option;
+  categoryHelpState.desktopTitle.textContent = title;
+  categoryHelpState.desktopText.textContent = text;
+  categoryHelpState.desktopOpen = true;
+  option.classList.add("is-help-open");
+  helpButton.setAttribute("aria-expanded", "true");
+  categoryHelpState.desktopPopover.classList.add("is-open");
+  positionDesktopCategoryHelp(helpButton);
+}
+
+function openMobileCategoryHelpSheet({ helpButton, option, title, text }) {
+  ensureCategoryHelpUI();
+  const isSame = categoryHelpState.mobileOpen && categoryHelpState.activeButton === helpButton;
+  if (isSame) {
+    closeMobileCategoryHelpSheet();
+    return;
+  }
+  closeDesktopCategoryHelp();
+  closeMobileCategoryHelpSheet();
+  categoryHelpState.activeButton = helpButton;
+  categoryHelpState.activeOption = option;
+  categoryHelpState.mobileTitle.textContent = title;
+  categoryHelpState.mobileText.textContent = text;
+  categoryHelpState.mobileOpen = true;
+  option.classList.add("is-help-open");
+  helpButton.setAttribute("aria-expanded", "true");
+  categoryHelpState.mobileBackdrop.classList.add("is-open");
+}
+
+function handleCategoryHelpOutsidePointerDown(event) {
+  if (categoryHelpState.desktopOpen) {
+    const insidePopover = categoryHelpState.desktopPopover?.contains(event.target);
+    const insideButton = event.target.closest(".category-option-help-btn");
+    if (!insidePopover && !insideButton) closeDesktopCategoryHelp();
+  }
+  if (categoryHelpState.mobileOpen) {
+    const insideSheet = categoryHelpState.mobileSheet?.contains(event.target);
+    const insideButton = event.target.closest(".category-option-help-btn");
+    if (!insideSheet && !insideButton) closeMobileCategoryHelpSheet();
+  }
+}
+
+function handleCategoryHelpViewportChange() {
+  if (categoryHelpState.desktopOpen && categoryHelpState.activeButton) {
+    positionDesktopCategoryHelp(categoryHelpState.activeButton);
+  }
+}
+
 function renderCategoryOptions() {
   if (el.categoryList.childElementCount > 0) {
     updateCategoryPickerUI();
@@ -2651,34 +2817,32 @@ function renderCategoryOptions() {
         helpButton.setAttribute("aria-label", `معلومات حول فئة ${visualMeta.displayLabel}`);
         helpButton.setAttribute("aria-expanded", "false");
         helpButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v5"/><circle cx="12" cy="7.25" r=".7" fill="currentColor" stroke="none"/></svg>';
-
-        const helpContent = document.createElement("span");
-        helpContent.className = "category-option-help-popover";
-        helpContent.textContent = visualMeta.helpText;
-        helpContent.setAttribute("role", "tooltip");
+        const openHelp = () => {
+          const payload = { helpButton, option: label, title: visualMeta.displayLabel, text: visualMeta.helpText };
+          if (isMobileCategoryHelpMode()) openMobileCategoryHelpSheet(payload);
+          else openDesktopCategoryHelp(payload);
+        };
 
         helpButton.addEventListener("click", (event) => {
           event.preventDefault();
           event.stopPropagation();
-          const wasOpen = label.classList.contains("is-help-open");
-          document.querySelectorAll(".category-option.is-help-open").forEach((openOption) => {
-            openOption.classList.remove("is-help-open");
-            const openButton = openOption.querySelector(".category-option-help-btn");
-            if (openButton) openButton.setAttribute("aria-expanded", "false");
-          });
-          if (!wasOpen) {
-            label.classList.add("is-help-open");
-            helpButton.setAttribute("aria-expanded", "true");
-          }
+          openHelp();
         });
 
         helpButton.addEventListener("pointerdown", (event) => {
           event.preventDefault();
           event.stopPropagation();
         });
+        helpButton.addEventListener("mouseenter", () => {
+          if (isMobileCategoryHelpMode()) return;
+          openDesktopCategoryHelp({ helpButton, option: label, title: visualMeta.displayLabel, text: visualMeta.helpText, toggle: false });
+        });
+        helpButton.addEventListener("mouseleave", () => {
+          if (isMobileCategoryHelpMode()) return;
+          if (categoryHelpState.activeButton === helpButton) closeDesktopCategoryHelp();
+        });
         row.appendChild(helpButton);
         body.appendChild(row);
-        body.appendChild(helpContent);
       } else {
         body.appendChild(row);
       }
@@ -2692,15 +2856,7 @@ function renderCategoryOptions() {
     el.categoryList.appendChild(section);
   });
   updateCategoryPickerUI();
-  document.addEventListener("click", (event) => {
-    if (!event.target.closest(".category-option-help-btn")) {
-      document.querySelectorAll(".category-option.is-help-open").forEach((openOption) => {
-        openOption.classList.remove("is-help-open");
-        const openButton = openOption.querySelector(".category-option-help-btn");
-        if (openButton) openButton.setAttribute("aria-expanded", "false");
-      });
-    }
-  });
+  ensureCategoryHelpUI();
 }
 
 function getGroupedCategoryDisplay(categories) {
@@ -2757,6 +2913,7 @@ function openCategoryPicker({ resetSelection = false } = {}) {
 }
 function closeCategoryPicker() {
   if (el.categoryModal.classList.contains("hidden")) return;
+  closeCategoryHelpOverlays();
   if (prefersReducedMotion) {
     el.categoryModal.classList.add("hidden");
     el.categoryModal.classList.remove("is-open", "is-closing");
