@@ -99,10 +99,19 @@ const CATEGORY_GROUP_GRADIENTS = {
   [DEFAULT_CATEGORY_GROUP]: "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
 };
 const CATEGORY_HELP_TEXTS = {
-  "خمن اللاعب (فرق فقط)": "مناسب للعب الجماعي فقط لأن الإجابة تكون باسم الفرق التي لعب لها اللاعب.",
-  "خمن الفيلم بالتمثيل (فرق فقط)": "يعتمد على تمثيل المشهد بين أفراد الفريق، لذلك يناسب اللعب الجماعي.",
-  "خمن الدولة من المكان GeoGuessr": "سترى مكاناً أو مشهداً وعليك توقع الدولة الأقرب.",
-  "رتب التالي": "الترتيب قد يكون زمنيًا أو رقميًا حسب السؤال.",
+  "خمن الدولة من المكان GeoGuessr": "تظهر لك صورة أو مشهد من مكان حول العالم، والمطلوب تخمين الدولة الأقرب.\nالنوع: صورة",
+  "خمن اللغة من الصوت": "تسمع مقطعاً صوتياً قصيراً، ثم تختار اللغة المتوقعة.\nالنوع: صوت",
+  "رتب التالي": "ستظهر عناصر متعددة، وعليك ترتيبها حسب المطلوب في السؤال (زمنياً أو رقمياً أو منطقياً).\nالنوع: نص",
+  "من هو المشهور (جزء من وجه)": "تظهر لك لقطة مقرّبة من وجه شخصية مشهورة، وعليك تحديد الاسم الصحيح.\nالنوع: صورة",
+  "خمن اللاعب (فرق فقط)": "يُعرض سجل الفرق التي لعب لها اللاعب، والمطلوب معرفة اسمه.\nالنوع: نص",
+  "خمن الفيلم بالتمثيل (فرق فقط)": "يعتمد على تمثيل مشهد من الفيلم بدون ذكر الاسم مباشرة، ثم تخمين العنوان.\nالنوع: تمثيل",
+  "اسم الإصابة من الأشعة": "تُعرض صورة أشعة أو لقطة طبية، والمطلوب تحديد نوع الإصابة الأقرب.\nالنوع: صورة",
+};
+const CATEGORY_DISPLAY_ALIASES = {
+  "خمن الدولة من المكان GeoGuessr": "خمن الدولة من المكان",
+  "خمن اللاعب (فرق فقط)": "خمن اللاعب",
+  "من هو المشهور (جزء من وجه)": "من هو المشهور",
+  "خمن الفيلم بالتمثيل (فرق فقط)": "خمن الفلم بالتمثيل",
 };
 const CATEGORY_THUMBNAILS = {};
 
@@ -2547,7 +2556,9 @@ function updateCategoryPickerUI() {
 function getCategoryVisualMeta(category, groupName) {
   const thumbnail = CATEGORY_THUMBNAILS[category];
   const helpText = CATEGORY_HELP_TEXTS[category] || "";
+  const displayLabel = CATEGORY_DISPLAY_ALIASES[category] || category;
   return {
+    displayLabel,
     thumbnail: typeof thumbnail === "string" && thumbnail.trim() ? thumbnail.trim() : "",
     helpText,
     gradient: CATEGORY_GROUP_GRADIENTS[groupName] || CATEGORY_GROUP_GRADIENTS[DEFAULT_CATEGORY_GROUP],
@@ -2565,6 +2576,7 @@ function renderCategoryOptions() {
     if (!categories.length) return;
     const section = document.createElement("section");
     section.className = "category-group-section";
+    section.style.setProperty("--category-group-accent", CATEGORY_GROUP_GRADIENTS[groupName] || CATEGORY_GROUP_GRADIENTS[DEFAULT_CATEGORY_GROUP]);
     const header = document.createElement("h3");
     header.className = "category-group-title";
     const icon = document.createElement("span");
@@ -2624,17 +2636,51 @@ function renderCategoryOptions() {
 
       const body = document.createElement("span");
       body.className = "category-option-body";
+      const row = document.createElement("span");
+      row.className = "category-option-row";
       const title = document.createElement("span");
       title.className = "category-option-label";
-      title.textContent = category;
-      body.appendChild(title);
+      title.textContent = visualMeta.displayLabel;
+      row.appendChild(title);
 
-      if (visualMeta.helpText) {
-        const help = document.createElement("span");
-        help.className = "category-option-help";
-        help.textContent = "معلومة";
-        help.title = visualMeta.helpText;
-        body.appendChild(help);
+      const hasHelp = Boolean(visualMeta.helpText);
+      if (hasHelp) {
+        const helpButton = document.createElement("button");
+        helpButton.type = "button";
+        helpButton.className = "category-option-help-btn";
+        helpButton.setAttribute("aria-label", `معلومات حول فئة ${visualMeta.displayLabel}`);
+        helpButton.setAttribute("aria-expanded", "false");
+        helpButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v5"/><circle cx="12" cy="7.25" r=".7" fill="currentColor" stroke="none"/></svg>';
+
+        const helpContent = document.createElement("span");
+        helpContent.className = "category-option-help-popover";
+        helpContent.textContent = visualMeta.helpText;
+        helpContent.setAttribute("role", "tooltip");
+
+        helpButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const wasOpen = label.classList.contains("is-help-open");
+          document.querySelectorAll(".category-option.is-help-open").forEach((openOption) => {
+            openOption.classList.remove("is-help-open");
+            const openButton = openOption.querySelector(".category-option-help-btn");
+            if (openButton) openButton.setAttribute("aria-expanded", "false");
+          });
+          if (!wasOpen) {
+            label.classList.add("is-help-open");
+            helpButton.setAttribute("aria-expanded", "true");
+          }
+        });
+
+        helpButton.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
+        row.appendChild(helpButton);
+        body.appendChild(row);
+        body.appendChild(helpContent);
+      } else {
+        body.appendChild(row);
       }
 
       label.appendChild(checkbox);
@@ -2646,6 +2692,15 @@ function renderCategoryOptions() {
     el.categoryList.appendChild(section);
   });
   updateCategoryPickerUI();
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".category-option-help-btn")) {
+      document.querySelectorAll(".category-option.is-help-open").forEach((openOption) => {
+        openOption.classList.remove("is-help-open");
+        const openButton = openOption.querySelector(".category-option-help-btn");
+        if (openButton) openButton.setAttribute("aria-expanded", "false");
+      });
+    }
+  });
 }
 
 function getGroupedCategoryDisplay(categories) {
