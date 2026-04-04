@@ -73,10 +73,14 @@ const CATEGORY_DISPLAY_GROUPS = [
   },
 ];
 const CATEGORY_GROUP_ICON_SVGS = {
-  "علوم إسلامية": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3M8.8 6.2A6.8 6.8 0 1 0 16 17.4a7.2 7.2 0 0 1-7.2-11.2Z"/><path d="M15.6 7.2h2.2M16.7 6.1v2.2"/></svg>',
-  "جغرافيا": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.3 3.4 5.3 3.4 8.5S14.2 18.2 12 20.5M12 3.5c-2.2 2.3-3.4 5.3-3.4 8.5S9.8 18.2 12 20.5"/></svg>',
-  "رياضة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="m9.1 8.6 5.8 6.8M8.5 13.2h7.3M11.3 5.6l1.4 2.1m.8 8.6-1.4 2.1"/></svg>',
-  "معلومات عامة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v6M12 7.4h.01"/></svg>',
+  "علوم إسلامية": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15.8 5.2a7.7 7.7 0 1 0 0 13.6 6.1 6.1 0 1 1 0-13.6Z"/></svg>',
+  "جغرافيا": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.4 3.4 5.4 3.4 8.5s-1.2 6.1-3.4 8.5M12 3.5c-2.2 2.4-3.4 5.4-3.4 8.5s1.2 6.1 3.4 8.5"/></svg>',
+  "رياضة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5h8v3.2a4 4 0 0 1-8 0Z"/><path d="M6 7.2h2v1.2a2.4 2.4 0 0 1-2.4 2.4H5.2"/><path d="M18 7.2h-2v1.2a2.4 2.4 0 0 0 2.4 2.4h.4"/><path d="M12 12.7v2.3"/><path d="M9.2 18.5h5.6"/><path d="M10.2 15h3.6v3.5h-3.6Z"/></svg>',
+  "ثقافة وفن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.2" y="4.5" width="7.6" height="10.2" rx="3.8"/><path d="M12 14.7v3.1"/><path d="M9.3 18h5.4"/></svg>',
+  "معلومات عامة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10.1v5.1"/><circle cx="12" cy="7.3" r=".55" fill="currentColor" stroke="none"/></svg>',
+  "تخصصات الجامعة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3.8 9.2 8.2-3.7 8.2 3.7-8.2 3.7Z"/><path d="M7.3 10.8v3.2c0 1.3 2.1 2.4 4.7 2.4s4.7-1.1 4.7-2.4v-3.2"/><path d="M20.2 9.3v4.6"/></svg>',
+  "الدول": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4.5v15"/><path d="M6 5.8h9.3l-1.6 2.7 1.6 2.7H6"/></svg>',
+  "مدن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="10.2" width="6.4" height="8.8" rx="1.1"/><rect x="11.2" y="6" width="8.8" height="13" rx="1.1"/><path d="M6.2 12.7h2M6.2 15.1h2M13.6 8.8h3.8M13.6 11.6h3.8M13.6 14.4h3.8"/></svg>',
 };
 const DEFAULT_CATEGORY_GROUP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 8.3h12M6 12h12M6 15.7h8"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg>';
 
