@@ -160,6 +160,15 @@ function cacheElements() {
   backToHomeBtn: document.getElementById("backToHomeBtn"),
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
+  homepagePrimaryStep: document.getElementById("homepagePrimaryStep"),
+  homepageGroupDeviceStep: document.getElementById("homepageGroupDeviceStep"),
+  homepageGroupTeamsStep: document.getElementById("homepageGroupTeamsStep"),
+  homeGroupOneDeviceBtn: document.getElementById("homeGroupOneDeviceBtn"),
+  homeGroupMultiDeviceBtn: document.getElementById("homeGroupMultiDeviceBtn"),
+  homeGroupDeviceBackBtn: document.getElementById("homeGroupDeviceBackBtn"),
+  homeGroupTwoTeamsBtn: document.getElementById("homeGroupTwoTeamsBtn"),
+  homeGroupThreeTeamsBtn: document.getElementById("homeGroupThreeTeamsBtn"),
+  homeGroupTeamsBackBtn: document.getElementById("homeGroupTeamsBackBtn"),
   instructionsBtn: document.getElementById("instructionsBtn"),
   instructionsModal: document.getElementById("instructionsModal"),
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
@@ -332,6 +341,7 @@ const viewportGuardState = {
 
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
+let pendingHomepageGroupMode = null;
 
 const soundState = {
   muted: false,
@@ -3667,6 +3677,28 @@ function showStartScreen() {
   el.startScreen.style.display = "flex";
   document.body.classList.remove("gameplay-active");
   detachGameplayViewportGuards();
+  resetHomepageFlowToPrimaryStep();
+}
+
+function setHomepageFlowStep(step = "primary") {
+  const isPrimaryStep = step === "primary";
+  const isGroupDeviceStep = step === "groupDevice";
+  const isGroupTeamsStep = step === "groupTeams";
+
+  if (el.homepagePrimaryStep) {
+    el.homepagePrimaryStep.classList.toggle("hidden", !isPrimaryStep);
+  }
+  if (el.homepageGroupDeviceStep) {
+    el.homepageGroupDeviceStep.classList.toggle("hidden", !isGroupDeviceStep);
+  }
+  if (el.homepageGroupTeamsStep) {
+    el.homepageGroupTeamsStep.classList.toggle("hidden", !isGroupTeamsStep);
+  }
+}
+
+function resetHomepageFlowToPrimaryStep() {
+  pendingHomepageGroupMode = null;
+  setHomepageFlowStep("primary");
 }
 
 async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
@@ -3739,11 +3771,42 @@ function startSoloFromHomepage() {
   closeGroupModeModal({ force: true });
   closeOnlineModal();
   closeLocalTeamsModal();
+  resetHomepageFlowToPrimaryStep();
   resetOnlineMode();
   showGameScreen();
   setLocalTeamCount(1);
   updateTeamModeUI();
   startNewGame();
+}
+
+function openHomepageGroupDeviceStep() {
+  pendingHomepageGroupMode = null;
+  setHomepageFlowStep("groupDevice");
+}
+
+function openHomepageGroupTeamsStep(groupMode) {
+  pendingHomepageGroupMode = groupMode;
+  setHomepageFlowStep("groupTeams");
+}
+
+async function chooseHomepageGroupTeamCount(teamCount) {
+  if (pendingHomepageGroupMode === "single-device") {
+    resetHomepageFlowToPrimaryStep();
+    closeOnlineModal();
+    closeLocalTeamsModal();
+    resetOnlineMode();
+    showGameScreen();
+    setLocalTeamCount(teamCount);
+    updateTeamModeUI();
+    await startNewGame();
+    return;
+  }
+
+  if (pendingHomepageGroupMode === "multi-device") {
+    resetHomepageFlowToPrimaryStep();
+    setOnlineTeamCount(teamCount);
+    await enterGame("online");
+  }
 }
 
 function openGroupModeModal() {
@@ -4200,9 +4263,37 @@ function initializeApp() {
   bindEvent(el.startOnlineBtn, "click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    console.log("[Tasleya] Start group button clicked: opening group-mode modal directly");
-    openGroupModeModal();
+    console.log("[Tasleya] Start group button clicked: switching to in-page group flow");
+    openHomepageGroupDeviceStep();
   }, "startOnlineBtn");
+  bindEvent(el.homeGroupOneDeviceBtn, "click", () => {
+    openHomepageGroupTeamsStep("single-device");
+  }, "homeGroupOneDeviceBtn");
+  bindEvent(el.homeGroupMultiDeviceBtn, "click", () => {
+    openHomepageGroupTeamsStep("multi-device");
+  }, "homeGroupMultiDeviceBtn");
+  bindEvent(el.homeGroupDeviceBackBtn, "click", resetHomepageFlowToPrimaryStep, "homeGroupDeviceBackBtn");
+  bindEvent(el.homeGroupTwoTeamsBtn, "click", async () => {
+    if (pendingHomepageGroupMode === "single-device") {
+      logAnalyticsEvent("local_game_started", { mode: "single_device_group", teams: 2 });
+    }
+    if (pendingHomepageGroupMode === "multi-device") {
+      logAnalyticsEvent("online_game_started", { mode: "multi_device_group", teams: 2 });
+    }
+    await chooseHomepageGroupTeamCount(2);
+  }, "homeGroupTwoTeamsBtn");
+  bindEvent(el.homeGroupThreeTeamsBtn, "click", async () => {
+    if (pendingHomepageGroupMode === "single-device") {
+      logAnalyticsEvent("local_game_started", { mode: "single_device_group", teams: 3 });
+    }
+    if (pendingHomepageGroupMode === "multi-device") {
+      logAnalyticsEvent("online_game_started", { mode: "multi_device_group", teams: 3 });
+    }
+    await chooseHomepageGroupTeamCount(3);
+  }, "homeGroupThreeTeamsBtn");
+  bindEvent(el.homeGroupTeamsBackBtn, "click", () => {
+    openHomepageGroupDeviceStep();
+  }, "homeGroupTeamsBackBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
     logAnalyticsEvent("local_game_started", { mode: "single_device_group" });
