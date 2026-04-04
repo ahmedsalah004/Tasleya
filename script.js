@@ -207,6 +207,51 @@ function cacheElements() {
   };
 }
 
+function ensureHomepageFlowModals() {
+  const requiredModals = [
+    {
+      id: "localTeamsModal",
+      html: `
+        <div id="localTeamsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="localTeamsModalTitle">
+          <div class="modal-content local-teams-modal-content">
+            <h2 id="localTeamsModalTitle">كم عدد الفرق؟</h2>
+            <div class="local-team-count-actions">
+              <button id="localTwoTeamsBtn" class="primary-btn" type="button">فريقان</button>
+              <button id="localThreeTeamsBtn" class="secondary-btn" type="button">3 فرق</button>
+            </div>
+            <div class="modal-actions">
+              <button id="cancelLocalTeamsBtn" class="ghost-btn" type="button">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      `,
+    },
+    {
+      id: "groupModeModal",
+      html: `
+        <div id="groupModeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="groupModeModalTitle">
+          <div class="modal-content local-teams-modal-content">
+            <h2 id="groupModeModalTitle">اختر طريقة اللعب الجماعي</h2>
+            <div class="local-team-count-actions">
+              <button id="groupOneDeviceBtn" class="primary-btn" type="button">لعب على جهاز واحد</button>
+              <button id="groupMultiDeviceBtn" class="secondary-btn" type="button">لعب على أجهزة مختلفة</button>
+            </div>
+            <div class="modal-actions">
+              <button id="cancelGroupModeBtn" class="ghost-btn" type="button">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      `,
+    },
+  ];
+
+  requiredModals.forEach(({ id, html }) => {
+    if (document.getElementById(id)) return;
+    document.body.insertAdjacentHTML("beforeend", html);
+    console.warn(`[Tasleya] Missing #${id} in HTML; injected fallback modal at runtime.`);
+  });
+}
+
 const state = {
   allCategories: [],
   selectedCategories: [],
@@ -4033,6 +4078,8 @@ function bindEvent(element, eventName, handler, elementName) {
 function initializeApp() {
   if (appInitialized) return;
   appInitialized = true;
+  cacheElements();
+  ensureHomepageFlowModals();
   cacheElements();
   ensureSoundPreferenceLoaded();
   ensureStableOnlineClientId();
