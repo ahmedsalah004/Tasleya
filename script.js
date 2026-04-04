@@ -3689,6 +3689,24 @@ async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = t
   }
 }
 
+function startSoloFromHomepage() {
+  closeGroupModeModal();
+  closeOnlineModal();
+  closeLocalTeamsModal();
+  resetOnlineMode();
+  showGameScreen();
+  setLocalTeamCount(1);
+  updateTeamModeUI();
+  startNewGame();
+}
+
+function startGroupFromHomepage() {
+  closeOnlineModal();
+  closeLocalTeamsModal();
+  closeGroupModeModal();
+  openGroupModeModal();
+}
+
 function openGroupModeModal() {
   if (!el.groupModeModal) return;
   closeOnlineModal();
@@ -4112,11 +4130,7 @@ function initializeApp() {
   bindEvent(el.startLocalBtn, "click", () => {
     console.log("[Tasleya] Start solo button clicked");
     logAnalyticsEvent("local_game_started", { mode: "solo" });
-    showGameScreen();
-    resetOnlineMode();
-    setLocalTeamCount(1);
-    updateTeamModeUI();
-    startNewGame();
+    startSoloFromHomepage();
   }, "startLocalBtn");
   bindEvent(el.localTwoTeamsBtn, "click", () => chooseLocalTeamCount(2), "localTwoTeamsBtn");
   bindEvent(el.localThreeTeamsBtn, "click", () => chooseLocalTeamCount(3), "localThreeTeamsBtn");
@@ -4133,7 +4147,7 @@ function initializeApp() {
   }, "localTeamsModal");
   bindEvent(el.startOnlineBtn, "click", () => {
     console.log("[Tasleya] Start group button clicked");
-    openGroupModeModal();
+    startGroupFromHomepage();
   }, "startOnlineBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
