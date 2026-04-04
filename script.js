@@ -3663,8 +3663,13 @@ async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = t
 
 function openGroupModeModal() {
   if (!el.groupModeModal) return;
-  el.groupModeModal.classList.remove("hidden");
-  requestAnimationFrame(() => el.groupModeModal.classList.add("is-open"));
+  closeOnlineModal();
+  closeLocalTeamsModal();
+  el.groupModeModal.classList.remove("hidden", "is-closing");
+  el.groupModeModal.classList.add("is-open");
+  if (el.groupOneDeviceBtn) {
+    window.setTimeout(() => el.groupOneDeviceBtn.focus(), 0);
+  }
 }
 function closeGroupModeModal() {
   if (!el.groupModeModal) return;
