@@ -87,6 +87,24 @@ const CATEGORY_GROUP_ICON_SVGS = {
   "مدن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="10.2" width="6.4" height="8.8" rx="1.1"/><rect x="11.2" y="6" width="8.8" height="13" rx="1.1"/><path d="M6.2 12.7h2M6.2 15.1h2M13.6 8.8h3.8M13.6 11.6h3.8M13.6 14.4h3.8"/></svg>',
 };
 const DEFAULT_CATEGORY_GROUP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 8.3h12M6 12h12M6 15.7h8"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg>';
+const CATEGORY_GROUP_GRADIENTS = {
+  "علوم إسلامية": "linear-gradient(145deg, rgba(42, 72, 140, 0.92), rgba(20, 38, 90, 0.96))",
+  "جغرافيا": "linear-gradient(145deg, rgba(30, 90, 150, 0.9), rgba(16, 50, 110, 0.96))",
+  "الدول": "linear-gradient(145deg, rgba(34, 64, 130, 0.9), rgba(18, 40, 92, 0.96))",
+  "رياضة": "linear-gradient(145deg, rgba(54, 82, 148, 0.9), rgba(24, 48, 108, 0.96))",
+  "ثقافة وفن": "linear-gradient(145deg, rgba(74, 76, 144, 0.9), rgba(31, 39, 103, 0.96))",
+  "معلومات عامة": "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
+  "تخصصات الجامعة": "linear-gradient(145deg, rgba(36, 86, 136, 0.9), rgba(18, 56, 108, 0.96))",
+  "مدن": "linear-gradient(145deg, rgba(42, 74, 142, 0.9), rgba(18, 48, 103, 0.96))",
+  [DEFAULT_CATEGORY_GROUP]: "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
+};
+const CATEGORY_HELP_TEXTS = {
+  "خمن اللاعب (فرق فقط)": "مناسب للعب الجماعي فقط لأن الإجابة تكون باسم الفرق التي لعب لها اللاعب.",
+  "خمن الفيلم بالتمثيل (فرق فقط)": "يعتمد على تمثيل المشهد بين أفراد الفريق، لذلك يناسب اللعب الجماعي.",
+  "خمن الدولة من المكان GeoGuessr": "سترى مكاناً أو مشهداً وعليك توقع الدولة الأقرب.",
+  "رتب التالي": "الترتيب قد يكون زمنيًا أو رقميًا حسب السؤال.",
+};
+const CATEGORY_THUMBNAILS = {};
 
 let el = {};
 
@@ -2520,9 +2538,22 @@ function updateCategoryPickerUI() {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = hostOnlyBlocked ? false : !checkbox.checked && reachedMax;
     const row = checkbox.closest(".category-option");
-    if (row) row.classList.toggle("is-selected", checkbox.checked);
+    if (row) {
+      row.classList.toggle("is-selected", checkbox.checked);
+      row.classList.toggle("is-locked", checkbox.disabled && !checkbox.checked);
+    }
   });
 }
+function getCategoryVisualMeta(category, groupName) {
+  const thumbnail = CATEGORY_THUMBNAILS[category];
+  const helpText = CATEGORY_HELP_TEXTS[category] || "";
+  return {
+    thumbnail: typeof thumbnail === "string" && thumbnail.trim() ? thumbnail.trim() : "",
+    helpText,
+    gradient: CATEGORY_GROUP_GRADIENTS[groupName] || CATEGORY_GROUP_GRADIENTS[DEFAULT_CATEGORY_GROUP],
+  };
+}
+
 function renderCategoryOptions() {
   if (el.categoryList.childElementCount > 0) {
     updateCategoryPickerUI();
@@ -2532,6 +2563,8 @@ function renderCategoryOptions() {
   const groupedCategories = getGroupedCategoryDisplay(state.allCategories);
   groupedCategories.forEach(({ groupName, categories }) => {
     if (!categories.length) return;
+    const section = document.createElement("section");
+    section.className = "category-group-section";
     const header = document.createElement("h3");
     header.className = "category-group-title";
     const icon = document.createElement("span");
@@ -2542,10 +2575,16 @@ function renderCategoryOptions() {
     label.textContent = groupName;
     header.appendChild(icon);
     header.appendChild(label);
-    el.categoryList.appendChild(header);
+    section.appendChild(header);
+
+    const grid = document.createElement("div");
+    grid.className = "category-group-grid";
+    section.appendChild(grid);
 
     categories.forEach((category) => {
+      const visualMeta = getCategoryVisualMeta(category, groupName);
       const label = document.createElement("label"); label.className = "category-option";
+      label.style.setProperty("--category-card-gradient", visualMeta.gradient);
       const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
       checkbox.addEventListener("click", (event) => {
         if (online.mode === "online" && online.role !== "host") {
@@ -2566,9 +2605,45 @@ function renderCategoryOptions() {
         scheduleGameplayProgressPersist();
         if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
       });
-      const span = document.createElement("span"); span.className = "category-option-label"; span.textContent = category;
-      label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
+      const media = document.createElement("span");
+      media.className = "category-option-media";
+      if (visualMeta.thumbnail) {
+        const thumbnail = document.createElement("img");
+        thumbnail.className = "category-option-thumb";
+        thumbnail.src = visualMeta.thumbnail;
+        thumbnail.alt = "";
+        thumbnail.loading = "lazy";
+        thumbnail.decoding = "async";
+        media.appendChild(thumbnail);
+      } else {
+        const fallbackIcon = document.createElement("span");
+        fallbackIcon.className = "category-option-fallback-icon";
+        fallbackIcon.innerHTML = CATEGORY_GROUP_ICON_SVGS[groupName] || DEFAULT_CATEGORY_GROUP_ICON_SVG;
+        media.appendChild(fallbackIcon);
+      }
+
+      const body = document.createElement("span");
+      body.className = "category-option-body";
+      const title = document.createElement("span");
+      title.className = "category-option-label";
+      title.textContent = category;
+      body.appendChild(title);
+
+      if (visualMeta.helpText) {
+        const help = document.createElement("span");
+        help.className = "category-option-help";
+        help.textContent = "معلومة";
+        help.title = visualMeta.helpText;
+        body.appendChild(help);
+      }
+
+      label.appendChild(checkbox);
+      label.appendChild(media);
+      label.appendChild(body);
+      grid.appendChild(label);
     });
+
+    el.categoryList.appendChild(section);
   });
   updateCategoryPickerUI();
 }
