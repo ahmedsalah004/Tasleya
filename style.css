@@ -1089,6 +1089,10 @@ button:disabled {
   pointer-events: auto;
 }
 
+#groupModeModal {
+  z-index: 4600;
+}
+
 #installGuideModal .modal-content {
   pointer-events: auto;
 }
