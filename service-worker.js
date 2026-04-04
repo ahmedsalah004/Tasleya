@@ -1,8 +1,8 @@
 // Manual update strategy:
 // 1) Bump CACHE_NAME (v1 -> v2) on every deployment.
 // 2) Bump ASSET_VERSION in index.html and here when CSS/JS files change.
-const CACHE_NAME = "tasleya-cache-v2";
-const ASSET_VERSION = "1.0.0";
+const CACHE_NAME = "tasleya-cache-v3";
+const ASSET_VERSION = "1.2.0";
 
 const CORE_FILES = [
   "./",
@@ -17,7 +17,7 @@ const CORE_FILES = [
   "assets/icons/icon-512.svg"
 ];
 
-const RELIABLE_UPDATE_FILES = new Set(["", "index.html", "style.css", "mobile.css", "script.js"]);
+const RELIABLE_UPDATE_FILES = new Set(["", "index.html", "style.css", "mobile.css", "script.js", "service-worker.js", "firebase-config.js"]);
 
 function getPath(url) {
   return url.pathname.replace(/^\//, "");
