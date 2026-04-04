@@ -107,6 +107,13 @@ const CATEGORY_HELP_TEXTS = {
   "خمن الفيلم بالتمثيل (فرق فقط)": "يظهر تمثيل لمشهد، وعليك تخمين اسم الفيلم.",
   "اسم الإصابة من الأشعة": "تظهر صورة أشعة، وعليك تحديد الإصابة الأقرب.",
 };
+const CATEGORY_HELP_ALIASES = {
+  "خمن الدولة من المكان": "خمن الدولة من المكان GeoGuessr",
+  "خمن اللاعب": "خمن اللاعب (فرق فقط)",
+  "من هو المشهور": "من هو المشهور (جزء من وجه)",
+  "خمن الفلم بالتمثيل": "خمن الفيلم بالتمثيل (فرق فقط)",
+  "خمن الفيلم بالتمثيل": "خمن الفيلم بالتمثيل (فرق فقط)",
+};
 const CATEGORY_DISPLAY_ALIASES = {
   "خمن الدولة من المكان GeoGuessr": "خمن الدولة من المكان",
   "خمن اللاعب (فرق فقط)": "خمن اللاعب",
@@ -2568,9 +2575,14 @@ function updateCategoryPickerUI() {
     }
   });
 }
+function resolveCategoryHelpText(category) {
+  const key = CATEGORY_HELP_TEXTS[category] ? category : (CATEGORY_HELP_ALIASES[category] || "");
+  return CATEGORY_HELP_TEXTS[key] || "";
+}
+
 function getCategoryVisualMeta(category, groupName) {
   const thumbnail = CATEGORY_THUMBNAILS[category];
-  const helpText = CATEGORY_HELP_TEXTS[category] || "";
+  const helpText = resolveCategoryHelpText(category);
   const displayLabel = CATEGORY_DISPLAY_ALIASES[category] || category;
   return {
     displayLabel,
@@ -2830,7 +2842,6 @@ function renderCategoryOptions() {
         });
 
         helpButton.addEventListener("pointerdown", (event) => {
-          event.preventDefault();
           event.stopPropagation();
         });
         helpButton.addEventListener("mouseenter", () => {
