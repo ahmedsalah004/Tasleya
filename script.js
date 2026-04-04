@@ -4,6 +4,7 @@ const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
 const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
+const SW_VERSION = "1.2.0";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_v1";
 const LEGACY_USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
@@ -410,7 +411,7 @@ function registerServiceWorker() {
 
   window.addEventListener("load", async () => {
     try {
-      const registration = await navigator.serviceWorker.register("./service-worker.js");
+      const registration = await navigator.serviceWorker.register(`./service-worker.js?v=${SW_VERSION}`, { updateViaCache: "none" });
 
       const promptUpdate = (worker) => {
         if (!worker) return;
