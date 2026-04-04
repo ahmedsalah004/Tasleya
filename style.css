@@ -1347,23 +1347,56 @@ button:disabled {
 }
 
 .category-group-title {
-  margin: 0.4rem 0 0.1rem;
-  font-size: 0.95rem;
-  color: var(--muted);
+  margin: 0.95rem 0 0.3rem;
+  font-size: 0.98rem;
+  color: #d8e3ff;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.category-group-title:first-of-type {
+  margin-top: 0.35rem;
 }
 
 .category-option {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  background: rgba(20, 36, 79, 0.72);
-  border: 1px solid rgba(93, 128, 220, 0.62);
-  border-radius: 10px;
-  padding: 0.55rem 0.7rem;
+  gap: 0.72rem;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(18, 32, 69, 0.78);
+  border: 1px solid rgba(130, 158, 235, 0.52);
+  border-radius: 14px;
+  padding: 0.68rem 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.18s ease;
+}
+
+.category-option:hover {
+  border-color: rgba(156, 182, 255, 0.8);
+  background: rgba(25, 43, 90, 0.84);
+}
+
+.category-option.is-selected {
+  border-color: rgba(109, 217, 187, 0.9);
+  background: linear-gradient(135deg, rgba(33, 70, 98, 0.88), rgba(21, 61, 82, 0.82));
+  box-shadow: 0 0 0 1px rgba(109, 217, 187, 0.25), 0 8px 18px rgba(7, 20, 45, 0.35);
+}
+
+.category-option span {
+  flex: 1 1 auto;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .category-option input {
   accent-color: var(--accent);
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  margin: 0;
+  flex-shrink: 0;
 }
 
 #categoryModal.is-readonly .category-option,
@@ -1807,6 +1840,8 @@ button:disabled {
     min-height: 0;
     max-height: none;
     overflow-y: auto;
+    gap: 0.44rem;
+    padding-inline-end: 0.1rem;
   }
 
   #categoryModal .modal-actions {
@@ -1821,6 +1856,34 @@ button:disabled {
     min-height: 40px;
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
+  }
+
+  #categoryModal .category-group-title {
+    margin: 0.72rem 0 0.24rem;
+    font-size: 0.9rem;
+  }
+
+  #categoryModal .category-option {
+    border-radius: 12px;
+    padding: 0.58rem 0.7rem;
+    gap: 0.64rem;
+  }
+
+  #categoryModal .category-option span {
+    font-size: 0.94rem;
+  }
+
+  #categoryModal .modal-actions .success-btn {
+    box-shadow: 0 8px 18px rgba(27, 191, 137, 0.33);
+  }
+
+  #categoryModal .modal-actions .secondary-btn {
+    background: linear-gradient(135deg, #4265c6, #2f4f9f);
+  }
+
+  #categoryModal .modal-actions .ghost-btn {
+    background: rgba(86, 109, 183, 0.09);
+    border-color: rgba(120, 146, 227, 0.5);
   }
 
   .install-guide-content {
