@@ -1,8 +1,8 @@
 // Manual update strategy:
 // 1) Bump CACHE_NAME (v1 -> v2) on every deployment.
 // 2) Bump ASSET_VERSION in index.html and here when CSS/JS files change.
-const CACHE_NAME = "tasleya-cache-v3";
-const ASSET_VERSION = "1.2.0";
+const CACHE_NAME = "tasleya-cache-v4";
+const ASSET_VERSION = "1.2.1";
 
 const CORE_FILES = [
   "./",
