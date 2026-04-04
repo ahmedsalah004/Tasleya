@@ -5,7 +5,8 @@ const POINT_LEVELS = [100, 200, 300, 400, 500];
 const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
 const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
-const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
+const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_v1";
+const LEGACY_USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
 const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
@@ -843,17 +844,35 @@ function normalizeUsedHistoryByCategory(rawHistory) {
   });
   return normalized;
 }
+function getQuestionHistoryId(question, { category = "", points = null } = {}) {
+  const normalizedDirectId = firstNonEmpty(question?.id, question?.questionId);
+  if (normalizedDirectId) return normalizedDirectId;
+  const normalizedCategory = firstNonEmpty(question?.category, category);
+  const normalizedPoints = Number(question?.points ?? points);
+  const normalizedPrompt = firstNonEmpty(question?.question, question?.text, question?.prompt, question?.question_text);
+  const normalizedAnswer = firstNonEmpty(question?.answer, question?.correctAnswer, question?.correct_answer);
+  const normalizedChoices = Array.isArray(question?.choices)
+    ? question.choices.map(normalizeCell).filter(Boolean).join("|")
+    : "";
+  return `fallback:${[normalizedCategory, Number.isFinite(normalizedPoints) ? normalizedPoints : "", normalizedPrompt, normalizedAnswer, normalizedChoices].join("::")}`;
+}
 function loadUsedHistory() {
   try {
-    const raw = localStorage.getItem(USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY);
-    if (!raw) return {};
-    return normalizeUsedHistoryByCategory(JSON.parse(raw));
+    const currentRaw = safeStorageGet(localStorage, USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY);
+    const legacyRaw = safeStorageGet(localStorage, LEGACY_USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY);
+    if (!currentRaw && !legacyRaw) return {};
+    const sourceRaw = currentRaw || legacyRaw;
+    const normalized = normalizeUsedHistoryByCategory(JSON.parse(sourceRaw));
+    if (!currentRaw && legacyRaw) {
+      safeStorageSet(localStorage, USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY, JSON.stringify(normalized));
+    }
+    return normalized;
   } catch {
     return {};
   }
 }
 function saveUsedHistory() {
-  localStorage.setItem(USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY, JSON.stringify(state.usedHistory));
+  safeStorageSet(localStorage, USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY, JSON.stringify(state.usedHistory));
 }
 function loadTeamNames() {
   state.teamNames = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
@@ -1135,10 +1154,11 @@ async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset 
   }
 }
 function markQuestionAsUsed(category, questionId) {
-  if (online.mode !== "local" || !questionId) return;
+  const normalizedQuestionId = normalizeCell(questionId);
+  if (online.mode !== "local" || !normalizedQuestionId) return;
   const bucket = ensureCategoryHistoryBucket(category);
-  if (!bucket.includes(questionId)) {
-    bucket.push(questionId);
+  if (!bucket.includes(normalizedQuestionId)) {
+    bucket.push(normalizedQuestionId);
     saveUsedHistory();
   }
 }
@@ -1159,7 +1179,7 @@ function getExcludedQuestionIds(category) {
     : ensureCategoryHistoryBucket(category);
   const inCurrentGame = state.boardTiles
     .filter((tile) => tile.category === category)
-    .map((tile) => normalizeCell(tile.questionId))
+    .map((tile) => firstNonEmpty(tile.questionHistoryId, tile.questionId))
     .filter(Boolean);
   return uniqueByText([...acrossGames, ...inCurrentGame]);
 }
@@ -1199,7 +1219,10 @@ async function fetchQuestionPayload({
       invalidShapeError.code = "QUESTION_RESPONSE_SHAPE_INVALID";
       throw invalidShapeError;
     }
-    questionBankCache.questionsById.set(question.id, question);
+    const normalizedQuestionId = normalizeCell(question.id);
+    if (normalizedQuestionId) {
+      questionBankCache.questionsById.set(normalizedQuestionId, question);
+    }
     return question;
   } catch (error) {
     const isExhaustedPool = error?.status === 404 && error?.payload?.code === "QUESTION_POOL_EXHAUSTED";
@@ -1327,6 +1350,7 @@ function buildBoardAssignment() {
         category,
         points,
         questionId: null,
+        questionHistoryId: null,
         used: false,
         missing: false,
         timedOut: false,
@@ -1914,12 +1938,16 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
       showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
       return;
     }
-    tile.questionId = q.id;
+    const historyQuestionId = getQuestionHistoryId(q, { category: tile.category, points: tile.points });
+    const normalizedApiQuestionId = normalizeCell(q.id);
+    tile.questionId = normalizedApiQuestionId || tile.questionId;
+    tile.questionHistoryId = historyQuestionId;
+    if (historyQuestionId) markQuestionAsUsed(tile.category, historyQuestionId);
     if (online.mode === "online") {
       try {
-        await syncOnlineUsedCategoryHistory(tile.category, { questionId: q.id });
+        await syncOnlineUsedCategoryHistory(tile.category, { questionId: historyQuestionId });
       } catch (error) {
-        console.warn("[Tasleya] Unable to sync used online question history", { category: tile.category, questionId: q.id, error });
+        console.warn("[Tasleya] Unable to sync used online question history", { category: tile.category, questionId: historyQuestionId, error });
       }
     }
     state.activeQuestion = q;
@@ -2366,7 +2394,6 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
     tile.timedOut = true;
   }
   tile.used = true;
-  if (tile.questionId) markQuestionAsUsed(tile.category, tile.questionId);
   getActiveTeamNumbers().forEach((team) => {
     state.scores[team] = Math.max(0, state.scores[team]);
   });
@@ -2650,6 +2677,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             syncedOpenModal = true;
             state.activeTile = tile;
             tile.questionId = remoteQuestion.id;
+            tile.questionHistoryId = getQuestionHistoryId(remoteQuestion, { category: tile.category, points: tile.points });
             state.activeQuestion = remoteQuestion;
             state.loadingQuestion = false;
             state.questionSessionId = normalizeCell(game.questionSessionId) || createQuestionSessionId();
