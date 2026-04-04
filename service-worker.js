@@ -1,23 +1,23 @@
 // Manual update strategy:
 // 1) Bump CACHE_NAME (v1 -> v2) on every deployment.
 // 2) Bump ASSET_VERSION in index.html and here when CSS/JS files change.
-const CACHE_NAME = "tasleya-cache-v4";
-const ASSET_VERSION = "1.2.1";
+const DEPLOY_VERSION = "1.2.2";
+const CACHE_NAME = `tasleya-cache-${DEPLOY_VERSION}`;
+const ASSET_VERSION = DEPLOY_VERSION;
 
 const CORE_FILES = [
-  "./",
-  "index.html",
   `style.css?v=${ASSET_VERSION}`,
   `mobile.css?v=${ASSET_VERSION}`,
   `script.js?v=${ASSET_VERSION}`,
-  "firebase-config.js",
+  `firebase-config.js?v=${ASSET_VERSION}`,
+  `game-config.js?v=${ASSET_VERSION}`,
   "manifest.json",
   "assets/start-bg-v2.webp",
   "assets/icons/icon-192.svg",
   "assets/icons/icon-512.svg"
 ];
 
-const RELIABLE_UPDATE_FILES = new Set(["", "index.html", "style.css", "mobile.css", "script.js", "service-worker.js", "firebase-config.js"]);
+const RELIABLE_UPDATE_FILES = new Set(["", "index.html", "style.css", "mobile.css", "script.js", "service-worker.js", "firebase-config.js", "game-config.js"]);
 
 function getPath(url) {
   return url.pathname.replace(/^\//, "");
@@ -51,18 +51,22 @@ self.addEventListener("fetch", (event) => {
 
   const path = getPath(url);
 
-  // Network-first for app shell entry + core CSS/JS to avoid stale iOS home-screen updates.
+  // Network-first for homepage/app-shell files to avoid stale HTML/JS/CSS mixes after deploys.
   if (event.request.mode === "navigate" || RELIABLE_UPDATE_FILES.has(path)) {
     event.respondWith(
       fetch(event.request, { cache: "no-store" })
         .then((networkResponse) => {
-          const copy = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          if (event.request.mode !== "navigate") {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
           return networkResponse;
         })
         .catch(async () => {
-          const cached = await caches.match(event.request);
-          return cached || caches.match("index.html") || caches.match("./");
+          if (event.request.mode === "navigate") {
+            return caches.match("/") || caches.match("index.html") || Response.error();
+          }
+          return caches.match(event.request) || Response.error();
         })
     );
     return;
