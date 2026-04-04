@@ -2391,6 +2391,8 @@ function updateCategoryPickerUI() {
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = hostOnlyBlocked ? false : !checkbox.checked && reachedMax;
+    const row = checkbox.closest(".category-option");
+    if (row) row.classList.toggle("is-selected", checkbox.checked);
   });
 }
 function renderCategoryOptions() {
@@ -2429,7 +2431,7 @@ function renderCategoryOptions() {
         scheduleGameplayProgressPersist();
         if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
       });
-      const span = document.createElement("span"); span.textContent = category;
+      const span = document.createElement("span"); span.className = "category-option-label"; span.textContent = category;
       label.appendChild(checkbox); label.appendChild(span); el.categoryList.appendChild(label);
     });
   });
