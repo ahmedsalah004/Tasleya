@@ -3700,6 +3700,13 @@ function startSoloFromHomepage() {
   startNewGame();
 }
 
+function startGroupFromHomepage() {
+  closeOnlineModal();
+  closeLocalTeamsModal();
+  closeGroupModeModal();
+  openGroupModeModal();
+}
+
 function openGroupModeModal() {
   if (!el.groupModeModal) return;
   closeOnlineModal();
@@ -4140,7 +4147,7 @@ function initializeApp() {
   }, "localTeamsModal");
   bindEvent(el.startOnlineBtn, "click", () => {
     console.log("[Tasleya] Start group button clicked");
-    openGroupModeModal();
+    startGroupFromHomepage();
   }, "startOnlineBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
