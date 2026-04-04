@@ -72,6 +72,13 @@ const CATEGORY_DISPLAY_GROUPS = [
     categories: ["الإسكندرية"],
   },
 ];
+const CATEGORY_GROUP_ICON_SVGS = {
+  "علوم إسلامية": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3M8.8 6.2A6.8 6.8 0 1 0 16 17.4a7.2 7.2 0 0 1-7.2-11.2Z"/><path d="M15.6 7.2h2.2M16.7 6.1v2.2"/></svg>',
+  "جغرافيا": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.3 3.4 5.3 3.4 8.5S14.2 18.2 12 20.5M12 3.5c-2.2 2.3-3.4 5.3-3.4 8.5S9.8 18.2 12 20.5"/></svg>',
+  "رياضة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="m9.1 8.6 5.8 6.8M8.5 13.2h7.3M11.3 5.6l1.4 2.1m.8 8.6-1.4 2.1"/></svg>',
+  "معلومات عامة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10v6M12 7.4h.01"/></svg>',
+};
+const DEFAULT_CATEGORY_GROUP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 8.3h12M6 12h12M6 15.7h8"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg>';
 
 let el = {};
 
@@ -2406,7 +2413,14 @@ function renderCategoryOptions() {
     if (!categories.length) return;
     const header = document.createElement("h3");
     header.className = "category-group-title";
-    header.textContent = groupName;
+    const icon = document.createElement("span");
+    icon.className = "category-group-icon";
+    icon.innerHTML = CATEGORY_GROUP_ICON_SVGS[groupName] || DEFAULT_CATEGORY_GROUP_ICON_SVG;
+    const label = document.createElement("span");
+    label.className = "category-group-title-text";
+    label.textContent = groupName;
+    header.appendChild(icon);
+    header.appendChild(label);
     el.categoryList.appendChild(header);
 
     categories.forEach((category) => {
