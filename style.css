@@ -1119,6 +1119,8 @@ button:disabled {
 }
 
 .modal.is-open .modal-content {
+  transform: scale(1) translateY(0);
+  opacity: 1;
   animation: modalIn 280ms ease-out forwards;
 }
 
