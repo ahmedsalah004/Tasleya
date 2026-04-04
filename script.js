@@ -2391,7 +2391,6 @@ function updateCategoryPickerUI() {
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
     checkbox.disabled = hostOnlyBlocked ? false : !checkbox.checked && reachedMax;
-    checkbox.parentElement?.classList.toggle("is-selected", checkbox.checked);
   });
 }
 function renderCategoryOptions() {
@@ -2411,8 +2410,6 @@ function renderCategoryOptions() {
     categories.forEach((category) => {
       const label = document.createElement("label"); label.className = "category-option";
       const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = category;
-      checkbox.checked = state.selectedCategories.includes(category);
-      label.classList.toggle("is-selected", checkbox.checked);
       checkbox.addEventListener("click", (event) => {
         if (online.mode === "online" && online.role !== "host") {
           event.preventDefault();
