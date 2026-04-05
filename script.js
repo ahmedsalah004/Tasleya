@@ -336,6 +336,9 @@ const state = {
   pendingOtherTeamSelection: false,
   resolvingOtherTeam: false,
   questionSessionId: "",
+  videoQuestionPending: false,
+  videoPlaybackCompleted: false,
+  pendingVideoDeadlineTs: null,
 };
 
 const contactState = {
@@ -728,19 +731,20 @@ function updateCloseButtonLock() {
 }
 
 function updateQuestionActionLock() {
+  const lockByVideo = state.videoQuestionPending;
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
-  const lockByReveal = hasUnresolvedActiveQuestion() && !state.answerRevealed;
+  const lockByReveal = (hasUnresolvedActiveQuestion() && !state.answerRevealed) || lockByVideo;
   const disableAnsweringActions = lockByTimeout || lockByTurn;
   const disableScoringActions = lockByTimeout || lockByTurn;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
-  el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed;
+  el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed || lockByVideo;
   el.correctBtn.disabled = disableScoringActions || lockByReveal;
   el.wrongBtn.disabled = disableScoringActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
   el.otherTeamBtn.disabled = disableScoringActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
-  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || mcqHelpUsed[state.currentTeam];
-  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hintHelpUsed[state.currentTeam];
+  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || mcqHelpUsed[state.currentTeam] || lockByVideo;
+  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hintHelpUsed[state.currentTeam] || lockByVideo;
   updateLateOtherTeamPrompt();
   updateCloseButtonLock();
 }
@@ -1823,11 +1827,18 @@ function preloadLikelyNextQuestionMedia() {
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+  const currentVideo = el.questionMedia.querySelector("video");
+  if (currentVideo) { currentVideo.pause(); }
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
 }
 function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
-  el.questionText.textContent = question.question;
+  const normalizedType = normalizeCell(question?.type).toLowerCase();
+  const isVideoQuestion = normalizedType === "video";
+  state.videoQuestionPending = isVideoQuestion;
+  state.videoPlaybackCompleted = !isVideoQuestion;
+  state.pendingVideoDeadlineTs = null;
+  el.questionText.textContent = isVideoQuestion ? "شاهد الفيديو مرة واحدة، ثم سيظهر السؤال" : question.question;
   if (resetLifecycleState) {
     el.answerText.textContent = "الإجابة: ...";
     el.answerText.classList.add("hidden");
@@ -1844,6 +1855,7 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   updateLateOtherTeamPrompt();
   if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
   if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url);
+  if (isVideoQuestion) renderQuestionVideo(question.image_url, question);
   el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   updateQuestionActionLock();
@@ -1869,6 +1881,86 @@ function renderQuestionAudio(audioPath) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
   const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "metadata"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
   audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`; el.questionMedia.appendChild(audio);
+}
+function revealVideoQuestionAfterPlayback(question) {
+  if (!state.videoQuestionPending || !question) return;
+  state.videoQuestionPending = false;
+  state.videoPlaybackCompleted = true;
+  el.questionText.textContent = question.question;
+  const pendingDeadline = Number(state.pendingVideoDeadlineTs);
+  state.pendingVideoDeadlineTs = null;
+  if (pendingDeadline && pendingDeadline <= Date.now()) {
+    showQuestionStatus("انتهى الوقت");
+    startTimer({ deadlineTs: Date.now() + 10 });
+    handleQuestionTimeout();
+  } else {
+    showQuestionStatus("");
+    startTimer({ deadlineTs: Number.isFinite(pendingDeadline) ? pendingDeadline : null });
+  }
+  updateQuestionActionLock();
+  persistLocalProgress();
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+}
+function renderQuestionVideo(videoPath, question) {
+  const videoSrc = toMediaUrl(videoPath);
+  if (!videoSrc) {
+    state.videoQuestionPending = false;
+    state.videoPlaybackCompleted = true;
+    el.questionText.textContent = question.question;
+    showQuestionStatus("تعذر تحميل الفيديو لهذا السؤال");
+    updateQuestionActionLock();
+    return;
+  }
+  const wrapper = document.createElement("div");
+  wrapper.className = "question-video-wrapper";
+  const video = document.createElement("video");
+  video.id = "questionVideo";
+  video.preload = "metadata";
+  video.controls = true;
+  video.playsInline = true;
+  video.disablePictureInPicture = true;
+  video.disableRemotePlayback = true;
+  video.controlsList = "nodownload noplaybackrate noremoteplayback nofullscreen";
+  video.setAttribute("aria-label", "فيديو السؤال");
+  const source = document.createElement("source");
+  source.src = videoSrc;
+  source.type = "video/mp4";
+  video.appendChild(source);
+  let maxWatchedTime = 0;
+  let playbackCompleted = false;
+  video.addEventListener("timeupdate", () => {
+    maxWatchedTime = Math.max(maxWatchedTime, video.currentTime || 0);
+  });
+  video.addEventListener("seeking", () => {
+    if (playbackCompleted) {
+      video.currentTime = video.duration || maxWatchedTime || 0;
+      return;
+    }
+    if ((video.currentTime || 0) < maxWatchedTime - 0.25) {
+      video.currentTime = maxWatchedTime;
+    }
+  });
+  video.addEventListener("play", () => {
+    if (!playbackCompleted) return;
+    video.pause();
+    video.currentTime = video.duration || maxWatchedTime || 0;
+  });
+  video.addEventListener("ended", () => {
+    playbackCompleted = true;
+    video.controls = false;
+    video.pause();
+    video.currentTime = video.duration || maxWatchedTime || 0;
+    revealVideoQuestionAfterPlayback(question);
+  }, { once: true });
+  video.addEventListener("error", () => {
+    state.videoQuestionPending = false;
+    state.videoPlaybackCompleted = true;
+    el.questionText.textContent = question.question;
+    showQuestionStatus("تعذر تحميل الفيديو لهذا السؤال");
+    updateQuestionActionLock();
+  }, { once: true });
+  wrapper.appendChild(video);
+  el.questionMedia.appendChild(wrapper);
 }
 
 function getMyTeamNumber() {
@@ -2021,6 +2113,9 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     reason: restored ? "restored-open" : "tile-click-open",
   });
   state.revealRequested = false;
+  state.videoQuestionPending = false;
+  state.videoPlaybackCompleted = false;
+  state.pendingVideoDeadlineTs = null;
   tile.timedOut = false;
   console.log("[Tasleya][openQuestion] preparing modal show", {
     hasModalElement: !!el.modal,
@@ -2130,12 +2225,16 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   }
   const safeDeadline = Number(deadlineTs);
   const restoreDeadline = Number.isFinite(safeDeadline) ? safeDeadline : null;
-  if (restored && restoreDeadline && restoreDeadline <= Date.now()) {
-    showQuestionStatus("انتهى الوقت");
-    startTimer({ deadlineTs: Date.now() + 10 });
-    handleQuestionTimeout();
+  if (state.videoQuestionPending) {
+    state.pendingVideoDeadlineTs = restored ? restoreDeadline : null;
   } else {
-    startTimer({ deadlineTs: restored ? restoreDeadline : null });
+    if (restored && restoreDeadline && restoreDeadline <= Date.now()) {
+      showQuestionStatus("انتهى الوقت");
+      startTimer({ deadlineTs: Date.now() + 10 });
+      handleQuestionTimeout();
+    } else {
+      startTimer({ deadlineTs: restored ? restoreDeadline : null });
+    }
   }
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
@@ -2275,6 +2374,9 @@ function closeModal({ silentSync = false, force = false } = {}) {
   }
   stopAndResetTimer(); clearQuestionMedia();
   state.revealRequested = false;
+  state.videoQuestionPending = false;
+  state.videoPlaybackCompleted = false;
+  state.pendingVideoDeadlineTs = null;
   state.currentHintText = "";
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
@@ -2348,7 +2450,7 @@ function resetGameState() {
 
 async function revealAnswer({ skipTurnGuard = false } = {}) {
   const question = getActiveQuestion();
-  if (!question || state.answerRevealed || state.activeTile?.timedOut) return;
+  if (!question || state.answerRevealed || state.activeTile?.timedOut || state.videoQuestionPending) return;
   if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
   if (online.mode === "online" && !skipTurnGuard && !isOnlineHostClient()) {
     const requested = await requestHostRevealAnswer();
@@ -2414,7 +2516,7 @@ function generateChoices(question) {
 }
 function useLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || state.activeTile?.timedOut || mcqHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || mcqHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const options = generateChoices(question);
   el.choicesList.innerHTML = "";
   options.forEach((option) => { const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div); });
@@ -2428,7 +2530,7 @@ function useLifeline() {
 
 function useHintLifeline() {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || state.activeTile?.timedOut || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const hintText = firstNonEmpty(question.hint, question["تلميح"]);
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
@@ -2451,6 +2553,7 @@ function useHintLifeline() {
 }
 
 function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } = {}) {
+  if (state.videoQuestionPending) return;
   if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
   if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
     requestHostScoreAction({ action: isCorrect ? "correct" : "wrong" });
@@ -2465,6 +2568,7 @@ function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } 
   if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
 }
 function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, selectedTeam = null } = {}) {
+  if (state.videoQuestionPending) return;
   if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
   if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
     if (state.teamCount === 3) {
@@ -3114,6 +3218,12 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
               timerStart = Date.now() - QUESTION_TIMEOUT_MS;
               questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
               updateTimerUI();
+            } else if (state.videoQuestionPending) {
+              stopAndResetTimer();
+              const remoteDeadline = Number(game.questionDeadlineTs);
+              state.pendingVideoDeadlineTs = Number.isFinite(remoteDeadline)
+                ? remoteDeadline
+                : (game.questionStartedAt ? (Number(game.questionStartedAt) || Date.now()) + QUESTION_TIMEOUT_MS : null);
             } else {
               const remoteDeadline = Number(game.questionDeadlineTs);
               if (Number.isFinite(remoteDeadline)) {

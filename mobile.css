@@ -401,3 +401,8 @@ main,
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
+#questionVideo {
+  max-height: min(48vh, 320px);
+  border-radius: 12px;
+}

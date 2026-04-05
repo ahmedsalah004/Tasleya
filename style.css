@@ -1396,6 +1396,22 @@ button:disabled {
   height: auto;
 }
 
+.question-video-wrapper {
+  width: 100%;
+  max-width: min(100%, 760px);
+  margin-inline: auto;
+}
+
+#questionVideo {
+  display: block;
+  width: 100%;
+  max-height: min(54vh, 430px);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 178, 255, 0.45);
+  background: rgba(3, 8, 24, 0.92);
+  box-shadow: 0 14px 34px rgba(1, 7, 24, 0.5);
+}
+
 #questionImage {
   display: block;
   max-width: min(100%, 760px);
