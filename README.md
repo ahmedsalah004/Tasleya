@@ -70,8 +70,8 @@
 - `points` (إجباري: إحدى القيم 100 أو 200 أو 300 أو 400 أو 500)
 - `question` (إجباري)
 - `answer` (إجباري)
-- `type` (`text` أو `image` أو `audio`)
-- `image_url` (اختياري)
+- `type` (`text` أو `image` أو `audio` أو `video`)
+- `image_url` (اختياري — يُستخدم كمسار وسيط عام للصورة/الصوت/الفيديو)
 - `choice_a`, `choice_b`, `choice_c`, `choice_d` (اختيارية)
 - `hint` (اختياري)
 
@@ -133,4 +133,4 @@ window.TASLEYA_API_BASE_URL = "https://YOUR-WORKER-URL";
 - داخل GitHub Pages: `/Tasleya/`
 - محلياً: `/`
 
-ثم يحمّل الصورة/الصوت من المسار النسبي داخل `image_url`.
+ثم يحمّل الصورة/الصوت/الفيديو من المسار النسبي داخل `image_url` (مثال: `assets/focus_video/video_001.mp4`).
