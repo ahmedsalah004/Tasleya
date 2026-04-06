@@ -341,6 +341,9 @@ const state = {
   videoQuestionPending: false,
   videoPlaybackCompleted: false,
   pendingVideoDeadlineTs: null,
+  answeringTeamIndex: null,
+  pendingScoreTeamIndex: null,
+  questionResolutionLocked: false,
 };
 
 const contactState = {
@@ -518,6 +521,8 @@ const questionBankCache = {
   questionsById: new Map(),
   answersById: new Map(),
   answerPrefetchPromises: new Map(),
+  nextQuestionByTileId: new Map(),
+  nextQuestionPromiseByTileId: new Map(),
   loadPromise: null,
 };
 
@@ -737,8 +742,9 @@ function updateQuestionActionLock() {
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
   const lockByReveal = (hasUnresolvedActiveQuestion() && !state.answerRevealed) || lockByVideo;
+  const lockByResolution = state.questionResolutionLocked;
   const disableAnsweringActions = lockByTimeout || lockByTurn;
-  const disableScoringActions = lockByTimeout || lockByTurn;
+  const disableScoringActions = lockByTimeout || lockByTurn || lockByResolution;
   const lockByOtherTeamSelection = state.pendingOtherTeamSelection || state.resolvingOtherTeam;
   el.revealBtn.disabled = disableAnsweringActions || state.answerRevealed || lockByVideo;
   el.correctBtn.disabled = disableScoringActions || lockByReveal;
@@ -862,6 +868,7 @@ function handleOtherTeamSelection(teamNumber) {
   }
   state.resolvingOtherTeam = true;
   state.pendingOtherTeamSelection = false;
+  state.pendingScoreTeamIndex = selectedTeam;
   if (el.otherTeamChoices) {
     el.otherTeamChoices.querySelectorAll("button").forEach((button) => {
       button.disabled = true;
@@ -869,7 +876,11 @@ function handleOtherTeamSelection(teamNumber) {
   }
   resolveActiveQuestion({
     preventTimeoutAction: true,
-    scoreDelta: { [selectedTeam]: state.activeTile?.points ?? 0 },
+    scoreAction: {
+      teamIndex: selectedTeam,
+      delta: state.activeTile?.points ?? 0,
+      reason: "other-team-selection",
+    },
     nextTeam: selectedTeam,
   });
   state.resolvingOtherTeam = false;
@@ -960,6 +971,22 @@ function adjustTeamScore(team, delta) {
   state.scores[team] = Math.max(0, (Number(state.scores[team]) || 0) + delta);
   updateScoreboard();
   persistLocalProgress();
+}
+function applyScoreToTeam(teamIndex, delta, reason = "manual") {
+  const normalizedTeamIndex = Number(teamIndex);
+  if (!getActiveTeamNumbers().includes(normalizedTeamIndex)) return false;
+  const safeDelta = Number(delta) || 0;
+  if (!safeDelta) return false;
+  state.scores[normalizedTeamIndex] = Math.max(0, (Number(state.scores[normalizedTeamIndex]) || 0) + safeDelta);
+  const questionId = normalizeCell(state.activeQuestion?.id || state.activeTile?.questionId || state.activeTile?.id);
+  console.log("[Tasleya][score]", {
+    questionId,
+    currentTeamIndex: state.currentTeam,
+    targetTeamIndex: normalizedTeamIndex,
+    delta: safeDelta,
+    source: reason,
+  });
+  return true;
 }
 
 function firstNonEmpty(...values) {
@@ -1239,6 +1266,7 @@ function restoreLocalProgress() {
     syncTeamNameInputs();
     updateScoreboard();
     renderBoard();
+    prefetchLikelyNextQuestion();
 
     const savedActiveId = normalizeCell(saved.activeTileId);
     if (saved.modalOpen && savedActiveId) {
@@ -1326,11 +1354,21 @@ function getExcludedQuestionIds(category) {
     .filter(Boolean);
   return uniqueByText([...acrossGames, ...inCurrentGame]);
 }
+function getReservedQuestionIds(category, { ignoreTileId = "" } = {}) {
+  const normalizedCategory = normalizeCell(category);
+  const normalizedIgnoreTileId = normalizeCell(ignoreTileId);
+  if (!normalizedCategory) return [];
+  return state.boardTiles
+    .filter((tile) => tile.category === normalizedCategory && !tile.used && !tile.missing && tile.id !== normalizedIgnoreTileId)
+    .map((tile) => normalizeCell(tile.questionId))
+    .filter(Boolean);
+}
 async function fetchQuestionPayload({
   id = "",
   category = "",
   points = null,
   resetUsedBucketOnExhaustion = false,
+  ignoreTileId = "",
   preferFullCategoryPool = false,
 } = {}) {
   const normalizedId = normalizeCell(id);
@@ -1341,7 +1379,9 @@ async function fetchQuestionPayload({
   const normalizedCategory = normalizeCell(category);
   const normalizedPoints = Number(points) || null;
   const shouldExcludeUsedByCategory = online.mode === "local" || online.mode === "online";
-  const excludeIds = (!normalizedId && shouldExcludeUsedByCategory) ? getExcludedQuestionIds(normalizedCategory) : [];
+  const excludeIds = (!normalizedId && shouldExcludeUsedByCategory)
+    ? uniqueByText([...getExcludedQuestionIds(normalizedCategory), ...getReservedQuestionIds(normalizedCategory, { ignoreTileId })])
+    : [];
   const requestFullCategoryPool = preferFullCategoryPool || normalizedPoints === null;
 
   try {
@@ -1432,6 +1472,54 @@ function prefetchAnswerPayload(questionId) {
     });
   questionBankCache.answerPrefetchPromises.set(normalizedId, promise);
   return promise;
+}
+function getNextPlayableTile({ excludeTileId = "" } = {}) {
+  const normalizedExcludeTileId = normalizeCell(excludeTileId);
+  return state.boardTiles.find((tile) => !tile.used && !tile.missing && tile.id !== normalizedExcludeTileId) || null;
+}
+function prefetchQuestionForTile(tile, { highPriority = false } = {}) {
+  if (!tile || tile.used || tile.missing) return Promise.resolve(null);
+  const tileId = normalizeCell(tile.id);
+  if (!tileId) return Promise.resolve(null);
+  if (questionBankCache.nextQuestionByTileId.has(tileId)) {
+    return Promise.resolve(questionBankCache.nextQuestionByTileId.get(tileId));
+  }
+  if (questionBankCache.nextQuestionPromiseByTileId.has(tileId)) {
+    return questionBankCache.nextQuestionPromiseByTileId.get(tileId);
+  }
+  const promise = fetchQuestionPayload({
+    id: tile.questionId,
+    category: tile.category,
+    points: tile.points,
+    ignoreTileId: tileId,
+  })
+    .then((question) => {
+      if (!question) return null;
+      const normalizedQuestionId = normalizeCell(question.id);
+      if (normalizedQuestionId && !normalizeCell(tile.questionId)) {
+        tile.questionId = normalizedQuestionId;
+      }
+      questionBankCache.nextQuestionByTileId.set(tileId, question);
+      if (highPriority) {
+        warmQuestionMedia(question, { highPriority: true });
+        prefetchAnswerPayload(question.id);
+      }
+      return question;
+    })
+    .catch((error) => {
+      console.warn("[Tasleya] Question prefetch failed", { tileId, error });
+      return null;
+    })
+    .finally(() => {
+      questionBankCache.nextQuestionPromiseByTileId.delete(tileId);
+    });
+  questionBankCache.nextQuestionPromiseByTileId.set(tileId, promise);
+  return promise;
+}
+function prefetchLikelyNextQuestion({ excludeTileId = "" } = {}) {
+  const nextTile = getNextPlayableTile({ excludeTileId });
+  if (!nextTile) return;
+  prefetchQuestionForTile(nextTile, { highPriority: false });
 }
 
 async function fetchQuestions() {
@@ -1820,9 +1908,10 @@ function warmQuestionMedia(question, { highPriority = false } = {}) {
   if (question.type === "image") warmImageResource(mediaUrl, { highPriority });
 }
 function preloadLikelyNextQuestionMedia() {
-  const nextTile = state.boardTiles.find((tile) => !tile.used && !tile.missing && normalizeCell(tile.questionId));
+  const nextTile = getNextPlayableTile();
   if (!nextTile) return;
-  const candidate = questionBankCache.questionsById.get(nextTile.questionId);
+  const candidate = questionBankCache.nextQuestionByTileId.get(nextTile.id)
+    || questionBankCache.questionsById.get(nextTile.questionId);
   if (!candidate) return;
   warmQuestionMedia(candidate, { highPriority: false });
 }
@@ -1850,6 +1939,8 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
     el.choicesList.innerHTML = "";
     state.currentChoices = [];
     state.currentHintText = "";
+    state.pendingScoreTeamIndex = null;
+    state.questionResolutionLocked = false;
     el.hintText.textContent = "";
     el.hintBox.classList.add("hidden");
   }
@@ -2109,6 +2200,9 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   state.questionSessionId = createQuestionSessionId();
   state.activeTile = tile;
   state.loadingQuestion = true;
+  state.answeringTeamIndex = state.currentTeam;
+  state.pendingScoreTeamIndex = null;
+  state.questionResolutionLocked = false;
   console.log("[Tasleya][openQuestion] loading-question set", {
     tileId,
     activeTileId: state.activeTile?.id || null,
@@ -2152,11 +2246,18 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   state.resolvingOtherTeam = false;
   updateCloseButtonLock();
   try {
-    const q = await fetchQuestionPayload({
-      id: questionId || tile.questionId,
-      category: tile.category,
-      points: tile.points,
-    });
+    const prefetched = questionBankCache.nextQuestionByTileId.get(tile.id);
+    let q = prefetched || null;
+    if (!q) {
+      q = await fetchQuestionPayload({
+        id: questionId || tile.questionId,
+        category: tile.category,
+        points: tile.points,
+        ignoreTileId: tile.id,
+      });
+    }
+    questionBankCache.nextQuestionByTileId.delete(tile.id);
+    questionBankCache.nextQuestionPromiseByTileId.delete(tile.id);
     if (!q) {
       tile.missing = true;
       console.log("[Tasleya][openQuestion] clearing question state", {
@@ -2193,6 +2294,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     });
     warmQuestionMedia(q, { highPriority: true });
     prefetchAnswerPayload(q.id);
+    prefetchLikelyNextQuestion({ excludeTileId: tile.id });
     preloadLikelyNextQuestionMedia();
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
@@ -2379,6 +2481,9 @@ function closeModal({ silentSync = false, force = false } = {}) {
   state.videoQuestionPending = false;
   state.videoPlaybackCompleted = false;
   state.pendingVideoDeadlineTs = null;
+  state.answeringTeamIndex = null;
+  state.pendingScoreTeamIndex = null;
+  state.questionResolutionLocked = false;
   state.currentHintText = "";
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
@@ -2440,6 +2545,11 @@ function resetGameState() {
   state.revealRequested = false;
   state.currentChoices = [];
   state.currentHintText = "";
+  state.answeringTeamIndex = null;
+  state.pendingScoreTeamIndex = null;
+  state.questionResolutionLocked = false;
+  questionBankCache.nextQuestionByTileId.clear();
+  questionBankCache.nextQuestionPromiseByTileId.clear();
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
   closeModal({ silentSync: true });
@@ -2561,10 +2671,28 @@ function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } 
     requestHostScoreAction({ action: isCorrect ? "correct" : "wrong" });
     return;
   }
+  if (state.questionResolutionLocked) return;
   if (!state.answerRevealed) return;
-  const scoreDelta = isCorrect ? { [state.currentTeam]: state.activeTile?.points ?? 0 } : null;
+  const answeringTeam = Number(state.answeringTeamIndex) || Number(state.currentTeam);
+  if (!isCorrect) {
+    console.log("[Tasleya][score]", {
+      questionId: normalizeCell(state.activeQuestion?.id || state.activeTile?.questionId || state.activeTile?.id),
+      currentTeamIndex: state.currentTeam,
+      targetTeamIndex: null,
+      delta: 0,
+      source: "wrong",
+    });
+  }
+  state.pendingScoreTeamIndex = isCorrect ? answeringTeam : null;
+  const scoreAction = isCorrect
+    ? {
+      teamIndex: answeringTeam,
+      delta: state.activeTile?.points ?? 0,
+      reason: "correct",
+    }
+    : null;
   const resolved = resolveActiveQuestion({
-    scoreDelta,
+    scoreAction,
     nextTeam: getNextTeamNumber(state.currentTeam),
   });
   if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
@@ -2585,6 +2713,7 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
     requestHostScoreAction({ action: "other", targetTeam });
     return;
   }
+  if (state.questionResolutionLocked) return;
   if (!state.answerRevealed) return;
   if (state.resolvingOtherTeam) return;
   if (state.teamCount === 3) {
@@ -2593,9 +2722,14 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
       if (Number.isFinite(Number(selectedTeam)) && eligibleTeams.includes(Number(selectedTeam))) {
         state.resolvingOtherTeam = true;
         state.pendingOtherTeamSelection = false;
+        state.pendingScoreTeamIndex = Number(selectedTeam);
         resolveActiveQuestion({
           preventTimeoutAction: true,
-          scoreDelta: { [Number(selectedTeam)]: state.activeTile?.points ?? 0 },
+          scoreAction: {
+            teamIndex: Number(selectedTeam),
+            delta: state.activeTile?.points ?? 0,
+            reason: "other-team-selected",
+          },
           nextTeam: Number(selectedTeam),
         });
         state.resolvingOtherTeam = false;
@@ -2610,27 +2744,30 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
   const otherTeam = Number.isFinite(Number(selectedTeam)) && eligibleTeams.includes(Number(selectedTeam))
     ? Number(selectedTeam)
     : getNextTeamNumber(state.currentTeam);
+  state.pendingScoreTeamIndex = otherTeam;
   state.resolvingOtherTeam = true;
   resolveActiveQuestion({
     preventTimeoutAction: true,
-    scoreDelta: { [otherTeam]: state.activeTile?.points ?? 0 },
+    scoreAction: {
+      teamIndex: otherTeam,
+      delta: state.activeTile?.points ?? 0,
+      reason: "other-team",
+    },
     nextTeam: otherTeam,
   });
   state.resolvingOtherTeam = false;
 }
 
-function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = false, preventTimeoutAction = false } = {}) {
+function resolveActiveQuestion({ scoreAction = null, nextTeam = null, timedOut = false, preventTimeoutAction = false } = {}) {
   const tile = state.activeTile;
   if (!tile || tile.used || !state.activeQuestion) return false;
   if (preventTimeoutAction && tile.timedOut) return false;
+  if (state.questionResolutionLocked) return false;
+  state.questionResolutionLocked = true;
 
-  if (scoreDelta && typeof scoreDelta === "object") {
-    Object.entries(scoreDelta).forEach(([team, points]) => {
-      const teamNumber = Number(team);
-      if (!getActiveTeamNumbers().includes(teamNumber)) return;
-      const safePoints = Number(points) || 0;
-      state.scores[teamNumber] += safePoints;
-    });
+  if (scoreAction && typeof scoreAction === "object") {
+    const targetTeamIndex = Number(scoreAction.teamIndex ?? state.pendingScoreTeamIndex);
+    applyScoreToTeam(targetTeamIndex, scoreAction.delta, scoreAction.reason || "resolve");
   }
 
   if (timedOut) {
@@ -2647,8 +2784,10 @@ function resolveActiveQuestion({ scoreDelta = null, nextTeam = null, timedOut = 
 
   updateScoreboard();
   renderBoard();
+  prefetchLikelyNextQuestion({ excludeTileId: tile.id });
   closeOtherTeamSelector();
   state.questionSessionId = "";
+  state.pendingScoreTeamIndex = null;
   closeModal({ silentSync: true });
   persistLocalProgress();
   checkEndOfGame();
@@ -4043,10 +4182,16 @@ async function startGameFromSelection() {
   state.revealRequested = false;
   state.currentChoices = [];
   state.currentHintText = "";
+  state.answeringTeamIndex = null;
+  state.pendingScoreTeamIndex = null;
+  state.questionResolutionLocked = false;
+  questionBankCache.nextQuestionByTileId.clear();
+  questionBankCache.nextQuestionPromiseByTileId.clear();
   clearError();
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
+  prefetchLikelyNextQuestion();
   checkEndOfGame();
   persistLocalProgress();
   logAnalyticsEvent("game_started", {
