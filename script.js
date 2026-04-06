@@ -342,8 +342,10 @@ const state = {
   videoPlaybackCompleted: false,
   pendingVideoDeadlineTs: null,
   answeringTeamIndex: null,
+  questionTurnOwnerIndex: null,
   pendingScoreTeamIndex: null,
   questionResolutionLocked: false,
+  resolvedQuestionSessionId: "",
 };
 
 const contactState = {
@@ -798,7 +800,7 @@ function handleQuestionTimeout() {
   showQuestionStatus("انتهى الوقت");
   resolveActiveQuestion({
     timedOut: true,
-    nextTeam: getNextTeamNumber(state.currentTeam),
+    nextTeam: getNextTeamNumber(getQuestionTurnOwnerIndex()),
   });
 }
 function startTimer({ deadlineTs = null } = {}) {
@@ -881,7 +883,7 @@ function handleOtherTeamSelection(teamNumber) {
       delta: state.activeTile?.points ?? 0,
       reason: "other-team-selection",
     },
-    nextTeam: selectedTeam,
+    nextTeam: getNextTeamNumber(getQuestionTurnOwnerIndex()),
   });
   state.resolvingOtherTeam = false;
 }
@@ -922,6 +924,14 @@ function getNextTeamNumber(team) {
   const index = activeTeams.indexOf(team);
   if (index === -1) return activeTeams[0] || 1;
   return activeTeams[(index + 1) % activeTeams.length];
+}
+function getQuestionTurnOwnerIndex() {
+  const activeTeams = getActiveTeamNumbers();
+  const turnOwner = Number(state.questionTurnOwnerIndex);
+  if (activeTeams.includes(turnOwner)) return turnOwner;
+  const answeringTeam = Number(state.answeringTeamIndex);
+  if (activeTeams.includes(answeringTeam)) return answeringTeam;
+  return activeTeams.includes(Number(state.currentTeam)) ? Number(state.currentTeam) : (activeTeams[0] || 1);
 }
 function setLocalTeamCount(teamCount) {
   state.teamCount = normalizeTeamCount(teamCount);
@@ -1210,6 +1220,7 @@ function persistLocalProgress() {
     activeTileId: state.activeTile?.id || null,
     activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     activeCategory: state.activeTile?.category || null,
+    questionTurnOwnerIndex: state.activeTile ? Number(state.questionTurnOwnerIndex || state.answeringTeamIndex || state.currentTeam) : null,
     modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
@@ -1260,6 +1271,8 @@ function restoreLocalProgress() {
       3: !!saved.hintHelpUsed?.[3],
     };
     state.activeQuestion = null;
+    state.questionTurnOwnerIndex = null;
+    state.resolvedQuestionSessionId = "";
 
     showGameScreen();
     updateTeamModeUI();
@@ -1279,6 +1292,7 @@ function restoreLocalProgress() {
         restored: true,
         deadlineTs: Number.isFinite(restoredDeadline) ? restoredDeadline : fallbackDeadline,
         questionId: saved.activeQuestionId,
+        turnOwnerIndex: Number(saved.questionTurnOwnerIndex),
       });
     }
 
@@ -2179,7 +2193,7 @@ async function requestHostScoreAction({ action, targetTeam = null } = {}) {
   }
 }
 
-async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false } = {}) {
+async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false, turnOwnerIndex = null } = {}) {
   console.log("[Tasleya][openQuestion] entered", {
     tileId,
     restored,
@@ -2200,9 +2214,15 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   state.questionSessionId = createQuestionSessionId();
   state.activeTile = tile;
   state.loadingQuestion = true;
-  state.answeringTeamIndex = state.currentTeam;
+  const normalizedTurnOwnerIndex = Number(turnOwnerIndex);
+  const questionTurnOwnerIndex = getActiveTeamNumbers().includes(normalizedTurnOwnerIndex)
+    ? normalizedTurnOwnerIndex
+    : state.currentTeam;
+  state.answeringTeamIndex = questionTurnOwnerIndex;
+  state.questionTurnOwnerIndex = questionTurnOwnerIndex;
   state.pendingScoreTeamIndex = null;
   state.questionResolutionLocked = false;
+  state.resolvedQuestionSessionId = "";
   console.log("[Tasleya][openQuestion] loading-question set", {
     tileId,
     activeTileId: state.activeTile?.id || null,
@@ -2482,8 +2502,10 @@ function closeModal({ silentSync = false, force = false } = {}) {
   state.videoPlaybackCompleted = false;
   state.pendingVideoDeadlineTs = null;
   state.answeringTeamIndex = null;
+  state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
   state.questionResolutionLocked = false;
+  state.resolvedQuestionSessionId = "";
   state.currentHintText = "";
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
@@ -2546,8 +2568,10 @@ function resetGameState() {
   state.currentChoices = [];
   state.currentHintText = "";
   state.answeringTeamIndex = null;
+  state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
   state.questionResolutionLocked = false;
+  state.resolvedQuestionSessionId = "";
   questionBankCache.nextQuestionByTileId.clear();
   questionBankCache.nextQuestionPromiseByTileId.clear();
   closeOtherTeamSelector();
@@ -2673,6 +2697,7 @@ function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } 
   }
   if (state.questionResolutionLocked) return;
   if (!state.answerRevealed) return;
+  const questionTurnOwnerIndex = getQuestionTurnOwnerIndex();
   const answeringTeam = Number(state.answeringTeamIndex) || Number(state.currentTeam);
   if (!isCorrect) {
     console.log("[Tasleya][score]", {
@@ -2693,7 +2718,7 @@ function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } 
     : null;
   const resolved = resolveActiveQuestion({
     scoreAction,
-    nextTeam: getNextTeamNumber(state.currentTeam),
+    nextTeam: getNextTeamNumber(questionTurnOwnerIndex),
   });
   if (resolved) playOutcomeSound(isCorrect ? "correct" : "wrong");
 }
@@ -2716,6 +2741,7 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
   if (state.questionResolutionLocked) return;
   if (!state.answerRevealed) return;
   if (state.resolvingOtherTeam) return;
+  const questionTurnOwnerIndex = getQuestionTurnOwnerIndex();
   if (state.teamCount === 3) {
     const eligibleTeams = getEligibleOtherTeams(state.currentTeam);
     if (eligibleTeams.length > 1) {
@@ -2730,7 +2756,7 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
             delta: state.activeTile?.points ?? 0,
             reason: "other-team-selected",
           },
-          nextTeam: Number(selectedTeam),
+          nextTeam: getNextTeamNumber(questionTurnOwnerIndex),
         });
         state.resolvingOtherTeam = false;
         return;
@@ -2753,7 +2779,7 @@ function awardPointsToOtherTeam({ skipHostGuard = false, skipTurnGuard = false, 
       delta: state.activeTile?.points ?? 0,
       reason: "other-team",
     },
-    nextTeam: otherTeam,
+    nextTeam: getNextTeamNumber(questionTurnOwnerIndex),
   });
   state.resolvingOtherTeam = false;
 }
@@ -2763,7 +2789,22 @@ function resolveActiveQuestion({ scoreAction = null, nextTeam = null, timedOut =
   if (!tile || tile.used || !state.activeQuestion) return false;
   if (preventTimeoutAction && tile.timedOut) return false;
   if (state.questionResolutionLocked) return false;
+  const sessionId = normalizeCell(state.questionSessionId);
+  if (sessionId && state.resolvedQuestionSessionId === sessionId) return false;
   state.questionResolutionLocked = true;
+  if (sessionId) state.resolvedQuestionSessionId = sessionId;
+
+  const questionTurnOwnerIndex = getQuestionTurnOwnerIndex();
+  const awardedTeamIndex = Number(scoreAction?.teamIndex ?? state.pendingScoreTeamIndex) || null;
+  const computedNextTurnIndex = getActiveTeamNumbers().includes(Number(nextTeam))
+    ? Number(nextTeam)
+    : getNextTeamNumber(questionTurnOwnerIndex);
+  console.log("[Tasleya][question-resolution]", {
+    questionId: normalizeCell(state.activeQuestion?.id || state.activeTile?.questionId || state.activeTile?.id),
+    questionTurnOwnerIndex,
+    awardedTeamIndex,
+    computedNextTurnIndex,
+  });
 
   if (scoreAction && typeof scoreAction === "object") {
     const targetTeamIndex = Number(scoreAction.teamIndex ?? state.pendingScoreTeamIndex);
@@ -2778,8 +2819,8 @@ function resolveActiveQuestion({ scoreAction = null, nextTeam = null, timedOut =
     state.scores[team] = Math.max(0, state.scores[team]);
   });
 
-  if (getActiveTeamNumbers().includes(nextTeam)) {
-    state.currentTeam = nextTeam;
+  if (getActiveTeamNumbers().includes(computedNextTurnIndex)) {
+    state.currentTeam = computedNextTurnIndex;
   }
 
   updateScoreboard();
@@ -2787,6 +2828,7 @@ function resolveActiveQuestion({ scoreAction = null, nextTeam = null, timedOut =
   prefetchLikelyNextQuestion({ excludeTileId: tile.id });
   closeOtherTeamSelector();
   state.questionSessionId = "";
+  state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
   closeModal({ silentSync: true });
   persistLocalProgress();
@@ -3214,6 +3256,7 @@ function serializeGameState() {
     activeTileId: hasActiveLifecycleQuestion ? (state.activeTile?.id || null) : null,
     activeQuestionId: hasActiveLifecycleQuestion ? (state.activeQuestion?.id || state.activeTile?.questionId || null) : null,
     questionSessionId: state.questionSessionId || null,
+    questionTurnOwnerIndex: hasActiveLifecycleQuestion ? Number(state.questionTurnOwnerIndex || state.answeringTeamIndex || state.currentTeam) : null,
     modalOpen: !el.modal.classList.contains("hidden") && hasActiveLifecycleQuestion,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
@@ -3288,6 +3331,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     state.activeQuestion = null;
     state.loadingQuestion = false;
     state.questionSessionId = "";
+    state.questionTurnOwnerIndex = null;
+    state.resolvedQuestionSessionId = "";
 
     syncTeamNameInputs();
     updateTeamModeUI();
@@ -3317,6 +3362,9 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             state.activeQuestion = remoteQuestion;
             state.loadingQuestion = false;
             state.questionSessionId = normalizeCell(game.questionSessionId) || createQuestionSessionId();
+            state.questionTurnOwnerIndex = getActiveTeamNumbers().includes(Number(game.questionTurnOwnerIndex))
+              ? Number(game.questionTurnOwnerIndex)
+              : state.currentTeam;
             clearQuestionMedia();
             renderQuestionContent(remoteQuestion, { resetLifecycleState: false });
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
@@ -4183,8 +4231,10 @@ async function startGameFromSelection() {
   state.currentChoices = [];
   state.currentHintText = "";
   state.answeringTeamIndex = null;
+  state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
   state.questionResolutionLocked = false;
+  state.resolvedQuestionSessionId = "";
   questionBankCache.nextQuestionByTileId.clear();
   questionBankCache.nextQuestionPromiseByTileId.clear();
   clearError();
