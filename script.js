@@ -403,12 +403,6 @@ const viewportGuardState = {
   touchStartX: null,
   isPullGuardActive: false,
 };
-const imageInteractionGuardState = {
-  cleanup: null,
-  touchStartY: null,
-  touchStartX: null,
-  isPullGuardActive: false,
-};
 
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
@@ -1127,69 +1121,6 @@ function resetGameScreenTouchGuard() {
   viewportGuardState.touchStartY = null;
   viewportGuardState.touchStartX = null;
   viewportGuardState.isPullGuardActive = false;
-}
-
-function resetImageInteractionTouchGuard() {
-  imageInteractionGuardState.touchStartY = null;
-  imageInteractionGuardState.touchStartX = null;
-  imageInteractionGuardState.isPullGuardActive = false;
-}
-
-function detachImageInteractionGuards() {
-  if (typeof imageInteractionGuardState.cleanup === "function") {
-    imageInteractionGuardState.cleanup();
-  }
-  imageInteractionGuardState.cleanup = null;
-  resetImageInteractionTouchGuard();
-}
-
-function attachImageInteractionGuards(imageViewport) {
-  detachImageInteractionGuards();
-  if (!(imageViewport instanceof Element)) return;
-
-  const handleImageTouchStart = (event) => {
-    resetImageInteractionTouchGuard();
-    if (!event.touches || event.touches.length !== 1) return;
-    const touch = event.touches[0];
-    imageInteractionGuardState.touchStartY = touch.clientY;
-    imageInteractionGuardState.touchStartX = touch.clientX;
-    imageInteractionGuardState.isPullGuardActive = true;
-  };
-
-  const handleImageTouchMove = (event) => {
-    if (!event.touches || event.touches.length !== 1) return;
-    if (event.scale && event.scale !== 1) return;
-
-    const touch = event.touches[0];
-    if (!imageInteractionGuardState.isPullGuardActive) {
-      imageInteractionGuardState.touchStartY = touch.clientY;
-      imageInteractionGuardState.touchStartX = touch.clientX;
-      imageInteractionGuardState.isPullGuardActive = true;
-    }
-    const startY = Number(imageInteractionGuardState.touchStartY);
-    const startX = Number(imageInteractionGuardState.touchStartX);
-    if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
-
-    const deltaY = touch.clientY - startY;
-    const deltaX = Math.abs(touch.clientX - startX);
-    if (deltaY <= 0 || deltaX > Math.abs(deltaY)) return;
-    if (canScrollUpFromNode(event.target)) return;
-
-    event.preventDefault();
-  };
-
-  const options = { passive: false };
-  imageViewport.addEventListener("touchstart", handleImageTouchStart, options);
-  imageViewport.addEventListener("touchmove", handleImageTouchMove, options);
-  imageViewport.addEventListener("touchend", resetImageInteractionTouchGuard, { passive: true });
-  imageViewport.addEventListener("touchcancel", resetImageInteractionTouchGuard, { passive: true });
-
-  imageInteractionGuardState.cleanup = () => {
-    imageViewport.removeEventListener("touchstart", handleImageTouchStart);
-    imageViewport.removeEventListener("touchmove", handleImageTouchMove);
-    imageViewport.removeEventListener("touchend", resetImageInteractionTouchGuard);
-    imageViewport.removeEventListener("touchcancel", resetImageInteractionTouchGuard);
-  };
 }
 
 function shouldBypassPullToRefreshGuard(target) {
@@ -2039,9 +1970,7 @@ function clearQuestionMedia() {
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   const currentVideo = el.questionMedia.querySelector("video");
   if (currentVideo) { currentVideo.pause(); }
-  detachImageInteractionGuards();
   document.body.classList.remove("image-question-active");
-  document.documentElement.classList.remove("image-question-active");
   el.modal?.classList.remove("image-question-active");
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
@@ -2080,7 +2009,6 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
   document.body.classList.add("image-question-active");
-  document.documentElement.classList.add("image-question-active");
   el.modal?.classList.add("image-question-active");
 
   const imageViewport = document.createElement("div");
@@ -2100,7 +2028,6 @@ function renderQuestionImage(imagePath, question = null) {
   image.src = imageSrc;
   imageViewport.appendChild(image);
   el.questionMedia.appendChild(imageViewport);
-  attachImageInteractionGuards(imageViewport);
 
 }
 function renderQuestionAudio(audioPath) {
