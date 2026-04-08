@@ -73,6 +73,13 @@
         <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
         <div class="start-actions">
           <div class="play-flow-shell" aria-live="polite" aria-atomic="true">
+            <div id="resumeGamePrompt" class="resume-game-prompt hidden" role="group" aria-label="استئناف اللعبة السابقة">
+              <p class="resume-game-prompt-text">يوجد لعبة غير مكتملة.</p>
+              <div class="resume-game-actions">
+                <button id="resumeGameBtn" type="button">أكمل اللعبة</button>
+                <button id="discardResumeGameBtn" type="button">العودة للرئيسية</button>
+              </div>
+            </div>
             <div id="homepagePrimaryStep" class="home-flow-step">
               <button id="startLocalBtn" type="button">العب بمفردك</button>
               <button id="startOnlineBtn" type="button">لعب جماعي</button>
