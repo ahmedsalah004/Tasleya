@@ -413,6 +413,7 @@ const online = {
   processingTilePickRequestId: "",
   processingRevealRequestId: "",
   processingScoreRequestId: "",
+  processingLifelineRequestId: "",
   remoteApplyNonce: 0,
   activeRemoteApplyNonce: 0,
   hostStartInFlight: false,
@@ -2328,6 +2329,25 @@ async function requestHostScoreAction({ action, targetTeam = null } = {}) {
   }
 }
 
+async function requestHostLifelineAction({ type } = {}) {
+  if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  const normalizedType = normalizeCell(type);
+  if (!["mcq", "hint"].includes(normalizedType)) return false;
+  const payload = {
+    id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type: normalizedType,
+    questionSessionId: normalizeCell(state.questionSessionId) || "",
+    requestedAt: getFirebaseTimestampValue(),
+  };
+  try {
+    await online.roomRef.child(`players/${online.uid}/pendingLifelineAction`).set(payload);
+    return true;
+  } catch (error) {
+    console.warn("[Tasleya][online] pending lifeline action request failed", { type: normalizedType, error });
+    return false;
+  }
+}
+
 async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false, turnOwnerIndex = null } = {}) {
   console.log("[Tasleya][openQuestion] entered", {
     tileId,
@@ -2626,6 +2646,47 @@ async function processPendingScoreRequest(room, remoteGameState) {
   }
 }
 
+async function processPendingLifelineRequest(room, remoteGameState) {
+  if (online.mode !== "online" || !isOnlineHostClient() || !online.roomRef) return;
+  if (!remoteGameState || !remoteGameState.modalOpen) return;
+  if (!hasUnresolvedActiveQuestion() || state.loadingQuestion || !state.activeQuestion) return;
+
+  const players = room?.players && typeof room.players === "object" ? room.players : {};
+  const activeTeams = getActiveTeamNumbers();
+  const currentTeam = activeTeams.includes(Number(remoteGameState.currentTeam))
+    ? Number(remoteGameState.currentTeam)
+    : (activeTeams[0] || 1);
+  const currentSessionId = normalizeCell(state.questionSessionId);
+
+  let selectedRequest = null;
+  Object.entries(players).forEach(([uid, rawRecord]) => {
+    if (selectedRequest) return;
+    const slot = Number(rawRecord?.teamIndex);
+    const request = rawRecord?.pendingLifelineAction;
+    const requestId = normalizeCell(request?.id);
+    const requestedType = normalizeCell(request?.type);
+    const requestedSessionId = normalizeCell(request?.questionSessionId);
+    if (slot !== currentTeam || !requestId || !["mcq", "hint"].includes(requestedType)) return;
+    if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
+    selectedRequest = { uid: normalizeCell(uid), requestId, type: requestedType };
+  });
+
+  if (!selectedRequest) return;
+  if (online.processingLifelineRequestId === selectedRequest.requestId) return;
+
+  online.processingLifelineRequestId = selectedRequest.requestId;
+  try {
+    await online.roomRef.child(`players/${selectedRequest.uid}/pendingLifelineAction`).remove();
+    if (selectedRequest.type === "mcq") {
+      await useLifeline({ skipHostGuard: true, skipTurnGuard: true });
+      return;
+    }
+    await useHintLifeline({ skipHostGuard: true, skipTurnGuard: true });
+  } finally {
+    online.processingLifelineRequestId = "";
+  }
+}
+
 function closeModal({ silentSync = false, force = false } = {}) {
   if (!force && shouldLockQuestionClose()) {
     updateCloseButtonLock();
@@ -2784,9 +2845,15 @@ function generateChoices(question) {
   while (fallback.length < 4) fallback.push(`خيار ${fallback.length + 1}`);
   return fallback.slice(0, 4);
 }
-function useLifeline() {
+async function useLifeline({ skipHostGuard = false, skipTurnGuard = false } = {}) {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "mcq") || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "mcq")) return;
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    const requested = await requestHostLifelineAction({ type: "mcq" });
+    if (requested) showQuestionStatus("تم إرسال طلب المساعدة...");
+    return;
+  }
   const options = generateChoices(question);
   el.choicesList.innerHTML = "";
   options.forEach((option) => { const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div); });
@@ -2798,10 +2865,18 @@ function useLifeline() {
 }
 
 
-function useHintLifeline() {
+async function useHintLifeline({ skipHostGuard = false, skipTurnGuard = false } = {}) {
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "hint") || (online.mode === "online" && !canCurrentClientAct())) return;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "hint")) return;
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    const requested = await requestHostLifelineAction({ type: "hint" });
+    if (requested) showQuestionStatus("تم إرسال طلب التلميح...");
+    return;
+  }
   const hintText = firstNonEmpty(question.hint, question["تلميح"]);
+  lifelinesUsed[currentTeam].hint = true;
+  el.hintLifelineBtn.disabled = true;
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
     el.hintText.textContent = state.currentHintText;
@@ -2809,7 +2884,6 @@ function useHintLifeline() {
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
     return;
   }
-  lifelinesUsed[currentTeam].hint = true;
   logAnalyticsEvent("hint_used", {
     mode: online.mode,
     team: currentTeam,
@@ -2818,7 +2892,6 @@ function useHintLifeline() {
   state.currentHintText = hintText;
   el.hintText.textContent = state.currentHintText;
   el.hintBox.classList.remove("hidden");
-  el.hintLifelineBtn.disabled = true;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -4192,6 +4265,7 @@ async function connectToRoom(code, teamSlot) {
         .then(() => processPendingTilePickRequest(room, remoteGameState))
         .then(() => processPendingRevealRequest(room, remoteGameState))
         .then(() => processPendingScoreRequest(room, remoteGameState))
+        .then(() => processPendingLifelineRequest(room, remoteGameState))
         .catch((error) => {
           console.warn("[Tasleya][online] playing-state sync failed", error);
         });
@@ -4312,6 +4386,7 @@ function resetOnlineMode() {
   online.processingTilePickRequestId = "";
   online.processingRevealRequestId = "";
   online.processingScoreRequestId = "";
+  online.processingLifelineRequestId = "";
   online.restoringFromSavedSession = false;
   online.sessionRestoreInProgress = false;
   online.remoteApplyNonce = 0;
