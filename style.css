@@ -951,7 +951,7 @@ body::after {
 }
 
 body.gameplay-active {
-  overscroll-behavior-y: none;
+  overscroll-behavior-y: auto;
 }
 
 .game-home-btn {
