@@ -1482,13 +1482,10 @@ button:disabled {
 }
 
 #questionModal.image-question-active .modal-content {
-  overflow: hidden;
   overscroll-behavior: contain;
 }
 
-html.image-question-active,
 body.image-question-active {
-  overflow: hidden;
   overscroll-behavior: none;
 }
 
