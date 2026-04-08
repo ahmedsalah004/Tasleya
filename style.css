@@ -988,6 +988,7 @@ body::after {
   touch-action: pan-x pan-y pinch-zoom;
 }
 
+html.gameplay-active,
 body.gameplay-active {
   overscroll-behavior-y: none;
 }
@@ -1485,6 +1486,7 @@ button:disabled {
   overscroll-behavior: contain;
 }
 
+html.image-question-active,
 body.image-question-active {
   overscroll-behavior: none;
 }

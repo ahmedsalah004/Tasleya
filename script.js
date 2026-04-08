@@ -1126,7 +1126,6 @@ function resetGameScreenTouchGuard() {
 function shouldBypassPullToRefreshGuard(target) {
   if (!(target instanceof Element)) return false;
   if (target.closest("input, textarea, select, [contenteditable='true']")) return true;
-  if (target.closest("#questionMedia, #questionMedia *")) return true;
   return false;
 }
 
@@ -1965,12 +1964,18 @@ function preloadLikelyNextQuestionMedia() {
   if (!candidate) return;
   warmQuestionMedia(candidate, { highPriority: false });
 }
+function syncDocumentRootStateClass(className, shouldEnable) {
+  if (!className) return;
+  document.documentElement.classList.toggle(className, !!shouldEnable);
+}
+
 function clearQuestionMedia() {
   const currentAudio = el.questionMedia.querySelector("audio");
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   const currentVideo = el.questionMedia.querySelector("video");
   if (currentVideo) { currentVideo.pause(); }
   document.body.classList.remove("image-question-active");
+  syncDocumentRootStateClass("image-question-active", false);
   el.modal?.classList.remove("image-question-active");
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
@@ -2009,6 +2014,7 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
   document.body.classList.add("image-question-active");
+  syncDocumentRootStateClass("image-question-active", true);
   el.modal?.classList.add("image-question-active");
 
   const imageViewport = document.createElement("div");
@@ -4335,6 +4341,7 @@ function showGameScreen() {
   el.startScreen.style.display = "none";
   el.gameScreen.style.display = "block";
   document.body.classList.add("gameplay-active");
+  syncDocumentRootStateClass("gameplay-active", true);
   attachGameplayViewportGuards();
   updateResumePromptVisibility();
 }
@@ -4343,6 +4350,7 @@ function showStartScreen() {
   el.gameScreen.style.display = "none";
   el.startScreen.style.display = "flex";
   document.body.classList.remove("gameplay-active");
+  syncDocumentRootStateClass("gameplay-active", false);
   detachGameplayViewportGuards();
   resetHomepageFlowToPrimaryStep();
   detectPendingLocalResume();
@@ -4835,6 +4843,7 @@ function initializeApp() {
   ensureSoundPreferenceLoaded();
   ensureStableOnlineClientId();
   document.body.classList.remove("gameplay-active");
+  syncDocumentRootStateClass("gameplay-active", false);
   updateHostCategorySelectionCTA();
 
   bindEvent(el.newGameBtn, "click", () => {
