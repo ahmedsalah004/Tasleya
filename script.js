@@ -2269,6 +2269,12 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   state.pendingScoreTeamIndex = null;
   state.questionResolutionLocked = false;
   state.resolvedQuestionSessionId = "";
+  if (!restored) {
+    getActiveTeamNumbers().forEach((team) => {
+      mcqHelpUsed[team] = false;
+      hintHelpUsed[team] = false;
+    });
+  }
   console.log("[Tasleya][openQuestion] loading-question set", {
     tileId,
     activeTileId: state.activeTile?.id || null,
