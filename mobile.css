@@ -3,6 +3,7 @@ body {
   overflow-x: hidden;
 }
 
+html.gameplay-active,
 body.gameplay-active {
   overscroll-behavior-y: none;
 }
