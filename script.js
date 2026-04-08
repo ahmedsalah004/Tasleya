@@ -31,6 +31,8 @@ const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+let mcqHelpUsed = { 1: false, 2: false, 3: false };
+let hintHelpUsed = { 1: false, 2: false, 3: false };
 let timerInterval = null;
 let timerStart = null;
 let questionTimeoutToken = null;
@@ -348,14 +350,6 @@ const state = {
   pendingScoreTeamIndex: null,
   questionResolutionLocked: false,
   resolvedQuestionSessionId: "",
-  lifelinesUsed: {
-    hintUsed: false,
-    mcqUsed: false,
-  },
-  lifelineActionLock: {
-    hint: false,
-    mcq: false,
-  },
 };
 
 const contactState = {
@@ -541,7 +535,6 @@ const questionBankCache = {
 
 const mediaWarmupCache = {
   images: new Map(),
-  videos: new Map(),
   preconnectedOrigins: new Set(),
 };
 
@@ -765,8 +758,8 @@ function updateQuestionActionLock() {
   el.wrongBtn.disabled = disableScoringActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
   el.otherTeamBtn.disabled = disableScoringActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
-  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || state.lifelinesUsed.mcqUsed || lockByVideo;
-  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || state.lifelinesUsed.hintUsed || lockByVideo;
+  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || mcqHelpUsed[state.currentTeam] || lockByVideo;
+  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hintHelpUsed[state.currentTeam] || lockByVideo;
   updateLateOtherTeamPrompt();
   updateCloseButtonLock();
 }
@@ -1250,7 +1243,8 @@ function persistLocalProgress() {
     scores: { ...state.scores },
     usedQuestionIds: state.boardTiles.filter((tile) => tile.used && tile.questionId).map((tile) => tile.questionId),
     currentTeam: state.currentTeam,
-    lifelinesUsed: { ...state.lifelinesUsed },
+    mcqHelpUsed: { ...mcqHelpUsed },
+    hintHelpUsed: { ...hintHelpUsed },
     activeTileId: state.activeTile?.id || null,
     activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     activeCategory: state.activeTile?.category || null,
@@ -1294,9 +1288,15 @@ function applySavedLocalProgress(saved) {
     };
     state.displayedScores = { ...state.scores };
     state.currentTeam = getActiveTeamNumbers().includes(Number(saved.currentTeam)) ? Number(saved.currentTeam) : 1;
-    state.lifelinesUsed = {
-      hintUsed: !!saved.lifelinesUsed?.hintUsed || !!saved.hintHelpUsed?.[1] || !!saved.hintHelpUsed?.[2] || !!saved.hintHelpUsed?.[3],
-      mcqUsed: !!saved.lifelinesUsed?.mcqUsed || !!saved.mcqHelpUsed?.[1] || !!saved.mcqHelpUsed?.[2] || !!saved.mcqHelpUsed?.[3],
+    mcqHelpUsed = {
+      1: !!saved.mcqHelpUsed?.[1],
+      2: !!saved.mcqHelpUsed?.[2],
+      3: !!saved.mcqHelpUsed?.[3],
+    };
+    hintHelpUsed = {
+      1: !!saved.hintHelpUsed?.[1],
+      2: !!saved.hintHelpUsed?.[2],
+      3: !!saved.hintHelpUsed?.[3],
     };
     state.activeQuestion = null;
     state.questionTurnOwnerIndex = null;
@@ -1307,7 +1307,6 @@ function applySavedLocalProgress(saved) {
     syncTeamNameInputs();
     updateScoreboard();
     renderBoard();
-    scheduleBoardAssetPreload();
     prefetchLikelyNextQuestion();
 
     const savedActiveId = normalizeCell(saved.activeTileId);
@@ -1571,24 +1570,6 @@ function prefetchLikelyNextQuestion({ excludeTileId = "" } = {}) {
   const nextTile = getNextPlayableTile({ excludeTileId });
   if (!nextTile) return;
   prefetchQuestionForTile(nextTile, { highPriority: false });
-}
-function scheduleBoardAssetPreload() {
-  if (!state.boardTiles.length) return;
-  const runPreload = () => {
-    const openTiles = state.boardTiles.filter((tile) => !tile.used && !tile.missing);
-    openTiles.forEach((tile, index) => {
-      prefetchQuestionForTile(tile, { highPriority: index < 8 })
-        .then((question) => {
-          if (question) warmQuestionMedia(question, { highPriority: index < 4 });
-        })
-        .catch(() => {});
-    });
-  };
-  if (typeof window.requestIdleCallback === "function") {
-    window.requestIdleCallback(runPreload, { timeout: 1200 });
-  } else {
-    setTimeout(runPreload, 0);
-  }
 }
 
 async function fetchQuestions() {
@@ -1970,25 +1951,11 @@ function warmImageResource(mediaUrl, { highPriority = false } = {}) {
   image.src = normalizedUrl;
   mediaWarmupCache.images.set(normalizedUrl, image);
 }
-function warmVideoResource(mediaUrl, { highPriority = false } = {}) {
-  const normalizedUrl = normalizeCell(mediaUrl);
-  if (!normalizedUrl) return;
-  ensureMediaOriginPreconnect(normalizedUrl);
-  if (mediaWarmupCache.videos.has(normalizedUrl)) return;
-  const video = document.createElement("video");
-  video.preload = highPriority ? "auto" : "metadata";
-  video.muted = true;
-  video.playsInline = true;
-  video.src = normalizedUrl;
-  video.load();
-  mediaWarmupCache.videos.set(normalizedUrl, video);
-}
 function warmQuestionMedia(question, { highPriority = false } = {}) {
   if (!question) return;
   const mediaUrl = toMediaUrl(question.image_url);
   if (!mediaUrl) return;
   if (question.type === "image") warmImageResource(mediaUrl, { highPriority });
-  if (question.type === "video") warmVideoResource(mediaUrl, { highPriority });
 }
 function preloadLikelyNextQuestionMedia() {
   const nextTile = getNextPlayableTile();
@@ -2034,8 +2001,8 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
   if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url);
   if (isVideoQuestion) renderQuestionVideo(question.image_url, question);
-  el.lifelineBtn.disabled = state.lifelinesUsed.mcqUsed || (online.mode === "online" && !canCurrentClientAct());
-  el.hintLifelineBtn.disabled = state.lifelinesUsed.hintUsed || (online.mode === "online" && !canCurrentClientAct());
+  el.lifelineBtn.disabled = mcqHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
+  el.hintLifelineBtn.disabled = hintHelpUsed[state.currentTeam] || (online.mode === "online" && !canCurrentClientAct());
   updateQuestionActionLock();
 }
 
@@ -2101,7 +2068,7 @@ function renderQuestionVideo(videoPath, question) {
   wrapper.className = "question-video-wrapper";
   const video = document.createElement("video");
   video.id = "questionVideo";
-  video.preload = "auto";
+  video.preload = "metadata";
   video.controls = true;
   video.playsInline = true;
   video.disablePictureInPicture = true;
@@ -2636,8 +2603,8 @@ function resetGameState() {
   state.scores = { 1: 0, 2: 0, 3: 0 };
   state.displayedScores = { 1: 0, 2: 0, 3: 0 };
   state.currentTeam = 1;
-  state.lifelinesUsed = { hintUsed: false, mcqUsed: false };
-  state.lifelineActionLock = { hint: false, mcq: false };
+  mcqHelpUsed = { 1: false, 2: false, 3: false };
+  hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
   state.activeQuestion = null;
   state.loadingQuestion = false;
@@ -2653,8 +2620,6 @@ function resetGameState() {
   state.resolvedQuestionSessionId = "";
   questionBankCache.nextQuestionByTileId.clear();
   questionBankCache.nextQuestionPromiseByTileId.clear();
-  mediaWarmupCache.images.clear();
-  mediaWarmupCache.videos.clear();
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
   closeModal({ silentSync: true });
@@ -2732,45 +2697,40 @@ function generateChoices(question) {
   return fallback.slice(0, 4);
 }
 function useLifeline() {
-  const question = getActiveQuestion();
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || state.lifelinesUsed.mcqUsed || state.lifelineActionLock.mcq || (online.mode === "online" && !canCurrentClientAct())) return;
-  state.lifelineActionLock.mcq = true;
-  state.lifelinesUsed.mcqUsed = true;
-  el.lifelineBtn.disabled = true;
+  const question = getActiveQuestion(); const currentTeam = state.currentTeam;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || mcqHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const options = generateChoices(question);
   el.choicesList.innerHTML = "";
   options.forEach((option) => { const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div); });
+  mcqHelpUsed[currentTeam] = true;
   state.currentChoices = options;
+  el.lifelineBtn.disabled = true;
   el.choicesBox.classList.remove("hidden");
-  state.lifelineActionLock.mcq = false;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
 
 function useHintLifeline() {
-  const question = getActiveQuestion();
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || state.lifelinesUsed.hintUsed || state.lifelineActionLock.hint || (online.mode === "online" && !canCurrentClientAct())) return;
-  state.lifelineActionLock.hint = true;
-  state.lifelinesUsed.hintUsed = true;
-  el.hintLifelineBtn.disabled = true;
+  const question = getActiveQuestion(); const currentTeam = state.currentTeam;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hintHelpUsed[currentTeam] || (online.mode === "online" && !canCurrentClientAct())) return;
   const hintText = firstNonEmpty(question.hint, question["تلميح"]);
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
     el.hintText.textContent = state.currentHintText;
     el.hintBox.classList.remove("hidden");
-    state.lifelineActionLock.hint = false;
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
     return;
   }
+  hintHelpUsed[currentTeam] = true;
   logAnalyticsEvent("hint_used", {
     mode: online.mode,
-    team: state.currentTeam,
+    team: currentTeam,
     has_hint: true,
   });
   state.currentHintText = hintText;
   el.hintText.textContent = state.currentHintText;
   el.hintBox.classList.remove("hidden");
-  state.lifelineActionLock.hint = false;
+  el.hintLifelineBtn.disabled = true;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -3337,7 +3297,8 @@ function serializeGameState() {
     teamNames: state.teamNames,
     teamCount: state.teamCount,
     currentTeam: state.currentTeam,
-    lifelinesUsed: { ...state.lifelinesUsed },
+    mcqHelpUsed,
+    hintHelpUsed,
     activeTileId: hasActiveLifecycleQuestion ? (state.activeTile?.id || null) : null,
     activeQuestionId: hasActiveLifecycleQuestion ? (state.activeQuestion?.id || state.activeTile?.questionId || null) : null,
     questionSessionId: state.questionSessionId || null,
@@ -3400,11 +3361,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     };
     state.currentTeam = getActiveTeamNumbers().includes(Number(game.currentTeam)) ? Number(game.currentTeam) : 1;
     online.currentTurnTeam = state.currentTeam;
-    state.lifelinesUsed = {
-      hintUsed: !!game.lifelinesUsed?.hintUsed || !!game.hintHelpUsed?.[1] || !!game.hintHelpUsed?.[2] || !!game.hintHelpUsed?.[3],
-      mcqUsed: !!game.lifelinesUsed?.mcqUsed || !!game.mcqHelpUsed?.[1] || !!game.mcqHelpUsed?.[2] || !!game.mcqHelpUsed?.[3],
-    };
-    state.lifelineActionLock = { hint: false, mcq: false };
+    mcqHelpUsed = game.mcqHelpUsed || { 1: false, 2: false, 3: false };
+    hintHelpUsed = game.hintHelpUsed || { 1: false, 2: false, 3: false };
     const remoteAnswerRevealed = !!game.answerRevealed;
     const preserveLocalReveal = online.role === "host" && state.revealRequested && !remoteAnswerRevealed;
     state.answerRevealed = preserveLocalReveal ? true : remoteAnswerRevealed;
@@ -3426,7 +3384,6 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     updateTeamModeUI();
     updateScoreboard();
     renderBoard();
-    scheduleBoardAssetPreload();
     if (shouldAbortRemoteApply(applyNonce)) return;
 
     const activeId = game.activeTileId;
@@ -3485,8 +3442,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             }
             const remoteTimedOut = !!tile.timedOut;
             showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
-            el.lifelineBtn.disabled = remoteTimedOut || state.lifelinesUsed.mcqUsed || !canCurrentClientAct();
-            el.hintLifelineBtn.disabled = remoteTimedOut || state.lifelinesUsed.hintUsed || !canCurrentClientAct();
+            el.lifelineBtn.disabled = remoteTimedOut || mcqHelpUsed[state.currentTeam] || !canCurrentClientAct();
+            el.hintLifelineBtn.disabled = remoteTimedOut || hintHelpUsed[state.currentTeam] || !canCurrentClientAct();
             updateQuestionActionLock();
             el.modal.classList.remove("hidden");
             el.modal.classList.add("is-open");
@@ -4311,8 +4268,8 @@ async function startGameFromSelection() {
   state.scores = { 1: 0, 2: 0, 3: 0 };
   state.displayedScores = { 1: 0, 2: 0, 3: 0 };
   state.currentTeam = 1;
-  state.lifelinesUsed = { hintUsed: false, mcqUsed: false };
-  state.lifelineActionLock = { hint: false, mcq: false };
+  mcqHelpUsed = { 1: false, 2: false, 3: false };
+  hintHelpUsed = { 1: false, 2: false, 3: false };
   state.activeTile = null;
   state.questionSessionId = "";
   state.answerRevealed = false;
@@ -4326,13 +4283,10 @@ async function startGameFromSelection() {
   state.resolvedQuestionSessionId = "";
   questionBankCache.nextQuestionByTileId.clear();
   questionBankCache.nextQuestionPromiseByTileId.clear();
-  mediaWarmupCache.images.clear();
-  mediaWarmupCache.videos.clear();
   clearError();
   buildBoardAssignment();
   updateScoreboard();
   renderBoard();
-  scheduleBoardAssetPreload();
   prefetchLikelyNextQuestion();
   checkEndOfGame();
   persistLocalProgress();
