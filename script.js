@@ -1967,6 +1967,8 @@ function clearQuestionMedia() {
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   const currentVideo = el.questionMedia.querySelector("video");
   if (currentVideo) { currentVideo.pause(); }
+  document.body.classList.remove("image-question-active");
+  el.modal?.classList.remove("image-question-active");
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
 }
@@ -2003,6 +2005,12 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
 
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
+  document.body.classList.add("image-question-active");
+  el.modal?.classList.add("image-question-active");
+
+  const imageViewport = document.createElement("div");
+  imageViewport.className = "question-image-viewport";
+
   const image = document.createElement("img");
   image.id = "questionImage";
   image.alt = "صورة السؤال";
@@ -2012,9 +2020,11 @@ function renderQuestionImage(imagePath, question = null) {
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
+    imageViewport.classList.add("map-question-image-viewport");
   }
   image.src = imageSrc;
-  el.questionMedia.appendChild(image);
+  imageViewport.appendChild(image);
+  el.questionMedia.appendChild(imageViewport);
 
 }
 function renderQuestionAudio(audioPath) {
