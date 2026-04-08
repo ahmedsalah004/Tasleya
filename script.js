@@ -425,6 +425,12 @@ const viewportGuardState = {
   touchStartX: null,
   isPullGuardActive: false,
 };
+const imageQuestionTouchGuardState = {
+  touchStartY: null,
+  touchStartX: null,
+  isPullGuardActive: false,
+  cleanup: null,
+};
 
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
@@ -1143,6 +1149,70 @@ function resetGameScreenTouchGuard() {
   viewportGuardState.touchStartY = null;
   viewportGuardState.touchStartX = null;
   viewportGuardState.isPullGuardActive = false;
+}
+
+function isMobileTouchViewport() {
+  return window.matchMedia?.("(max-width: 900px), (hover: none), (pointer: coarse)")?.matches ?? false;
+}
+
+function resetImageQuestionTouchGuard() {
+  imageQuestionTouchGuardState.touchStartY = null;
+  imageQuestionTouchGuardState.touchStartX = null;
+  imageQuestionTouchGuardState.isPullGuardActive = false;
+}
+
+function detachImageQuestionTouchGuard() {
+  if (typeof imageQuestionTouchGuardState.cleanup === "function") {
+    imageQuestionTouchGuardState.cleanup();
+  }
+  imageQuestionTouchGuardState.cleanup = null;
+  resetImageQuestionTouchGuard();
+}
+
+function attachImageQuestionTouchGuard() {
+  detachImageQuestionTouchGuard();
+  if (!el.questionMedia || !isMobileTouchViewport()) return;
+
+  const handleTouchStart = (event) => {
+    resetImageQuestionTouchGuard();
+    if (!event.touches || event.touches.length !== 1) return;
+    if (shouldBypassPullToRefreshGuard(event.target)) return;
+    const touch = event.touches[0];
+    imageQuestionTouchGuardState.touchStartY = touch.clientY;
+    imageQuestionTouchGuardState.touchStartX = touch.clientX;
+    imageQuestionTouchGuardState.isPullGuardActive = true;
+  };
+
+  const handleTouchMove = (event) => {
+    if (!event.touches || event.touches.length !== 1) return;
+    if (event.scale && event.scale !== 1) return;
+    if (!imageQuestionTouchGuardState.isPullGuardActive) return;
+
+    const touch = event.touches[0];
+    const startY = Number(imageQuestionTouchGuardState.touchStartY);
+    const startX = Number(imageQuestionTouchGuardState.touchStartX);
+    if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
+
+    const deltaY = touch.clientY - startY;
+    const deltaX = Math.abs(touch.clientX - startX);
+    if (deltaY <= 0 || deltaX > Math.abs(deltaY)) return;
+    if (canScrollUpFromNode(event.target)) return;
+
+    event.preventDefault();
+  };
+
+  const target = el.questionMedia;
+  target.addEventListener("touchstart", handleTouchStart);
+  target.addEventListener("touchmove", handleTouchMove, { passive: false });
+  target.addEventListener("touchend", resetImageQuestionTouchGuard, { passive: true });
+  target.addEventListener("touchcancel", resetImageQuestionTouchGuard, { passive: true });
+
+  imageQuestionTouchGuardState.cleanup = () => {
+    target.removeEventListener("touchstart", handleTouchStart);
+    target.removeEventListener("touchmove", handleTouchMove);
+    target.removeEventListener("touchend", resetImageQuestionTouchGuard);
+    target.removeEventListener("touchcancel", resetImageQuestionTouchGuard);
+  };
 }
 
 function shouldBypassPullToRefreshGuard(target) {
@@ -1990,6 +2060,7 @@ function clearQuestionMedia() {
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   const currentVideo = el.questionMedia.querySelector("video");
   if (currentVideo) { currentVideo.pause(); }
+  detachImageQuestionTouchGuard();
   document.body.classList.remove("image-question-active");
   syncDocumentRootStateClass("image-question-active", false);
   el.modal?.classList.remove("image-question-active");
@@ -2033,9 +2104,6 @@ function renderQuestionImage(imagePath, question = null) {
   syncDocumentRootStateClass("image-question-active", true);
   el.modal?.classList.add("image-question-active");
 
-  const imageViewport = document.createElement("div");
-  imageViewport.className = "question-image-viewport";
-
   const image = document.createElement("img");
   image.id = "questionImage";
   image.alt = "صورة السؤال";
@@ -2045,11 +2113,10 @@ function renderQuestionImage(imagePath, question = null) {
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
-    imageViewport.classList.add("map-question-image-viewport");
   }
   image.src = imageSrc;
-  imageViewport.appendChild(image);
-  el.questionMedia.appendChild(imageViewport);
+  el.questionMedia.appendChild(image);
+  attachImageQuestionTouchGuard();
 
 }
 function renderQuestionAudio(audioPath) {
