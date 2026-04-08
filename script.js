@@ -348,8 +348,14 @@ const state = {
   pendingScoreTeamIndex: null,
   questionResolutionLocked: false,
   resolvedQuestionSessionId: "",
-  lifelinesUsedByTeam: {},
-  lifelineActionLockByTeam: {},
+  lifelinesUsed: {
+    hintUsed: false,
+    mcqUsed: false,
+  },
+  lifelineActionLock: {
+    hint: false,
+    mcq: false,
+  },
 };
 
 const contactState = {
@@ -746,7 +752,6 @@ function updateCloseButtonLock() {
 }
 
 function updateQuestionActionLock() {
-  const currentTeamLifelines = getTeamLifelines();
   const lockByVideo = state.videoQuestionPending;
   const lockByTimeout = !!state.activeTile?.timedOut;
   const lockByTurn = online.mode === "online" && !canCurrentClientAct();
@@ -760,8 +765,8 @@ function updateQuestionActionLock() {
   el.wrongBtn.disabled = disableScoringActions || lockByReveal;
   const soloNoOtherTeam = online.mode === "local" && state.teamCount === 1;
   el.otherTeamBtn.disabled = disableScoringActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
-  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || currentTeamLifelines.mcqUsed || lockByVideo;
-  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || currentTeamLifelines.hintUsed || lockByVideo;
+  el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || state.lifelinesUsed.mcqUsed || lockByVideo;
+  el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || state.lifelinesUsed.hintUsed || lockByVideo;
   updateLateOtherTeamPrompt();
   updateCloseButtonLock();
 }
@@ -898,71 +903,6 @@ function normalizeTeamCount(teamCount) {
   const normalized = Number(teamCount);
   return SUPPORTED_TEAM_COUNTS.includes(normalized) ? normalized : 2;
 }
-function createPerTeamLifelineState(teamCount = state.teamCount) {
-  const limit = Math.max(1, Number(teamCount) || 1);
-  const next = {};
-  for (let team = 1; team <= limit; team += 1) {
-    next[team] = { hintUsed: false, mcqUsed: false };
-  }
-  return next;
-}
-function createPerTeamLifelineLock(teamCount = state.teamCount) {
-  const limit = Math.max(1, Number(teamCount) || 1);
-  const next = {};
-  for (let team = 1; team <= limit; team += 1) {
-    next[team] = { hint: false, mcq: false };
-  }
-  return next;
-}
-function migrateLifelinesUsedByTeam(rawValue, legacyHintHelpUsed = null, legacyMcqHelpUsed = null, teamCount = state.teamCount) {
-  const normalizedTeamCount = Math.max(1, Number(teamCount) || 1);
-  const next = createPerTeamLifelineState(normalizedTeamCount);
-  for (let team = 1; team <= normalizedTeamCount; team += 1) {
-    const teamValue = rawValue?.[team] || rawValue?.[`team${team}`];
-    next[team] = {
-      hintUsed: !!teamValue?.hintUsed || !!legacyHintHelpUsed?.[team],
-      mcqUsed: !!teamValue?.mcqUsed || !!legacyMcqHelpUsed?.[team],
-    };
-  }
-  if (rawValue && typeof rawValue === "object" && "hintUsed" in rawValue && "mcqUsed" in rawValue) {
-    const globalHintUsed = !!rawValue.hintUsed;
-    const globalMcqUsed = !!rawValue.mcqUsed;
-    if (globalHintUsed || globalMcqUsed) {
-      for (let team = 1; team <= normalizedTeamCount; team += 1) {
-        next[team] = {
-          hintUsed: next[team].hintUsed || globalHintUsed,
-          mcqUsed: next[team].mcqUsed || globalMcqUsed,
-        };
-      }
-    }
-  }
-  return next;
-}
-function ensurePerTeamLifelineState() {
-  const activeTeams = getActiveTeamNumbers();
-  if (!state.lifelinesUsedByTeam || typeof state.lifelinesUsedByTeam !== "object") {
-    state.lifelinesUsedByTeam = {};
-  }
-  if (!state.lifelineActionLockByTeam || typeof state.lifelineActionLockByTeam !== "object") {
-    state.lifelineActionLockByTeam = {};
-  }
-  activeTeams.forEach((team) => {
-    if (!state.lifelinesUsedByTeam[team]) {
-      state.lifelinesUsedByTeam[team] = { hintUsed: false, mcqUsed: false };
-    }
-    if (!state.lifelineActionLockByTeam[team]) {
-      state.lifelineActionLockByTeam[team] = { hint: false, mcq: false };
-    }
-  });
-}
-function getTeamLifelines(team = state.currentTeam) {
-  ensurePerTeamLifelineState();
-  return state.lifelinesUsedByTeam[team] || { hintUsed: false, mcqUsed: false };
-}
-function getTeamLifelineLock(team = state.currentTeam) {
-  ensurePerTeamLifelineState();
-  return state.lifelineActionLockByTeam[team] || { hint: false, mcq: false };
-}
 function getRequiredCategoryCount() {
   return (online.mode === "local" && state.teamCount === 1) ? SOLO_CATEGORIES_TO_SELECT : DEFAULT_CATEGORIES_TO_SELECT;
 }
@@ -1013,7 +953,6 @@ function setLocalTeamCount(teamCount) {
   if (state.teamCount !== 1 && normalizeCell(state.teamNames[1]) === "اللاعب") {
     state.teamNames[1] = "الفريق الأول";
   }
-  ensurePerTeamLifelineState();
   updateOnlineActionPermissions();
 }
 function updateTeamModeUI() {
@@ -1211,10 +1150,6 @@ function scheduleGameplayProgressPersist(delayMs = 120) {
 function handleGameScreenTouchStart(event) {
   resetGameScreenTouchGuard();
   if (el.gameScreen?.style.display !== "block" || !event.touches || event.touches.length !== 1) return;
-  const imageQuestionActive = document.body.classList.contains("image-question-active")
-    && !!el.modal
-    && !el.modal.classList.contains("hidden");
-  if (!imageQuestionActive) return;
   if (shouldBypassPullToRefreshGuard(event.target)) return;
   if (canScrollUpFromNode(event.target)) return;
   const touch = event.touches[0];
@@ -1315,7 +1250,7 @@ function persistLocalProgress() {
     scores: { ...state.scores },
     usedQuestionIds: state.boardTiles.filter((tile) => tile.used && tile.questionId).map((tile) => tile.questionId),
     currentTeam: state.currentTeam,
-    lifelinesUsedByTeam: { ...state.lifelinesUsedByTeam },
+    lifelinesUsed: { ...state.lifelinesUsed },
     activeTileId: state.activeTile?.id || null,
     activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     activeCategory: state.activeTile?.category || null,
@@ -1359,13 +1294,10 @@ function applySavedLocalProgress(saved) {
     };
     state.displayedScores = { ...state.scores };
     state.currentTeam = getActiveTeamNumbers().includes(Number(saved.currentTeam)) ? Number(saved.currentTeam) : 1;
-    state.lifelinesUsedByTeam = migrateLifelinesUsedByTeam(
-      saved.lifelinesUsedByTeam || saved.lifelinesUsed,
-      saved.hintHelpUsed,
-      saved.mcqHelpUsed,
-      state.teamCount,
-    );
-    state.lifelineActionLockByTeam = createPerTeamLifelineLock(state.teamCount);
+    state.lifelinesUsed = {
+      hintUsed: !!saved.lifelinesUsed?.hintUsed || !!saved.hintHelpUsed?.[1] || !!saved.hintHelpUsed?.[2] || !!saved.hintHelpUsed?.[3],
+      mcqUsed: !!saved.lifelinesUsed?.mcqUsed || !!saved.mcqHelpUsed?.[1] || !!saved.mcqHelpUsed?.[2] || !!saved.mcqHelpUsed?.[3],
+    };
     state.activeQuestion = null;
     state.questionTurnOwnerIndex = null;
     state.resolvedQuestionSessionId = "";
@@ -2102,9 +2034,8 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
   if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url);
   if (isVideoQuestion) renderQuestionVideo(question.image_url, question);
-  const currentTeamLifelines = getTeamLifelines();
-  el.lifelineBtn.disabled = currentTeamLifelines.mcqUsed || (online.mode === "online" && !canCurrentClientAct());
-  el.hintLifelineBtn.disabled = currentTeamLifelines.hintUsed || (online.mode === "online" && !canCurrentClientAct());
+  el.lifelineBtn.disabled = state.lifelinesUsed.mcqUsed || (online.mode === "online" && !canCurrentClientAct());
+  el.hintLifelineBtn.disabled = state.lifelinesUsed.hintUsed || (online.mode === "online" && !canCurrentClientAct());
   updateQuestionActionLock();
 }
 
@@ -2705,8 +2636,8 @@ function resetGameState() {
   state.scores = { 1: 0, 2: 0, 3: 0 };
   state.displayedScores = { 1: 0, 2: 0, 3: 0 };
   state.currentTeam = 1;
-  state.lifelinesUsedByTeam = createPerTeamLifelineState(state.teamCount);
-  state.lifelineActionLockByTeam = createPerTeamLifelineLock(state.teamCount);
+  state.lifelinesUsed = { hintUsed: false, mcqUsed: false };
+  state.lifelineActionLock = { hint: false, mcq: false };
   state.activeTile = null;
   state.activeQuestion = null;
   state.loadingQuestion = false;
@@ -2802,38 +2733,32 @@ function generateChoices(question) {
 }
 function useLifeline() {
   const question = getActiveQuestion();
-  const team = Number(state.currentTeam);
-  const teamLifelines = getTeamLifelines(team);
-  const teamLock = getTeamLifelineLock(team);
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || teamLifelines.mcqUsed || teamLock.mcq || (online.mode === "online" && !canCurrentClientAct())) return;
-  teamLock.mcq = true;
-  teamLifelines.mcqUsed = true;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || state.lifelinesUsed.mcqUsed || state.lifelineActionLock.mcq || (online.mode === "online" && !canCurrentClientAct())) return;
+  state.lifelineActionLock.mcq = true;
+  state.lifelinesUsed.mcqUsed = true;
   el.lifelineBtn.disabled = true;
   const options = generateChoices(question);
   el.choicesList.innerHTML = "";
   options.forEach((option) => { const div = document.createElement("div"); div.className = "choice-item"; div.textContent = option; el.choicesList.appendChild(div); });
   state.currentChoices = options;
   el.choicesBox.classList.remove("hidden");
-  teamLock.mcq = false;
+  state.lifelineActionLock.mcq = false;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
 
 function useHintLifeline() {
   const question = getActiveQuestion();
-  const team = Number(state.currentTeam);
-  const teamLifelines = getTeamLifelines(team);
-  const teamLock = getTeamLifelineLock(team);
-  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || teamLifelines.hintUsed || teamLock.hint || (online.mode === "online" && !canCurrentClientAct())) return;
-  teamLock.hint = true;
-  teamLifelines.hintUsed = true;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || state.lifelinesUsed.hintUsed || state.lifelineActionLock.hint || (online.mode === "online" && !canCurrentClientAct())) return;
+  state.lifelineActionLock.hint = true;
+  state.lifelinesUsed.hintUsed = true;
   el.hintLifelineBtn.disabled = true;
   const hintText = firstNonEmpty(question.hint, question["تلميح"]);
   if (!hintText) {
     state.currentHintText = "لا يوجد تلميح لهذا السؤال";
     el.hintText.textContent = state.currentHintText;
     el.hintBox.classList.remove("hidden");
-    teamLock.hint = false;
+    state.lifelineActionLock.hint = false;
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
     return;
   }
@@ -2845,7 +2770,7 @@ function useHintLifeline() {
   state.currentHintText = hintText;
   el.hintText.textContent = state.currentHintText;
   el.hintBox.classList.remove("hidden");
-  teamLock.hint = false;
+  state.lifelineActionLock.hint = false;
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
@@ -3412,7 +3337,7 @@ function serializeGameState() {
     teamNames: state.teamNames,
     teamCount: state.teamCount,
     currentTeam: state.currentTeam,
-    lifelinesUsedByTeam: { ...state.lifelinesUsedByTeam },
+    lifelinesUsed: { ...state.lifelinesUsed },
     activeTileId: hasActiveLifecycleQuestion ? (state.activeTile?.id || null) : null,
     activeQuestionId: hasActiveLifecycleQuestion ? (state.activeQuestion?.id || state.activeTile?.questionId || null) : null,
     questionSessionId: state.questionSessionId || null,
@@ -3475,13 +3400,11 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     };
     state.currentTeam = getActiveTeamNumbers().includes(Number(game.currentTeam)) ? Number(game.currentTeam) : 1;
     online.currentTurnTeam = state.currentTeam;
-    state.lifelinesUsedByTeam = migrateLifelinesUsedByTeam(
-      game.lifelinesUsedByTeam || game.lifelinesUsed,
-      game.hintHelpUsed,
-      game.mcqHelpUsed,
-      state.teamCount,
-    );
-    state.lifelineActionLockByTeam = createPerTeamLifelineLock(state.teamCount);
+    state.lifelinesUsed = {
+      hintUsed: !!game.lifelinesUsed?.hintUsed || !!game.hintHelpUsed?.[1] || !!game.hintHelpUsed?.[2] || !!game.hintHelpUsed?.[3],
+      mcqUsed: !!game.lifelinesUsed?.mcqUsed || !!game.mcqHelpUsed?.[1] || !!game.mcqHelpUsed?.[2] || !!game.mcqHelpUsed?.[3],
+    };
+    state.lifelineActionLock = { hint: false, mcq: false };
     const remoteAnswerRevealed = !!game.answerRevealed;
     const preserveLocalReveal = online.role === "host" && state.revealRequested && !remoteAnswerRevealed;
     state.answerRevealed = preserveLocalReveal ? true : remoteAnswerRevealed;
@@ -3562,9 +3485,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             }
             const remoteTimedOut = !!tile.timedOut;
             showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
-            const currentTeamLifelines = getTeamLifelines();
-            el.lifelineBtn.disabled = remoteTimedOut || currentTeamLifelines.mcqUsed || !canCurrentClientAct();
-            el.hintLifelineBtn.disabled = remoteTimedOut || currentTeamLifelines.hintUsed || !canCurrentClientAct();
+            el.lifelineBtn.disabled = remoteTimedOut || state.lifelinesUsed.mcqUsed || !canCurrentClientAct();
+            el.hintLifelineBtn.disabled = remoteTimedOut || state.lifelinesUsed.hintUsed || !canCurrentClientAct();
             updateQuestionActionLock();
             el.modal.classList.remove("hidden");
             el.modal.classList.add("is-open");
@@ -4389,8 +4311,8 @@ async function startGameFromSelection() {
   state.scores = { 1: 0, 2: 0, 3: 0 };
   state.displayedScores = { 1: 0, 2: 0, 3: 0 };
   state.currentTeam = 1;
-  state.lifelinesUsedByTeam = createPerTeamLifelineState(state.teamCount);
-  state.lifelineActionLockByTeam = createPerTeamLifelineLock(state.teamCount);
+  state.lifelinesUsed = { hintUsed: false, mcqUsed: false };
+  state.lifelineActionLock = { hint: false, mcq: false };
   state.activeTile = null;
   state.questionSessionId = "";
   state.answerRevealed = false;
