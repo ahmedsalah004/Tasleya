@@ -116,6 +116,8 @@ html {
 #homeGroupTwoTeamsBtn,
 #homeGroupThreeTeamsBtn,
 #homeGroupTeamsBackBtn,
+#resumeGameBtn,
+#discardResumeGameBtn,
 #instructionsBtn,
 #contactBtn,
 #installGuideBtn {
@@ -156,6 +158,10 @@ html {
 #homeGroupThreeTeamsBtn::after,
 #homeGroupTeamsBackBtn::before,
 #homeGroupTeamsBackBtn::after,
+#resumeGameBtn::before,
+#resumeGameBtn::after,
+#discardResumeGameBtn::before,
+#discardResumeGameBtn::after,
 #instructionsBtn::before,
 #instructionsBtn::after,
 #contactBtn::before,
@@ -174,6 +180,8 @@ html {
   #homeGroupTwoTeamsBtn:hover,
   #homeGroupThreeTeamsBtn:hover,
   #homeGroupTeamsBackBtn:hover,
+  #resumeGameBtn:hover,
+  #discardResumeGameBtn:hover,
   #instructionsBtn:hover,
   #contactBtn:hover,
   #installGuideBtn:hover {
@@ -204,6 +212,33 @@ html {
 .home-flow-step {
   display: grid;
   gap: 0.75rem;
+}
+
+.resume-game-prompt {
+  display: grid;
+  gap: 0.7rem;
+  width: 100%;
+  border: 1px solid rgba(255, 215, 120, 0.35);
+  border-radius: 14px;
+  padding: 0.85rem;
+  background: rgba(13, 21, 52, 0.55);
+}
+
+.resume-game-prompt-text {
+  margin: 0;
+  text-align: center;
+  color: rgba(255, 233, 170, 0.98);
+  font-weight: 700;
+}
+
+.resume-game-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+#discardResumeGameBtn {
+  border-color: rgba(255, 215, 120, 0.28);
+  color: rgba(255, 232, 172, 0.86);
 }
 
 .home-secondary-actions {
@@ -503,6 +538,8 @@ html {
   #homeGroupTwoTeamsBtn,
   #homeGroupThreeTeamsBtn,
   #homeGroupTeamsBackBtn,
+  #resumeGameBtn,
+  #discardResumeGameBtn,
   #instructionsBtn,
   #contactBtn,
   #installGuideBtn {
@@ -537,6 +574,7 @@ html {
 
   #homeGroupDeviceBackBtn,
   #homeGroupTeamsBackBtn,
+  #discardResumeGameBtn,
   #instructionsBtn,
   #contactBtn,
   #installGuideBtn {

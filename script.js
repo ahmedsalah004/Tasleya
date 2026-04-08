@@ -12,6 +12,7 @@ const TEAM_NAMES_STORAGE_KEY = "tasleya_team_names_v1";
 const ONLINE_SESSION_STORAGE_KEY = "tasleya_online_session_v1";
 const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
+const LOCAL_PROGRESS_SCHEMA_VERSION = 2;
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
@@ -214,6 +215,9 @@ function cacheElements() {
   homepagePrimaryStep: document.getElementById("homepagePrimaryStep"),
   homepageGroupDeviceStep: document.getElementById("homepageGroupDeviceStep"),
   homepageGroupTeamsStep: document.getElementById("homepageGroupTeamsStep"),
+  resumeGamePrompt: document.getElementById("resumeGamePrompt"),
+  resumeGameBtn: document.getElementById("resumeGameBtn"),
+  discardResumeGameBtn: document.getElementById("discardResumeGameBtn"),
   homeGroupOneDeviceBtn: document.getElementById("homeGroupOneDeviceBtn"),
   homeGroupMultiDeviceBtn: document.getElementById("homeGroupMultiDeviceBtn"),
   homeGroupDeviceBackBtn: document.getElementById("homeGroupDeviceBackBtn"),
@@ -403,6 +407,7 @@ const viewportGuardState = {
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
 let pendingHomepageGroupMode = null;
+let pendingLocalResumePayload = null;
 
 const soundState = {
   muted: false,
@@ -1141,10 +1146,32 @@ function saveTeamNames() { localStorage.setItem(TEAM_NAMES_STORAGE_KEY, JSON.str
 
 function clearLocalProgress() {
   try {
-    sessionStorage.removeItem(LOCAL_PROGRESS_STORAGE_KEY);
+    localStorage.removeItem(LOCAL_PROGRESS_STORAGE_KEY);
   } catch (_) {
     // Ignore storage errors silently.
   }
+}
+
+function loadSavedLocalProgress() {
+  try {
+    const raw = localStorage.getItem(LOCAL_PROGRESS_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || saved.mode !== "local") return null;
+    if (Number(saved.schemaVersion) !== LOCAL_PROGRESS_SCHEMA_VERSION) return null;
+    return saved;
+  } catch (_) {
+    return null;
+  }
+}
+
+function isSavedLocalProgressResumable(saved) {
+  if (!saved || saved.mode !== "local") return false;
+  if (!Array.isArray(saved.selectedCategories) || !saved.selectedCategories.length) return false;
+  if (!Array.isArray(saved.boardTiles) || saved.boardTiles.length === 0) return false;
+  const hasPlayableTile = saved.boardTiles.some((tile) => tile && !tile.used && !tile.missing);
+  const questionInFlight = !!normalizeCell(saved.activeTileId) && !saved.finished;
+  return !!(hasPlayableTile || questionInFlight) && !saved.finished;
 }
 
 function canScrollUpFromNode(startNode) {
@@ -1277,6 +1304,7 @@ function persistLocalProgress() {
   if (!hasBoard) return;
 
   const payload = {
+    schemaVersion: LOCAL_PROGRESS_SCHEMA_VERSION,
     mode: "local",
     screen: el.gameScreen?.style.display === "block" ? "game" : "start",
     selectedCategories: [...state.selectedCategories],
@@ -1295,30 +1323,30 @@ function persistLocalProgress() {
     modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
+    timerRemainingMs: state.activeTile && questionDeadlineTs ? Math.max(0, questionDeadlineTs - Date.now()) : null,
+    finished: state.boardTiles.length > 0 && state.boardTiles.every((tile) => tile.used || tile.missing),
     lastSavedAt: Date.now(),
   };
 
   try {
-    sessionStorage.setItem(LOCAL_PROGRESS_STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(LOCAL_PROGRESS_STORAGE_KEY, JSON.stringify(payload));
   } catch (_) {
     // Ignore storage errors silently.
   }
 }
 
-function restoreLocalProgress() {
-  if (new URL(window.location.href).searchParams.get("room")) return false;
+function applySavedLocalProgress(saved) {
   try {
-    const raw = sessionStorage.getItem(LOCAL_PROGRESS_STORAGE_KEY);
-    if (!raw) return false;
-    const saved = JSON.parse(raw);
     if (!saved || saved.mode !== "local" || saved.screen !== "game") return false;
-    if (!Array.isArray(saved.selectedCategories) || saved.selectedCategories.length !== getRequiredCategoryCount()) return false;
+    const savedTeamCount = normalizeTeamCount(saved.teamCount);
+    const requiredCategories = savedTeamCount === 1 ? SOLO_CATEGORIES_TO_SELECT : DEFAULT_CATEGORIES_TO_SELECT;
+    if (!Array.isArray(saved.selectedCategories) || saved.selectedCategories.length !== requiredCategories) return false;
     if (!Array.isArray(saved.boardTiles) || saved.boardTiles.length === 0) return false;
 
     state.selectedCategories = [...saved.selectedCategories];
     state.pointLevels = Array.isArray(saved.pointLevels) && saved.pointLevels.length ? [...saved.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = [...saved.boardTiles];
-    setLocalTeamCount(saved.teamCount);
+    setLocalTeamCount(savedTeamCount);
     state.teamNames = {
       1: normalizeCell(saved.teamNames?.[1]) || "الفريق الأول",
       2: normalizeCell(saved.teamNames?.[2]) || "الفريق الثاني",
@@ -1352,11 +1380,12 @@ function restoreLocalProgress() {
 
     const savedActiveId = normalizeCell(saved.activeTileId);
     if (saved.modalOpen && savedActiveId) {
-      const restoredDeadline = Number(saved.questionDeadlineTs);
-      const restoredStart = Number(saved.questionStartedAt);
-      const fallbackDeadline = Number.isFinite(restoredStart)
-        ? restoredStart + QUESTION_TIMEOUT_MS
+      const timerRemainingMs = Number(saved.timerRemainingMs);
+      const restoredDeadline = Number.isFinite(timerRemainingMs)
+        ? (Date.now() + Math.min(QUESTION_TIMEOUT_MS, Math.max(1000, timerRemainingMs)))
         : null;
+      const restoredStart = Number(saved.questionStartedAt);
+      const fallbackDeadline = Number.isFinite(restoredStart) ? (Date.now() + QUESTION_TIMEOUT_MS) : null;
       openQuestion(savedActiveId, {
         restored: true,
         deadlineTs: Number.isFinite(restoredDeadline) ? restoredDeadline : fallbackDeadline,
@@ -1369,6 +1398,13 @@ function restoreLocalProgress() {
   } catch (_) {
     return false;
   }
+}
+
+function restoreLocalProgress() {
+  if (new URL(window.location.href).searchParams.get("room")) return false;
+  const saved = loadSavedLocalProgress();
+  if (!isSavedLocalProgressResumable(saved)) return false;
+  return applySavedLocalProgress(saved);
 }
 function ensureCategoryHistoryBucket(category) {
   const normalizedCategory = normalizeCell(category);
@@ -4389,6 +4425,8 @@ async function startGameFromSelection() {
 async function startNewGame({ onBeforeOpenCategoryPicker = null, autoOpenCategoryPicker = true } = {}) {
   try {
     clearLocalProgress();
+    pendingLocalResumePayload = null;
+    updateResumePromptVisibility();
     resetGameState();
     el.newGameBtn.disabled = true;
     state.dataLoadFailed = false;
@@ -4422,6 +4460,7 @@ function showGameScreen() {
   el.gameScreen.style.display = "block";
   document.body.classList.add("gameplay-active");
   attachGameplayViewportGuards();
+  updateResumePromptVisibility();
 }
 
 function showStartScreen() {
@@ -4430,6 +4469,7 @@ function showStartScreen() {
   document.body.classList.remove("gameplay-active");
   detachGameplayViewportGuards();
   resetHomepageFlowToPrimaryStep();
+  detectPendingLocalResume();
 }
 
 function setHomepageFlowStep(step = "primary") {
@@ -4451,6 +4491,25 @@ function setHomepageFlowStep(step = "primary") {
 function resetHomepageFlowToPrimaryStep() {
   pendingHomepageGroupMode = null;
   setHomepageFlowStep("primary");
+}
+
+function updateResumePromptVisibility() {
+  const shouldShow = !!pendingLocalResumePayload && el.startScreen?.style.display !== "none";
+  if (el.resumeGamePrompt) {
+    el.resumeGamePrompt.classList.toggle("hidden", !shouldShow);
+  }
+}
+
+function detectPendingLocalResume() {
+  if (new URL(window.location.href).searchParams.get("room")) {
+    pendingLocalResumePayload = null;
+    updateResumePromptVisibility();
+    return;
+  }
+  const saved = loadSavedLocalProgress();
+  pendingLocalResumePayload = isSavedLocalProgressResumable(saved) ? saved : null;
+  if (!pendingLocalResumePayload) clearLocalProgress();
+  updateResumePromptVisibility();
 }
 
 async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
@@ -4999,6 +5058,25 @@ function initializeApp() {
     logAnalyticsEvent("local_game_started", { mode: "solo" });
     startSoloFromHomepage();
   }, "startLocalBtn");
+  bindEvent(el.resumeGameBtn, "click", () => {
+    if (!pendingLocalResumePayload) return;
+    const resumed = applySavedLocalProgress(pendingLocalResumePayload);
+    if (resumed) {
+      pendingLocalResumePayload = null;
+      updateResumePromptVisibility();
+      return;
+    }
+    clearLocalProgress();
+    pendingLocalResumePayload = null;
+    updateResumePromptVisibility();
+  }, "resumeGameBtn");
+  bindEvent(el.discardResumeGameBtn, "click", () => {
+    clearLocalProgress();
+    pendingLocalResumePayload = null;
+    updateResumePromptVisibility();
+    resetHomepageFlowToPrimaryStep();
+    showStartScreen();
+  }, "discardResumeGameBtn");
   bindEvent(el.localTwoTeamsBtn, "click", () => chooseLocalTeamCount(2), "localTwoTeamsBtn");
   bindEvent(el.localThreeTeamsBtn, "click", () => chooseLocalTeamCount(3), "localThreeTeamsBtn");
   bindEvent(el.cancelLocalTeamsBtn, "click", () => {
@@ -5175,7 +5253,7 @@ function initializeApp() {
   updateScoreboard();
   updateOnlineActionPermissions();
 
-  restoreLocalProgress();
+  detectPendingLocalResume();
   if (el.gameScreen?.style.display === "block") {
     attachGameplayViewportGuards();
   } else {
@@ -5209,7 +5287,9 @@ function initializeApp() {
   preloadQuestionBank().catch(() => {});
 
   tryRestoreOnlineSession().then((restored) => {
-    if (!restored) tryAutoJoinFromUrl();
+    if (restored) return;
+    if (pendingLocalResumePayload) return;
+    tryAutoJoinFromUrl();
   });
   registerServiceWorker();
 }
