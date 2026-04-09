@@ -126,10 +126,10 @@ html {
   padding: 14px 20px;
   font-size: clamp(1rem, 2vw, 1.12rem);
   border-radius: 14px;
-  border: 2px solid rgba(255, 215, 0, 0.6);
+  border: 2px solid rgba(237, 197, 96, 0.74);
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.6);
-  color: #FFD700;
+  background: rgba(21, 38, 86, 0.74);
+  color: #f0cd79;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   transition: all 0.3s ease;
@@ -185,9 +185,11 @@ html {
   #instructionsBtn:hover,
   #contactBtn:hover,
   #installGuideBtn:hover {
-    background: rgba(255, 215, 0, 0.15);
+    background: rgba(28, 49, 108, 0.86);
     transform: scale(1.03);
-    box-shadow: 0 0 25px rgba(255, 215, 0, 0.7);
+    box-shadow:
+      0 10px 24px rgba(1, 7, 25, 0.4),
+      0 0 0 1px rgba(237, 197, 96, 0.18) inset;
   }
 }
 
@@ -486,8 +488,8 @@ html {
 }
 
 .secondary-button {
-  opacity: 0.88;
-  border-color: rgba(255, 215, 0, 0.75);
+  opacity: 0.92;
+  border-color: rgba(237, 197, 96, 0.78);
 }
 
 
