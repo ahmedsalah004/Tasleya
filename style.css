@@ -4,18 +4,21 @@ html {
 }
 
 #startScreen {
-  --home-navy-base: #070f2b;
-  --home-navy-surface: rgba(8, 16, 42, 0.74);
-  --home-navy-surface-2: rgba(15, 28, 64, 0.8);
-  --home-gold: #ffd76a;
-  --home-white: rgba(246, 250, 255, 0.97);
-  --home-white-muted: rgba(228, 236, 251, 0.92);
-  --home-white-soft: rgba(214, 226, 245, 0.84);
-  --home-border-gold: rgba(255, 215, 120, 0.34);
+  --home-navy-base: #081736;
+  --home-navy-surface: rgba(10, 24, 56, 0.92);
+  --home-navy-surface-2: rgba(16, 34, 72, 0.94);
+  --home-gold: #d9ad4a;
+  --home-white-base: #f4f0e8;
+  --home-white: rgba(250, 246, 238, 0.98);
+  --home-white-muted: rgba(231, 225, 212, 0.93);
+  --home-white-soft: rgba(211, 204, 191, 0.85);
+  --home-border-gold: rgba(217, 173, 74, 0.45);
+  --home-text-navy: #0d214b;
   position: relative;
   isolation: isolate;
   min-height: 100vh;
   min-height: 100svh;
+  background-color: var(--home-white-base);
   background-image: url('assets/start-bg-v2.webp');
   background-size: cover;
   background-position: center;
@@ -31,7 +34,9 @@ html {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: linear-gradient(180deg, rgba(4, 9, 28, 0.58) 0%, rgba(4, 9, 28, 0.7) 48%, rgba(4, 9, 28, 0.82) 100%);
+  background:
+    linear-gradient(180deg, rgba(5, 14, 36, 0.68) 0%, rgba(6, 15, 38, 0.54) 34%, rgba(244, 240, 232, 0.12) 56%, rgba(244, 240, 232, 0.82) 74%, rgba(244, 240, 232, 0.98) 100%),
+    radial-gradient(circle at 50% 35%, rgba(217, 173, 74, 0.18), transparent 45%);
 }
 
 .hero-section,
@@ -299,16 +304,26 @@ html {
   display: grid;
   gap: clamp(0.85rem, 2.1vw, 1.25rem);
   margin-top: clamp(0.5rem, 2vw, 1rem);
+  padding: clamp(1rem, 2.8vw, 1.5rem);
+  border-radius: 22px;
+  border: 1px solid rgba(13, 33, 75, 0.14);
+  background:
+    linear-gradient(175deg, rgba(255, 255, 255, 0.54), rgba(247, 241, 229, 0.9)),
+    linear-gradient(0deg, rgba(13, 33, 75, 0.06), rgba(13, 33, 75, 0.06));
+  box-shadow:
+    0 24px 55px rgba(8, 23, 54, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.66) inset;
 }
 
 .home-panel {
-  background: var(--home-navy-surface);
+  background:
+    linear-gradient(160deg, rgba(18, 38, 80, 0.96) 0%, rgba(8, 23, 54, 0.96) 100%);
   border: 1px solid var(--home-border-gold);
   border-radius: 18px;
   padding: clamp(0.92rem, 2.4vw, 1.28rem);
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.34),
-    0 0 16px rgba(255, 193, 67, 0.12),
+    0 14px 40px rgba(7, 17, 44, 0.34),
+    0 0 16px rgba(217, 173, 74, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -338,10 +353,11 @@ html {
 .mini-card,
 .mode-card {
   background: var(--home-navy-surface-2);
-  border: 1px solid rgba(255, 215, 120, 0.24);
+  border: 1px solid rgba(217, 173, 74, 0.32);
   border-radius: 14px;
   padding: 0.75rem 0.85rem;
   color: var(--home-white);
+  box-shadow: 0 8px 20px rgba(4, 11, 29, 0.26);
 }
 
 .mode-card h3,
@@ -404,7 +420,7 @@ html {
   padding: 0.38rem 0.78rem;
   border-radius: 999px;
   background: var(--home-navy-surface-2);
-  border: 1px solid rgba(255, 215, 120, 0.32);
+  border: 1px solid rgba(217, 173, 74, 0.38);
   color: var(--home-white);
   font-size: 0.88rem;
 }
@@ -415,9 +431,10 @@ html {
   gap: 0.74rem;
   padding: clamp(0.92rem, 2.2vw, 1.15rem) clamp(0.98rem, 2.2vw, 1.3rem);
   border-radius: 14px;
-  border: 1px solid rgba(255, 215, 120, 0.18);
-  border-top-color: rgba(255, 215, 120, 0.3);
-  background: linear-gradient(180deg, rgba(7, 13, 34, 0.78), rgba(5, 10, 26, 0.76));
+  border: 1px solid rgba(217, 173, 74, 0.24);
+  border-top-color: rgba(217, 173, 74, 0.44);
+  background: linear-gradient(180deg, rgba(8, 23, 54, 0.94), rgba(6, 18, 42, 0.96));
+  box-shadow: 0 20px 40px rgba(7, 17, 40, 0.22);
 }
 
 .footer-closure {
