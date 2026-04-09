@@ -128,7 +128,7 @@ html {
   border-radius: 14px;
   border: 2px solid rgba(237, 197, 96, 0.74);
   cursor: pointer;
-  background: rgba(21, 38, 86, 0.74);
+  background: rgba(12, 24, 61, 0.84);
   color: #f0cd79;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -185,7 +185,7 @@ html {
   #instructionsBtn:hover,
   #contactBtn:hover,
   #installGuideBtn:hover {
-    background: rgba(28, 49, 108, 0.86);
+    background: rgba(18, 33, 78, 0.9);
     transform: scale(1.03);
     box-shadow:
       0 10px 24px rgba(1, 7, 25, 0.4),
