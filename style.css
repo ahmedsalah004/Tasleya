@@ -4,6 +4,14 @@ html {
 }
 
 #startScreen {
+  --home-navy-base: #070f2b;
+  --home-navy-surface: rgba(8, 16, 42, 0.74);
+  --home-navy-surface-2: rgba(15, 28, 64, 0.8);
+  --home-gold: #ffd76a;
+  --home-white: rgba(246, 250, 255, 0.97);
+  --home-white-muted: rgba(228, 236, 251, 0.92);
+  --home-white-soft: rgba(214, 226, 245, 0.84);
+  --home-border-gold: rgba(255, 215, 120, 0.34);
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -23,7 +31,7 @@ html {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: linear-gradient(180deg, rgba(4, 9, 28, 0.58) 0%, rgba(4, 9, 28, 0.68) 48%, rgba(4, 9, 28, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(4, 9, 28, 0.58) 0%, rgba(4, 9, 28, 0.7) 48%, rgba(4, 9, 28, 0.82) 100%);
 }
 
 .hero-section,
@@ -81,7 +89,7 @@ html {
   text-align: center;
   font-size: clamp(0.98rem, 1.8vw, 1.2rem);
   font-weight: 700;
-  color: rgba(248, 250, 255, 0.95);
+  color: var(--home-white);
   letter-spacing: 0.03em;
 }
 
@@ -126,10 +134,10 @@ html {
   padding: 14px 20px;
   font-size: clamp(1rem, 2vw, 1.12rem);
   border-radius: 14px;
-  border: 2px solid rgba(255, 215, 0, 0.6);
+  border: 2px solid rgba(255, 215, 0, 0.64);
   cursor: pointer;
-  background: rgba(0, 0, 0, 0.6);
-  color: #FFD700;
+  background: rgba(7, 14, 38, 0.64);
+  color: var(--home-gold);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   transition: all 0.3s ease;
@@ -218,16 +226,16 @@ html {
   display: grid;
   gap: 0.7rem;
   width: 100%;
-  border: 1px solid rgba(255, 215, 120, 0.35);
+  border: 1px solid var(--home-border-gold);
   border-radius: 14px;
   padding: 0.85rem;
-  background: rgba(13, 21, 52, 0.55);
+  background: var(--home-navy-surface-2);
 }
 
 .resume-game-prompt-text {
   margin: 0;
   text-align: center;
-  color: rgba(255, 233, 170, 0.98);
+  color: var(--home-white);
   font-weight: 700;
 }
 
@@ -237,8 +245,8 @@ html {
 }
 
 #discardResumeGameBtn {
-  border-color: rgba(255, 215, 120, 0.28);
-  color: rgba(255, 232, 172, 0.86);
+  border-color: rgba(255, 215, 120, 0.3);
+  color: var(--home-white-muted);
 }
 
 .home-secondary-actions {
@@ -249,9 +257,9 @@ html {
 }
 
 .flow-back-button {
-  border-color: rgba(255, 215, 120, 0.28);
-  background: rgba(12, 20, 46, 0.32);
-  color: rgba(255, 231, 161, 0.8);
+  border-color: rgba(255, 215, 120, 0.3);
+  background: rgba(12, 20, 46, 0.5);
+  color: var(--home-white-muted);
   box-shadow: 0 0 0 1px rgba(255, 215, 120, 0.06) inset;
 }
 
@@ -259,7 +267,7 @@ html {
   position: static;
   width: 100%;
   text-align: center;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--home-white-muted);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -270,19 +278,19 @@ html {
   margin: 0 0 0.4rem;
   font-size: clamp(1.1rem, 2vw, 1.35rem);
   line-height: 1.3;
-  color: rgba(243, 244, 246, 0.95);
+  color: var(--home-gold);
 }
 
 .seo-text p {
   margin: 0;
   font-size: clamp(0.88rem, 1.1vw, 1rem);
   line-height: 1.65;
-  color: rgba(243, 244, 246, 0.9);
+  color: var(--home-white);
 }
 
 .scroll-hint {
   margin: 0.95rem 0 0;
-  color: rgba(255, 226, 138, 0.94);
+  color: var(--home-gold);
   font-size: clamp(0.86rem, 1.7vw, 1rem);
   letter-spacing: 0.04em;
 }
@@ -294,8 +302,8 @@ html {
 }
 
 .home-panel {
-  background: rgba(8, 14, 36, 0.66);
-  border: 1px solid rgba(255, 215, 120, 0.35);
+  background: var(--home-navy-surface);
+  border: 1px solid var(--home-border-gold);
   border-radius: 18px;
   padding: clamp(0.92rem, 2.4vw, 1.28rem);
   box-shadow:
@@ -308,7 +316,7 @@ html {
 
 .home-panel h2 {
   margin: 0 0 0.75rem;
-  color: #ffe6a8;
+  color: var(--home-gold);
   font-size: clamp(1.15rem, 2.3vw, 1.55rem);
 }
 
@@ -329,17 +337,17 @@ html {
 
 .mini-card,
 .mode-card {
-  background: rgba(20, 30, 68, 0.7);
-  border: 1px solid rgba(255, 215, 120, 0.26);
+  background: var(--home-navy-surface-2);
+  border: 1px solid rgba(255, 215, 120, 0.24);
   border-radius: 14px;
   padding: 0.75rem 0.85rem;
-  color: rgba(245, 248, 255, 0.96);
+  color: var(--home-white);
 }
 
 .mode-card h3,
 .faq-item h3 {
   margin: 0 0 0.4rem;
-  color: rgba(255, 225, 142, 0.95);
+  color: var(--home-gold);
   font-size: 1rem;
 }
 
@@ -347,7 +355,7 @@ html {
 .faq-item p,
 .more-text {
   margin: 0;
-  color: rgba(224, 234, 255, 0.9);
+  color: var(--home-white);
   line-height: 1.7;
 }
 
@@ -355,7 +363,7 @@ html {
 .section-body-text,
 .section-body-note {
   margin: 0;
-  color: rgba(224, 234, 255, 0.9);
+  color: var(--home-white);
   line-height: 1.72;
 }
 
@@ -367,11 +375,11 @@ html {
 .section-body-note {
   margin-top: 0.45rem;
   font-size: 0.91rem;
-  color: rgba(210, 226, 255, 0.84);
+  color: var(--home-white-muted);
 }
 
 .inline-email-link {
-  color: rgba(255, 225, 142, 0.95);
+  color: var(--home-gold);
   text-decoration: underline;
   text-decoration-color: rgba(255, 215, 120, 0.75);
   text-underline-offset: 2px;
@@ -395,9 +403,9 @@ html {
   justify-content: center;
   padding: 0.38rem 0.78rem;
   border-radius: 999px;
-  background: rgba(26, 40, 87, 0.78);
+  background: var(--home-navy-surface-2);
   border: 1px solid rgba(255, 215, 120, 0.32);
-  color: rgba(247, 250, 255, 0.95);
+  color: var(--home-white);
   font-size: 0.88rem;
 }
 
@@ -407,9 +415,9 @@ html {
   gap: 0.74rem;
   padding: clamp(0.92rem, 2.2vw, 1.15rem) clamp(0.98rem, 2.2vw, 1.3rem);
   border-radius: 14px;
-  border: 1px solid rgba(255, 215, 120, 0.14);
-  border-top-color: rgba(255, 215, 120, 0.24);
-  background: linear-gradient(180deg, rgba(7, 12, 30, 0.72), rgba(5, 10, 24, 0.72));
+  border: 1px solid rgba(255, 215, 120, 0.18);
+  border-top-color: rgba(255, 215, 120, 0.3);
+  background: linear-gradient(180deg, rgba(7, 13, 34, 0.78), rgba(5, 10, 26, 0.76));
 }
 
 .footer-closure {
@@ -418,7 +426,7 @@ html {
   align-items: center;
   justify-content: center;
   gap: 0.35rem 1rem;
-  color: rgba(221, 231, 250, 0.84);
+  color: var(--home-white-soft);
   font-size: 0.81rem;
 }
 
@@ -426,17 +434,17 @@ html {
   margin: 0;
   font-size: 0.95rem;
   font-weight: 700;
-  color: rgba(255, 225, 142, 0.9);
+  color: var(--home-gold);
   letter-spacing: 0.03em;
 }
 
 .footer-meta {
   margin: 0;
-  color: rgba(202, 217, 244, 0.78);
+  color: var(--home-white-soft);
 }
 
 .footer-email {
-  color: rgba(248, 227, 169, 0.86);
+  color: var(--home-white);
   text-decoration: none;
   border-bottom: 1px solid rgba(255, 215, 120, 0.28);
   line-height: 1.25;
@@ -444,7 +452,7 @@ html {
 
 .footer-email:hover,
 .footer-email:focus-visible {
-  color: #ffe9ab;
+  color: var(--home-gold);
   border-bottom-color: rgba(255, 215, 120, 0.72);
 }
 
@@ -459,7 +467,7 @@ html {
 
 .footer-link {
   text-decoration: none;
-  color: rgba(211, 224, 248, 0.84);
+  color: var(--home-white-muted);
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -482,7 +490,7 @@ html {
 
 .footer-link:hover,
 .footer-link:focus-visible {
-  color: rgba(255, 231, 169, 0.92);
+  color: var(--home-gold);
 }
 
 .secondary-button {
@@ -596,13 +604,13 @@ html {
 
 .contact-modal-subtitle {
   margin: 0;
-  color: rgba(228, 237, 255, 0.9);
+  color: var(--home-white);
 }
 
 .contact-helper-text,
 .contact-privacy-note {
   margin: 0;
-  color: rgba(210, 226, 255, 0.86);
+  color: var(--home-white-muted);
   font-size: 0.95rem;
   line-height: 1.6;
 }
@@ -610,7 +618,7 @@ html {
 .contact-input-label {
   display: block;
   margin: 0;
-  color: rgba(233, 241, 255, 0.95);
+  color: var(--home-white);
   font-weight: 700;
   font-size: 0.95rem;
 }
@@ -724,7 +732,7 @@ html {
 .instructions-section p {
   margin: 0.15rem 0 0;
   line-height: 1.85;
-  color: #eef3ff;
+  color: var(--home-white);
   font-size: clamp(0.98rem, 0.8vw + 0.78rem, 1.08rem);
 }
 
@@ -2532,7 +2540,7 @@ body.local-three-teams .category-team-inputs {
 
 .info-page-header h1 {
   margin: 0.2rem 0 0.65rem;
-  color: #ffe6a8;
+  color: var(--home-gold);
   font-size: clamp(1.45rem, 2.8vw, 2rem);
   line-height: 1.35;
 }
@@ -2554,7 +2562,7 @@ body.local-three-teams .category-team-inputs {
   padding: 0.34rem 0.74rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 215, 120, 0.44);
-  color: rgba(255, 230, 161, 0.95);
+  color: var(--home-white-muted);
   background: rgba(14, 23, 55, 0.56);
   text-decoration: none;
   font-size: 0.87rem;
@@ -2563,7 +2571,7 @@ body.local-three-teams .category-team-inputs {
 
 .info-home-link:hover,
 .info-home-link:focus-visible {
-  color: #fff0c2;
+  color: var(--home-gold);
   border-color: rgba(255, 215, 120, 0.78);
   background: rgba(22, 35, 80, 0.78);
 }
@@ -2571,7 +2579,7 @@ body.local-three-teams .category-team-inputs {
 .info-list {
   margin: 0;
   padding-inline-start: 1.2rem;
-  color: rgba(224, 234, 255, 0.93);
+  color: var(--home-white);
   display: grid;
   gap: 0.3rem;
   line-height: 1.72;
