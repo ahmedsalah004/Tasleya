@@ -8,6 +8,7 @@ html {
   isolation: isolate;
   min-height: 100vh;
   min-height: 100svh;
+  background-color: var(--home-white-base);
   background-image: url('assets/start-bg-v2.webp');
   background-size: cover;
   background-position: center;
@@ -291,6 +292,15 @@ html {
   display: grid;
   gap: clamp(0.85rem, 2.1vw, 1.25rem);
   margin-top: clamp(0.5rem, 2vw, 1rem);
+  padding: clamp(1rem, 2.8vw, 1.5rem);
+  border-radius: 22px;
+  border: 1px solid rgba(13, 33, 75, 0.14);
+  background:
+    linear-gradient(175deg, rgba(255, 255, 255, 0.54), rgba(247, 241, 229, 0.9)),
+    linear-gradient(0deg, rgba(13, 33, 75, 0.06), rgba(13, 33, 75, 0.06));
+  box-shadow:
+    0 24px 55px rgba(8, 23, 54, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.66) inset;
 }
 
 .home-panel {
@@ -299,8 +309,8 @@ html {
   border-radius: 18px;
   padding: clamp(0.92rem, 2.4vw, 1.28rem);
   box-shadow:
-    0 14px 40px rgba(0, 0, 0, 0.34),
-    0 0 16px rgba(255, 193, 67, 0.12),
+    0 14px 40px rgba(7, 17, 44, 0.34),
+    0 0 16px rgba(217, 173, 74, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
