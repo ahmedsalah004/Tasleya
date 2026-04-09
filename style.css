@@ -490,32 +490,6 @@ html {
   border-color: rgba(255, 215, 0, 0.75);
 }
 
-#startScreen .hero-section #startLocalBtn,
-#startScreen .hero-section #startOnlineBtn,
-#startScreen .hero-section #instructionsBtn,
-#startScreen .hero-section #contactBtn {
-  background: rgba(8, 21, 56, 0.88);
-  border-color: #e6d394;
-  color: #f3e4b4;
-  box-shadow:
-    0 10px 24px rgba(2, 8, 24, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  opacity: 1;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  #startScreen .hero-section #startLocalBtn:hover,
-  #startScreen .hero-section #startOnlineBtn:hover,
-  #startScreen .hero-section #instructionsBtn:hover,
-  #startScreen .hero-section #contactBtn:hover {
-    background: rgba(11, 28, 71, 0.92);
-    border-color: #eddca2;
-    box-shadow:
-      0 12px 28px rgba(2, 9, 27, 0.4),
-      0 0 14px rgba(234, 216, 158, 0.2);
-  }
-}
-
 
 @media (max-width: 700px) {
   .footer-info-panel .section-body-text,
