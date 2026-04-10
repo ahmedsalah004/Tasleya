@@ -282,6 +282,34 @@ html {
   color: rgba(243, 244, 246, 0.9);
 }
 
+.hero-quick-intro {
+  margin-top: 0.78rem;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 215, 120, 0.24);
+  background: rgba(9, 17, 44, 0.5);
+  padding: 0.72rem 0.82rem;
+  text-align: right;
+}
+
+.hero-quick-intro h2 {
+  margin: 0;
+  font-size: clamp(1rem, 1.8vw, 1.16rem);
+  color: rgba(255, 231, 161, 0.95);
+}
+
+.hero-quick-intro p {
+  margin: 0.28rem 0 0;
+  line-height: 1.65;
+  color: rgba(236, 243, 255, 0.9);
+  font-size: clamp(0.86rem, 1.2vw, 0.97rem);
+}
+
+.hero-quick-intro-note {
+  color: rgba(255, 226, 138, 0.9);
+  font-size: clamp(0.81rem, 1vw, 0.9rem);
+}
+
 .scroll-hint {
   margin: 0.95rem 0 0;
   color: rgba(255, 226, 138, 0.94);

@@ -241,6 +241,15 @@ main,
   margin-top: 4px;
 }
 
+.hero-quick-intro {
+  margin-top: 10px;
+  padding: 0.64rem 0.72rem;
+}
+
+.hero-quick-intro p {
+  font-size: 0.9rem;
+}
+
 #homeGroupDeviceBackBtn,
 #homeGroupTeamsBackBtn {
   min-height: 46px;
