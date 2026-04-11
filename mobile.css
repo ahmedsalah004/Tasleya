@@ -5,12 +5,15 @@ body {
 
 html.gameplay-active,
 body.gameplay-active {
-  overscroll-behavior-y: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 #gameScreen {
-  overscroll-behavior-y: contain;
-  touch-action: pan-x pan-y pinch-zoom;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
 }
 
 
@@ -410,10 +413,14 @@ main,
   display: block;
 }
 
-.question-media.map-question-media #questionImage.map-question-image {
+.question-media.map-question-media .question-image-viewport {
   box-shadow: none;
   border-radius: 8px;
   border-color: rgba(148, 178, 255, 0.22);
+}
+
+.question-media.map-question-media #questionImage.map-question-image {
+  border-radius: 8px;
   contain: none;
   transform: none;
   backface-visibility: hidden;

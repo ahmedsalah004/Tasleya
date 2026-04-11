@@ -1059,14 +1059,18 @@ body::after {
 
 #gameScreen {
   position: relative;
-  overscroll-behavior-y: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y pinch-zoom;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+  touch-action: manipulation;
 }
 
 html.gameplay-active,
 body.gameplay-active {
-  overscroll-behavior-y: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+  height: 100%;
+  touch-action: manipulation;
 }
 
 .game-home-btn {
@@ -1506,15 +1510,24 @@ button:disabled {
   gap: 0.6rem;
 }
 
-.question-media img {
-  max-width: 100%;
-  height: auto;
-}
-
 .question-video-wrapper {
   width: 100%;
   max-width: min(100%, 760px);
   margin-inline: auto;
+}
+
+.question-image-viewport {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 760px);
+  height: min(50vh, 420px);
+  margin-inline: auto;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 178, 255, 0.45);
+  box-shadow: 0 14px 34px rgba(1, 7, 24, 0.5);
+  background: rgba(3, 8, 24, 0.92);
+  touch-action: none;
 }
 
 #questionVideo {
@@ -1529,14 +1542,13 @@ button:disabled {
 
 #questionImage {
   display: block;
-  max-width: min(100%, 760px);
   width: 100%;
-  max-height: min(50vh, 420px);
+  height: 100%;
   object-fit: contain;
-  margin-inline: auto;
-  border-radius: 16px;
-  border: 1px solid rgba(148, 178, 255, 0.45);
-  box-shadow: 0 14px 34px rgba(1, 7, 24, 0.5);
+  transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 #questionImage.map-question-image {
@@ -1562,11 +1574,16 @@ body.image-question-active {
     display: block;
   }
 
-  .question-media.map-question-media #questionImage.map-question-image {
+  .question-media.map-question-media .question-image-viewport {
     border-radius: 8px;
     box-shadow: none;
     border-width: 1px;
     border-color: rgba(148, 178, 255, 0.22);
+    contain: content;
+  }
+
+  .question-media.map-question-media #questionImage.map-question-image {
+    border-radius: 8px;
     backface-visibility: hidden;
     will-change: auto;
     contain: none;

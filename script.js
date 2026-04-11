@@ -421,21 +421,10 @@ const online = {
   roomStatus: null,
 };
 
-const viewportGuardState = {
-  touchStartY: null,
-  touchStartX: null,
-  lastTouchY: null,
-  isPullGuardActive: false,
-};
-const imageQuestionTouchGuardState = {
-  touchStartY: null,
-  touchStartX: null,
-  isPullGuardActive: false,
-  cleanup: null,
-};
-
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
+let gameplayScrollLockY = 0;
+let activeQuestionImageViewport = null;
 let pendingHomepageGroupMode = null;
 let pendingLocalResumePayload = null;
 
@@ -1136,92 +1125,131 @@ function isSavedLocalProgressResumable(saved) {
   return !!(hasPlayableTile || questionInFlight) && !saved.finished;
 }
 
-function canScrollUpFromNode(startNode) {
-  let node = startNode instanceof Element ? startNode : null;
-  while (node && node !== document.body) {
-    const style = window.getComputedStyle(node);
-    const allowsScroll = /(auto|scroll|overlay)/.test(style.overflowY || "");
-    if (allowsScroll && node.scrollTop > 0) return true;
-    node = node.parentElement;
-  }
-  return window.scrollY > 0;
+function cleanupQuestionImageZoomViewport() {
+  if (!activeQuestionImageViewport || typeof activeQuestionImageViewport.cleanup !== "function") return;
+  activeQuestionImageViewport.cleanup();
+  activeQuestionImageViewport = null;
 }
 
-function resetGameScreenTouchGuard() {
-  viewportGuardState.touchStartY = null;
-  viewportGuardState.touchStartX = null;
-  viewportGuardState.lastTouchY = null;
-  viewportGuardState.isPullGuardActive = false;
+function clampQuestionImagePan(scale, viewport, image, rawX, rawY) {
+  if (!viewport || !image || scale <= 1) return { x: 0, y: 0 };
+  const viewportRect = viewport.getBoundingClientRect();
+  const imageRect = image.getBoundingClientRect();
+  const baseImageWidth = imageRect.width / scale;
+  const baseImageHeight = imageRect.height / scale;
+  const maxX = Math.max(0, ((baseImageWidth * scale) - viewportRect.width) / 2);
+  const maxY = Math.max(0, ((baseImageHeight * scale) - viewportRect.height) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, rawX)),
+    y: Math.max(-maxY, Math.min(maxY, rawY)),
+  };
 }
 
-function isMobileTouchViewport() {
-  return window.matchMedia?.("(max-width: 900px), (hover: none), (pointer: coarse)")?.matches ?? false;
-}
+function createQuestionImageZoomViewport(imageSrc) {
+  const viewport = document.createElement("div");
+  viewport.className = "question-image-viewport";
+  viewport.setAttribute("aria-label", "تكبير وتحريك صورة السؤال");
 
-function resetImageQuestionTouchGuard() {
-  imageQuestionTouchGuardState.touchStartY = null;
-  imageQuestionTouchGuardState.touchStartX = null;
-  imageQuestionTouchGuardState.isPullGuardActive = false;
-}
+  const image = document.createElement("img");
+  image.id = "questionImage";
+  image.alt = "صورة السؤال";
+  image.decoding = "async";
+  image.loading = "eager";
+  image.fetchPriority = "high";
+  image.draggable = false;
+  image.src = imageSrc;
+  viewport.appendChild(image);
 
-function detachImageQuestionTouchGuard() {
-  if (typeof imageQuestionTouchGuardState.cleanup === "function") {
-    imageQuestionTouchGuardState.cleanup();
-  }
-  imageQuestionTouchGuardState.cleanup = null;
-  resetImageQuestionTouchGuard();
-}
+  const zoomState = {
+    scale: 1,
+    x: 0,
+    y: 0,
+    startX: 0,
+    startY: 0,
+    pinchDistance: 0,
+    pinchScale: 1,
+    isDragging: false,
+    isPinching: false,
+  };
 
-function attachImageQuestionTouchGuard() {
-  detachImageQuestionTouchGuard();
-  if (!el.questionMedia || !isMobileTouchViewport()) return;
+  const applyTransform = () => {
+    image.style.transform = `translate3d(${zoomState.x}px, ${zoomState.y}px, 0) scale(${zoomState.scale})`;
+  };
+
+  const getTouchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[1].clientX - touches[0].clientX;
+    const dy = touches[1].clientY - touches[0].clientY;
+    return Math.hypot(dx, dy);
+  };
 
   const handleTouchStart = (event) => {
-    resetImageQuestionTouchGuard();
-    if (!event.touches || event.touches.length !== 1) return;
-    if (shouldBypassPullToRefreshGuard(event.target)) return;
-    const touch = event.touches[0];
-    imageQuestionTouchGuardState.touchStartY = touch.clientY;
-    imageQuestionTouchGuardState.touchStartX = touch.clientX;
-    imageQuestionTouchGuardState.isPullGuardActive = true;
+    if (!event.touches || event.touches.length === 0) return;
+    if (event.touches.length === 1) {
+      zoomState.isDragging = zoomState.scale > 1;
+      zoomState.startX = event.touches[0].clientX - zoomState.x;
+      zoomState.startY = event.touches[0].clientY - zoomState.y;
+    } else if (event.touches.length >= 2) {
+      zoomState.isPinching = true;
+      zoomState.pinchDistance = getTouchDistance(event.touches);
+      zoomState.pinchScale = zoomState.scale;
+    }
   };
 
   const handleTouchMove = (event) => {
-    if (!event.touches || event.touches.length !== 1) return;
-    if (event.scale && event.scale !== 1) return;
-    if (!imageQuestionTouchGuardState.isPullGuardActive) return;
-
-    const touch = event.touches[0];
-    const startY = Number(imageQuestionTouchGuardState.touchStartY);
-    const startX = Number(imageQuestionTouchGuardState.touchStartX);
-    if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
-
-    const deltaY = touch.clientY - startY;
-    const deltaX = Math.abs(touch.clientX - startX);
-    if (deltaY <= 0 || deltaX > Math.abs(deltaY)) return;
-    if (canScrollUpFromNode(event.target)) return;
-
+    if (!event.touches || event.touches.length === 0) return;
+    if (event.touches.length >= 2) {
+      event.preventDefault();
+      const distance = getTouchDistance(event.touches);
+      if (!distance || !zoomState.pinchDistance) return;
+      const nextScale = Math.min(4, Math.max(1, zoomState.pinchScale * (distance / zoomState.pinchDistance)));
+      zoomState.scale = nextScale;
+      const nextPan = clampQuestionImagePan(zoomState.scale, viewport, image, zoomState.x, zoomState.y);
+      zoomState.x = nextPan.x;
+      zoomState.y = nextPan.y;
+      applyTransform();
+      return;
+    }
+    if (!zoomState.isDragging || zoomState.scale <= 1) return;
     event.preventDefault();
+    const touch = event.touches[0];
+    const rawX = touch.clientX - zoomState.startX;
+    const rawY = touch.clientY - zoomState.startY;
+    const nextPan = clampQuestionImagePan(zoomState.scale, viewport, image, rawX, rawY);
+    zoomState.x = nextPan.x;
+    zoomState.y = nextPan.y;
+    applyTransform();
   };
 
-  const target = el.questionMedia;
-  target.addEventListener("touchstart", handleTouchStart);
-  target.addEventListener("touchmove", handleTouchMove, { passive: false });
-  target.addEventListener("touchend", resetImageQuestionTouchGuard, { passive: true });
-  target.addEventListener("touchcancel", resetImageQuestionTouchGuard, { passive: true });
-
-  imageQuestionTouchGuardState.cleanup = () => {
-    target.removeEventListener("touchstart", handleTouchStart);
-    target.removeEventListener("touchmove", handleTouchMove);
-    target.removeEventListener("touchend", resetImageQuestionTouchGuard);
-    target.removeEventListener("touchcancel", resetImageQuestionTouchGuard);
+  const handleTouchEnd = (event) => {
+    if (!event.touches || event.touches.length === 0) {
+      zoomState.isDragging = false;
+      zoomState.isPinching = false;
+      return;
+    }
+    if (event.touches.length === 1) {
+      zoomState.isPinching = false;
+      zoomState.isDragging = zoomState.scale > 1;
+      zoomState.startX = event.touches[0].clientX - zoomState.x;
+      zoomState.startY = event.touches[0].clientY - zoomState.y;
+    }
   };
-}
 
-function shouldBypassPullToRefreshGuard(target) {
-  if (!(target instanceof Element)) return false;
-  if (target.closest("input, textarea, select, [contenteditable='true']")) return true;
-  return false;
+  viewport.addEventListener("touchstart", handleTouchStart, { passive: true });
+  viewport.addEventListener("touchmove", handleTouchMove, { passive: false });
+  viewport.addEventListener("touchend", handleTouchEnd, { passive: true });
+  viewport.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+  activeQuestionImageViewport = {
+    cleanup: () => {
+      viewport.removeEventListener("touchstart", handleTouchStart);
+      viewport.removeEventListener("touchmove", handleTouchMove);
+      viewport.removeEventListener("touchend", handleTouchEnd);
+      viewport.removeEventListener("touchcancel", handleTouchEnd);
+    },
+  };
+
+  return { viewport, image };
 }
 
 function scheduleGameplayProgressPersist(delayMs = 120) {
@@ -1234,51 +1262,6 @@ function scheduleGameplayProgressPersist(delayMs = 120) {
   }, Math.max(0, Number(delayMs) || 0));
 }
 
-function handleGameScreenTouchStart(event) {
-  resetGameScreenTouchGuard();
-  if (el.gameScreen?.style.display !== "block" || !event.touches || event.touches.length < 1) return;
-  viewportGuardState.lastTouchY = Number(event.touches[0]?.clientY);
-  if (event.touches.length !== 1) return;
-  if (shouldBypassPullToRefreshGuard(event.target)) return;
-  if (canScrollUpFromNode(event.target)) return;
-  const touch = event.touches[0];
-  if (touch.clientY > 72) return;
-  viewportGuardState.touchStartY = touch.clientY;
-  viewportGuardState.touchStartX = touch.clientX;
-  viewportGuardState.isPullGuardActive = true;
-}
-
-function handleGameScreenTouchMove(event) {
-  if (el.gameScreen?.style.display !== "block") return;
-  if (!event.touches || event.touches.length < 1) return;
-  const primaryTouch = event.touches[0];
-  const previousTouchY = Number(viewportGuardState.lastTouchY);
-  const movingDown = Number.isFinite(previousTouchY) && primaryTouch.clientY > previousTouchY;
-  viewportGuardState.lastTouchY = Number(primaryTouch.clientY);
-
-  if (event.touches.length !== 1) return;
-  if (event.scale && event.scale !== 1) return;
-
-  if (!viewportGuardState.isPullGuardActive) {
-    if (movingDown && window.scrollY <= 0 && !canScrollUpFromNode(event.target)) {
-      event.preventDefault();
-    }
-    return;
-  }
-
-  const touch = primaryTouch;
-  const startY = Number(viewportGuardState.touchStartY);
-  const startX = Number(viewportGuardState.touchStartX);
-  if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
-
-  const deltaY = touch.clientY - startY;
-  const deltaX = Math.abs(touch.clientX - startX);
-  if (deltaY <= 0 || deltaX > Math.abs(deltaY)) return;
-  if (canScrollUpFromNode(event.target)) return;
-
-  event.preventDefault();
-}
-
 function handleViewportGeometryChange() {
   if (el.gameScreen?.style.display !== "block") return;
   scheduleGameplayProgressPersist(160);
@@ -1288,11 +1271,7 @@ function handleViewportGeometryChange() {
 }
 
 function attachGameplayViewportGuards() {
-  if (gameplayViewportGuardsAttached || !el.gameScreen) return;
-  el.gameScreen.addEventListener("touchstart", handleGameScreenTouchStart);
-  el.gameScreen.addEventListener("touchmove", handleGameScreenTouchMove, { passive: false });
-  el.gameScreen.addEventListener("touchend", resetGameScreenTouchGuard, { passive: true });
-  el.gameScreen.addEventListener("touchcancel", resetGameScreenTouchGuard, { passive: true });
+  if (gameplayViewportGuardsAttached) return;
   window.addEventListener("resize", handleViewportGeometryChange, { passive: true });
   window.addEventListener("orientationchange", handleViewportGeometryChange, { passive: true });
   if (window.visualViewport) {
@@ -1303,19 +1282,33 @@ function attachGameplayViewportGuards() {
 }
 
 function detachGameplayViewportGuards() {
-  if (!gameplayViewportGuardsAttached || !el.gameScreen) return;
-  el.gameScreen.removeEventListener("touchstart", handleGameScreenTouchStart);
-  el.gameScreen.removeEventListener("touchmove", handleGameScreenTouchMove);
-  el.gameScreen.removeEventListener("touchend", resetGameScreenTouchGuard);
-  el.gameScreen.removeEventListener("touchcancel", resetGameScreenTouchGuard);
+  if (!gameplayViewportGuardsAttached) return;
   window.removeEventListener("resize", handleViewportGeometryChange);
   window.removeEventListener("orientationchange", handleViewportGeometryChange);
   if (window.visualViewport) {
     window.visualViewport.removeEventListener("resize", handleViewportGeometryChange);
     window.visualViewport.removeEventListener("scroll", handleViewportGeometryChange);
   }
-  resetGameScreenTouchGuard();
   gameplayViewportGuardsAttached = false;
+}
+
+function lockGameplayPageScroll() {
+  gameplayScrollLockY = window.scrollY || window.pageYOffset || 0;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${gameplayScrollLockY}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+}
+
+function unlockGameplayPageScroll() {
+  const lockedY = Number(gameplayScrollLockY) || 0;
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  window.scrollTo(0, lockedY);
 }
 
 function ensureStableOnlineClientId() {
@@ -2077,7 +2070,7 @@ function clearQuestionMedia() {
   if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
   const currentVideo = el.questionMedia.querySelector("video");
   if (currentVideo) { currentVideo.pause(); }
-  detachImageQuestionTouchGuard();
+  cleanupQuestionImageZoomViewport();
   document.body.classList.remove("image-question-active");
   syncDocumentRootStateClass("image-question-active", false);
   el.modal?.classList.remove("image-question-active");
@@ -2121,19 +2114,12 @@ function renderQuestionImage(imagePath, question = null) {
   syncDocumentRootStateClass("image-question-active", true);
   el.modal?.classList.add("image-question-active");
 
-  const image = document.createElement("img");
-  image.id = "questionImage";
-  image.alt = "صورة السؤال";
-  image.decoding = "async";
-  image.loading = "eager";
-  image.fetchPriority = "high";
+  const { viewport, image } = createQuestionImageZoomViewport(imageSrc);
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
   }
-  image.src = imageSrc;
-  el.questionMedia.appendChild(image);
-  attachImageQuestionTouchGuard();
+  el.questionMedia.appendChild(viewport);
 
 }
 function renderQuestionAudio(audioPath) {
@@ -4516,6 +4502,7 @@ function showGameScreen() {
   el.gameScreen.style.display = "block";
   document.body.classList.add("gameplay-active");
   syncDocumentRootStateClass("gameplay-active", true);
+  lockGameplayPageScroll();
   attachGameplayViewportGuards();
   updateResumePromptVisibility();
 }
@@ -4525,6 +4512,7 @@ function showStartScreen() {
   el.startScreen.style.display = "flex";
   document.body.classList.remove("gameplay-active");
   syncDocumentRootStateClass("gameplay-active", false);
+  unlockGameplayPageScroll();
   detachGameplayViewportGuards();
   resetHomepageFlowToPrimaryStep();
   detectPendingLocalResume();
@@ -5018,6 +5006,7 @@ function initializeApp() {
   ensureStableOnlineClientId();
   document.body.classList.remove("gameplay-active");
   syncDocumentRootStateClass("gameplay-active", false);
+  unlockGameplayPageScroll();
   updateHostCategorySelectionCTA();
 
   bindEvent(el.newGameBtn, "click", () => {
