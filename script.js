@@ -424,6 +424,7 @@ const online = {
 let gameplayPersistDebounceTimer = null;
 let gameplayViewportGuardsAttached = false;
 let gameplayScrollLockY = 0;
+let gameplayPageScrollLocked = false;
 let activeQuestionImageViewport = null;
 let pendingHomepageGroupMode = null;
 let pendingLocalResumePayload = null;
@@ -1293,21 +1294,25 @@ function detachGameplayViewportGuards() {
 }
 
 function lockGameplayPageScroll() {
+  if (gameplayPageScrollLocked) return;
   gameplayScrollLockY = window.scrollY || window.pageYOffset || 0;
   document.body.style.position = "fixed";
   document.body.style.top = `-${gameplayScrollLockY}px`;
   document.body.style.left = "0";
   document.body.style.right = "0";
   document.body.style.width = "100%";
+  gameplayPageScrollLocked = true;
 }
 
 function unlockGameplayPageScroll() {
+  if (!gameplayPageScrollLocked) return;
   const lockedY = Number(gameplayScrollLockY) || 0;
   document.body.style.position = "";
   document.body.style.top = "";
   document.body.style.left = "";
   document.body.style.right = "";
   document.body.style.width = "";
+  gameplayPageScrollLocked = false;
   window.scrollTo(0, lockedY);
 }
 
@@ -2074,6 +2079,7 @@ function clearQuestionMedia() {
   document.body.classList.remove("image-question-active");
   syncDocumentRootStateClass("image-question-active", false);
   el.modal?.classList.remove("image-question-active");
+  unlockGameplayPageScroll();
   el.questionMedia.classList.remove("map-question-media");
   el.questionMedia.innerHTML = "";
 }
@@ -2110,6 +2116,7 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
 
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
+  lockGameplayPageScroll();
   document.body.classList.add("image-question-active");
   syncDocumentRootStateClass("image-question-active", true);
   el.modal?.classList.add("image-question-active");
@@ -4502,7 +4509,6 @@ function showGameScreen() {
   el.gameScreen.style.display = "block";
   document.body.classList.add("gameplay-active");
   syncDocumentRootStateClass("gameplay-active", true);
-  lockGameplayPageScroll();
   attachGameplayViewportGuards();
   updateResumePromptVisibility();
 }

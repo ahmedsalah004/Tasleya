@@ -3,13 +3,6 @@ body {
   overflow-x: hidden;
 }
 
-html.gameplay-active,
-body.gameplay-active {
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: manipulation;
-}
-
 #gameScreen {
   overflow: hidden;
   overscroll-behavior: none;

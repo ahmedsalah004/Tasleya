@@ -1065,14 +1065,6 @@ body::after {
   touch-action: manipulation;
 }
 
-html.gameplay-active,
-body.gameplay-active {
-  overflow: hidden;
-  overscroll-behavior: none;
-  height: 100%;
-  touch-action: manipulation;
-}
-
 .game-home-btn {
   position: absolute;
   inset-block-start: max(env(safe-area-inset-top), 0.75rem);
