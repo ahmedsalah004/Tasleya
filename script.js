@@ -424,6 +424,7 @@ const online = {
 const viewportGuardState = {
   touchStartY: null,
   touchStartX: null,
+  lastTouchY: null,
   isPullGuardActive: false,
 };
 const imageQuestionTouchGuardState = {
@@ -1149,6 +1150,7 @@ function canScrollUpFromNode(startNode) {
 function resetGameScreenTouchGuard() {
   viewportGuardState.touchStartY = null;
   viewportGuardState.touchStartX = null;
+  viewportGuardState.lastTouchY = null;
   viewportGuardState.isPullGuardActive = false;
 }
 
@@ -1234,7 +1236,9 @@ function scheduleGameplayProgressPersist(delayMs = 120) {
 
 function handleGameScreenTouchStart(event) {
   resetGameScreenTouchGuard();
-  if (el.gameScreen?.style.display !== "block" || !event.touches || event.touches.length !== 1) return;
+  if (el.gameScreen?.style.display !== "block" || !event.touches || event.touches.length < 1) return;
+  viewportGuardState.lastTouchY = Number(event.touches[0]?.clientY);
+  if (event.touches.length !== 1) return;
   if (shouldBypassPullToRefreshGuard(event.target)) return;
   if (canScrollUpFromNode(event.target)) return;
   const touch = event.touches[0];
@@ -1246,11 +1250,23 @@ function handleGameScreenTouchStart(event) {
 
 function handleGameScreenTouchMove(event) {
   if (el.gameScreen?.style.display !== "block") return;
-  if (!event.touches || event.touches.length !== 1) return;
-  if (event.scale && event.scale !== 1) return;
-  if (!viewportGuardState.isPullGuardActive) return;
+  if (!event.touches || event.touches.length < 1) return;
+  const primaryTouch = event.touches[0];
+  const previousTouchY = Number(viewportGuardState.lastTouchY);
+  const movingDown = Number.isFinite(previousTouchY) && primaryTouch.clientY > previousTouchY;
+  viewportGuardState.lastTouchY = Number(primaryTouch.clientY);
 
-  const touch = event.touches[0];
+  if (event.touches.length !== 1) return;
+  if (event.scale && event.scale !== 1) return;
+
+  if (!viewportGuardState.isPullGuardActive) {
+    if (movingDown && window.scrollY <= 0 && !canScrollUpFromNode(event.target)) {
+      event.preventDefault();
+    }
+    return;
+  }
+
+  const touch = primaryTouch;
   const startY = Number(viewportGuardState.touchStartY);
   const startX = Number(viewportGuardState.touchStartX);
   if (!Number.isFinite(startY) || !Number.isFinite(startX)) return;
