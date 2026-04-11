@@ -560,6 +560,52 @@ html {
 }
 
 @media (min-width: 701px) {
+  .home-sections {
+    gap: clamp(0.72rem, 1.35vw, 1rem);
+  }
+
+  .home-panel {
+    padding: clamp(0.84rem, 1.55vw, 1.08rem) clamp(0.9rem, 1.7vw, 1.18rem);
+  }
+
+  .home-panel h2 {
+    margin-bottom: 0.56rem;
+  }
+
+  .card-grid {
+    gap: 0.54rem;
+  }
+
+  .mode-card,
+  .mini-card {
+    display: grid;
+    align-content: start;
+    gap: 0.26rem;
+    padding: 0.66rem 0.78rem;
+    min-height: 100%;
+  }
+
+  .mode-card h3,
+  .faq-item h3 {
+    margin-bottom: 0.18rem;
+  }
+
+  .section-body-text,
+  .section-body-note,
+  .more-text,
+  .mode-card p,
+  .faq-item p {
+    max-inline-size: 62ch;
+  }
+
+  .chips-wrap {
+    margin-top: 0.34rem;
+  }
+
+  .section-body-note {
+    margin-top: 0.36rem;
+  }
+
   #startLocalBtn,
   #startOnlineBtn,
   #homeGroupOneDeviceBtn,
