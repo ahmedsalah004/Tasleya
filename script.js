@@ -2448,6 +2448,7 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
         reason: "question-not-found",
         activeTileId: state.activeTile?.id || null,
       });
+      closeModal({ silentSync: true, force: true });
       state.activeTile = null;
       state.activeQuestion = null;
       state.loadingQuestion = false;
