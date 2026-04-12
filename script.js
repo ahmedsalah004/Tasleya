@@ -4235,7 +4235,7 @@ async function connectToRoom(code, teamSlot) {
       const connectedCount = Array.from({ length: roomTeamCount }, (_, index) => index + 1).filter((slot) => connections[slot]).length;
       const allJoined = joinedCount >= roomTeamCount;
       const allConnected = connectedCount >= roomTeamCount;
-      el.startOnlineGameBtn.disabled = !allJoined;
+      el.startOnlineGameBtn.disabled = !allJoined || !allConnected;
       if (!allJoined) {
         setWaitingState(`بانتظار انضمام الفرق (${joinedCount}/${roomTeamCount})...`, false);
       } else if (allConnected) {
@@ -5245,6 +5245,32 @@ function initializeApp() {
     if (online.mode === "online" && online.role !== "host") {
       showHostOnlyStartMessage();
       return;
+    }
+    if (online.mode === "online" && online.role === "host" && online.roomRef) {
+      try {
+        const latestSnapshot = await online.roomRef.once("value");
+        const latestRoom = latestSnapshot.val();
+        if (!latestRoom || latestRoom.endedAt || latestRoom?.meta?.status === "ended") {
+          handleOnlineRoomUnavailable("انتهت الغرفة أو لم تعد متاحة.");
+          return;
+        }
+        const roomTeamCount = normalizeTeamCount(latestRoom?.meta?.maxTeams || latestRoom?.teamCount || state.teamCount);
+        const latestSlots = normalizeParticipantSlots(latestRoom);
+        const latestConnections = normalizeParticipantConnections(latestRoom);
+        const latestRecords = normalizeParticipantRecords(latestRoom);
+        const allRequiredTeamsReady = Array.from({ length: roomTeamCount }, (_, index) => index + 1).every((slot) => {
+          const occupied = !!(normalizeCell(latestSlots[slot]) || normalizeCell(latestRecords[slot]?.uid));
+          return occupied && !!latestConnections[slot];
+        });
+        if (!allRequiredTeamsReady) {
+          setOnlineFeedback("لا يمكن البدء الآن: يجب أن تكون كل الفرق المطلوبة منضمّة ومتّصلة.", "error");
+          setWaitingState("اكتمل الانضمام، جارٍ تثبيت الاتصال النهائي للفرق...", false);
+          return;
+        }
+      } catch (_) {
+        setOnlineFeedback("تعذّر التحقق من جاهزية الفرق. أعد المحاولة.", "error");
+        return;
+      }
     }
     if (online.mode === "online" && online.role === "host") {
       online.hostSetupInFlight = true;
