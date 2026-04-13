@@ -1522,6 +1522,15 @@ button:disabled {
   touch-action: none;
 }
 
+.question-image-viewport.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(3, 8, 24, 0.84) 0%, rgba(19, 37, 84, 0.78) 50%, rgba(3, 8, 24, 0.84) 100%);
+  animation: questionImageLoading 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
 #questionVideo {
   display: block;
   width: 100%;
@@ -1541,6 +1550,11 @@ button:disabled {
   will-change: transform;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+@keyframes questionImageLoading {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.85; }
 }
 
 #questionImage.map-question-image {
