@@ -2041,15 +2041,20 @@ function ensureMediaOriginPreconnect(mediaUrl) {
 }
 function warmImageResource(mediaUrl, { highPriority = false } = {}) {
   const normalizedUrl = normalizeCell(mediaUrl);
-  if (!normalizedUrl) return;
+  if (!normalizedUrl) return null;
   ensureMediaOriginPreconnect(normalizedUrl);
-  if (mediaWarmupCache.images.has(normalizedUrl)) return;
+  const cachedImage = mediaWarmupCache.images.get(normalizedUrl);
+  if (cachedImage) {
+    if (highPriority && cachedImage.fetchPriority !== "high") cachedImage.fetchPriority = "high";
+    return cachedImage;
+  }
   const image = new Image();
   image.decoding = "async";
   image.loading = "eager";
   image.fetchPriority = highPriority ? "high" : "auto";
   image.src = normalizedUrl;
   mediaWarmupCache.images.set(normalizedUrl, image);
+  return image;
 }
 function warmQuestionMedia(question, { highPriority = false } = {}) {
   if (!question) return;
@@ -2116,12 +2121,20 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
 
 function renderQuestionImage(imagePath, question = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
+  const warmedImage = warmImageResource(imageSrc, { highPriority: true });
   lockGameplayPageScroll();
   document.body.classList.add("image-question-active");
   syncDocumentRootStateClass("image-question-active", true);
   el.modal?.classList.add("image-question-active");
 
   const { viewport, image } = createQuestionImageZoomViewport(imageSrc);
+  viewport.classList.add("is-loading");
+  const onImageReady = () => viewport.classList.remove("is-loading");
+  image.addEventListener("load", onImageReady, { once: true });
+  image.addEventListener("error", onImageReady, { once: true });
+  if ((warmedImage && warmedImage.complete && warmedImage.naturalWidth > 0) || (image.complete && image.naturalWidth > 0)) {
+    onImageReady();
+  }
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
     image.classList.add("map-question-image");
