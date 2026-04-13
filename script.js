@@ -766,7 +766,7 @@ function updateDoubleAnswerStatus() {
   if (state.doubleAnswerAttemptsRemaining > 1) {
     el.doubleAnswerStatus.textContent = "جاوب جوابين مفعّل: لديك محاولتان";
   } else if (state.doubleAnswerAttemptsRemaining === 1) {
-    el.doubleAnswerStatus.textContent = "جاوب جوابين مفعّل: متبقية محاولة واحدة";
+    el.doubleAnswerStatus.textContent = "المحاولة الأولى خاطئة: لديك محاولة أخيرة";
   } else {
     el.doubleAnswerStatus.textContent = "";
     el.doubleAnswerStatus.classList.add("hidden");
@@ -2986,16 +2986,29 @@ async function useDoubleAnswerLifeline({ skipHostGuard = false, skipTurnGuard = 
   const question = getActiveQuestion(); const currentTeam = state.currentTeam;
   if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "doubleAnswer")) return;
   if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  const activateCurrentQuestionDoubleAnswer = () => {
+    state.doubleAnswerLifelineActive = true;
+    state.doubleAnswerAttemptsRemaining = 2;
+    el.doubleAnswerLifelineBtn.disabled = true;
+    updateDoubleAnswerStatus();
+  };
   if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    const previousActive = state.doubleAnswerLifelineActive;
+    const previousAttempts = state.doubleAnswerAttemptsRemaining;
+    activateCurrentQuestionDoubleAnswer();
     const requested = await requestHostLifelineAction({ type: "doubleAnswer" });
-    if (requested) showQuestionStatus("تم إرسال طلب جاوب جوابين...");
+    if (!requested) {
+      state.doubleAnswerLifelineActive = previousActive;
+      state.doubleAnswerAttemptsRemaining = previousAttempts;
+      updateDoubleAnswerStatus();
+      updateQuestionActionLock();
+      return;
+    }
     return;
   }
   lifelinesUsed[currentTeam].doubleAnswer = true;
-  state.doubleAnswerLifelineActive = true;
-  state.doubleAnswerAttemptsRemaining = 2;
-  el.doubleAnswerLifelineBtn.disabled = true;
-  updateDoubleAnswerStatus();
+  activateCurrentQuestionDoubleAnswer();
+  updateQuestionActionLock();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
