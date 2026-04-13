@@ -1617,6 +1617,13 @@ body.image-question-active {
   animation: answerSlideIn 320ms ease-out;
 }
 
+.double-answer-status {
+  margin: -0.2rem 0 0;
+  color: #cfe0ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .choices-box {
   background: rgba(20, 36, 79, 0.72);
   border: 1px solid rgba(93, 128, 220, 0.62);
