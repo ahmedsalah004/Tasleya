@@ -33,9 +33,9 @@ const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)
 
 function createEmptyLifelinesUsed() {
   return {
-    1: { hint: false, mcq: false },
-    2: { hint: false, mcq: false },
-    3: { hint: false, mcq: false },
+    1: { hint: false, mcq: false, doubleAnswer: false },
+    2: { hint: false, mcq: false, doubleAnswer: false },
+    3: { hint: false, mcq: false, doubleAnswer: false },
   };
 }
 
@@ -45,6 +45,7 @@ function normalizeLifelinesUsed(raw) {
     normalized[team] = {
       hint: !!raw?.[team]?.hint,
       mcq: !!raw?.[team]?.mcq,
+      doubleAnswer: !!raw?.[team]?.doubleAnswer,
     };
   }
   return normalized;
@@ -199,10 +200,12 @@ function cacheElements() {
   otherTeamBtn: document.getElementById("otherTeamBtn"),
   lifelineBtn: document.getElementById("lifelineBtn"),
   hintLifelineBtn: document.getElementById("hintLifelineBtn"),
+  doubleAnswerLifelineBtn: document.getElementById("doubleAnswerLifelineBtn"),
   choicesBox: document.getElementById("choicesBox"),
   choicesList: document.getElementById("choicesList"),
   hintBox: document.getElementById("hintBox"),
   hintText: document.getElementById("hintText"),
+  doubleAnswerStatus: document.getElementById("doubleAnswerStatus"),
   questionStatus: document.getElementById("questionStatus"),
   otherTeamSelector: document.getElementById("otherTeamSelector"),
   otherTeamChoices: document.getElementById("otherTeamChoices"),
@@ -370,6 +373,8 @@ const state = {
   answeringTeamIndex: null,
   questionTurnOwnerIndex: null,
   pendingScoreTeamIndex: null,
+  doubleAnswerLifelineActive: false,
+  doubleAnswerAttemptsRemaining: 0,
   questionResolutionLocked: false,
   resolvedQuestionSessionId: "",
 };
@@ -742,6 +747,34 @@ function showQuestionStatus(message = "") {
   el.questionStatus.classList.toggle("hidden", !message);
 }
 
+function resetDoubleAnswerLifelineState() {
+  state.doubleAnswerLifelineActive = false;
+  state.doubleAnswerAttemptsRemaining = 0;
+  if (el.doubleAnswerStatus) {
+    el.doubleAnswerStatus.textContent = "";
+    el.doubleAnswerStatus.classList.add("hidden");
+  }
+}
+
+function updateDoubleAnswerStatus() {
+  if (!el.doubleAnswerStatus) return;
+  if (!state.doubleAnswerLifelineActive) {
+    el.doubleAnswerStatus.textContent = "";
+    el.doubleAnswerStatus.classList.add("hidden");
+    return;
+  }
+  if (state.doubleAnswerAttemptsRemaining > 1) {
+    el.doubleAnswerStatus.textContent = "جاوب جوابين مفعّل: لديك محاولتان";
+  } else if (state.doubleAnswerAttemptsRemaining === 1) {
+    el.doubleAnswerStatus.textContent = "المحاولة الأولى خاطئة: لديك محاولة أخيرة";
+  } else {
+    el.doubleAnswerStatus.textContent = "";
+    el.doubleAnswerStatus.classList.add("hidden");
+    return;
+  }
+  el.doubleAnswerStatus.classList.remove("hidden");
+}
+
 function hasUnresolvedActiveQuestion() {
   const modalOpen = !el.modal?.classList.contains("hidden");
   return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeQuestion);
@@ -780,6 +813,7 @@ function updateQuestionActionLock() {
   el.otherTeamBtn.disabled = disableScoringActions || lockByReveal || soloNoOtherTeam || lockByOtherTeamSelection;
   el.lifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hasUsedLifeline(state.currentTeam, "mcq") || lockByVideo;
   el.hintLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hasUsedLifeline(state.currentTeam, "hint") || lockByVideo;
+  el.doubleAnswerLifelineBtn.disabled = disableAnsweringActions || state.answerRevealed || hasUsedLifeline(state.currentTeam, "doubleAnswer") || lockByVideo;
   updateLateOtherTeamPrompt();
   updateCloseButtonLock();
 }
@@ -1354,6 +1388,8 @@ function persistLocalProgress() {
     activeQuestionId: state.activeQuestion?.id || state.activeTile?.questionId || null,
     activeCategory: state.activeTile?.category || null,
     questionTurnOwnerIndex: state.activeTile ? Number(state.questionTurnOwnerIndex || state.answeringTeamIndex || state.currentTeam) : null,
+    doubleAnswerLifelineActive: !!state.doubleAnswerLifelineActive,
+    doubleAnswerAttemptsRemaining: Number(state.doubleAnswerAttemptsRemaining) || 0,
     modalOpen: !el.modal?.classList.contains("hidden") && !!state.activeTile,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
@@ -1394,10 +1430,12 @@ function applySavedLocalProgress(saved) {
     state.displayedScores = { ...state.scores };
     state.currentTeam = getActiveTeamNumbers().includes(Number(saved.currentTeam)) ? Number(saved.currentTeam) : 1;
     lifelinesUsed = normalizeLifelinesUsed(saved.lifelinesUsed || {
-      1: { hint: !!saved.hintHelpUsed?.[1], mcq: !!saved.mcqHelpUsed?.[1] },
-      2: { hint: !!saved.hintHelpUsed?.[2], mcq: !!saved.mcqHelpUsed?.[2] },
-      3: { hint: !!saved.hintHelpUsed?.[3], mcq: !!saved.mcqHelpUsed?.[3] },
+      1: { hint: !!saved.hintHelpUsed?.[1], mcq: !!saved.mcqHelpUsed?.[1], doubleAnswer: false },
+      2: { hint: !!saved.hintHelpUsed?.[2], mcq: !!saved.mcqHelpUsed?.[2], doubleAnswer: false },
+      3: { hint: !!saved.hintHelpUsed?.[3], mcq: !!saved.mcqHelpUsed?.[3], doubleAnswer: false },
     });
+    state.doubleAnswerLifelineActive = !!saved.doubleAnswerLifelineActive;
+    state.doubleAnswerAttemptsRemaining = Math.max(0, Number(saved.doubleAnswerAttemptsRemaining) || 0);
     state.activeQuestion = null;
     state.questionTurnOwnerIndex = null;
     state.resolvedQuestionSessionId = "";
@@ -1422,6 +1460,8 @@ function applySavedLocalProgress(saved) {
         deadlineTs: Number.isFinite(restoredDeadline) ? restoredDeadline : fallbackDeadline,
         questionId: saved.activeQuestionId,
         turnOwnerIndex: Number(saved.questionTurnOwnerIndex),
+        doubleAnswerLifelineActive: !!saved.doubleAnswerLifelineActive,
+        doubleAnswerAttemptsRemaining: Math.max(0, Number(saved.doubleAnswerAttemptsRemaining) || 0),
       });
     }
 
@@ -2105,6 +2145,7 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
     state.currentChoices = [];
     state.currentHintText = "";
     state.pendingScoreTeamIndex = null;
+    resetDoubleAnswerLifelineState();
     state.questionResolutionLocked = false;
     el.hintText.textContent = "";
     el.hintBox.classList.add("hidden");
@@ -2116,6 +2157,8 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   if (isVideoQuestion) renderQuestionVideo(question.image_url, question);
   el.lifelineBtn.disabled = hasUsedLifeline(state.currentTeam, "mcq") || (online.mode === "online" && !canCurrentClientAct());
   el.hintLifelineBtn.disabled = hasUsedLifeline(state.currentTeam, "hint") || (online.mode === "online" && !canCurrentClientAct());
+  el.doubleAnswerLifelineBtn.disabled = hasUsedLifeline(state.currentTeam, "doubleAnswer") || (online.mode === "online" && !canCurrentClientAct());
+  updateDoubleAnswerStatus();
   updateQuestionActionLock();
 }
 
@@ -2354,7 +2397,7 @@ async function requestHostScoreAction({ action, targetTeam = null } = {}) {
 async function requestHostLifelineAction({ type } = {}) {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
   const normalizedType = normalizeCell(type);
-  if (!["mcq", "hint"].includes(normalizedType)) return false;
+  if (!["mcq", "hint", "doubleAnswer"].includes(normalizedType)) return false;
   const payload = {
     id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     type: normalizedType,
@@ -2370,7 +2413,15 @@ async function requestHostLifelineAction({ type } = {}) {
   }
 }
 
-async function openQuestion(tileId, { restored = false, deadlineTs = null, questionId = "", skipTurnGuard = false, turnOwnerIndex = null } = {}) {
+async function openQuestion(tileId, {
+  restored = false,
+  deadlineTs = null,
+  questionId = "",
+  skipTurnGuard = false,
+  turnOwnerIndex = null,
+  doubleAnswerLifelineActive = false,
+  doubleAnswerAttemptsRemaining = 0,
+} = {}) {
   console.log("[Tasleya][openQuestion] entered", {
     tileId,
     restored,
@@ -2435,6 +2486,8 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
   el.hintBox.classList.add("hidden");
   el.lifelineBtn.disabled = true;
   el.hintLifelineBtn.disabled = true;
+  el.doubleAnswerLifelineBtn.disabled = true;
+  resetDoubleAnswerLifelineState();
   el.revealBtn.disabled = true;
   el.correctBtn.disabled = true;
   el.wrongBtn.disabled = true;
@@ -2497,6 +2550,11 @@ async function openQuestion(tileId, { restored = false, deadlineTs = null, quest
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
     renderQuestionContent(q);
+    if (doubleAnswerLifelineActive && Number(doubleAnswerAttemptsRemaining) > 0) {
+      state.doubleAnswerLifelineActive = true;
+      state.doubleAnswerAttemptsRemaining = Math.max(0, Number(doubleAnswerAttemptsRemaining) || 0);
+      updateDoubleAnswerStatus();
+    }
     const modalStyleAfterRender = window.getComputedStyle(el.modal);
     console.log("[Tasleya][openQuestion] question rendered", {
       hasModalElement: !!el.modal,
@@ -2689,7 +2747,7 @@ async function processPendingLifelineRequest(room, remoteGameState) {
     const requestId = normalizeCell(request?.id);
     const requestedType = normalizeCell(request?.type);
     const requestedSessionId = normalizeCell(request?.questionSessionId);
-    if (slot !== currentTeam || !requestId || !["mcq", "hint"].includes(requestedType)) return;
+    if (slot !== currentTeam || !requestId || !["mcq", "hint", "doubleAnswer"].includes(requestedType)) return;
     if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
     selectedRequest = { uid: normalizeCell(uid), requestId, type: requestedType };
   });
@@ -2704,7 +2762,11 @@ async function processPendingLifelineRequest(room, remoteGameState) {
       await useLifeline({ skipHostGuard: true, skipTurnGuard: true });
       return;
     }
-    await useHintLifeline({ skipHostGuard: true, skipTurnGuard: true });
+    if (selectedRequest.type === "hint") {
+      await useHintLifeline({ skipHostGuard: true, skipTurnGuard: true });
+      return;
+    }
+    await useDoubleAnswerLifeline({ skipHostGuard: true, skipTurnGuard: true });
   } finally {
     online.processingLifelineRequestId = "";
   }
@@ -2723,6 +2785,7 @@ function closeModal({ silentSync = false, force = false } = {}) {
   state.answeringTeamIndex = null;
   state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
+  resetDoubleAnswerLifelineState();
   state.questionResolutionLocked = false;
   state.resolvedQuestionSessionId = "";
   state.currentHintText = "";
@@ -2788,6 +2851,7 @@ function resetGameState() {
   state.answeringTeamIndex = null;
   state.questionTurnOwnerIndex = null;
   state.pendingScoreTeamIndex = null;
+  resetDoubleAnswerLifelineState();
   state.questionResolutionLocked = false;
   state.resolvedQuestionSessionId = "";
   questionBankCache.nextQuestionByTileId.clear();
@@ -2918,6 +2982,36 @@ async function useHintLifeline({ skipHostGuard = false, skipTurnGuard = false } 
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
+async function useDoubleAnswerLifeline({ skipHostGuard = false, skipTurnGuard = false } = {}) {
+  const question = getActiveQuestion(); const currentTeam = state.currentTeam;
+  if (!question || state.activeTile?.timedOut || state.videoQuestionPending || hasUsedLifeline(currentTeam, "doubleAnswer")) return;
+  if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
+  const activateCurrentQuestionDoubleAnswer = () => {
+    state.doubleAnswerLifelineActive = true;
+    state.doubleAnswerAttemptsRemaining = 2;
+    el.doubleAnswerLifelineBtn.disabled = true;
+    updateDoubleAnswerStatus();
+  };
+  if (online.mode === "online" && !skipHostGuard && !isOnlineHostClient()) {
+    const previousActive = state.doubleAnswerLifelineActive;
+    const previousAttempts = state.doubleAnswerAttemptsRemaining;
+    activateCurrentQuestionDoubleAnswer();
+    const requested = await requestHostLifelineAction({ type: "doubleAnswer" });
+    if (!requested) {
+      state.doubleAnswerLifelineActive = previousActive;
+      state.doubleAnswerAttemptsRemaining = previousAttempts;
+      updateDoubleAnswerStatus();
+      updateQuestionActionLock();
+      return;
+    }
+    return;
+  }
+  lifelinesUsed[currentTeam].doubleAnswer = true;
+  activateCurrentQuestionDoubleAnswer();
+  updateQuestionActionLock();
+  if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+}
+
 function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } = {}) {
   if (state.videoQuestionPending) return;
   if (online.mode === "online" && !skipTurnGuard && !canCurrentClientAct()) return;
@@ -2930,6 +3024,13 @@ function applyScore(isCorrect, { skipHostGuard = false, skipTurnGuard = false } 
   const questionTurnOwnerIndex = getQuestionTurnOwnerIndex();
   const answeringTeam = Number(state.answeringTeamIndex) || Number(state.currentTeam);
   if (!isCorrect) {
+    if (state.doubleAnswerLifelineActive && state.doubleAnswerAttemptsRemaining > 1) {
+      state.doubleAnswerAttemptsRemaining -= 1;
+      updateDoubleAnswerStatus();
+      if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+      return;
+    }
+    resetDoubleAnswerLifelineState();
     console.log("[Tasleya][score]", {
       questionId: normalizeCell(state.activeQuestion?.id || state.activeTile?.questionId || state.activeTile?.id),
       currentTeamIndex: state.currentTeam,
@@ -3486,6 +3587,8 @@ function serializeGameState() {
     activeQuestionId: hasActiveLifecycleQuestion ? (state.activeQuestion?.id || state.activeTile?.questionId || null) : null,
     questionSessionId: state.questionSessionId || null,
     questionTurnOwnerIndex: hasActiveLifecycleQuestion ? Number(state.questionTurnOwnerIndex || state.answeringTeamIndex || state.currentTeam) : null,
+    doubleAnswerLifelineActive: !!state.doubleAnswerLifelineActive,
+    doubleAnswerAttemptsRemaining: Number(state.doubleAnswerAttemptsRemaining) || 0,
     modalOpen: !el.modal.classList.contains("hidden") && hasActiveLifecycleQuestion,
     answerRevealed: state.answerRevealed,
     currentChoices: state.currentChoices,
@@ -3545,10 +3648,12 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     state.currentTeam = getActiveTeamNumbers().includes(Number(game.currentTeam)) ? Number(game.currentTeam) : 1;
     online.currentTurnTeam = state.currentTeam;
     lifelinesUsed = normalizeLifelinesUsed(game.lifelinesUsed || {
-      1: { hint: !!game.hintHelpUsed?.[1], mcq: !!game.mcqHelpUsed?.[1] },
-      2: { hint: !!game.hintHelpUsed?.[2], mcq: !!game.mcqHelpUsed?.[2] },
-      3: { hint: !!game.hintHelpUsed?.[3], mcq: !!game.mcqHelpUsed?.[3] },
+      1: { hint: !!game.hintHelpUsed?.[1], mcq: !!game.mcqHelpUsed?.[1], doubleAnswer: false },
+      2: { hint: !!game.hintHelpUsed?.[2], mcq: !!game.mcqHelpUsed?.[2], doubleAnswer: false },
+      3: { hint: !!game.hintHelpUsed?.[3], mcq: !!game.mcqHelpUsed?.[3], doubleAnswer: false },
     });
+    state.doubleAnswerLifelineActive = !!game.doubleAnswerLifelineActive;
+    state.doubleAnswerAttemptsRemaining = Math.max(0, Number(game.doubleAnswerAttemptsRemaining) || 0);
     const remoteAnswerRevealed = !!game.answerRevealed;
     const preserveLocalReveal = online.role === "host" && state.revealRequested && !remoteAnswerRevealed;
     state.answerRevealed = preserveLocalReveal ? true : remoteAnswerRevealed;
@@ -3630,6 +3735,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
             el.lifelineBtn.disabled = remoteTimedOut || hasUsedLifeline(state.currentTeam, "mcq") || !canCurrentClientAct();
             el.hintLifelineBtn.disabled = remoteTimedOut || hasUsedLifeline(state.currentTeam, "hint") || !canCurrentClientAct();
+            el.doubleAnswerLifelineBtn.disabled = remoteTimedOut || hasUsedLifeline(state.currentTeam, "doubleAnswer") || !canCurrentClientAct();
+            updateDoubleAnswerStatus();
             updateQuestionActionLock();
             el.modal.classList.remove("hidden");
             el.modal.classList.add("is-open");
@@ -5050,6 +5157,7 @@ function initializeApp() {
   }, "otherTeamChoices");
   bindEvent(el.lifelineBtn, "click", useLifeline, "lifelineBtn");
   bindEvent(el.hintLifelineBtn, "click", useHintLifeline, "hintLifelineBtn");
+  bindEvent(el.doubleAnswerLifelineBtn, "click", useDoubleAnswerLifeline, "doubleAnswerLifelineBtn");
   bindEvent(el.soundToggleBtn, "click", () => setMutedSound(!soundState.muted), "soundToggleBtn");
   bindEvent(el.startGameBtn, "click", startGameFromSelection, "startGameBtn");
   bindEvent(el.randomCategoriesBtn, "click", pickRandomCategories, "randomCategoriesBtn");
