@@ -123,9 +123,14 @@ html {
 #contactBtn,
 #installGuideBtn {
   position: static;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 14px 20px;
+  font-family: inherit;
   font-size: clamp(1rem, 2vw, 1.12rem);
+  line-height: 1.2;
   border-radius: 14px;
   border: 2px solid rgba(244, 206, 108, 0.88);
   cursor: pointer;
@@ -136,18 +141,12 @@ html {
   transition: all 0.3s ease;
   font-weight: bold;
   letter-spacing: 1px;
+  text-decoration: none;
   z-index: 3;
   pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
-}
-
-#gamesHubBtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
 }
 
 #startLocalBtn::before,
