@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>أفلام</title>
+    <meta name="description" content="لعبة أفلام من تسلية - نموذج أولي بواجهة تمهيدية قبل إضافة منطق اللعب الكامل." />
+    <style>
+      :root {
+        --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
+        --gold-300: #ffe8a0;
+        --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
+        --text-main: #f5f8ff;
+        --text-muted: rgba(228, 238, 255, 0.84);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Tahoma", "Arial", sans-serif;
+        color: var(--text-main);
+        background:
+          radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
+          radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
+          linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
+        padding: clamp(1rem, 3vw, 2rem);
+      }
+
+      .page-shell {
+        width: min(920px, 100%);
+        margin: 0 auto;
+      }
+
+      .top-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        text-decoration: none;
+        color: var(--gold-300);
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        background: rgba(14, 27, 67, 0.38);
+      }
+
+      h1 {
+        margin: 1rem 0 0.6rem;
+        font-size: clamp(1.8rem, 4.6vw, 2.8rem);
+        color: var(--gold-400);
+      }
+
+      .instruction {
+        margin: 0 0 1.35rem;
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      .content-grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .card {
+        border-radius: 20px;
+        border: 1px solid rgba(244, 206, 108, 0.28);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.7), rgba(7, 17, 44, 0.88));
+        box-shadow: 0 14px 30px rgba(1, 6, 20, 0.42);
+      }
+
+      .game-placeholder {
+        min-height: clamp(210px, 45vh, 340px);
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 1.2rem;
+        color: #fff1bf;
+        font-size: clamp(1.1rem, 3.2vw, 1.5rem);
+        border: 2px dashed rgba(244, 206, 108, 0.45);
+      }
+
+      .scores {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 0.8rem;
+      }
+
+      .score-item,
+      .turn-indicator {
+        padding: 0.9rem 1rem;
+        font-weight: 700;
+        color: var(--gold-300);
+      }
+
+      .turn-indicator {
+        text-align: center;
+        font-size: 1.05rem;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .top-nav:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 18px rgba(1, 7, 25, 0.32);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page-shell">
+      <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
+      <h1>أفلام</h1>
+      <p class="instruction">مثّل اسم الفيلم بدون كلام، وخلي فريقك يخمّنه قبل انتهاء الوقت.</p>
+
+      <section class="content-grid" aria-label="نموذج لعبة أفلام">
+        <div class="card game-placeholder" role="status" aria-live="polite">لعبة الأفلام قريباً</div>
+
+        <div class="scores" aria-label="نتيجة الفرق">
+          <div class="card score-item">الفريق الأول: 0</div>
+          <div class="card score-item">الفريق الثاني: 0</div>
+        </div>
+
+        <div class="card turn-indicator">دور الفريق الأول</div>
+      </section>
+    </main>
+  </body>
+</html>
