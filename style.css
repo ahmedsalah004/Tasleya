@@ -110,6 +110,7 @@ html {
 
 #startLocalBtn,
 #startOnlineBtn,
+#gamesHubBtn,
 #homeGroupOneDeviceBtn,
 #homeGroupMultiDeviceBtn,
 #homeGroupDeviceBackBtn,
@@ -142,10 +143,19 @@ html {
   white-space: nowrap;
 }
 
+#gamesHubBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 #startLocalBtn::before,
 #startLocalBtn::after,
 #startOnlineBtn::before,
 #startOnlineBtn::after,
+#gamesHubBtn::before,
+#gamesHubBtn::after,
 #homeGroupOneDeviceBtn::before,
 #homeGroupOneDeviceBtn::after,
 #homeGroupMultiDeviceBtn::before,
@@ -174,6 +184,7 @@ html {
 @media (hover: hover) and (pointer: fine) {
   #startLocalBtn:hover,
   #startOnlineBtn:hover,
+  #gamesHubBtn:hover,
   #homeGroupOneDeviceBtn:hover,
   #homeGroupMultiDeviceBtn:hover,
   #homeGroupDeviceBackBtn:hover,
@@ -636,6 +647,7 @@ html {
 
   #startLocalBtn,
   #startOnlineBtn,
+  #gamesHubBtn,
   #homeGroupOneDeviceBtn,
   #homeGroupMultiDeviceBtn,
   #homeGroupDeviceBackBtn,
@@ -668,6 +680,7 @@ html {
 
   #startLocalBtn,
   #startOnlineBtn,
+  #gamesHubBtn,
   #homeGroupOneDeviceBtn,
   #homeGroupMultiDeviceBtn,
   #homeGroupTwoTeamsBtn,
