@@ -261,34 +261,6 @@ html {
   margin-top: 0.35rem;
 }
 
-#gamesHubLink {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  text-align: center;
-  width: 100%;
-  padding: 14px 20px;
-  font-size: clamp(1rem, 2vw, 1.12rem);
-  border-radius: 14px;
-  border: 2px solid rgba(244, 206, 108, 0.88);
-  background: rgba(10, 20, 52, 0.94);
-  color: #f6d989;
-  font-weight: 700;
-  letter-spacing: 1px;
-  transition: all 0.3s ease;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  #gamesHubLink:hover {
-    background: rgba(14, 27, 67, 0.97);
-    transform: scale(1.03);
-    box-shadow:
-      0 10px 24px rgba(1, 7, 25, 0.4),
-      0 0 0 1px rgba(244, 206, 108, 0.24) inset;
-  }
-}
-
 .flow-back-button {
   border-color: rgba(255, 215, 120, 0.28);
   background: rgba(12, 20, 46, 0.32);
@@ -694,8 +666,7 @@ html {
   #discardResumeGameBtn,
   #instructionsBtn,
   #contactBtn,
-  #installGuideBtn,
-  #gamesHubLink {
+  #installGuideBtn {
     min-height: 44px;
     font-size: 0.95rem;
   }
