@@ -145,7 +145,7 @@
 
       .game {
         display: none;
-        gap: 1rem;
+        gap: 0.85rem;
       }
 
       .game.active {
@@ -155,7 +155,7 @@
 
       .top-grid {
         display: grid;
-        gap: 1rem;
+        gap: 0.8rem;
         grid-template-columns: 1fr;
       }
 
@@ -288,14 +288,22 @@
         border: 1px solid rgba(244, 206, 108, 0.25);
         background: radial-gradient(circle at 30% 10%, #113074, #091a45 64%, #071029 100%);
         overflow: hidden;
-        min-height: min(62vh, 530px);
+        aspect-ratio: 2 / 1;
+        min-height: 220px;
+        max-height: min(58vh, 530px);
       }
 
       svg {
         width: 100%;
-        height: clamp(340px, 58vh, 560px);
+        height: 100%;
         display: block;
-        touch-action: manipulation;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .map-wrapper.is-interacting {
+        cursor: grabbing;
       }
 
       .country {
@@ -430,6 +438,60 @@
       @media (max-width: 900px) {
         .score-list {
           grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 768px) {
+        body {
+          padding: 0.65rem;
+        }
+
+        .title-wrap {
+          margin: 0.7rem 0 0.85rem;
+        }
+
+        .subtitle {
+          margin-top: 0.35rem;
+          line-height: 1.45;
+        }
+
+        .setup-card {
+          margin: 0.9rem auto;
+        }
+
+        .status-card,
+        .step-card,
+        .score-card,
+        .map-card,
+        .result-card,
+        .controls-card,
+        .end-card {
+          padding: 0.8rem;
+        }
+
+        .meta-line {
+          margin-top: 0.35rem;
+          line-height: 1.5;
+        }
+
+        .map-wrapper {
+          aspect-ratio: 1.68 / 1;
+          min-height: 190px;
+          max-height: 42vh;
+        }
+
+        .zoom-controls {
+          margin-top: 0.6rem;
+          gap: 0.42rem;
+        }
+
+        .controls-card {
+          gap: 0.55rem;
+        }
+
+        .result-text {
+          margin: 0.45rem 0 0;
+          line-height: 1.6;
         }
       }
     </style>
@@ -569,7 +631,9 @@
         countryFeatures: [],
         countryByName: new Map(),
         centroids: new Map(),
-        zoom: { scale: 1, tx: 0, ty: 0 },
+        zoom: { scale: 1, panX: 0, panY: 0, minScale: 1, maxScale: 4 },
+        mapSize: { width: 1100, height: 560 },
+        drag: { active: false, pointerId: null, x: 0, y: 0 },
       };
 
       const el = {
@@ -900,21 +964,76 @@
       function updateMapTransform() {
         const group = el.mapWrapper.querySelector("#mapGroup");
         if (!group) return;
+        const { width, height } = state.mapSize;
+        const { scale } = state.zoom;
+        const maxPanX = ((width * scale) - width) / 2;
+        const maxPanY = ((height * scale) - height) / 2;
+        state.zoom.panX = Math.max(-maxPanX, Math.min(maxPanX, state.zoom.panX));
+        state.zoom.panY = Math.max(-maxPanY, Math.min(maxPanY, state.zoom.panY));
+        const baseX = (width - width * scale) / 2;
+        const baseY = (height - height * scale) / 2;
         group.setAttribute(
           "transform",
-          `translate(${state.zoom.tx}, ${state.zoom.ty}) scale(${state.zoom.scale})`
+          `translate(${baseX + state.zoom.panX}, ${baseY + state.zoom.panY}) scale(${scale})`
         );
       }
 
       function applyZoom(delta) {
-        const next = Math.max(1, Math.min(4, state.zoom.scale + delta));
+        const oldScale = state.zoom.scale;
+        const next = Math.max(state.zoom.minScale, Math.min(state.zoom.maxScale, oldScale + delta));
+        if (next === oldScale) return;
+        const ratio = next / oldScale;
         state.zoom.scale = Number(next.toFixed(2));
+        state.zoom.panX = Number((state.zoom.panX * ratio).toFixed(2));
+        state.zoom.panY = Number((state.zoom.panY * ratio).toFixed(2));
         updateMapTransform();
       }
 
       function resetZoom() {
-        state.zoom = { scale: 1, tx: 0, ty: 0 };
+        state.zoom.scale = 1;
+        state.zoom.panX = 0;
+        state.zoom.panY = 0;
         updateMapTransform();
+      }
+
+      function bindMapInteractions(svgNode) {
+        svgNode.addEventListener("pointerdown", (event) => {
+          if (state.zoom.scale <= 1) return;
+          state.drag.active = true;
+          state.drag.pointerId = event.pointerId;
+          state.drag.x = event.clientX;
+          state.drag.y = event.clientY;
+          svgNode.setPointerCapture(event.pointerId);
+          el.mapWrapper.classList.add("is-interacting");
+          event.preventDefault();
+        });
+
+        svgNode.addEventListener("pointermove", (event) => {
+          if (!state.drag.active || event.pointerId !== state.drag.pointerId) return;
+          const rect = svgNode.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const dx = event.clientX - state.drag.x;
+          const dy = event.clientY - state.drag.y;
+          const xFactor = state.mapSize.width / rect.width;
+          const yFactor = state.mapSize.height / rect.height;
+          state.zoom.panX += dx * xFactor;
+          state.zoom.panY += dy * yFactor;
+          state.drag.x = event.clientX;
+          state.drag.y = event.clientY;
+          updateMapTransform();
+          event.preventDefault();
+        });
+
+        const stopDrag = (event) => {
+          if (event.pointerId !== state.drag.pointerId) return;
+          state.drag.active = false;
+          state.drag.pointerId = null;
+          el.mapWrapper.classList.remove("is-interacting");
+        };
+
+        svgNode.addEventListener("pointerup", stopDrag);
+        svgNode.addEventListener("pointercancel", stopDrag);
+        svgNode.addEventListener("pointerleave", stopDrag);
       }
 
       async function loadMap() {
@@ -927,6 +1046,7 @@
 
           const width = 1100;
           const height = 560;
+          state.mapSize = { width, height };
 
           const svg = d3
             .create("svg")
@@ -966,7 +1086,10 @@
 
           state.countryFeatures = geojson.features;
           el.mapWrapper.innerHTML = "";
-          el.mapWrapper.appendChild(svg.node());
+          const svgNode = svg.node();
+          el.mapWrapper.appendChild(svgNode);
+          bindMapInteractions(svgNode);
+          resetZoom();
           state.mapReady = true;
           setInstruction();
           updateMapHighlights();
