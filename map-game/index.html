@@ -6,596 +6,366 @@
     <title>خمن الدولة من الخريطة</title>
     <meta
       name="description"
-      content="لعبة خمن الدولة من الخريطة - نسخة فرق (2 فرق) مع خريطة تفاعلية وجولات ونظام نقاط كامل."
+      content="لعبة خمن الدولة من الخريطة - تحدي فرق بخريطة عالم تفاعلية كبيرة مع نظام نقاط عادل."
     />
     <style>
       :root {
-        --navy-950: #040918;
-        --navy-900: #07112e;
-        --navy-850: #0d1d49;
-        --navy-800: #13295f;
-        --gold-500: #f4ce6c;
-        --gold-400: #ffd976;
-        --gold-300: #ffe9a7;
-        --text-main: #f6f8ff;
-        --text-muted: rgba(230, 238, 255, 0.82);
-        --team-1: #3da2ff;
-        --team-2: #d66cff;
-        --correct: #4ecb78;
-        --danger: #ff7283;
+        --bg: #040817;
+        --panel: rgba(10, 21, 53, 0.92);
+        --line: rgba(170, 193, 255, 0.28);
+        --text: #eef3ff;
+        --muted: rgba(220, 233, 255, 0.75);
+        --accent: #f7d675;
+        --team-1: #2d94ff;
+        --team-2: #ca5dff;
+        --correct: #35cf70;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
+      body {
+        height: 100%;
+      }
+
       body {
         margin: 0;
-        min-height: 100vh;
-        font-family: "Tahoma", "Arial", sans-serif;
-        color: var(--text-main);
+        font-family: Tahoma, Arial, sans-serif;
+        color: var(--text);
         background:
-          radial-gradient(circle at 12% 8%, rgba(255, 220, 128, 0.16), transparent 38%),
-          radial-gradient(circle at 82% 2%, rgba(74, 129, 255, 0.2), transparent 36%),
-          linear-gradient(180deg, #040916 0%, var(--navy-900) 52%, var(--navy-950) 100%);
-        padding: clamp(0.8rem, 2vw, 1.5rem);
+          radial-gradient(circle at 12% 8%, rgba(111, 142, 255, 0.18), transparent 40%),
+          radial-gradient(circle at 86% 12%, rgba(210, 109, 255, 0.14), transparent 38%),
+          linear-gradient(180deg, #030713 0%, #07122c 55%, #040817 100%);
       }
 
-      .page-shell {
-        width: min(1180px, 100%);
-        margin: 0 auto;
+      .shell {
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding: 0.55rem;
+        gap: 0.5rem;
       }
 
-      .top-nav {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45rem;
+      .back-link {
+        align-self: flex-start;
         text-decoration: none;
-        color: var(--gold-300);
-        border: 1px solid rgba(244, 206, 108, 0.55);
+        color: #ffe7a7;
+        border: 1px solid rgba(247, 214, 117, 0.55);
         border-radius: 999px;
-        padding: 0.42rem 0.92rem;
-        background: rgba(13, 31, 78, 0.44);
+        padding: 0.35rem 0.75rem;
+        background: rgba(13, 26, 63, 0.7);
+        font-size: 0.9rem;
       }
 
-      .title-wrap {
+      .setup {
+        margin: auto;
+        width: min(500px, 100%);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 1rem;
+        background: var(--panel);
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.38);
+      }
+
+      .setup h1 {
+        margin: 0;
+        color: var(--accent);
         text-align: center;
-        margin: 1rem 0 1.2rem;
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(1.7rem, 4vw, 2.7rem);
-        color: var(--gold-400);
-      }
-
-      .subtitle {
-        margin: 0.55rem auto 0;
-        max-width: 640px;
-        color: var(--text-muted);
-        line-height: 1.6;
-      }
-
-      .card {
-        border-radius: 20px;
-        border: 1px solid rgba(244, 206, 108, 0.35);
-        background: linear-gradient(180deg, rgba(20, 42, 96, 0.74), rgba(8, 20, 50, 0.9));
-        box-shadow: 0 16px 30px rgba(1, 5, 15, 0.45);
-      }
-
-      .setup-card {
-        width: min(640px, 100%);
-        margin: 1.5rem auto;
-        padding: clamp(1rem, 2vw, 1.4rem);
-      }
-
-      .setup-card h2 {
-        margin: 0;
-        color: var(--gold-400);
-      }
-
-      .setup-desc {
-        margin: 0.55rem 0 1rem;
-        color: var(--text-muted);
-        line-height: 1.6;
       }
 
       .field {
+        margin-top: 0.85rem;
         display: grid;
         gap: 0.35rem;
-        margin-top: 0.7rem;
       }
 
       .field label {
-        font-size: 0.95rem;
-        color: var(--gold-300);
+        color: var(--muted);
       }
 
       .field input {
-        width: 100%;
         height: 46px;
         border-radius: 12px;
-        border: 1px solid rgba(244, 206, 108, 0.35);
-        background: rgba(5, 13, 36, 0.9);
-        color: var(--text-main);
+        border: 1px solid var(--line);
+        background: rgba(4, 10, 27, 0.95);
+        color: var(--text);
         padding: 0 0.8rem;
         font-size: 1rem;
       }
 
       .btn {
-        appearance: none;
-        border: 1px solid rgba(244, 206, 108, 0.65);
+        border: none;
         border-radius: 12px;
-        padding: 0.67rem 1rem;
-        background: linear-gradient(180deg, #f6d67c, #e5b950);
-        color: #2d1b00;
+        padding: 0.72rem 0.95rem;
+        font-size: 1rem;
         font-weight: 800;
         cursor: pointer;
       }
 
-      .btn:disabled {
-        cursor: not-allowed;
-        opacity: 0.55;
-      }
-
-      .setup-card .btn {
+      .btn-primary {
         width: 100%;
         margin-top: 1rem;
+        background: linear-gradient(180deg, #f6d778 0%, #dfb44d 100%);
+        color: #301f00;
+      }
+
+      .btn-light {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+      }
+
+      .btn-accent {
+        background: linear-gradient(180deg, #6cf5a8 0%, #27be63 100%);
+        color: #092113;
       }
 
       .game {
         display: none;
-        gap: 0.85rem;
+        flex: 1;
+        min-height: 0;
+        gap: 0.48rem;
       }
 
       .game.active {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .scoreboard {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0.55rem;
+        background: var(--panel);
         display: grid;
-        align-content: start;
+        gap: 0.45rem;
       }
 
-      .top-grid {
+      .score-grid {
         display: grid;
-        gap: 0.8rem;
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 0.45rem;
       }
 
-      .status-card,
-      .step-card,
-      .score-card,
-      .map-card,
-      .result-card,
-      .controls-card,
-      .end-card {
-        padding: 1rem;
+      .team-pill,
+      .meta-pill {
+        border-radius: 10px;
+        padding: 0.4rem 0.58rem;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        min-height: 42px;
+        display: grid;
+        align-content: center;
       }
 
-      .target-line {
-        font-size: clamp(1.35rem, 2.8vw, 1.8rem);
-        font-weight: 800;
-        color: var(--gold-400);
+      .team-pill.team-1 {
+        border-color: rgba(45, 148, 255, 0.7);
       }
 
-      .meta-line {
-        margin-top: 0.5rem;
-        color: var(--text-muted);
-        line-height: 1.65;
+      .team-pill.team-2 {
+        border-color: rgba(202, 93, 255, 0.7);
       }
 
-      .step-card {
-        border-color: rgba(244, 206, 108, 0.48);
-        background: linear-gradient(180deg, rgba(24, 50, 112, 0.8), rgba(10, 25, 60, 0.92));
+      .meta-pill {
+        text-align: center;
+        color: var(--accent);
       }
 
-      .step-label {
-        margin: 0;
-        color: var(--gold-300);
+      .team-name {
         font-size: 0.95rem;
       }
 
-      .step-text {
-        margin: 0.45rem 0 0;
-        font-size: clamp(1.12rem, 2.3vw, 1.34rem);
+      .team-score {
+        font-size: 1.03rem;
+      }
+
+      .target {
+        text-align: center;
+        border: 1px solid rgba(247, 214, 117, 0.35);
+        border-radius: 10px;
+        padding: 0.5rem;
         font-weight: 800;
+        color: var(--accent);
       }
 
-      .difficulty-pill {
-        display: inline-flex;
-        border-radius: 999px;
-        padding: 0.2rem 0.72rem;
-        font-weight: 700;
-        border: 1px solid rgba(244, 206, 108, 0.45);
-        background: rgba(255, 217, 118, 0.1);
-      }
-
-      .score-list {
-        display: grid;
-        gap: 0.7rem;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .score-item {
-        border-radius: 14px;
-        padding: 0.7rem 0.8rem;
-        border: 1px solid rgba(244, 206, 108, 0.28);
-        background: rgba(6, 15, 40, 0.6);
-        display: flex;
-        justify-content: space-between;
-        font-weight: 700;
-        gap: 0.5rem;
-      }
-
-      .score-item.team-1 {
-        border-color: rgba(61, 162, 255, 0.75);
-        box-shadow: inset 0 0 0 1px rgba(61, 162, 255, 0.2);
-      }
-
-      .score-item.team-2 {
-        border-color: rgba(214, 108, 255, 0.75);
-        box-shadow: inset 0 0 0 1px rgba(214, 108, 255, 0.2);
-      }
-
-      .score-points {
-        color: var(--gold-300);
-        font-weight: 800;
-      }
-
-      .map-card {
+      .map-stage {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        border: 1px solid var(--line);
+        border-radius: 16px;
         overflow: hidden;
+        background:
+          radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
 
-      .instruction {
-        margin: 0 0 0.65rem;
-        color: var(--gold-300);
-        font-weight: 700;
-      }
-
-      .legend {
-        margin-top: 0.7rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-      }
-
-      .legend-item {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        font-size: 0.85rem;
-        color: var(--text-muted);
-      }
-
-      .legend-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 999px;
-      }
-
-      .legend-dot.team1 {
-        background: var(--team-1);
-      }
-
-      .legend-dot.team2 {
-        background: var(--team-2);
-      }
-
-      .legend-dot.correct {
-        background: var(--correct);
-      }
-
-      .map-wrapper {
-        width: 100%;
-        border-radius: 14px;
-        border: 1px solid rgba(244, 206, 108, 0.25);
-        background: radial-gradient(circle at 30% 10%, #113074, #091a45 64%, #071029 100%);
-        overflow: hidden;
-        aspect-ratio: 2 / 1;
-        min-height: 220px;
-        max-height: min(58vh, 530px);
-        touch-action: none;
-        overscroll-behavior: contain;
-      }
-
-      svg {
+      .map-svg {
         width: 100%;
         height: 100%;
         display: block;
         touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-      }
-
-      .map-wrapper.is-interacting {
-        cursor: grabbing;
       }
 
       .country {
-        fill: #87a4d7;
-        stroke: #0e1840;
-        stroke-width: 0.6;
-        cursor: pointer;
-        transition: fill 0.15s ease;
+        fill: #92aad8;
+        stroke: #182f62;
+        stroke-width: 0.7;
         vector-effect: non-scaling-stroke;
+        cursor: pointer;
+        transition: fill 120ms ease;
       }
 
       .country:hover {
-        fill: #acc0e6;
+        fill: #b3c3e8;
       }
 
       .country.team1 {
         fill: var(--team-1);
-        stroke: #d8f0ff;
-        stroke-width: var(--team-stroke-width, 1.35);
+        stroke: #ddf1ff;
+        stroke-width: 2.9;
+        filter: drop-shadow(0 0 6px rgba(88, 178, 255, 0.85));
       }
 
       .country.team2 {
         fill: var(--team-2);
-        stroke: #f5ddff;
-        stroke-width: var(--team-stroke-width, 1.35);
+        stroke: #ffe6ff;
+        stroke-width: 2.9;
+        filter: drop-shadow(0 0 6px rgba(210, 121, 255, 0.85));
       }
 
       .country.correct {
         fill: var(--correct);
-        stroke: #ecffe6;
-        stroke-width: var(--correct-stroke-width, 1.9);
+        stroke: #d9ffe7;
+        stroke-width: 3.4;
+        filter: drop-shadow(0 0 8px rgba(64, 222, 132, 0.95));
       }
 
-      .zoom-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 0.75rem;
-      }
-
-      .zoom-btn,
-      .action-btn,
-      .ghost-btn {
-        border-radius: 10px;
-        border: 1px solid rgba(244, 206, 108, 0.55);
-        padding: 0.5rem 0.85rem;
-        font-weight: 700;
-        cursor: pointer;
-      }
-
-      .zoom-btn,
-      .ghost-btn {
-        color: var(--gold-300);
-        background: rgba(9, 21, 54, 0.75);
-      }
-
-      .action-btn {
-        background: linear-gradient(180deg, #f7d87c, #e4b950);
-        color: #352000;
-      }
-
-      .controls-card {
-        display: grid;
-        gap: 0.7rem;
-      }
-
-      .hint-line {
-        color: var(--text-muted);
-      }
-
-      .selection-line {
-        color: var(--text-muted);
-        font-size: 0.95rem;
-      }
-
-      .controls-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.55rem;
-      }
-
-      .result-card {
-        border-color: rgba(78, 203, 120, 0.35);
-        background: linear-gradient(180deg, rgba(14, 50, 33, 0.7), rgba(8, 26, 20, 0.88));
-      }
-
-      .result-title {
-        margin: 0;
-        color: #9ef4bd;
-      }
-
-      .result-text {
-        margin: 0.6rem 0;
-        color: var(--text-main);
-        line-height: 1.8;
-      }
-
-      .danger {
-        color: var(--danger);
-      }
-
-      .end-card {
-        text-align: center;
-      }
-
-      .end-card h2 {
-        margin: 0;
-        color: var(--gold-400);
-      }
-
-      .end-actions {
-        margin-top: 1rem;
-        display: flex;
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
         justify-content: center;
-        flex-wrap: wrap;
-        gap: 0.6rem;
+        padding: 0.75rem;
+        background: rgba(2, 6, 19, 0.63);
+        backdrop-filter: blur(2px);
       }
 
-      .hidden {
-        display: none !important;
+      .overlay.active {
+        display: flex;
+      }
+
+      .popup {
+        width: min(450px, 100%);
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(9, 18, 44, 0.96);
+        padding: 1rem;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
+      }
+
+      .popup h2 {
+        margin: 0;
+        color: var(--accent);
+        font-size: 1.15rem;
+      }
+
+      .popup p {
+        margin: 0.6rem 0 0;
+        line-height: 1.65;
+      }
+
+      .popup-actions {
+        margin-top: 0.9rem;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .popup-actions .btn {
+        flex: 1;
       }
 
       .loading,
       .error {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
         text-align: center;
-        padding: 2rem 1rem;
+        padding: 1rem;
+        background: rgba(2, 8, 20, 0.9);
       }
 
-      .error {
-        color: #ffd6de;
-      }
+      @media (max-width: 840px) {
+        .shell {
+          padding: 0.4rem;
+        }
 
-      @media (max-width: 900px) {
-        .score-list {
+        .score-grid {
           grid-template-columns: 1fr;
         }
-      }
 
-      @media (max-width: 768px) {
-        body {
-          padding: 0.65rem;
-        }
-
-        .title-wrap {
-          margin: 0.7rem 0 0.85rem;
-        }
-
-        .subtitle {
-          margin-top: 0.35rem;
-          line-height: 1.45;
-        }
-
-        .setup-card {
-          margin: 0.9rem auto;
-        }
-
-        .status-card,
-        .step-card,
-        .score-card,
-        .map-card,
-        .result-card,
-        .controls-card,
-        .end-card {
-          padding: 0.8rem;
-        }
-
-        .meta-line {
-          margin-top: 0.35rem;
-          line-height: 1.5;
-        }
-
-        .map-wrapper {
-          aspect-ratio: 1.68 / 1;
-          min-height: 190px;
-          max-height: 42vh;
-        }
-
-        .zoom-controls {
-          margin-top: 0.6rem;
-          gap: 0.42rem;
-        }
-
-        .controls-card {
-          gap: 0.55rem;
-        }
-
-        .result-text {
-          margin: 0.45rem 0 0;
-          line-height: 1.6;
+        .meta-pill,
+        .team-pill {
+          text-align: center;
         }
       }
     </style>
   </head>
   <body>
-    <main class="page-shell">
-      <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
+    <main class="shell">
+      <a class="back-link" href="/games/">← العودة إلى الألعاب</a>
 
-      <div class="title-wrap">
+      <section class="setup" id="setupScreen">
         <h1>خمن الدولة من الخريطة</h1>
-        <p class="subtitle">جولة سريعة بين فريقين: اختيار أول، اختيار ثانٍ، إظهار الإجابة، ثم السؤال التالي.</p>
-      </div>
-
-      <section class="setup-card card" id="setupCard" aria-label="إعداد اللعبة">
-        <h2>إعداد الجولة</h2>
-        <p class="setup-desc">أدخل أسماء الفريقين ثم ابدأ. الجولة فيها 20 سؤالًا موزعة بعدالة (10 لكل فريق).</p>
-
         <div class="field">
           <label for="team1Name">اسم الفريق الأول</label>
-          <input id="team1Name" type="text" placeholder="الفريق الأول" maxlength="30" />
+          <input id="team1Name" type="text" maxlength="30" placeholder="الفريق الأول" />
         </div>
-
         <div class="field">
           <label for="team2Name">اسم الفريق الثاني</label>
-          <input id="team2Name" type="text" placeholder="الفريق الثاني" maxlength="30" />
+          <input id="team2Name" type="text" maxlength="30" placeholder="الفريق الثاني" />
         </div>
-
-        <button class="btn" id="startBtn" type="button">ابدأ اللعبة</button>
+        <button class="btn btn-primary" id="startBtn" type="button">ابدأ اللعبة</button>
       </section>
 
-      <section class="game" id="gameBoard" aria-live="polite">
-        <div class="top-grid">
-          <article class="step-card card">
-            <p class="step-label">الخطوة الحالية</p>
-            <p class="step-text" id="stepLine">جاري تجهيز الجولة...</p>
-          </article>
-
-          <article class="status-card card">
-            <div class="target-line" id="targetLine">الدولة المطلوبة: —</div>
-            <div class="meta-line" id="metaLine"></div>
-          </article>
-
-          <article class="score-card card">
-            <div class="score-list">
-              <div class="score-item team-1">
-                <span id="team1Label">الفريق الأول</span>
-                <span class="score-points"><span id="team1Score">0</span> نقطة</span>
-              </div>
-              <div class="score-item team-2">
-                <span id="team2Label">الفريق الثاني</span>
-                <span class="score-points"><span id="team2Score">0</span> نقطة</span>
-              </div>
+      <section class="game" id="gameScreen" aria-live="polite">
+        <header class="scoreboard">
+          <div class="score-grid">
+            <div class="team-pill team-1">
+              <span class="team-name" id="team1Label">الفريق الأول</span>
+              <span class="team-score"><span id="team1Score">0</span> نقطة</span>
             </div>
-          </article>
-        </div>
+            <div class="meta-pill" id="questionMeta">السؤال 1 من 20 — سهل — 100 نقطة</div>
+            <div class="team-pill team-2">
+              <span class="team-name" id="team2Label">الفريق الثاني</span>
+              <span class="team-score"><span id="team2Score">0</span> نقطة</span>
+            </div>
+          </div>
+          <div class="target" id="targetCountry">الدولة المطلوبة: —</div>
+        </header>
 
-        <article class="map-card card">
-          <p class="instruction" id="instructionLine">جاري تحميل الخريطة...</p>
-          <div class="map-wrapper" id="mapWrapper">
-            <div class="loading" id="mapLoading">جاري تحميل خريطة العالم التفاعلية...</div>
-          </div>
-          <div class="legend" aria-label="دليل الألوان">
-            <span class="legend-item"><span class="legend-dot team1"></span>اختيار الفريق الأول</span>
-            <span class="legend-item"><span class="legend-dot team2"></span>اختيار الفريق الثاني</span>
-            <span class="legend-item"><span class="legend-dot correct"></span>الإجابة الصحيحة</span>
-          </div>
-          <div class="zoom-controls">
-            <button class="zoom-btn" id="zoomInBtn" type="button">تكبير</button>
-            <button class="zoom-btn" id="zoomOutBtn" type="button">تصغير</button>
-            <button class="zoom-btn" id="resetZoomBtn" type="button">إعادة الضبط</button>
-          </div>
-        </article>
+        <section class="map-stage" id="mapStage">
+          <div class="loading" id="mapLoading">جاري تحميل الخريطة...</div>
 
-        <article class="controls-card card">
-          <div class="hint-line" id="pickHint">اختر الدولة الخاصة بفريقك أولًا.</div>
-          <div class="selection-line" id="selectionSummary">لم يتم اختيار أي دولة بعد.</div>
-          <div class="controls-actions">
-            <button class="action-btn" id="confirmPickBtn" type="button" disabled>تأكيد اختيار الفريق</button>
-            <button class="action-btn" id="revealBtn" type="button" disabled>إظهار الإجابة</button>
-            <button class="ghost-btn" id="nextBtn" type="button" disabled>السؤال التالي</button>
+          <div class="overlay" id="overlay">
+            <div class="popup">
+              <h2 id="overlayTitle"></h2>
+              <p id="overlayText"></p>
+              <div class="popup-actions" id="overlayActions"></div>
+            </div>
           </div>
-        </article>
-
-        <article class="result-card card hidden" id="resultCard">
-          <h3 class="result-title" id="resultTitle">نتيجة الدور</h3>
-          <p class="result-text" id="resultText"></p>
-        </article>
-
-        <article class="end-card card hidden" id="endCard">
-          <h2>انتهت الجولة</h2>
-          <p id="endSummary"></p>
-          <div class="end-actions">
-            <button class="action-btn" id="restartBtn" type="button">العب مرة أخرى</button>
-            <a class="ghost-btn" href="/games/" style="text-decoration: none">العودة إلى الألعاب</a>
-          </div>
-        </article>
+        </section>
       </section>
     </main>
 
     <script>
-      const POINTS_BY_DIFFICULTY = { easy: 100, medium: 300, hard: 500 };
+      const POINTS = { easy: 100, medium: 300, hard: 500 };
       const DIFFICULTY_AR = { easy: "سهل", medium: "متوسط", hard: "صعب" };
 
       const COUNTRY_QUESTIONS = [
@@ -623,220 +393,48 @@
 
       const state = {
         started: false,
+        questions: [],
         questionIndex: 0,
-        roundQuestions: [],
         teamNames: ["الفريق الأول", "الفريق الثاني"],
         scores: [0, 0],
-        selections: [null, null],
-        pendingSelectionName: null,
-        turnStep: "active", // active -> other -> readyReveal -> revealed
+        teamPicks: [null, null],
+        pendingPick: null,
+        phase: "team1_pick", // team1_pick | team2_pick | ready_reveal | revealed | finished
         mapReady: false,
-        countryFeatures: [],
-        countryByName: new Map(),
         centroids: new Map(),
-        zoom: { scale: 1, panX: 0, panY: 0, minScale: 1, maxScale: 4 },
-        mapSize: { width: 1100, height: 560 },
-        pointers: new Map(),
-        gesture: {
-          mode: "idle", // idle | pendingTap | pan | pinch
-          moved: false,
-          tapCandidateName: null,
-          startX: 0,
-          startY: 0,
-          panLastX: 0,
-          panLastY: 0,
-          pinchStartDistance: 0,
-          pinchStartScale: 1,
-          pinchAnchorWorld: null,
-        },
+        countryByName: new Map(),
+        zoomMoved: false,
+        moveThreshold: 7,
       };
 
       const el = {
-        setupCard: document.getElementById("setupCard"),
+        setupScreen: document.getElementById("setupScreen"),
+        gameScreen: document.getElementById("gameScreen"),
         startBtn: document.getElementById("startBtn"),
         team1Name: document.getElementById("team1Name"),
         team2Name: document.getElementById("team2Name"),
-        gameBoard: document.getElementById("gameBoard"),
-        targetLine: document.getElementById("targetLine"),
-        metaLine: document.getElementById("metaLine"),
-        stepLine: document.getElementById("stepLine"),
         team1Label: document.getElementById("team1Label"),
         team2Label: document.getElementById("team2Label"),
         team1Score: document.getElementById("team1Score"),
         team2Score: document.getElementById("team2Score"),
-        instructionLine: document.getElementById("instructionLine"),
-        mapWrapper: document.getElementById("mapWrapper"),
+        questionMeta: document.getElementById("questionMeta"),
+        targetCountry: document.getElementById("targetCountry"),
+        mapStage: document.getElementById("mapStage"),
         mapLoading: document.getElementById("mapLoading"),
-        pickHint: document.getElementById("pickHint"),
-        selectionSummary: document.getElementById("selectionSummary"),
-        confirmPickBtn: document.getElementById("confirmPickBtn"),
-        revealBtn: document.getElementById("revealBtn"),
-        nextBtn: document.getElementById("nextBtn"),
-        resultCard: document.getElementById("resultCard"),
-        resultTitle: document.getElementById("resultTitle"),
-        resultText: document.getElementById("resultText"),
-        endCard: document.getElementById("endCard"),
-        endSummary: document.getElementById("endSummary"),
-        restartBtn: document.getElementById("restartBtn"),
-        zoomInBtn: document.getElementById("zoomInBtn"),
-        zoomOutBtn: document.getElementById("zoomOutBtn"),
-        resetZoomBtn: document.getElementById("resetZoomBtn"),
+        overlay: document.getElementById("overlay"),
+        overlayTitle: document.getElementById("overlayTitle"),
+        overlayText: document.getElementById("overlayText"),
+        overlayActions: document.getElementById("overlayActions"),
       };
 
-      function shuffled(list) {
-        const cloned = [...list];
-        for (let i = cloned.length - 1; i > 0; i -= 1) {
+      const shuffle = (list) => {
+        const arr = [...list];
+        for (let i = arr.length - 1; i > 0; i -= 1) {
           const j = Math.floor(Math.random() * (i + 1));
-          [cloned[i], cloned[j]] = [cloned[j], cloned[i]];
+          [arr[i], arr[j]] = [arr[j], arr[i]];
         }
-        return cloned;
-      }
-
-      function formatCountryLabel(name) {
-        const found = COUNTRY_QUESTIONS.find((item) => item.name === name);
-        return found?.ar || name || "—";
-      }
-
-      function buildRoundQuestions() {
-        const byDifficulty = {
-          easy: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "easy")),
-          medium: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "medium")),
-          hard: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "hard")),
-        };
-
-        const pairPlan = shuffled([
-          "easy",
-          "easy",
-          "medium",
-          "medium",
-          "medium",
-          "medium",
-          "hard",
-          "hard",
-          "hard",
-          "hard",
-        ]);
-
-        const round = [];
-        pairPlan.forEach((difficulty) => {
-          round.push(byDifficulty[difficulty].shift(), byDifficulty[difficulty].shift());
-        });
-        return round;
-      }
-
-      function getCurrentQuestion() {
-        return state.roundQuestions[state.questionIndex];
-      }
-
-      function activeTeamIndex() {
-        return state.questionIndex % 2;
-      }
-
-      function otherTeamIndex() {
-        return activeTeamIndex() === 0 ? 1 : 0;
-      }
-
-      function setInstruction() {
-        if (!state.mapReady) {
-          el.instructionLine.textContent = "جاري تحميل الخريطة...";
-          el.stepLine.textContent = "جاري تحميل الخريطة";
-          return;
-        }
-        if (state.turnStep === "active") {
-          el.instructionLine.textContent = `اختر الدولة الخاصة بفريق ${state.teamNames[activeTeamIndex()]}`;
-          el.pickHint.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة.`;
-          el.stepLine.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة`;
-        } else if (state.turnStep === "other") {
-          el.instructionLine.textContent = `الآن اختر الدولة الخاصة بفريق ${state.teamNames[otherTeamIndex()]}`;
-          el.pickHint.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة.`;
-          el.stepLine.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة`;
-        } else if (state.turnStep === "readyReveal") {
-          el.instructionLine.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
-          el.pickHint.textContent = "الخطوة التالية: عرض النتيجة.";
-          el.stepLine.textContent = 'اضغط "إظهار الإجابة"';
-        } else {
-          el.instructionLine.textContent = "تم عرض النتيجة. اضغط السؤال التالي.";
-          el.pickHint.textContent = "جاهز للسؤال الجديد.";
-          el.stepLine.textContent = "السؤال التالي";
-        }
-      }
-
-      function updateSelectionSummary() {
-        if (!state.selections[0] && !state.selections[1]) {
-          el.selectionSummary.textContent = "اختر الدولة الخاصة بالفريق الحالي.";
-          return;
-        }
-        if (state.selections[0] && !state.selections[1]) {
-          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[0]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[1]}.`;
-          return;
-        }
-        if (!state.selections[0] && state.selections[1]) {
-          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[1]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[0]}.`;
-          return;
-        }
-        el.selectionSummary.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
-      }
-
-      function updateMapHighlights() {
-        if (!state.mapReady) return;
-        const nodes = el.mapWrapper.querySelectorAll(".country");
-        nodes.forEach((node) => {
-          node.classList.remove("team1", "team2", "correct");
-          const name = node.dataset.name;
-
-          if (state.selections[0]?.name === name) node.classList.add("team1");
-          if (state.selections[1]?.name === name) node.classList.add("team2");
-
-          if (state.turnStep === "revealed") {
-            const target = getCurrentQuestion();
-            if (target?.name === name) node.classList.add("correct");
-          }
-        });
-      }
-
-      function updateTopStatus() {
-        const q = getCurrentQuestion();
-        if (!q) return;
-        const qNum = state.questionIndex + 1;
-        const points = POINTS_BY_DIFFICULTY[q.difficulty];
-        const active = state.teamNames[activeTeamIndex()];
-
-        el.targetLine.textContent = `الدولة المطلوبة: ${q.ar}`;
-        el.metaLine.innerHTML = `دور فريق <strong>${active}</strong> — السؤال ${qNum} من 20 — <span class="difficulty-pill">${DIFFICULTY_AR[q.difficulty]}</span> — ${points} نقطة`;
-
-        el.team1Label.textContent = state.teamNames[0];
-        el.team2Label.textContent = state.teamNames[1];
-        el.team1Score.textContent = state.scores[0].toString();
-        el.team2Score.textContent = state.scores[1].toString();
-      }
-
-      function resetTurnState() {
-        state.selections = [null, null];
-        state.pendingSelectionName = null;
-        state.turnStep = "active";
-        el.resultCard.classList.add("hidden");
-        el.confirmPickBtn.disabled = true;
-        el.revealBtn.disabled = true;
-        el.nextBtn.disabled = true;
-        setInstruction();
-        updateSelectionSummary();
-        updateMapHighlights();
-      }
-
-      function updateTurnButtons() {
-        el.confirmPickBtn.disabled = !state.pendingSelectionName || state.turnStep === "readyReveal" || state.turnStep === "revealed";
-        el.revealBtn.disabled = state.turnStep !== "readyReveal";
-        el.nextBtn.disabled = state.turnStep !== "revealed";
-        el.confirmPickBtn.classList.toggle("hidden", state.turnStep === "readyReveal" || state.turnStep === "revealed");
-        el.revealBtn.classList.toggle("hidden", state.turnStep !== "readyReveal");
-        el.nextBtn.classList.toggle("hidden", state.turnStep !== "revealed");
-
-        if (state.turnStep === "active") {
-          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[activeTeamIndex()]}`;
-        } else if (state.turnStep === "other") {
-          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[otherTeamIndex()]}`;
-        }
-      }
+        return arr;
+      };
 
       function normalizeName(name) {
         return name
@@ -844,6 +442,67 @@
           .replace("Czechia", "Czech Republic")
           .replace("Eswatini", "Swaziland")
           .trim();
+      }
+
+      function buildQuestions() {
+        const easy = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "easy")).slice(0, 4);
+        const medium = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "medium")).slice(0, 8);
+        const hard = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "hard")).slice(0, 8);
+        return [...easy, ...medium, ...hard];
+      }
+
+      function getQuestion() {
+        return state.questions[state.questionIndex];
+      }
+
+      function currentPoints() {
+        return POINTS[getQuestion().difficulty];
+      }
+
+      function currentTeamIndex() {
+        return state.phase === "team1_pick" ? 0 : 1;
+      }
+
+      function showOverlay(title, text, actions) {
+        el.overlayTitle.textContent = title;
+        el.overlayText.textContent = text;
+        el.overlayActions.innerHTML = "";
+        actions.forEach((action) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = `btn ${action.kind || "btn-light"}`;
+          button.textContent = action.label;
+          button.addEventListener("click", action.onClick, { once: true });
+          el.overlayActions.appendChild(button);
+        });
+        el.overlay.classList.add("active");
+      }
+
+      function hideOverlay() {
+        el.overlay.classList.remove("active");
+      }
+
+      function updateHeader() {
+        const q = getQuestion();
+        el.team1Label.textContent = state.teamNames[0];
+        el.team2Label.textContent = state.teamNames[1];
+        el.team1Score.textContent = String(state.scores[0]);
+        el.team2Score.textContent = String(state.scores[1]);
+        el.questionMeta.textContent = `السؤال ${state.questionIndex + 1} من 20 — ${DIFFICULTY_AR[q.difficulty]} — ${POINTS[q.difficulty]} نقطة`;
+        el.targetCountry.textContent = `الدولة المطلوبة: ${q.ar}`;
+      }
+
+      function updateMapHighlights() {
+        if (!state.mapReady) return;
+        const countryNodes = el.mapStage.querySelectorAll(".country");
+        const target = getQuestion();
+        countryNodes.forEach((node) => {
+          const name = node.dataset.name;
+          node.classList.remove("team1", "team2", "correct");
+          if (state.teamPicks[0]?.name === name) node.classList.add("team1");
+          if (state.teamPicks[1]?.name === name) node.classList.add("team2");
+          if (state.phase === "revealed" && target.name === name) node.classList.add("correct");
+        });
       }
 
       function haversineKm(a, b) {
@@ -854,358 +513,151 @@
         const lat1 = toRad(a[1]);
         const lat2 = toRad(b[1]);
         const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-        const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
-        return R * c;
+        return R * (2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)));
       }
 
       function revealAnswer() {
-        const question = getCurrentQuestion();
-        const activeIdx = activeTeamIndex();
-        const otherIdx = otherTeamIndex();
-        const points = POINTS_BY_DIFFICULTY[question.difficulty];
-        const activePick = state.selections[activeIdx];
-        const otherPick = state.selections[otherIdx];
+        const q = getQuestion();
+        const points = POINTS[q.difficulty];
+        const half = Math.floor(points / 2);
+        const pickedCorrect = [state.teamPicks[0]?.name === q.name, state.teamPicks[1]?.name === q.name];
 
-        let title = "نتيجة السؤال";
-        let text = "";
+        let result;
 
-        if (activePick?.name === question.name) {
-          state.scores[activeIdx] += points;
-          title = `إجابة صحيحة لفريق ${state.teamNames[activeIdx]}`;
-          text = `الدولة الصحيحة: ${question.ar}. حصل فريق ${state.teamNames[activeIdx]} على ${points} نقطة كاملة.`;
-        } else if (otherPick?.name === question.name) {
-          state.scores[otherIdx] += points;
-          title = `إجابة صحيحة لفريق ${state.teamNames[otherIdx]}`;
-          text = `الدولة الصحيحة: ${question.ar}. حصل فريق ${state.teamNames[otherIdx]} على ${points} نقطة كاملة.`;
+        if (pickedCorrect[0] || pickedCorrect[1]) {
+          const winners = [];
+          if (pickedCorrect[0]) {
+            state.scores[0] += points;
+            winners.push(state.teamNames[0]);
+          }
+          if (pickedCorrect[1]) {
+            state.scores[1] += points;
+            winners.push(state.teamNames[1]);
+          }
+          result = `إجابة صحيحة لفريق ${winners.join(" و") } — +${points}`;
         } else {
-          const targetCentroid = state.centroids.get(question.name);
-          const activeCentroid = state.centroids.get(activePick?.name);
-          const otherCentroid = state.centroids.get(otherPick?.name);
-
-          if (targetCentroid && activeCentroid && otherCentroid) {
-            const distA = haversineKm(activeCentroid, targetCentroid);
-            const distB = haversineKm(otherCentroid, targetCentroid);
-            const half = Math.floor(points / 2);
-            const tolerance = 0.01;
-
-            if (Math.abs(distA - distB) <= tolerance) {
-              title = "لا نقاط في هذا السؤال";
-              text = `الدولة الصحيحة: ${question.ar}. لم يختر أي فريق الدولة الصحيحة، والاختياران متساويان تقريبًا في القرب.`;
-            } else if (distA < distB) {
-              state.scores[activeIdx] += half;
-              title = "لم يختر أي فريق الدولة الصحيحة";
-              text = `الدولة الصحيحة: ${question.ar}. أقرب اختيار كان لفريق ${state.teamNames[activeIdx]}، وحصل على نصف النقاط (${half}).`;
+          const target = state.centroids.get(q.name);
+          const c1 = state.centroids.get(state.teamPicks[0]?.name);
+          const c2 = state.centroids.get(state.teamPicks[1]?.name);
+          if (target && c1 && c2) {
+            const d1 = haversineKm(c1, target);
+            const d2 = haversineKm(c2, target);
+            const tieTolerance = 0.05;
+            if (Math.abs(d1 - d2) <= tieTolerance) {
+              result = "تعادل في القرب — لا نقاط";
+            } else if (d1 < d2) {
+              state.scores[0] += half;
+              result = `لم يختر أحد الإجابة الصحيحة. أقرب اختيار: فريق ${state.teamNames[0]} — +${half}`;
             } else {
-              state.scores[otherIdx] += half;
-              title = "لم يختر أي فريق الدولة الصحيحة";
-              text = `الدولة الصحيحة: ${question.ar}. أقرب اختيار كان لفريق ${state.teamNames[otherIdx]}، وحصل على نصف النقاط (${half}).`;
+              state.scores[1] += half;
+              result = `لم يختر أحد الإجابة الصحيحة. أقرب اختيار: فريق ${state.teamNames[1]} — +${half}`;
             }
           } else {
-            title = "لا نقاط في هذا السؤال";
-            text = `الدولة الصحيحة: ${question.ar}. تعذر حساب القرب في هذا السؤال، لذلك لا توجد نقاط.`;
+            result = "تعادل في القرب — لا نقاط";
           }
         }
 
-        state.turnStep = "revealed";
-        el.resultCard.classList.remove("hidden");
-        el.resultTitle.textContent = title;
-        el.resultText.textContent = text;
-        updateTopStatus();
-        setInstruction();
+        state.phase = "revealed";
+        updateHeader();
         updateMapHighlights();
-        updateTurnButtons();
+
+        showOverlay("نتيجة السؤال", `${result}\n\nالدولة الصحيحة: ${q.ar}`, [
+          { label: "السؤال التالي", kind: "btn-primary", onClick: goNextQuestion },
+        ]);
       }
 
-      function finishRound() {
-        const [s1, s2] = state.scores;
-        let verdict = "تعادل رائع بين الفريقين!";
-        if (s1 > s2) verdict = `الفائز: ${state.teamNames[0]}`;
-        if (s2 > s1) verdict = `الفائز: ${state.teamNames[1]}`;
+      function goNextQuestion() {
+        hideOverlay();
 
-        el.endSummary.textContent = `${verdict} | ${state.teamNames[0]}: ${s1} نقطة — ${state.teamNames[1]}: ${s2} نقطة.`;
-        el.endCard.classList.remove("hidden");
-        el.resultCard.classList.add("hidden");
-        el.revealBtn.disabled = true;
-        el.confirmPickBtn.disabled = true;
-        el.nextBtn.disabled = true;
-        el.instructionLine.textContent = "انتهت الجولة بالكامل.";
-        el.pickHint.textContent = "يمكنك إعادة اللعب أو العودة لصفحة الألعاب.";
-        el.stepLine.textContent = "انتهت الجولة";
-      }
-
-      function nextQuestion() {
         if (state.questionIndex >= 19) {
-          finishRound();
+          state.phase = "finished";
+          finishGame();
           return;
         }
+
         state.questionIndex += 1;
-        resetTurnState();
-        updateTopStatus();
-        updateTurnButtons();
+        state.phase = "team1_pick";
+        state.teamPicks = [null, null];
+        state.pendingPick = null;
+        updateHeader();
+        updateMapHighlights();
       }
 
-      function confirmCurrentPick() {
-        if (!state.pendingSelectionName) return;
+      function finishGame() {
+        const [s1, s2] = state.scores;
+        let finalLine = "تعادل رائع بين الفريقين";
+        if (s1 > s2) finalLine = `الفائز: ${state.teamNames[0]}`;
+        if (s2 > s1) finalLine = `الفائز: ${state.teamNames[1]}`;
 
-        const teamIdx = state.turnStep === "active" ? activeTeamIndex() : otherTeamIndex();
-        const q = getCurrentQuestion();
-        const pickedName = state.pendingSelectionName;
+        showOverlay(
+          "انتهت الجولة",
+          `${finalLine}\n${state.teamNames[0]}: ${s1} نقطة — ${state.teamNames[1]}: ${s2} نقطة`,
+          [
+            {
+              label: "إعادة اللعب",
+              kind: "btn-primary",
+              onClick: () => {
+                hideOverlay();
+                state.started = false;
+                el.gameScreen.classList.remove("active");
+                el.setupScreen.style.display = "block";
+              },
+            },
+            { label: "العودة للألعاب", kind: "btn-light", onClick: () => (window.location.href = "/games/") },
+          ]
+        );
+      }
 
-        state.selections[teamIdx] = {
-          name: pickedName,
-          ar: pickedName === q.name ? q.ar : formatCountryLabel(pickedName),
+      function confirmPendingPick() {
+        const q = getQuestion();
+        const teamIdx = currentTeamIndex();
+
+        state.teamPicks[teamIdx] = {
+          name: state.pendingPick,
+          isCorrect: state.pendingPick === q.name,
         };
 
-        state.pendingSelectionName = null;
+        state.pendingPick = null;
+        hideOverlay();
+        updateMapHighlights();
 
-        if (state.turnStep === "active") {
-          state.turnStep = "other";
-        } else if (state.turnStep === "other") {
-          state.turnStep = "readyReveal";
+        if (state.phase === "team1_pick") {
+          state.phase = "team2_pick";
+          return;
         }
 
-        updateSelectionSummary();
-        setInstruction();
-        updateMapHighlights();
-        updateTurnButtons();
+        state.phase = "ready_reveal";
+        showOverlay("جاهز لإظهار الإجابة", "تم تأكيد اختيار الفريقين.", [
+          { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
+        ]);
       }
 
-      function onCountryClick(name) {
-        if (state.turnStep !== "active" && state.turnStep !== "other") return;
-        state.pendingSelectionName = name;
-        updateTurnButtons();
-      }
+      function handleCountrySelection(countryName) {
+        if (!["team1_pick", "team2_pick"].includes(state.phase)) return;
 
-      function updateMapTransform() {
-        const group = el.mapWrapper.querySelector("#mapGroup");
-        const svgNode = el.mapWrapper.querySelector("svg");
-        if (!group || !svgNode) return;
-        const { width, height } = state.mapSize;
-        const { scale } = state.zoom;
-        const maxPanX = ((width * scale) - width) / 2;
-        const maxPanY = ((height * scale) - height) / 2;
-        state.zoom.panX = Math.max(-maxPanX, Math.min(maxPanX, state.zoom.panX));
-        state.zoom.panY = Math.max(-maxPanY, Math.min(maxPanY, state.zoom.panY));
-        const baseX = (width - width * scale) / 2;
-        const baseY = (height - height * scale) / 2;
-        group.setAttribute(
-          "transform",
-          `translate(${baseX + state.zoom.panX}, ${baseY + state.zoom.panY}) scale(${scale})`
-        );
-        const teamStrokeWidth = Math.min(3, 1.35 + (scale - 1) * 0.6);
-        const correctStrokeWidth = Math.min(3.6, 1.9 + (scale - 1) * 0.85);
-        svgNode.style.setProperty("--team-stroke-width", teamStrokeWidth.toFixed(2));
-        svgNode.style.setProperty("--correct-stroke-width", correctStrokeWidth.toFixed(2));
-      }
+        state.pendingPick = countryName;
+        const teamIdx = currentTeamIndex();
+        const teamName = state.teamNames[teamIdx];
 
-      function applyZoom(delta) {
-        const oldScale = state.zoom.scale;
-        const next = Math.max(state.zoom.minScale, Math.min(state.zoom.maxScale, oldScale + delta));
-        if (next === oldScale) return;
-        const ratio = next / oldScale;
-        state.zoom.scale = Number(next.toFixed(2));
-        state.zoom.panX = Number((state.zoom.panX * ratio).toFixed(2));
-        state.zoom.panY = Number((state.zoom.panY * ratio).toFixed(2));
-        updateMapTransform();
-      }
-
-      function resetZoom() {
-        state.zoom.scale = 1;
-        state.zoom.panX = 0;
-        state.zoom.panY = 0;
-        updateMapTransform();
-      }
-
-      function bindMapInteractions(svgNode) {
-        const TAP_MAX_MOVE = 12;
-        const PAN_START_MOVE = 6;
-
-        const updatePointer = (event) => {
-          if (!state.pointers.has(event.pointerId)) return;
-          state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-        };
-
-        const toSvgCoords = (clientX, clientY) => {
-          const rect = svgNode.getBoundingClientRect();
-          if (!rect.width || !rect.height) return null;
-          return {
-            x: ((clientX - rect.left) * state.mapSize.width) / rect.width,
-            y: ((clientY - rect.top) * state.mapSize.height) / rect.height,
-          };
-        };
-
-        const pointerDistance = () => {
-          const points = Array.from(state.pointers.values());
-          if (points.length < 2) return 0;
-          return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
-        };
-
-        const mapPointFromSvgPoint = (svgPoint) => {
-          const { width, height } = state.mapSize;
-          const { scale, panX, panY } = state.zoom;
-          const baseX = (width - width * scale) / 2;
-          const baseY = (height - height * scale) / 2;
-          return {
-            x: (svgPoint.x - baseX - panX) / scale,
-            y: (svgPoint.y - baseY - panY) / scale,
-          };
-        };
-
-        const setPanFromAnchor = (newScale, anchorWorld, centerSvgPoint) => {
-          const { width, height } = state.mapSize;
-          const baseX = (width - width * newScale) / 2;
-          const baseY = (height - height * newScale) / 2;
-          state.zoom.panX = centerSvgPoint.x - (anchorWorld.x * newScale + baseX);
-          state.zoom.panY = centerSvgPoint.y - (anchorWorld.y * newScale + baseY);
-          state.zoom.scale = newScale;
-          updateMapTransform();
-        };
-
-        const resetGestureState = () => {
-          if (state.pointers.size === 0) {
-            state.gesture.mode = "idle";
-            state.gesture.moved = false;
-            state.gesture.tapCandidateName = null;
-            el.mapWrapper.classList.remove("is-interacting");
-          }
-        };
-
-        svgNode.addEventListener("pointerdown", (event) => {
-          if (event.pointerType === "touch") {
-            event.preventDefault();
-          }
-          state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-          svgNode.setPointerCapture(event.pointerId);
-
-          if (state.pointers.size === 1) {
-            state.gesture.mode = "pendingTap";
-            state.gesture.moved = false;
-            state.gesture.startX = event.clientX;
-            state.gesture.startY = event.clientY;
-            state.gesture.panLastX = event.clientX;
-            state.gesture.panLastY = event.clientY;
-            state.gesture.tapCandidateName = event.target?.closest?.(".country")?.dataset?.name || null;
-            return;
-          }
-
-          if (state.pointers.size === 2) {
-            state.gesture.mode = "pinch";
-            state.gesture.moved = true;
-            state.gesture.pinchStartDistance = pointerDistance();
-            state.gesture.pinchStartScale = state.zoom.scale;
-            const points = Array.from(state.pointers.values());
-            const centerClient = {
-              x: (points[0].x + points[1].x) / 2,
-              y: (points[0].y + points[1].y) / 2,
-            };
-            const centerSvg = toSvgCoords(centerClient.x, centerClient.y);
-            if (centerSvg) {
-              state.gesture.pinchAnchorWorld = mapPointFromSvgPoint(centerSvg);
-            }
-            el.mapWrapper.classList.add("is-interacting");
-          }
-        });
-
-        svgNode.addEventListener("pointermove", (event) => {
-          updatePointer(event);
-          if (!state.pointers.has(event.pointerId)) return;
-
-          if (state.gesture.mode === "pinch" && state.pointers.size >= 2) {
-            const currentDistance = pointerDistance();
-            if (!currentDistance || !state.gesture.pinchStartDistance) return;
-            const scaleRatio = currentDistance / state.gesture.pinchStartDistance;
-            const nextScale = Math.max(
-              state.zoom.minScale,
-              Math.min(state.zoom.maxScale, state.gesture.pinchStartScale * scaleRatio)
-            );
-            const points = Array.from(state.pointers.values());
-            const centerClient = {
-              x: (points[0].x + points[1].x) / 2,
-              y: (points[0].y + points[1].y) / 2,
-            };
-            const centerSvg = toSvgCoords(centerClient.x, centerClient.y);
-            if (centerSvg && state.gesture.pinchAnchorWorld) {
-              setPanFromAnchor(nextScale, state.gesture.pinchAnchorWorld, centerSvg);
-            }
-            event.preventDefault();
-            return;
-          }
-
-          if (state.pointers.size !== 1) return;
-          const dxFromStart = event.clientX - state.gesture.startX;
-          const dyFromStart = event.clientY - state.gesture.startY;
-          const movedDistance = Math.hypot(dxFromStart, dyFromStart);
-
-          if (movedDistance > TAP_MAX_MOVE) {
-            state.gesture.moved = true;
-            state.gesture.tapCandidateName = null;
-          }
-
-          if (state.zoom.scale > 1 && movedDistance > PAN_START_MOVE) {
-            state.gesture.mode = "pan";
-          }
-
-          if (state.gesture.mode === "pan") {
-            const rect = svgNode.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            const dx = event.clientX - state.gesture.panLastX;
-            const dy = event.clientY - state.gesture.panLastY;
-            const xFactor = state.mapSize.width / rect.width;
-            const yFactor = state.mapSize.height / rect.height;
-            state.zoom.panX += dx * xFactor;
-            state.zoom.panY += dy * yFactor;
-            state.gesture.panLastX = event.clientX;
-            state.gesture.panLastY = event.clientY;
-            el.mapWrapper.classList.add("is-interacting");
-            updateMapTransform();
-            event.preventDefault();
-          }
-        });
-
-        const endPointer = (event) => {
-          const wasTapCandidate = state.gesture.mode === "pendingTap" && !state.gesture.moved;
-          state.pointers.delete(event.pointerId);
-
-          if (wasTapCandidate && state.pointers.size === 0) {
-            const targetCountry = event.target?.closest?.(".country");
-            const selectedName = targetCountry?.dataset?.name;
-            if (selectedName && selectedName === state.gesture.tapCandidateName) {
-              onCountryClick(selectedName);
-            }
-          }
-
-          if (state.gesture.mode === "pinch" && state.pointers.size === 1) {
-            const [[, point]] = state.pointers.entries();
-            state.gesture.mode = state.zoom.scale > 1 ? "pan" : "pendingTap";
-            state.gesture.startX = point.x;
-            state.gesture.startY = point.y;
-            state.gesture.panLastX = point.x;
-            state.gesture.panLastY = point.y;
-            state.gesture.moved = true;
-          }
-
-          resetGestureState();
-        };
-
-        svgNode.addEventListener("pointerup", endPointer);
-        svgNode.addEventListener("pointercancel", endPointer);
-        svgNode.addEventListener("lostpointercapture", endPointer);
+        showOverlay(`تأكيد اختيار ${teamName}`, `تم اختيار: ${countryName}\nهل تريد التأكيد؟`, [
+          { label: "تأكيد", kind: "btn-primary", onClick: confirmPendingPick },
+          { label: "تغيير الاختيار", kind: "btn-light", onClick: hideOverlay },
+        ]);
       }
 
       async function loadMap() {
         try {
           const [d3] = await Promise.all([import("https://cdn.jsdelivr.net/npm/d3@7/+esm")]);
-
           const response = await fetch("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson");
-          if (!response.ok) throw new Error("Map request failed");
+          if (!response.ok) throw new Error("Map download failed");
           const geojson = await response.json();
 
-          const width = 1100;
-          const height = 560;
-          state.mapSize = { width, height };
+          const width = 1280;
+          const height = 760;
 
           const svg = d3
             .create("svg")
+            .attr("class", "map-svg")
             .attr("viewBox", `0 0 ${width} ${height}`)
             .attr("role", "img")
             .attr("aria-label", "خريطة العالم التفاعلية");
@@ -1217,77 +669,92 @@
             ],
             geojson
           );
-          const path = d3.geoPath(projection);
 
-          const mapGroup = svg.append("g").attr("id", "mapGroup");
+          const path = d3.geoPath(projection);
+          const mapLayer = svg.append("g");
 
           geojson.features.forEach((feature) => {
-            const rawName = feature.properties.name;
-            const normalized = normalizeName(rawName);
+            const normalized = normalizeName(feature.properties.name);
             feature.properties.normalizedName = normalized;
             state.countryByName.set(normalized, feature);
-            const c = d3.geoCentroid(feature);
-            state.centroids.set(normalized, [c[0], c[1]]);
+            const centroid = d3.geoCentroid(feature);
+            state.centroids.set(normalized, [centroid[0], centroid[1]]);
           });
 
-          mapGroup
+          mapLayer
             .selectAll("path")
             .data(geojson.features)
             .enter()
             .append("path")
             .attr("class", "country")
+            .attr("data-name", (d) => d.properties.normalizedName)
             .attr("d", path)
-            .attr("data-name", (d) => d.properties.normalizedName);
+            .on("click", (event, d) => {
+              if (state.zoomMoved) return;
+              handleCountrySelection(d.properties.normalizedName);
+            });
 
-          state.countryFeatures = geojson.features;
-          el.mapWrapper.innerHTML = "";
-          const svgNode = svg.node();
-          el.mapWrapper.appendChild(svgNode);
-          bindMapInteractions(svgNode);
-          resetZoom();
+          const zoomBehavior = d3
+            .zoom()
+            .scaleExtent([1, 8])
+            .filter((event) => {
+              if (event.type === "dblclick") return false;
+              return !el.overlay.classList.contains("active");
+            })
+            .on("start", (event) => {
+              state.zoomMoved = false;
+              const source = event.sourceEvent;
+              if (source && "clientX" in source) {
+                state.zoomStartX = source.clientX;
+                state.zoomStartY = source.clientY;
+              }
+            })
+            .on("zoom", (event) => {
+              mapLayer.attr("transform", event.transform);
+              const source = event.sourceEvent;
+              if (source && "clientX" in source) {
+                const moved = Math.hypot(source.clientX - (state.zoomStartX || 0), source.clientY - (state.zoomStartY || 0));
+                if (moved > state.moveThreshold || event.transform.k !== 1) state.zoomMoved = true;
+              }
+            })
+            .on("end", () => {
+              window.setTimeout(() => {
+                state.zoomMoved = false;
+              }, 40);
+            });
+
+          svg.call(zoomBehavior);
+
+          el.mapStage.appendChild(svg.node());
+          el.mapLoading.remove();
           state.mapReady = true;
-          setInstruction();
           updateMapHighlights();
-          updateTurnButtons();
-        } catch (err) {
-          el.mapWrapper.innerHTML = '<div class="error">تعذر تحميل الخريطة التفاعلية. تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
-          el.instructionLine.textContent = "تعذر تحميل الخريطة";
-          el.stepLine.textContent = "تعذر تحميل الخريطة";
-          console.error(err);
+        } catch (error) {
+          el.mapLoading.className = "error";
+          el.mapLoading.textContent = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
+          console.error(error);
         }
       }
 
       function startGame() {
-        state.teamNames = [
-          el.team1Name.value.trim() || "الفريق الأول",
-          el.team2Name.value.trim() || "الفريق الثاني",
-        ];
+        if (!state.mapReady) return;
+
+        state.teamNames = [el.team1Name.value.trim() || "الفريق الأول", el.team2Name.value.trim() || "الفريق الثاني"];
         state.scores = [0, 0];
         state.questionIndex = 0;
-        state.roundQuestions = buildRoundQuestions();
+        state.questions = buildQuestions();
+        state.phase = "team1_pick";
+        state.teamPicks = [null, null];
+        state.pendingPick = null;
         state.started = true;
 
-        el.setupCard.classList.add("hidden");
-        el.gameBoard.classList.add("active");
-        el.endCard.classList.add("hidden");
-
-        resetTurnState();
-        updateTopStatus();
-        updateTurnButtons();
+        el.setupScreen.style.display = "none";
+        el.gameScreen.classList.add("active");
+        updateHeader();
+        updateMapHighlights();
       }
 
       el.startBtn.addEventListener("click", startGame);
-      el.confirmPickBtn.addEventListener("click", confirmCurrentPick);
-      el.revealBtn.addEventListener("click", revealAnswer);
-      el.nextBtn.addEventListener("click", nextQuestion);
-      el.restartBtn.addEventListener("click", () => {
-        el.setupCard.classList.remove("hidden");
-        el.gameBoard.classList.remove("active");
-      });
-      el.zoomInBtn.addEventListener("click", () => applyZoom(0.25));
-      el.zoomOutBtn.addEventListener("click", () => applyZoom(-0.25));
-      el.resetZoomBtn.addEventListener("click", resetZoom);
-
       loadMap();
     </script>
   </body>
