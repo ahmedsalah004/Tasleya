@@ -323,6 +323,29 @@
         margin-bottom: 0.8rem;
       }
 
+      .deck-empty {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.45);
+        background: rgba(8, 19, 50, 0.88);
+        padding: 0.8rem;
+        margin-top: 0.6rem;
+      }
+
+      .deck-empty-message {
+        margin: 0 0 0.6rem;
+        color: #fff2c3;
+        font-weight: 700;
+      }
+
+      .deck-empty-actions {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .deck-empty-actions .continue-btn {
+        margin-top: 0;
+      }
+
       @media (min-width: 640px) {
         .score-strip {
           grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -548,6 +571,14 @@
           <button id="btn-forbidden" class="action-btn forbidden" type="button">قال كلمة ممنوعة</button>
           <button id="btn-pause" class="pause-btn" type="button">إيقاف المؤقت</button>
         </div>
+
+        <div id="deck-empty-panel" class="deck-empty hidden" aria-live="polite">
+          <p class="deck-empty-message">انتهت الكلمات المتاحة لهذا الاختيار.</p>
+          <div class="deck-empty-actions">
+            <button id="btn-reshuffle" class="continue-btn" type="button">إعادة خلط الكلمات والمتابعة</button>
+            <button id="btn-end-game" class="continue-btn" type="button">إنهاء اللعبة وعرض النتائج</button>
+          </div>
+        </div>
       </section>
 
       <section id="summary-screen" class="panel hidden" aria-label="ملخص الدور">
@@ -596,7 +627,8 @@
         timerId: null,
         deck: [],
         deckIndex: 0,
-        currentCard: null
+        currentCard: null,
+        isDeckExhausted: false
       };
 
       const setupScreen = document.getElementById("setup-screen");
@@ -618,6 +650,9 @@
       const btnCorrect = document.getElementById("btn-correct");
       const btnForbidden = document.getElementById("btn-forbidden");
       const btnPause = document.getElementById("btn-pause");
+      const deckEmptyPanel = document.getElementById("deck-empty-panel");
+      const btnReshuffle = document.getElementById("btn-reshuffle");
+      const btnEndGame = document.getElementById("btn-end-game");
       const summaryTeam = document.getElementById("summary-team");
       const summaryTurnScore = document.getElementById("summary-turn-score");
       const summaryTotal = document.getElementById("summary-total");
@@ -890,7 +925,7 @@
 
       function getNextCard() {
         if (state.deckIndex >= state.deck.length) {
-          refillDeck();
+          return null;
         }
         const card = cards[state.deck[state.deckIndex]];
         state.deckIndex += 1;
@@ -955,15 +990,37 @@
         timerEl.textContent = formatTime(state.remaining);
         roundTag.textContent = `${state.roundNumber}`;
         turnTeamMeta.textContent = `${state.turnIndex + 1}`;
-        mainWord.textContent = state.currentCard.word;
         turnScoreEl.textContent = `${state.turnScore}`;
-        forbiddenList.innerHTML = "";
-        state.currentCard.forbidden.forEach((word) => {
-          const li = document.createElement("li");
-          li.textContent = word;
-          forbiddenList.appendChild(li);
-        });
+        if (state.currentCard) {
+          mainWord.textContent = state.currentCard.word;
+          forbiddenList.innerHTML = "";
+          state.currentCard.forbidden.forEach((word) => {
+            const li = document.createElement("li");
+            li.textContent = word;
+            forbiddenList.appendChild(li);
+          });
+        }
         renderScore(scoreStrip, state.turnIndex);
+      }
+
+      function setTurnActionsDisabled(disabled) {
+        btnCorrect.disabled = disabled;
+        btnForbidden.disabled = disabled;
+        btnPause.disabled = disabled;
+      }
+
+      function showDeckExhaustedPanel() {
+        stopTimer();
+        state.timerRunning = false;
+        state.isDeckExhausted = true;
+        deckEmptyPanel.classList.remove("hidden");
+        setTurnActionsDisabled(true);
+      }
+
+      function hideDeckExhaustedPanel() {
+        state.isDeckExhausted = false;
+        deckEmptyPanel.classList.add("hidden");
+        setTurnActionsDisabled(false);
       }
 
       function stopTimer() {
@@ -995,9 +1052,14 @@
         summaryScreen.classList.add("hidden");
         finalScreen.classList.add("hidden");
         turnScreen.classList.remove("hidden");
+        hideDeckExhaustedPanel();
         state.turnScore = 0;
         state.remaining = state.roundTime;
         state.currentCard = getNextCard();
+        if (!state.currentCard) {
+          showDeckExhaustedPanel();
+          return;
+        }
         state.timerRunning = true;
         btnPause.textContent = "إيقاف المؤقت";
         renderTurn();
@@ -1038,12 +1100,30 @@
       }
 
       function moveToNextCard(addPoint) {
-        if (!state.timerRunning || state.remaining <= 0) return;
+        if (!state.timerRunning || state.remaining <= 0 || state.isDeckExhausted) return;
         if (addPoint) {
           state.turnScore += 1;
         }
-        state.currentCard = getNextCard();
+        const nextCard = getNextCard();
+        if (!nextCard) {
+          showDeckExhaustedPanel();
+          renderTurn();
+          return;
+        }
+        state.currentCard = nextCard;
         renderTurn();
+      }
+
+      function endGameFromDeckExhaustion() {
+        stopTimer();
+        state.timerRunning = false;
+        if (!turnScreen.classList.contains("hidden")) {
+          turnScreen.classList.add("hidden");
+        }
+        state.scores[state.turnIndex] += state.turnScore;
+        state.turnScore = 0;
+        finalScreen.classList.remove("hidden");
+        renderFinalResults();
       }
 
       function handleNextTeam() {
@@ -1093,6 +1173,7 @@
       });
 
       btnPause.addEventListener("click", () => {
+        if (state.isDeckExhausted) return;
         state.timerRunning = !state.timerRunning;
         if (!state.timerRunning) {
           stopTimerWarningSound();
@@ -1105,6 +1186,19 @@
       nextTurnBtn.addEventListener("click", () => {
         ensureAudioReady();
         handleNextTeam();
+      });
+      btnReshuffle.addEventListener("click", () => {
+        refillDeck();
+        state.currentCard = getNextCard();
+        if (!state.currentCard) return;
+        hideDeckExhaustedPanel();
+        renderTurn();
+        state.timerRunning = true;
+        btnPause.textContent = "إيقاف المؤقت";
+        startTimer();
+      });
+      btnEndGame.addEventListener("click", () => {
+        endGameFromDeckExhaustion();
       });
       playAgainBtn.addEventListener("click", () => {
         ensureAudioReady();
