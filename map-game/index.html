@@ -475,6 +475,17 @@
       const QUESTIONS_CSV_URL =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
+      const COUNTRY_NAME_ALIASES = new Map([
+        ["United States of America", "United States"],
+        ["Russian Federation", "Russia"],
+        ["Bosnia and Herz.", "Bosnia and Herzegovina"],
+        ["Dominican Rep.", "Dominican Republic"],
+        ["Central African Rep.", "Central African Republic"],
+        ["Eq. Guinea", "Equatorial Guinea"],
+        ["S. Sudan", "South Sudan"],
+        ["eSwatini", "Eswatini"],
+        ["Côte d'Ivoire", "Ivory Coast"],
+      ]);
 
       const state = {
         started: false,
@@ -492,8 +503,8 @@
         centroids: new Map(),
         questionByCountryCode: new Map(),
         countryCodeByNormalizedName: new Map(),
-        zoomMoved: false,
-        moveThreshold: 7,
+        pointerTapThreshold: 10,
+        activePointer: null,
       };
 
       const el = {
@@ -532,11 +543,15 @@
 
       function normalizeName(name) {
         if (!name) return "";
-        return name
+        const baseName = name
           .replace(/\s*\([^)]*\)/g, "")
+          .trim();
+        const aliased = COUNTRY_NAME_ALIASES.get(baseName) || baseName;
+        return aliased
           .replace("Czechia", "Czech Republic")
           .replace("Eswatini", "Swaziland")
-          .trim();
+          .replace("Viet Nam", "Vietnam")
+          .replace("Lao PDR", "Laos");
       }
 
       function buildQuestions() {
@@ -772,6 +787,7 @@
       }
 
       function handleCountrySelection(countryCode) {
+        if (el.overlay.classList.contains("active")) return;
         if (!["active_pick", "other_response"].includes(state.phase)) return;
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
@@ -831,6 +847,33 @@
           const path = d3.geoPath(projection);
           const mapLayer = svg.append("g");
 
+          const clearActivePointer = () => {
+            state.activePointer = null;
+          };
+
+          const startPointer = (event) => {
+            if (!event.isPrimary) return;
+            if (event.pointerType === "mouse" && event.button !== 0) return;
+            const currentTransform = d3.zoomTransform(svg.node());
+            state.activePointer = {
+              pointerId: event.pointerId,
+              x: event.clientX,
+              y: event.clientY,
+              k: currentTransform.k,
+              tx: currentTransform.x,
+              ty: currentTransform.y,
+            };
+          };
+
+          const isTapPointer = (event) => {
+            if (!state.activePointer || state.activePointer.pointerId !== event.pointerId) return false;
+            const moved = Math.hypot(event.clientX - state.activePointer.x, event.clientY - state.activePointer.y);
+            const currentTransform = d3.zoomTransform(svg.node());
+            const transformMoved = Math.hypot(currentTransform.x - state.activePointer.tx, currentTransform.y - state.activePointer.ty);
+            const scaled = Math.abs(currentTransform.k - state.activePointer.k) > 0.0001;
+            return moved <= state.pointerTapThreshold && transformMoved <= state.pointerTapThreshold && !scaled;
+          };
+
           geojson.features.forEach((feature) => {
             const normalized = normalizeName(feature.properties.name);
             feature.properties.normalizedName = normalized;
@@ -846,8 +889,26 @@
             .attr("data-name", (d) => d.properties.normalizedName)
             .attr("data-country-code", (d) => d.properties.countryCode)
             .attr("d", path)
+            .attr("tabindex", 0)
+            .on("pointerdown", (event) => {
+              startPointer(event);
+            })
+            .on("pointerup", (event, d) => {
+              if (!isTapPointer(event)) {
+                clearActivePointer();
+                return;
+              }
+              clearActivePointer();
+              handleCountrySelection(d.properties.countryCode);
+            })
+            .on("pointercancel", clearActivePointer)
             .on("click", (event, d) => {
-              if (state.zoomMoved) return;
+              if (event.detail !== 0) return;
+              handleCountrySelection(d.properties.countryCode);
+            })
+            .on("keydown", (event, d) => {
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
               handleCountrySelection(d.properties.countryCode);
             });
 
@@ -858,27 +919,10 @@
               if (event.type === "dblclick") return false;
               return !el.overlay.classList.contains("active");
             })
-            .on("start", (event) => {
-              state.zoomMoved = false;
-              const source = event.sourceEvent;
-              if (source && "clientX" in source) {
-                state.zoomStartX = source.clientX;
-                state.zoomStartY = source.clientY;
-              }
-            })
             .on("zoom", (event) => {
               mapLayer.attr("transform", event.transform);
-              const source = event.sourceEvent;
-              if (source && "clientX" in source) {
-                const moved = Math.hypot(source.clientX - (state.zoomStartX || 0), source.clientY - (state.zoomStartY || 0));
-                if (moved > state.moveThreshold || event.transform.k !== 1) state.zoomMoved = true;
-              }
             })
-            .on("end", () => {
-              window.setTimeout(() => {
-                state.zoomMoved = false;
-              }, 40);
-            });
+            .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
 
