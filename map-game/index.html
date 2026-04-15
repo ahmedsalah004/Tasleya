@@ -105,10 +105,13 @@
       }
 
       .btn-primary {
-        width: 100%;
-        margin-top: 1rem;
         background: linear-gradient(180deg, #f6d778 0%, #dfb44d 100%);
         color: #301f00;
+      }
+
+      #startBtn {
+        width: 100%;
+        margin-top: 1rem;
       }
 
       .btn-light {
@@ -317,13 +320,17 @@
       .popup-actions {
         margin-top: 0.9rem;
         display: flex;
+        flex-wrap: nowrap;
+        align-items: stretch;
         gap: 0.5rem;
       }
 
       .popup-actions .btn {
-        flex: 1;
+        flex: 1 1 0;
+        min-width: 0;
         height: 48px;
         min-height: 48px;
+        padding: 0.72rem 0.75rem;
         font-size: 1rem;
         font-weight: 800;
         line-height: 1.2;
@@ -331,6 +338,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        white-space: nowrap;
       }
 
       .loading,
@@ -356,6 +364,25 @@
         .meta-pill,
         .team-pill {
           text-align: center;
+        }
+      }
+
+      @media (max-width: 420px) {
+        .popup-actions .btn {
+          height: 44px;
+          min-height: 44px;
+          padding: 0.62rem 0.58rem;
+          font-size: 0.94rem;
+          line-height: 1.15;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .popup-actions .btn {
+          height: 40px;
+          min-height: 40px;
+          padding: 0.52rem 0.44rem;
+          font-size: 0.86rem;
         }
       }
     </style>
