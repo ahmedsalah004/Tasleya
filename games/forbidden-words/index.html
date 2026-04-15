@@ -732,16 +732,27 @@
       }
 
       function finishTurn() {
+        if (!summaryScreen.classList.contains("hidden")) return;
+        if (!turnScreen.classList.contains("hidden")) {
+          turnScreen.classList.add("hidden");
+        }
         stopTimer();
         state.timerRunning = false;
+        state.remaining = 0;
+        timerEl.textContent = formatTime(0);
         state.scores[state.turnIndex] += state.turnScore;
-        turnScreen.classList.add("hidden");
         summaryScreen.classList.remove("hidden");
 
-        summaryTeam.textContent = `الفريق ${state.turnIndex + 1} أنهى دوره.`;
+        const endedTeam = state.turnIndex + 1;
+        const endedRound = state.roundNumber;
+        const finishedRound = state.turnIndex === state.teams - 1;
+
+        summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
         summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
-        summaryTotal.textContent = `إجمالي نقاط الفريق ${state.turnIndex + 1}: ${state.scores[state.turnIndex]}`;
+        summaryTotal.textContent = "إجمالي النقاط لكل فريق:";
+        nextTurnBtn.textContent = finishedRound ? "ابدأ الجولة التالية" : "دور الفريق التالي";
         renderScore(summaryBoard, state.turnIndex);
+        roundTag.textContent = `الجولة ${endedRound}`;
       }
 
       function moveToNextCard(addPoint) {
