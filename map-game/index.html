@@ -310,6 +310,7 @@
         height: 100%;
         display: block;
         touch-action: none;
+        -webkit-tap-highlight-color: transparent;
       }
 
       .country {
@@ -324,6 +325,12 @@
       .country:focus,
       .country:focus-visible {
         outline: none;
+      }
+
+      .map-svg:focus,
+      .map-svg *:focus,
+      .map-svg *:focus-visible {
+        outline: none !important;
       }
 
       .country:hover {
@@ -388,8 +395,8 @@
 
       .popup-actions {
         margin-top: 0.9rem;
-        display: flex;
-        flex-wrap: nowrap;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch;
         gap: 0.5rem;
       }
@@ -450,8 +457,8 @@
         }
 
         .scoreboard {
-          padding: 0.36rem;
-          gap: 0.28rem;
+          padding: 0.3rem;
+          gap: 0.2rem;
         }
 
         .team-pill {
@@ -499,8 +506,10 @@
           height: 44px;
           min-height: 44px;
           padding: 0.62rem 0.58rem;
-          font-size: 0.94rem;
-          line-height: 1.15;
+          font-size: 0.89rem;
+          line-height: 1.2;
+          white-space: normal;
+          text-align: center;
         }
 
         .accept-answer-btn {
@@ -595,6 +604,7 @@
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
       const SELECTION_CONFIRM_DELAY_MS = 420;
+      const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const COUNTRY_NAME_ALIASES = new Map([
         ["United States of America", "United States"],
         ["Russian Federation", "Russia"],
@@ -624,8 +634,9 @@
         centroids: new Map(),
         questionByCountryCode: new Map(),
         countryCodeByNormalizedName: new Map(),
-        pointerTapThreshold: 10,
+        pointerTapThreshold: 18,
         activePointer: null,
+        unsupportedCountriesLogged: new Set(),
       };
 
       const el = {
@@ -741,8 +752,10 @@
         el.questionDifficultyMeta.textContent = DIFFICULTY_AR[q.difficulty];
         el.questionPointsMeta.textContent = `${q.points}`;
         el.targetCountry.textContent = `الدولة المطلوبة: ${q.countryNameAr}`;
-        el.team1Card.classList.toggle("active", activeIdx === 0 && ["active_pick", "other_response"].includes(state.phase));
-        el.team2Card.classList.toggle("active", activeIdx === 1 && ["active_pick", "other_response"].includes(state.phase));
+        const currentTurnIdx = state.phase === "other_response" ? otherIdx : activeIdx;
+        const shouldShowTurnHighlight = ["active_pick", "other_response"].includes(state.phase);
+        el.team1Card.classList.toggle("active", shouldShowTurnHighlight && currentTurnIdx === 0);
+        el.team2Card.classList.toggle("active", shouldShowTurnHighlight && currentTurnIdx === 1);
 
         if (state.phase === "active_pick") {
           el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[activeIdx]}`;
@@ -931,7 +944,10 @@
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
         if (teamIdx === null) return;
-        if (!countryCode || !state.questionByCountryCode.has(countryCode)) return;
+        if (!countryCode || !state.questionByCountryCode.has(countryCode)) {
+          showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          return;
+        }
 
         if (state.phase === "other_response" && state.teamPicks[activeIdx]?.countryCode === countryCode) {
           showOverlay("تنبيه", "لا يمكن اختيار نفس دولة الفريق الآخر", [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
@@ -1011,7 +1027,52 @@
               k: currentTransform.k,
               tx: currentTransform.x,
               ty: currentTransform.y,
+              moved: false,
             };
+          };
+
+          const resolveCountryCodeFromFeature = (feature) => {
+            const properties = feature.properties || {};
+            const candidateCodes = [
+              properties.country_code,
+              properties.countryCode,
+              properties.iso_a2,
+              properties.ISO_A2,
+              properties.iso2,
+              properties.id,
+            ]
+              .filter(Boolean)
+              .map((value) => String(value).trim().toUpperCase());
+
+            const directCode = candidateCodes.find((code) => state.questionByCountryCode.has(code));
+            if (directCode) return directCode;
+
+            const normalizedName = normalizeName(properties.name || "");
+            return state.countryCodeByNormalizedName.get(normalizedName) || "";
+          };
+
+          const logUnmappedCountry = (feature) => {
+            const props = feature.properties || {};
+            const name = props.name || "(unknown)";
+            if (state.unsupportedCountriesLogged.has(name)) return;
+            state.unsupportedCountriesLogged.add(name);
+            console.warn("[MapGame] Unmapped country feature", {
+              name,
+              properties: props,
+            });
+          };
+
+          const trySelectCountryFromEvent = (event) => {
+            const targetPath = event.target?.closest?.(".country");
+            const hitPath =
+              targetPath ||
+              document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".country");
+            if (!hitPath) return;
+            const code = hitPath.dataset.countryCode || "";
+            if (!code && hitPath.__data__) {
+              logUnmappedCountry(hitPath.__data__);
+            }
+            handleCountrySelection(code);
           };
 
           const isTapPointer = (event) => {
@@ -1026,7 +1087,10 @@
           geojson.features.forEach((feature) => {
             const normalized = normalizeName(feature.properties.name);
             feature.properties.normalizedName = normalized;
-            feature.properties.countryCode = state.countryCodeByNormalizedName.get(normalized) || "";
+            feature.properties.countryCode = resolveCountryCodeFromFeature(feature);
+            if (!feature.properties.countryCode) {
+              logUnmappedCountry(feature);
+            }
           });
 
           mapLayer
@@ -1038,27 +1102,37 @@
             .attr("data-name", (d) => d.properties.normalizedName)
             .attr("data-country-code", (d) => d.properties.countryCode)
             .attr("d", path)
-            .attr("tabindex", 0)
             .on("pointerdown", (event) => {
               startPointer(event);
             })
+            .on("pointermove", (event) => {
+              if (!state.activePointer || state.activePointer.pointerId !== event.pointerId) return;
+              const moved = Math.hypot(event.clientX - state.activePointer.x, event.clientY - state.activePointer.y);
+              if (moved > state.pointerTapThreshold) state.activePointer.moved = true;
+            })
             .on("pointerup", (event, d) => {
-              if (!isTapPointer(event)) {
+              if (event.pointerType === "mouse") {
+                clearActivePointer();
+                return;
+              }
+              if (!isTapPointer(event) || state.activePointer?.moved) {
                 clearActivePointer();
                 return;
               }
               clearActivePointer();
-              handleCountrySelection(d.properties.countryCode);
+              if (!d.properties.countryCode) {
+                logUnmappedCountry(d);
+              }
+              trySelectCountryFromEvent(event);
             })
             .on("pointercancel", clearActivePointer)
             .on("click", (event, d) => {
-              if (event.detail !== 0) return;
-              handleCountrySelection(d.properties.countryCode);
-            })
-            .on("keydown", (event, d) => {
-              if (event.key !== "Enter" && event.key !== " ") return;
-              event.preventDefault();
-              handleCountrySelection(d.properties.countryCode);
+              if (event.pointerType && event.pointerType !== "mouse") return;
+              if (state.activePointer) return;
+              if (!d.properties.countryCode) {
+                logUnmappedCountry(d);
+              }
+              trySelectCountryFromEvent(event);
             });
 
           const zoomBehavior = d3
