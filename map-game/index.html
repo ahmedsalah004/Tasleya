@@ -70,10 +70,10 @@
       }
 
       .subtitle {
-        margin: 0.6rem auto 0;
-        max-width: 720px;
+        margin: 0.55rem auto 0;
+        max-width: 640px;
         color: var(--text-muted);
-        line-height: 1.8;
+        line-height: 1.6;
       }
 
       .card {
@@ -95,9 +95,9 @@
       }
 
       .setup-desc {
-        margin: 0.6rem 0 1rem;
+        margin: 0.55rem 0 1rem;
         color: var(--text-muted);
-        line-height: 1.7;
+        line-height: 1.6;
       }
 
       .field {
@@ -150,15 +150,17 @@
 
       .game.active {
         display: grid;
+        align-content: start;
       }
 
       .top-grid {
         display: grid;
         gap: 1rem;
-        grid-template-columns: 1.2fr 1fr;
+        grid-template-columns: 1fr;
       }
 
       .status-card,
+      .step-card,
       .score-card,
       .map-card,
       .result-card,
@@ -168,7 +170,7 @@
       }
 
       .target-line {
-        font-size: clamp(1.2rem, 2.7vw, 1.6rem);
+        font-size: clamp(1.35rem, 2.8vw, 1.8rem);
         font-weight: 800;
         color: var(--gold-400);
       }
@@ -176,7 +178,24 @@
       .meta-line {
         margin-top: 0.5rem;
         color: var(--text-muted);
-        line-height: 1.8;
+        line-height: 1.65;
+      }
+
+      .step-card {
+        border-color: rgba(244, 206, 108, 0.48);
+        background: linear-gradient(180deg, rgba(24, 50, 112, 0.8), rgba(10, 25, 60, 0.92));
+      }
+
+      .step-label {
+        margin: 0;
+        color: var(--gold-300);
+        font-size: 0.95rem;
+      }
+
+      .step-text {
+        margin: 0.45rem 0 0;
+        font-size: clamp(1.12rem, 2.3vw, 1.34rem);
+        font-weight: 800;
       }
 
       .difficulty-pill {
@@ -191,6 +210,7 @@
       .score-list {
         display: grid;
         gap: 0.7rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .score-item {
@@ -201,6 +221,22 @@
         display: flex;
         justify-content: space-between;
         font-weight: 700;
+        gap: 0.5rem;
+      }
+
+      .score-item.team-1 {
+        border-color: rgba(61, 162, 255, 0.75);
+        box-shadow: inset 0 0 0 1px rgba(61, 162, 255, 0.2);
+      }
+
+      .score-item.team-2 {
+        border-color: rgba(214, 108, 255, 0.75);
+        box-shadow: inset 0 0 0 1px rgba(214, 108, 255, 0.2);
+      }
+
+      .score-points {
+        color: var(--gold-300);
+        font-weight: 800;
       }
 
       .map-card {
@@ -208,8 +244,42 @@
       }
 
       .instruction {
-        margin: 0 0 0.75rem;
+        margin: 0 0 0.65rem;
+        color: var(--gold-300);
+        font-weight: 700;
+      }
+
+      .legend {
+        margin-top: 0.7rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
         color: var(--text-muted);
+      }
+
+      .legend-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+      }
+
+      .legend-dot.team1 {
+        background: var(--team-1);
+      }
+
+      .legend-dot.team2 {
+        background: var(--team-2);
+      }
+
+      .legend-dot.correct {
+        background: var(--correct);
       }
 
       .map-wrapper {
@@ -296,12 +366,19 @@
       }
 
       .selection-line {
-        color: var(--gold-300);
+        color: var(--text-muted);
         font-size: 0.95rem;
+      }
+
+      .controls-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
       }
 
       .result-card {
         border-color: rgba(78, 203, 120, 0.35);
+        background: linear-gradient(180deg, rgba(14, 50, 33, 0.7), rgba(8, 26, 20, 0.88));
       }
 
       .result-title {
@@ -351,7 +428,7 @@
       }
 
       @media (max-width: 900px) {
-        .top-grid {
+        .score-list {
           grid-template-columns: 1fr;
         }
       }
@@ -363,12 +440,12 @@
 
       <div class="title-wrap">
         <h1>خمن الدولة من الخريطة</h1>
-        <p class="subtitle">نسخة الفرق: في كل سؤال تظهر دولة مطلوبة، وكل فريق يختار دولته على الخريطة، ثم تظهر الإجابة وتُحسب النقاط.</p>
+        <p class="subtitle">جولة سريعة بين فريقين: اختيار أول، اختيار ثانٍ، إظهار الإجابة، ثم السؤال التالي.</p>
       </div>
 
       <section class="setup-card card" id="setupCard" aria-label="إعداد اللعبة">
         <h2>إعداد الجولة</h2>
-        <p class="setup-desc">الجولة تحتوي 20 سؤالًا، مع تناوب الأدوار بين فريقين (10 أسئلة لكل فريق).</p>
+        <p class="setup-desc">أدخل أسماء الفريقين ثم ابدأ. الجولة فيها 20 سؤالًا موزعة بعدالة (10 لكل فريق).</p>
 
         <div class="field">
           <label for="team1Name">اسم الفريق الأول</label>
@@ -385,6 +462,11 @@
 
       <section class="game" id="gameBoard" aria-live="polite">
         <div class="top-grid">
+          <article class="step-card card">
+            <p class="step-label">الخطوة الحالية</p>
+            <p class="step-text" id="stepLine">جاري تجهيز الجولة...</p>
+          </article>
+
           <article class="status-card card">
             <div class="target-line" id="targetLine">الدولة المطلوبة: —</div>
             <div class="meta-line" id="metaLine"></div>
@@ -392,8 +474,14 @@
 
           <article class="score-card card">
             <div class="score-list">
-              <div class="score-item"><span id="team1Label">الفريق الأول</span><span id="team1Score">0</span></div>
-              <div class="score-item"><span id="team2Label">الفريق الثاني</span><span id="team2Score">0</span></div>
+              <div class="score-item team-1">
+                <span id="team1Label">الفريق الأول</span>
+                <span class="score-points"><span id="team1Score">0</span> نقطة</span>
+              </div>
+              <div class="score-item team-2">
+                <span id="team2Label">الفريق الثاني</span>
+                <span class="score-points"><span id="team2Score">0</span> نقطة</span>
+              </div>
             </div>
           </article>
         </div>
@@ -402,6 +490,11 @@
           <p class="instruction" id="instructionLine">جاري تحميل الخريطة...</p>
           <div class="map-wrapper" id="mapWrapper">
             <div class="loading" id="mapLoading">جاري تحميل خريطة العالم التفاعلية...</div>
+          </div>
+          <div class="legend" aria-label="دليل الألوان">
+            <span class="legend-item"><span class="legend-dot team1"></span>اختيار الفريق الأول</span>
+            <span class="legend-item"><span class="legend-dot team2"></span>اختيار الفريق الثاني</span>
+            <span class="legend-item"><span class="legend-dot correct"></span>الإجابة الصحيحة</span>
           </div>
           <div class="zoom-controls">
             <button class="zoom-btn" id="zoomInBtn" type="button">تكبير</button>
@@ -413,8 +506,8 @@
         <article class="controls-card card">
           <div class="hint-line" id="pickHint">اختر الدولة الخاصة بفريقك أولًا.</div>
           <div class="selection-line" id="selectionSummary">لم يتم اختيار أي دولة بعد.</div>
-          <div>
-            <button class="action-btn" id="confirmPickBtn" type="button" disabled>تأكيد الاختيار الحالي</button>
+          <div class="controls-actions">
+            <button class="action-btn" id="confirmPickBtn" type="button" disabled>تأكيد اختيار الفريق</button>
             <button class="action-btn" id="revealBtn" type="button" disabled>إظهار الإجابة</button>
             <button class="ghost-btn" id="nextBtn" type="button" disabled>السؤال التالي</button>
           </div>
@@ -463,8 +556,6 @@
         { name: "Gabon", ar: "الغابون", difficulty: "hard" },
       ];
 
-      const EASY_SLOTS = [0, 5, 10, 15];
-
       const state = {
         started: false,
         questionIndex: 0,
@@ -489,6 +580,7 @@
         gameBoard: document.getElementById("gameBoard"),
         targetLine: document.getElementById("targetLine"),
         metaLine: document.getElementById("metaLine"),
+        stepLine: document.getElementById("stepLine"),
         team1Label: document.getElementById("team1Label"),
         team2Label: document.getElementById("team2Label"),
         team1Score: document.getElementById("team1Score"),
@@ -521,24 +613,35 @@
         return cloned;
       }
 
+      function formatCountryLabel(name) {
+        const found = COUNTRY_QUESTIONS.find((item) => item.name === name);
+        return found?.ar || name || "—";
+      }
+
       function buildRoundQuestions() {
-        const easy = shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "easy"));
-        const medium = shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "medium"));
-        const hard = shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "hard"));
+        const byDifficulty = {
+          easy: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "easy")),
+          medium: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "medium")),
+          hard: shuffled(COUNTRY_QUESTIONS.filter((q) => q.difficulty === "hard")),
+        };
 
-        const round = new Array(20);
-        EASY_SLOTS.forEach((slot, idx) => {
-          round[slot] = easy[idx];
+        const pairPlan = shuffled([
+          "easy",
+          "easy",
+          "medium",
+          "medium",
+          "medium",
+          "medium",
+          "hard",
+          "hard",
+          "hard",
+          "hard",
+        ]);
+
+        const round = [];
+        pairPlan.forEach((difficulty) => {
+          round.push(byDifficulty[difficulty].shift(), byDifficulty[difficulty].shift());
         });
-
-        const remaining = shuffled([...medium, ...hard]);
-        let ptr = 0;
-        for (let i = 0; i < round.length; i += 1) {
-          if (!round[i]) {
-            round[i] = remaining[ptr];
-            ptr += 1;
-          }
-        }
         return round;
       }
 
@@ -557,27 +660,42 @@
       function setInstruction() {
         if (!state.mapReady) {
           el.instructionLine.textContent = "جاري تحميل الخريطة...";
+          el.stepLine.textContent = "جاري تحميل الخريطة";
           return;
         }
         if (state.turnStep === "active") {
           el.instructionLine.textContent = `اختر الدولة الخاصة بفريق ${state.teamNames[activeTeamIndex()]}`;
-          el.pickHint.textContent = "اختر دولة على الخريطة ثم اضغط (تأكيد الاختيار الحالي).";
+          el.pickHint.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة.`;
+          el.stepLine.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة`;
         } else if (state.turnStep === "other") {
-          el.instructionLine.textContent = `ثم اختر الدولة الخاصة بفريق ${state.teamNames[otherTeamIndex()]}`;
-          el.pickHint.textContent = "الآن الفريق الآخر يختار دولته ثم يؤكد الاختيار.";
+          el.instructionLine.textContent = `الآن اختر الدولة الخاصة بفريق ${state.teamNames[otherTeamIndex()]}`;
+          el.pickHint.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة.`;
+          el.stepLine.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة`;
         } else if (state.turnStep === "readyReveal") {
-          el.instructionLine.textContent = "تم اختيار الدولتين. يمكنك الآن إظهار الإجابة.";
-          el.pickHint.textContent = "اضغط (إظهار الإجابة) لمعرفة الدولة الصحيحة وتوزيع النقاط.";
+          el.instructionLine.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
+          el.pickHint.textContent = "الخطوة التالية: عرض النتيجة.";
+          el.stepLine.textContent = 'اضغط "إظهار الإجابة"';
         } else {
-          el.instructionLine.textContent = "تم كشف الإجابة. راجع النتيجة ثم انتقل للسؤال التالي.";
-          el.pickHint.textContent = "اضغط (السؤال التالي) للمتابعة.";
+          el.instructionLine.textContent = "تم عرض النتيجة. اضغط السؤال التالي.";
+          el.pickHint.textContent = "جاهز للسؤال الجديد.";
+          el.stepLine.textContent = "السؤال التالي";
         }
       }
 
       function updateSelectionSummary() {
-        const pick1 = state.selections[0] ? state.selections[0].ar : "—";
-        const pick2 = state.selections[1] ? state.selections[1].ar : "—";
-        el.selectionSummary.textContent = `${state.teamNames[0]}: ${pick1} | ${state.teamNames[1]}: ${pick2}`;
+        if (!state.selections[0] && !state.selections[1]) {
+          el.selectionSummary.textContent = "اختر الدولة الخاصة بالفريق الحالي.";
+          return;
+        }
+        if (state.selections[0] && !state.selections[1]) {
+          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[0]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[1]}.`;
+          return;
+        }
+        if (!state.selections[0] && state.selections[1]) {
+          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[1]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[0]}.`;
+          return;
+        }
+        el.selectionSummary.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
       }
 
       function updateMapHighlights() {
@@ -630,6 +748,15 @@
         el.confirmPickBtn.disabled = !state.pendingSelectionName || state.turnStep === "readyReveal" || state.turnStep === "revealed";
         el.revealBtn.disabled = state.turnStep !== "readyReveal";
         el.nextBtn.disabled = state.turnStep !== "revealed";
+        el.confirmPickBtn.classList.toggle("hidden", state.turnStep === "readyReveal" || state.turnStep === "revealed");
+        el.revealBtn.classList.toggle("hidden", state.turnStep !== "readyReveal");
+        el.nextBtn.classList.toggle("hidden", state.turnStep !== "revealed");
+
+        if (state.turnStep === "active") {
+          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[activeTeamIndex()]}`;
+        } else if (state.turnStep === "other") {
+          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[otherTeamIndex()]}`;
+        }
       }
 
       function normalizeName(name) {
@@ -660,17 +787,17 @@
         const activePick = state.selections[activeIdx];
         const otherPick = state.selections[otherIdx];
 
-        let title = "نتيجة الدور";
-        let text = `الإجابة الصحيحة: ${question.ar}. `;
+        let title = "نتيجة السؤال";
+        let text = "";
 
         if (activePick?.name === question.name) {
           state.scores[activeIdx] += points;
           title = `إجابة صحيحة لفريق ${state.teamNames[activeIdx]}`;
-          text += `حصل على ${points} نقطة.`;
+          text = `الدولة الصحيحة: ${question.ar}. حصل فريق ${state.teamNames[activeIdx]} على ${points} نقطة كاملة.`;
         } else if (otherPick?.name === question.name) {
           state.scores[otherIdx] += points;
           title = `إجابة صحيحة لفريق ${state.teamNames[otherIdx]}`;
-          text += `حصل على ${points} نقطة.`;
+          text = `الدولة الصحيحة: ${question.ar}. حصل فريق ${state.teamNames[otherIdx]} على ${points} نقطة كاملة.`;
         } else {
           const targetCentroid = state.centroids.get(question.name);
           const activeCentroid = state.centroids.get(activePick?.name);
@@ -683,20 +810,20 @@
             const tolerance = 0.01;
 
             if (Math.abs(distA - distB) <= tolerance) {
-              title = "لا نقاط في هذا الدور";
-              text += "لا أحد اختار الدولة الصحيحة، والاختياران متساويان في القرب تقريبًا.";
+              title = "لا نقاط في هذا السؤال";
+              text = `الدولة الصحيحة: ${question.ar}. لم يختر أي فريق الدولة الصحيحة، والاختياران متساويان تقريبًا في القرب.`;
             } else if (distA < distB) {
               state.scores[activeIdx] += half;
-              title = `أقرب اختيار: فريق ${state.teamNames[activeIdx]}`;
-              text += `لا أحد اختار الدولة الصحيحة. حصل فريق ${state.teamNames[activeIdx]} على نصف النقاط (${half}).`;
+              title = "لم يختر أي فريق الدولة الصحيحة";
+              text = `الدولة الصحيحة: ${question.ar}. أقرب اختيار كان لفريق ${state.teamNames[activeIdx]}، وحصل على نصف النقاط (${half}).`;
             } else {
               state.scores[otherIdx] += half;
-              title = `أقرب اختيار: فريق ${state.teamNames[otherIdx]}`;
-              text += `لا أحد اختار الدولة الصحيحة. حصل فريق ${state.teamNames[otherIdx]} على نصف النقاط (${half}).`;
+              title = "لم يختر أي فريق الدولة الصحيحة";
+              text = `الدولة الصحيحة: ${question.ar}. أقرب اختيار كان لفريق ${state.teamNames[otherIdx]}، وحصل على نصف النقاط (${half}).`;
             }
           } else {
-            title = "لا نقاط في هذا الدور";
-            text += "تعذر حساب المسافة لهذه الدولة، لذلك لم تُمنح نقاط.";
+            title = "لا نقاط في هذا السؤال";
+            text = `الدولة الصحيحة: ${question.ar}. تعذر حساب القرب في هذا السؤال، لذلك لا توجد نقاط.`;
           }
         }
 
@@ -724,6 +851,7 @@
         el.nextBtn.disabled = true;
         el.instructionLine.textContent = "انتهت الجولة بالكامل.";
         el.pickHint.textContent = "يمكنك إعادة اللعب أو العودة لصفحة الألعاب.";
+        el.stepLine.textContent = "انتهت الجولة";
       }
 
       function nextQuestion() {
@@ -746,7 +874,7 @@
 
         state.selections[teamIdx] = {
           name: pickedName,
-          ar: pickedName === q.name ? q.ar : pickedName,
+          ar: pickedName === q.name ? q.ar : formatCountryLabel(pickedName),
         };
 
         state.pendingSelectionName = null;
@@ -846,6 +974,7 @@
         } catch (err) {
           el.mapWrapper.innerHTML = '<div class="error">تعذر تحميل الخريطة التفاعلية. تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
           el.instructionLine.textContent = "تعذر تحميل الخريطة";
+          el.stepLine.textContent = "تعذر تحميل الخريطة";
           console.error(err);
         }
       }
