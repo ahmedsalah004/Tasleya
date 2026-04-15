@@ -44,8 +44,8 @@
         min-height: 100dvh;
         display: flex;
         flex-direction: column;
-        padding: 0.55rem;
-        gap: 0.5rem;
+        padding: 0.48rem;
+        gap: 0.38rem;
       }
 
       .back-link {
@@ -141,27 +141,27 @@
         flex: 0 0 auto;
         border: 1px solid var(--line);
         border-radius: 14px;
-        padding: 0.55rem;
-        background: var(--panel);
+        padding: 0.46rem;
+        background: rgba(10, 21, 53, 0.9);
         display: grid;
-        gap: 0.45rem;
+        gap: 0.34rem;
       }
 
       .score-grid {
         display: grid;
-        grid-template-columns: 1fr auto 1fr;
+        grid-template-columns: 1fr 1fr;
         align-items: center;
-        gap: 0.45rem;
+        gap: 0.34rem;
       }
 
       .team-pill,
       .meta-pill {
-        border-radius: 10px;
-        padding: 0.4rem 0.58rem;
+        border-radius: 9px;
+        padding: 0.34rem 0.5rem;
         font-weight: 700;
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.12);
-        min-height: 42px;
+        min-height: 0;
         display: grid;
         align-content: center;
       }
@@ -176,49 +176,88 @@
 
       .team-pill.active {
         border-width: 2px;
-        box-shadow: 0 0 0 2px rgba(247, 214, 117, 0.45), 0 10px 20px rgba(0, 0, 0, 0.28);
+        box-shadow: 0 0 0 2px rgba(247, 214, 117, 0.45), 0 0 16px rgba(247, 214, 117, 0.33);
       }
 
-      .meta-pill {
-        text-align: center;
-        color: var(--accent);
+      .team-pill.team-1.active {
+        box-shadow: 0 0 0 2px rgba(45, 148, 255, 0.36), 0 0 14px rgba(45, 148, 255, 0.44);
+      }
+
+      .team-pill.team-2.active {
+        box-shadow: 0 0 0 2px rgba(202, 93, 255, 0.35), 0 0 14px rgba(202, 93, 255, 0.45);
       }
 
       .team-name {
-        font-size: 0.95rem;
+        font-size: 0.88rem;
+        color: var(--muted);
       }
 
       .team-score {
-        font-size: 1.03rem;
+        font-size: 1.06rem;
+      }
+
+      .question-meta-row {
+        border-radius: 9px;
+        padding: 0.32rem 0.46rem;
+        border: 1px solid rgba(247, 214, 117, 0.35);
+        background: rgba(247, 214, 117, 0.08);
+        color: #ffe8ab;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.3rem;
+        text-align: center;
+      }
+
+      .meta-pill {
+        border: none;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 0.22rem 0.3rem;
+        min-height: 0;
+      }
+
+      .meta-label {
+        display: block;
+        font-size: 0.72rem;
+        color: rgba(233, 243, 255, 0.76);
+      }
+
+      .meta-value {
+        display: block;
+        font-size: 0.84rem;
+        color: #fff1c8;
       }
 
       .target {
-        text-align: center;
+        text-align: right;
         border: 1px solid rgba(247, 214, 117, 0.35);
         border-radius: 10px;
-        padding: 0.5rem;
+        padding: 0.38rem 0.5rem;
         font-weight: 800;
         color: var(--accent);
+        line-height: 1.35;
       }
 
       .turn-panel {
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 12px;
-        padding: 0.55rem;
+        padding: 0.42rem 0.5rem;
         background: rgba(5, 12, 31, 0.85);
         display: grid;
-        gap: 0.42rem;
+        gap: 0.16rem;
       }
 
       .turn-indicator {
-        font-size: 1.02rem;
+        font-size: 0.9rem;
         font-weight: 800;
         color: #ffe9ab;
+        line-height: 1.25;
       }
 
       .turn-instruction {
         color: var(--muted);
         font-weight: 700;
+        font-size: 0.84rem;
+        line-height: 1.22;
       }
 
       .accept-answer-btn {
@@ -258,7 +297,7 @@
       .map-stage {
         position: relative;
         flex: 1;
-        min-height: 0;
+        min-height: 260px;
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
@@ -384,20 +423,78 @@
 
       @media (max-width: 840px) {
         .shell {
-          padding: 0.4rem;
+          padding: 0.35rem;
         }
 
         .score-grid {
-          grid-template-columns: 1fr;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .meta-pill,
         .team-pill {
           text-align: center;
+        }
+
+        .question-meta-row {
+          gap: 0.24rem;
         }
       }
 
       @media (max-width: 420px) {
+        .shell {
+          gap: 0.3rem;
+        }
+
+        .back-link {
+          padding: 0.26rem 0.65rem;
+          font-size: 0.82rem;
+        }
+
+        .scoreboard {
+          padding: 0.36rem;
+          gap: 0.28rem;
+        }
+
+        .team-pill {
+          padding: 0.26rem 0.38rem;
+        }
+
+        .team-name {
+          font-size: 0.81rem;
+        }
+
+        .team-score {
+          font-size: 0.96rem;
+        }
+
+        .question-meta-row {
+          padding: 0.28rem 0.32rem;
+        }
+
+        .meta-label {
+          font-size: 0.67rem;
+        }
+
+        .meta-value {
+          font-size: 0.78rem;
+        }
+
+        .target {
+          padding: 0.3rem 0.42rem;
+          font-size: 0.9rem;
+        }
+
+        .turn-panel {
+          padding: 0.34rem 0.42rem;
+        }
+
+        .turn-indicator {
+          font-size: 0.84rem;
+        }
+
+        .turn-instruction {
+          font-size: 0.78rem;
+        }
+
         .popup-actions .btn {
           height: 44px;
           min-height: 44px;
@@ -409,6 +506,10 @@
         .accept-answer-btn {
           padding: 0.76rem 0.8rem;
           font-size: 0.94rem;
+        }
+
+        .map-stage {
+          min-height: 240px;
         }
       }
 
@@ -446,10 +547,23 @@
               <span class="team-name" id="team1Label">الفريق الأول</span>
               <span class="team-score"><span id="team1Score">0</span> نقطة</span>
             </div>
-            <div class="meta-pill" id="questionMeta">السؤال 1 من 20 — سهل — 100 نقطة</div>
             <div class="team-pill team-2" id="team2Card">
               <span class="team-name" id="team2Label">الفريق الثاني</span>
               <span class="team-score"><span id="team2Score">0</span> نقطة</span>
+            </div>
+          </div>
+          <div class="question-meta-row" id="questionMeta">
+            <div class="meta-pill">
+              <span class="meta-label">السؤال</span>
+              <span class="meta-value" id="questionNumberMeta">1 من 20</span>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">الصعوبة</span>
+              <span class="meta-value" id="questionDifficultyMeta">سهل</span>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">النقاط</span>
+              <span class="meta-value" id="questionPointsMeta">100</span>
             </div>
           </div>
           <div class="target" id="targetCountry">الدولة المطلوبة: —</div>
@@ -527,6 +641,9 @@
         team1Card: document.getElementById("team1Card"),
         team2Card: document.getElementById("team2Card"),
         questionMeta: document.getElementById("questionMeta"),
+        questionNumberMeta: document.getElementById("questionNumberMeta"),
+        questionDifficultyMeta: document.getElementById("questionDifficultyMeta"),
+        questionPointsMeta: document.getElementById("questionPointsMeta"),
         targetCountry: document.getElementById("targetCountry"),
         turnIndicator: document.getElementById("turnIndicator"),
         turnInstruction: document.getElementById("turnInstruction"),
@@ -620,18 +737,20 @@
         el.team2Label.textContent = state.teamNames[1];
         el.team1Score.textContent = String(state.scores[0]);
         el.team2Score.textContent = String(state.scores[1]);
-        el.questionMeta.textContent = `السؤال ${state.questionIndex + 1} من 20 — ${DIFFICULTY_AR[q.difficulty]} — ${q.points} نقطة`;
+        el.questionNumberMeta.textContent = `${state.questionIndex + 1} من 20`;
+        el.questionDifficultyMeta.textContent = DIFFICULTY_AR[q.difficulty];
+        el.questionPointsMeta.textContent = `${q.points}`;
         el.targetCountry.textContent = `الدولة المطلوبة: ${q.countryNameAr}`;
         el.team1Card.classList.toggle("active", activeIdx === 0 && ["active_pick", "other_response"].includes(state.phase));
         el.team2Card.classList.toggle("active", activeIdx === 1 && ["active_pick", "other_response"].includes(state.phase));
 
         if (state.phase === "active_pick") {
           el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[activeIdx]}`;
-          el.turnInstruction.textContent = `اختر دولة على الخريطة لفريق ${state.teamNames[activeIdx]}`;
+          el.turnInstruction.textContent = "اختر دولة على الخريطة";
           el.acceptActiveAnswerBtn.classList.remove("show");
         } else if (state.phase === "other_response") {
-          el.turnIndicator.textContent = `الآن دور فريق ${state.teamNames[otherIdx]}`;
-          el.turnInstruction.textContent = `فريق ${state.teamNames[otherIdx]}: اختر دولة أخرى أو أكّد أن إجابة فريق ${state.teamNames[activeIdx]} صحيحة`;
+          el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[otherIdx]}`;
+          el.turnInstruction.textContent = "اختر دولة أخرى أو أكّد الإجابة";
           el.acceptActiveAnswerBtn.textContent = `إجابة فريق ${state.teamNames[activeIdx]} صحيحة`;
           el.acceptActiveAnswerBtn.classList.add("show");
         } else if (state.phase === "ready_reveal") {
