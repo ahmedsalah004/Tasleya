@@ -14,6 +14,7 @@ const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const LOCAL_PROGRESS_SCHEMA_VERSION = 2;
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
+const GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY = "tasleya_games_promo_popup_dismissed_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
 const ROOM_USED_HISTORY_FIELD = "usedQuestionIdsByCategory";
@@ -252,6 +253,9 @@ function cacheElements() {
   homeGroupTwoTeamsBtn: document.getElementById("homeGroupTwoTeamsBtn"),
   homeGroupThreeTeamsBtn: document.getElementById("homeGroupThreeTeamsBtn"),
   homeGroupTeamsBackBtn: document.getElementById("homeGroupTeamsBackBtn"),
+  gamesPromoPopup: document.getElementById("gamesPromoPopup"),
+  closeGamesPromoPopupBtn: document.getElementById("closeGamesPromoPopupBtn"),
+  gamesPromoPopupCtaBtn: document.getElementById("gamesPromoPopupCtaBtn"),
   instructionsBtn: document.getElementById("instructionsBtn"),
   instructionsModal: document.getElementById("instructionsModal"),
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
@@ -4914,6 +4918,36 @@ async function tryRestoreOnlineSession() {
   }
 }
 
+function isGamesPromoPopupDismissed() {
+  return safeStorageGet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY) === "1";
+}
+
+function dismissGamesPromoPopup() {
+  safeStorageSet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY, "1");
+  closeGamesPromoPopup();
+}
+
+function openGamesPromoPopup() {
+  if (!el.gamesPromoPopup || isGamesPromoPopupDismissed()) return;
+  el.gamesPromoPopup.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeGamesPromoPopup() {
+  if (!el.gamesPromoPopup) return;
+  el.gamesPromoPopup.classList.add("hidden");
+  document.body.style.removeProperty("overflow");
+}
+
+function maybeOpenGamesPromoPopup() {
+  if (!el.startScreen || !el.gamesPromoPopup) return;
+  if (el.startScreen.style.display === "none") return;
+  if (isGamesPromoPopupDismissed()) return;
+  window.setTimeout(() => {
+    openGamesPromoPopup();
+  }, 250);
+}
+
 
 
 function openInstructionsModal() {
@@ -5336,6 +5370,16 @@ function initializeApp() {
   bindEvent(el.homeGroupTeamsBackBtn, "click", () => {
     openHomepageGroupDeviceStep();
   }, "homeGroupTeamsBackBtn");
+  bindEvent(el.closeGamesPromoPopupBtn, "click", dismissGamesPromoPopup, "closeGamesPromoPopupBtn");
+  bindEvent(el.gamesPromoPopup, "click", (event) => {
+    if (event.target?.dataset?.popupClose === "true") {
+      dismissGamesPromoPopup();
+    }
+  }, "gamesPromoPopup");
+  bindEvent(el.gamesPromoPopupCtaBtn, "click", () => {
+    safeStorageSet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY, "1");
+    closeGamesPromoPopup();
+  }, "gamesPromoPopupCtaBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
     logAnalyticsEvent("local_game_started", { mode: "single_device_group" });
@@ -5477,6 +5521,7 @@ function initializeApp() {
   updateInstallGuideVisibility();
   updateOnlineTeamCountControls();
   updateInstallGuideContent();
+  maybeOpenGamesPromoPopup();
   maybeOpenInstructionsForFirstVisit();
   const displayModeMedia = window.matchMedia("(display-mode: standalone)");
   if (typeof displayModeMedia.addEventListener === "function") {
