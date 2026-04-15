@@ -291,6 +291,8 @@
         aspect-ratio: 2 / 1;
         min-height: 220px;
         max-height: min(58vh, 530px);
+        touch-action: none;
+        overscroll-behavior: contain;
       }
 
       svg {
@@ -312,6 +314,7 @@
         stroke-width: 0.6;
         cursor: pointer;
         transition: fill 0.15s ease;
+        vector-effect: non-scaling-stroke;
       }
 
       .country:hover {
@@ -321,19 +324,19 @@
       .country.team1 {
         fill: var(--team-1);
         stroke: #d8f0ff;
-        stroke-width: 1.2;
+        stroke-width: var(--team-stroke-width, 1.35);
       }
 
       .country.team2 {
         fill: var(--team-2);
         stroke: #f5ddff;
-        stroke-width: 1.2;
+        stroke-width: var(--team-stroke-width, 1.35);
       }
 
       .country.correct {
         fill: var(--correct);
         stroke: #ecffe6;
-        stroke-width: 1.6;
+        stroke-width: var(--correct-stroke-width, 1.9);
       }
 
       .zoom-controls {
@@ -633,7 +636,19 @@
         centroids: new Map(),
         zoom: { scale: 1, panX: 0, panY: 0, minScale: 1, maxScale: 4 },
         mapSize: { width: 1100, height: 560 },
-        drag: { active: false, pointerId: null, x: 0, y: 0 },
+        pointers: new Map(),
+        gesture: {
+          mode: "idle", // idle | pendingTap | pan | pinch
+          moved: false,
+          tapCandidateName: null,
+          startX: 0,
+          startY: 0,
+          panLastX: 0,
+          panLastY: 0,
+          pinchStartDistance: 0,
+          pinchStartScale: 1,
+          pinchAnchorWorld: null,
+        },
       };
 
       const el = {
@@ -963,7 +978,8 @@
 
       function updateMapTransform() {
         const group = el.mapWrapper.querySelector("#mapGroup");
-        if (!group) return;
+        const svgNode = el.mapWrapper.querySelector("svg");
+        if (!group || !svgNode) return;
         const { width, height } = state.mapSize;
         const { scale } = state.zoom;
         const maxPanX = ((width * scale) - width) / 2;
@@ -976,6 +992,10 @@
           "transform",
           `translate(${baseX + state.zoom.panX}, ${baseY + state.zoom.panY}) scale(${scale})`
         );
+        const teamStrokeWidth = Math.min(3, 1.35 + (scale - 1) * 0.6);
+        const correctStrokeWidth = Math.min(3.6, 1.9 + (scale - 1) * 0.85);
+        svgNode.style.setProperty("--team-stroke-width", teamStrokeWidth.toFixed(2));
+        svgNode.style.setProperty("--correct-stroke-width", correctStrokeWidth.toFixed(2));
       }
 
       function applyZoom(delta) {
@@ -997,43 +1017,179 @@
       }
 
       function bindMapInteractions(svgNode) {
+        const TAP_MAX_MOVE = 12;
+        const PAN_START_MOVE = 6;
+
+        const updatePointer = (event) => {
+          if (!state.pointers.has(event.pointerId)) return;
+          state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        };
+
+        const toSvgCoords = (clientX, clientY) => {
+          const rect = svgNode.getBoundingClientRect();
+          if (!rect.width || !rect.height) return null;
+          return {
+            x: ((clientX - rect.left) * state.mapSize.width) / rect.width,
+            y: ((clientY - rect.top) * state.mapSize.height) / rect.height,
+          };
+        };
+
+        const pointerDistance = () => {
+          const points = Array.from(state.pointers.values());
+          if (points.length < 2) return 0;
+          return Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+        };
+
+        const mapPointFromSvgPoint = (svgPoint) => {
+          const { width, height } = state.mapSize;
+          const { scale, panX, panY } = state.zoom;
+          const baseX = (width - width * scale) / 2;
+          const baseY = (height - height * scale) / 2;
+          return {
+            x: (svgPoint.x - baseX - panX) / scale,
+            y: (svgPoint.y - baseY - panY) / scale,
+          };
+        };
+
+        const setPanFromAnchor = (newScale, anchorWorld, centerSvgPoint) => {
+          const { width, height } = state.mapSize;
+          const baseX = (width - width * newScale) / 2;
+          const baseY = (height - height * newScale) / 2;
+          state.zoom.panX = centerSvgPoint.x - (anchorWorld.x * newScale + baseX);
+          state.zoom.panY = centerSvgPoint.y - (anchorWorld.y * newScale + baseY);
+          state.zoom.scale = newScale;
+          updateMapTransform();
+        };
+
+        const resetGestureState = () => {
+          if (state.pointers.size === 0) {
+            state.gesture.mode = "idle";
+            state.gesture.moved = false;
+            state.gesture.tapCandidateName = null;
+            el.mapWrapper.classList.remove("is-interacting");
+          }
+        };
+
         svgNode.addEventListener("pointerdown", (event) => {
-          if (state.zoom.scale <= 1) return;
-          state.drag.active = true;
-          state.drag.pointerId = event.pointerId;
-          state.drag.x = event.clientX;
-          state.drag.y = event.clientY;
+          if (event.pointerType === "touch") {
+            event.preventDefault();
+          }
+          state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
           svgNode.setPointerCapture(event.pointerId);
-          el.mapWrapper.classList.add("is-interacting");
-          event.preventDefault();
+
+          if (state.pointers.size === 1) {
+            state.gesture.mode = "pendingTap";
+            state.gesture.moved = false;
+            state.gesture.startX = event.clientX;
+            state.gesture.startY = event.clientY;
+            state.gesture.panLastX = event.clientX;
+            state.gesture.panLastY = event.clientY;
+            state.gesture.tapCandidateName = event.target?.closest?.(".country")?.dataset?.name || null;
+            return;
+          }
+
+          if (state.pointers.size === 2) {
+            state.gesture.mode = "pinch";
+            state.gesture.moved = true;
+            state.gesture.pinchStartDistance = pointerDistance();
+            state.gesture.pinchStartScale = state.zoom.scale;
+            const points = Array.from(state.pointers.values());
+            const centerClient = {
+              x: (points[0].x + points[1].x) / 2,
+              y: (points[0].y + points[1].y) / 2,
+            };
+            const centerSvg = toSvgCoords(centerClient.x, centerClient.y);
+            if (centerSvg) {
+              state.gesture.pinchAnchorWorld = mapPointFromSvgPoint(centerSvg);
+            }
+            el.mapWrapper.classList.add("is-interacting");
+          }
         });
 
         svgNode.addEventListener("pointermove", (event) => {
-          if (!state.drag.active || event.pointerId !== state.drag.pointerId) return;
-          const rect = svgNode.getBoundingClientRect();
-          if (!rect.width || !rect.height) return;
-          const dx = event.clientX - state.drag.x;
-          const dy = event.clientY - state.drag.y;
-          const xFactor = state.mapSize.width / rect.width;
-          const yFactor = state.mapSize.height / rect.height;
-          state.zoom.panX += dx * xFactor;
-          state.zoom.panY += dy * yFactor;
-          state.drag.x = event.clientX;
-          state.drag.y = event.clientY;
-          updateMapTransform();
-          event.preventDefault();
+          updatePointer(event);
+          if (!state.pointers.has(event.pointerId)) return;
+
+          if (state.gesture.mode === "pinch" && state.pointers.size >= 2) {
+            const currentDistance = pointerDistance();
+            if (!currentDistance || !state.gesture.pinchStartDistance) return;
+            const scaleRatio = currentDistance / state.gesture.pinchStartDistance;
+            const nextScale = Math.max(
+              state.zoom.minScale,
+              Math.min(state.zoom.maxScale, state.gesture.pinchStartScale * scaleRatio)
+            );
+            const points = Array.from(state.pointers.values());
+            const centerClient = {
+              x: (points[0].x + points[1].x) / 2,
+              y: (points[0].y + points[1].y) / 2,
+            };
+            const centerSvg = toSvgCoords(centerClient.x, centerClient.y);
+            if (centerSvg && state.gesture.pinchAnchorWorld) {
+              setPanFromAnchor(nextScale, state.gesture.pinchAnchorWorld, centerSvg);
+            }
+            event.preventDefault();
+            return;
+          }
+
+          if (state.pointers.size !== 1) return;
+          const dxFromStart = event.clientX - state.gesture.startX;
+          const dyFromStart = event.clientY - state.gesture.startY;
+          const movedDistance = Math.hypot(dxFromStart, dyFromStart);
+
+          if (movedDistance > TAP_MAX_MOVE) {
+            state.gesture.moved = true;
+            state.gesture.tapCandidateName = null;
+          }
+
+          if (state.zoom.scale > 1 && movedDistance > PAN_START_MOVE) {
+            state.gesture.mode = "pan";
+          }
+
+          if (state.gesture.mode === "pan") {
+            const rect = svgNode.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const dx = event.clientX - state.gesture.panLastX;
+            const dy = event.clientY - state.gesture.panLastY;
+            const xFactor = state.mapSize.width / rect.width;
+            const yFactor = state.mapSize.height / rect.height;
+            state.zoom.panX += dx * xFactor;
+            state.zoom.panY += dy * yFactor;
+            state.gesture.panLastX = event.clientX;
+            state.gesture.panLastY = event.clientY;
+            el.mapWrapper.classList.add("is-interacting");
+            updateMapTransform();
+            event.preventDefault();
+          }
         });
 
-        const stopDrag = (event) => {
-          if (event.pointerId !== state.drag.pointerId) return;
-          state.drag.active = false;
-          state.drag.pointerId = null;
-          el.mapWrapper.classList.remove("is-interacting");
+        const endPointer = (event) => {
+          const wasTapCandidate = state.gesture.mode === "pendingTap" && !state.gesture.moved;
+          state.pointers.delete(event.pointerId);
+
+          if (wasTapCandidate && state.pointers.size === 0) {
+            const targetCountry = event.target?.closest?.(".country");
+            const selectedName = targetCountry?.dataset?.name;
+            if (selectedName && selectedName === state.gesture.tapCandidateName) {
+              onCountryClick(selectedName);
+            }
+          }
+
+          if (state.gesture.mode === "pinch" && state.pointers.size === 1) {
+            const [[, point]] = state.pointers.entries();
+            state.gesture.mode = state.zoom.scale > 1 ? "pan" : "pendingTap";
+            state.gesture.startX = point.x;
+            state.gesture.startY = point.y;
+            state.gesture.panLastX = point.x;
+            state.gesture.panLastY = point.y;
+            state.gesture.moved = true;
+          }
+
+          resetGestureState();
         };
 
-        svgNode.addEventListener("pointerup", stopDrag);
-        svgNode.addEventListener("pointercancel", stopDrag);
-        svgNode.addEventListener("pointerleave", stopDrag);
+        svgNode.addEventListener("pointerup", endPointer);
+        svgNode.addEventListener("pointercancel", endPointer);
+        svgNode.addEventListener("lostpointercapture", endPointer);
       }
 
       async function loadMap() {
@@ -1081,8 +1237,7 @@
             .append("path")
             .attr("class", "country")
             .attr("d", path)
-            .attr("data-name", (d) => d.properties.normalizedName)
-            .on("click", (_event, d) => onCountryClick(d.properties.normalizedName));
+            .attr("data-name", (d) => d.properties.normalizedName);
 
           state.countryFeatures = geojson.features;
           el.mapWrapper.innerHTML = "";
