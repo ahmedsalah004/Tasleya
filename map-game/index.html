@@ -639,7 +639,7 @@
         const teamIdx = currentTeamIndex();
         const teamName = state.teamNames[teamIdx];
 
-        showOverlay(`تأكيد اختيار ${teamName}`, `تم اختيار: ${countryName}\nهل تريد التأكيد؟`, [
+        showOverlay(`تأكيد اختيار ${teamName}`, "هل تريد تأكيد هذه الدولة؟", [
           { label: "تأكيد", kind: "btn-primary", onClick: confirmPendingPick },
           { label: "تغيير الاختيار", kind: "btn-light", onClick: hideOverlay },
         ]);
