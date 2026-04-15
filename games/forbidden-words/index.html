@@ -536,6 +536,74 @@
       const finalBoard = document.getElementById("final-board");
       const totalBoard = document.getElementById("total-board");
       const playAgainBtn = document.getElementById("play-again");
+      const soundFiles = {
+        correct: "/assets/sounds/correct.mp3",
+        wrong: "/assets/sounds/wrong.mp3",
+        timerWarning: "/assets/sounds/timer-warning.mp3"
+      };
+      const audioState = {
+        unlocked: false,
+        enabled: true,
+        timerWarningPlaying: false,
+        timerWarning: null
+      };
+
+      function stopTimerWarningSound() {
+        if (!audioState.timerWarning) return;
+        audioState.timerWarning.pause();
+        audioState.timerWarning.currentTime = 0;
+        audioState.timerWarningPlaying = false;
+      }
+
+      function disableAudio() {
+        audioState.enabled = false;
+        stopTimerWarningSound();
+        audioState.timerWarning = null;
+      }
+
+      function safePlayAudio(audio) {
+        if (!audio || !audioState.enabled) return;
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
+      }
+
+      function ensureAudioReady() {
+        if (audioState.unlocked || !audioState.enabled) return;
+        try {
+          audioState.timerWarning = new Audio(soundFiles.timerWarning);
+          audioState.timerWarning.preload = "auto";
+          audioState.timerWarning.loop = true;
+          audioState.unlocked = true;
+        } catch (error) {
+          disableAudio();
+        }
+      }
+
+      function playOneShotSound(type) {
+        ensureAudioReady();
+        if (!audioState.enabled) return;
+        try {
+          const oneShot = new Audio(soundFiles[type]);
+          oneShot.preload = "auto";
+          safePlayAudio(oneShot);
+        } catch (error) {
+          disableAudio();
+        }
+      }
+
+      function maybePlayTimerWarning() {
+        if (!audioState.enabled || !audioState.timerWarning || audioState.timerWarningPlaying) return;
+        if (!state.timerRunning || state.remaining > 10 || summaryScreen.classList.contains("hidden") === false) return;
+        audioState.timerWarningPlaying = true;
+        const playPromise = audioState.timerWarning.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {
+            audioState.timerWarningPlaying = false;
+          });
+        }
+      }
 
       function chooseOption(container, callback) {
         container.addEventListener("click", (event) => {
@@ -766,6 +834,7 @@
           clearInterval(state.timerId);
           state.timerId = null;
         }
+        stopTimerWarningSound();
       }
 
       function startTimer() {
@@ -775,6 +844,9 @@
           if (!state.timerRunning) return;
           state.remaining -= 1;
           timerEl.textContent = formatTime(state.remaining);
+          if (state.remaining <= 10) {
+            maybePlayTimerWarning();
+          }
           if (state.remaining <= 0) {
             finishTurn();
           }
@@ -867,23 +939,49 @@
       });
 
       startGameBtn.addEventListener("click", () => {
+        ensureAudioReady();
         resetGameState();
         startTurn();
       });
 
-      btnCorrect.addEventListener("click", () => moveToNextCard(true));
+      btnCorrect.addEventListener("click", () => {
+        if (!state.timerRunning || state.remaining <= 0) return;
+        playOneShotSound("correct");
+        moveToNextCard(true);
+      });
       btnSkip.addEventListener("click", () => moveToNextCard(false));
-      btnForbidden.addEventListener("click", () => moveToNextCard(false));
+      btnForbidden.addEventListener("click", () => {
+        if (!state.timerRunning || state.remaining <= 0) return;
+        playOneShotSound("wrong");
+        moveToNextCard(false);
+      });
 
       btnPause.addEventListener("click", () => {
         state.timerRunning = !state.timerRunning;
+        if (!state.timerRunning) {
+          stopTimerWarningSound();
+        } else if (state.remaining <= 10) {
+          maybePlayTimerWarning();
+        }
         btnPause.textContent = state.timerRunning ? "إيقاف المؤقت" : "استكمال المؤقت";
       });
 
-      nextTurnBtn.addEventListener("click", handleNextTeam);
+      nextTurnBtn.addEventListener("click", () => {
+        ensureAudioReady();
+        handleNextTeam();
+      });
       playAgainBtn.addEventListener("click", () => {
+        ensureAudioReady();
         resetGameState();
         startTurn();
+      });
+
+      window.addEventListener("pagehide", stopTimerWarningSound);
+      window.addEventListener("beforeunload", stopTimerWarningSound);
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          stopTimerWarningSound();
+        }
       });
 
       loadCards();
