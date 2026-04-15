@@ -228,7 +228,7 @@
 
       .action-grid {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.6rem;
       }
 
@@ -236,11 +236,6 @@
         border-color: rgba(83, 230, 160, 0.7);
         background: rgba(16, 58, 41, 0.94);
         color: #d6ffe9;
-      }
-
-      .action-btn.skip {
-        border-color: rgba(244, 206, 108, 0.74);
-        color: #ffe39d;
       }
 
       .action-btn.forbidden {
@@ -252,6 +247,7 @@
       .pause-btn {
         width: 100%;
         border-color: rgba(145, 176, 255, 0.66);
+        grid-column: 1 / -1;
       }
 
       .score-wrap {
@@ -328,14 +324,6 @@
       }
 
       @media (min-width: 640px) {
-        .action-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .action-btn.forbidden {
-          grid-column: span 2;
-        }
-
         .score-strip {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -456,8 +444,8 @@
         }
 
         #turn-screen .action-grid {
-          gap: 0.45rem;
-          margin-top: 0.15rem;
+          gap: 0.4rem;
+          margin-top: 0.1rem;
         }
 
         #turn-screen .action-btn,
@@ -557,11 +545,9 @@
 
         <div class="action-grid">
           <button id="btn-correct" class="action-btn correct" type="button">صح (+1)</button>
-          <button id="btn-skip" class="action-btn skip" type="button">تخطي</button>
           <button id="btn-forbidden" class="action-btn forbidden" type="button">قال كلمة ممنوعة</button>
+          <button id="btn-pause" class="pause-btn" type="button">إيقاف المؤقت</button>
         </div>
-
-        <button id="btn-pause" class="pause-btn" type="button">إيقاف المؤقت</button>
       </section>
 
       <section id="summary-screen" class="panel hidden" aria-label="ملخص الدور">
@@ -630,7 +616,6 @@
       const mainWord = document.getElementById("main-word");
       const forbiddenList = document.getElementById("forbidden-list");
       const btnCorrect = document.getElementById("btn-correct");
-      const btnSkip = document.getElementById("btn-skip");
       const btnForbidden = document.getElementById("btn-forbidden");
       const btnPause = document.getElementById("btn-pause");
       const summaryTeam = document.getElementById("summary-team");
@@ -1068,7 +1053,6 @@
         playOneShotSound("correct");
         moveToNextCard(true);
       });
-      btnSkip.addEventListener("click", () => moveToNextCard(false));
       btnForbidden.addEventListener("click", () => {
         if (!state.timerRunning || state.remaining <= 0) return;
         playOneShotSound("wrong");
