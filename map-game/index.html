@@ -442,33 +442,14 @@
     <script>
       const POINTS = { easy: 100, medium: 300, hard: 500 };
       const DIFFICULTY_AR = { easy: "سهل", medium: "متوسط", hard: "صعب" };
-
-      const COUNTRY_QUESTIONS = [
-        { name: "Brazil", ar: "البرازيل", difficulty: "easy" },
-        { name: "Australia", ar: "أستراليا", difficulty: "easy" },
-        { name: "India", ar: "الهند", difficulty: "easy" },
-        { name: "Italy", ar: "إيطاليا", difficulty: "easy" },
-        { name: "Democratic Republic of the Congo", ar: "جمهورية الكونغو الديمقراطية", difficulty: "medium" },
-        { name: "Bolivia", ar: "بوليفيا", difficulty: "medium" },
-        { name: "Turkmenistan", ar: "تركمانستان", difficulty: "medium" },
-        { name: "Kyrgyzstan", ar: "قرغيزستان", difficulty: "medium" },
-        { name: "Mongolia", ar: "منغوليا", difficulty: "medium" },
-        { name: "Madagascar", ar: "مدغشقر", difficulty: "medium" },
-        { name: "Peru", ar: "بيرو", difficulty: "medium" },
-        { name: "Chad", ar: "تشاد", difficulty: "medium" },
-        { name: "Burundi", ar: "بوروندي", difficulty: "hard" },
-        { name: "Bhutan", ar: "بوتان", difficulty: "hard" },
-        { name: "Suriname", ar: "سورينام", difficulty: "hard" },
-        { name: "Guyana", ar: "غيانا", difficulty: "hard" },
-        { name: "Lesotho", ar: "ليسوتو", difficulty: "hard" },
-        { name: "Macedonia", ar: "مقدونيا الشمالية", difficulty: "hard" },
-        { name: "Belize", ar: "بليز", difficulty: "hard" },
-        { name: "Gabon", ar: "الغابون", difficulty: "hard" },
-      ];
+      const QUESTIONS_CSV_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
+      const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
 
       const state = {
         started: false,
         questions: [],
+        questionPool: [],
         questionIndex: 0,
         teamNames: ["الفريق الأول", "الفريق الثاني"],
         scores: [0, 0],
@@ -477,8 +458,10 @@
         pendingPick: null,
         phase: "active_pick", // active_pick | other_response | ready_reveal | revealed | finished
         mapReady: false,
+        questionsReady: false,
         centroids: new Map(),
-        countryByName: new Map(),
+        questionByCountryCode: new Map(),
+        countryCodeByNormalizedName: new Map(),
         zoomMoved: false,
         moveThreshold: 7,
       };
@@ -518,6 +501,7 @@
       };
 
       function normalizeName(name) {
+        if (!name) return "";
         return name
           .replace(/\s*\([^)]*\)/g, "")
           .replace("Czechia", "Czech Republic")
@@ -526,9 +510,12 @@
       }
 
       function buildQuestions() {
-        const easy = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "easy")).slice(0, 4);
-        const medium = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "medium")).slice(0, 8);
-        const hard = shuffle(COUNTRY_QUESTIONS.filter((item) => item.difficulty === "hard")).slice(0, 8);
+        const easy = shuffle(state.questionPool.filter((item) => item.difficulty === "easy" && item.points === 100)).slice(0, 4);
+        const medium = shuffle(state.questionPool.filter((item) => item.difficulty === "medium" && item.points === 300)).slice(0, 8);
+        const hard = shuffle(state.questionPool.filter((item) => item.difficulty === "hard" && item.points === 500)).slice(0, 8);
+        if (easy.length < 4 || medium.length < 8 || hard.length < 8) {
+          throw new Error("Not enough valid rows in CSV to build 20 questions");
+        }
         return [...easy, ...medium, ...hard];
       }
 
@@ -537,7 +524,7 @@
       }
 
       function currentPoints() {
-        return POINTS[getQuestion().difficulty];
+        return getQuestion().points;
       }
 
       function activeTeamIndex() {
@@ -581,8 +568,8 @@
         el.team2Label.textContent = state.teamNames[1];
         el.team1Score.textContent = String(state.scores[0]);
         el.team2Score.textContent = String(state.scores[1]);
-        el.questionMeta.textContent = `السؤال ${state.questionIndex + 1} من 20 — ${DIFFICULTY_AR[q.difficulty]} — ${POINTS[q.difficulty]} نقطة`;
-        el.targetCountry.textContent = `الدولة المطلوبة: ${q.ar}`;
+        el.questionMeta.textContent = `السؤال ${state.questionIndex + 1} من 20 — ${DIFFICULTY_AR[q.difficulty]} — ${q.points} نقطة`;
+        el.targetCountry.textContent = `الدولة المطلوبة: ${q.countryNameAr}`;
         el.team1Card.classList.toggle("active", activeIdx === 0 && ["active_pick", "other_response"].includes(state.phase));
         el.team2Card.classList.toggle("active", activeIdx === 1 && ["active_pick", "other_response"].includes(state.phase));
 
@@ -611,11 +598,11 @@
         const countryNodes = el.mapStage.querySelectorAll(".country");
         const target = getQuestion();
         countryNodes.forEach((node) => {
-          const name = node.dataset.name;
+          const code = node.dataset.countryCode;
           node.classList.remove("team1", "team2", "correct");
-          if (state.teamPicks[0]?.name === name) node.classList.add("team1");
-          if (state.teamPicks[1]?.name === name) node.classList.add("team2");
-          if (state.phase === "revealed" && target.name === name) node.classList.add("correct");
+          if (state.teamPicks[0]?.countryCode === code) node.classList.add("team1");
+          if (state.teamPicks[1]?.countryCode === code) node.classList.add("team2");
+          if (state.phase === "revealed" && target.countryCode === code) node.classList.add("correct");
         });
       }
 
@@ -632,11 +619,11 @@
 
       function revealAnswer() {
         const q = getQuestion();
-        const points = POINTS[q.difficulty];
+        const points = q.points;
         const half = Math.floor(points / 2);
         const activeIdx = activeTeamIndex();
         const otherIdx = otherTeamIndex();
-        const pickedCorrect = [state.teamPicks[0]?.name === q.name, state.teamPicks[1]?.name === q.name];
+        const pickedCorrect = [state.teamPicks[0]?.countryCode === q.countryCode, state.teamPicks[1]?.countryCode === q.countryCode];
 
         let result;
 
@@ -654,9 +641,9 @@
           state.scores[otherIdx] += points;
           result = `إجابة صحيحة لفريق ${state.teamNames[otherIdx]} — +${points}`;
         } else {
-          const target = state.centroids.get(q.name);
-          const c1 = state.centroids.get(state.teamPicks[0]?.name);
-          const c2 = state.centroids.get(state.teamPicks[1]?.name);
+          const target = state.centroids.get(q.countryCode);
+          const c1 = state.centroids.get(state.teamPicks[0]?.countryCode);
+          const c2 = state.centroids.get(state.teamPicks[1]?.countryCode);
           if (target && c1 && c2) {
             const d1 = haversineKm(c1, target);
             const d2 = haversineKm(c2, target);
@@ -679,7 +666,7 @@
         updateHeader();
         updateMapHighlights();
 
-        showOverlay("نتيجة السؤال", `${result}\n\nالدولة الصحيحة: ${q.ar}`, [
+        showOverlay("نتيجة السؤال", `${result}\n\nالدولة الصحيحة: ${q.countryNameAr}`, [
           { label: "السؤال التالي", kind: "btn-primary", onClick: goNextQuestion },
         ]);
       }
@@ -733,8 +720,8 @@
         if (teamIdx === null) return;
 
         state.teamPicks[teamIdx] = {
-          name: state.pendingPick,
-          isCorrect: state.pendingPick === q.name,
+          countryCode: state.pendingPick,
+          isCorrect: state.pendingPick === q.countryCode,
         };
 
         state.pendingPick = null;
@@ -754,18 +741,19 @@
         ]);
       }
 
-      function handleCountrySelection(countryName) {
+      function handleCountrySelection(countryCode) {
         if (!["active_pick", "other_response"].includes(state.phase)) return;
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
         if (teamIdx === null) return;
+        if (!countryCode || !state.questionByCountryCode.has(countryCode)) return;
 
-        if (state.phase === "other_response" && state.teamPicks[activeIdx]?.name === countryName) {
+        if (state.phase === "other_response" && state.teamPicks[activeIdx]?.countryCode === countryCode) {
           showOverlay("تنبيه", "لا يمكن اختيار نفس دولة الفريق الآخر", [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
           return;
         }
 
-        state.pendingPick = countryName;
+        state.pendingPick = countryCode;
         const teamName = state.teamNames[teamIdx];
 
         showOverlay(`تأكيد اختيار ${teamName}`, "هل تريد تأكيد هذه الدولة؟", [
@@ -816,9 +804,7 @@
           geojson.features.forEach((feature) => {
             const normalized = normalizeName(feature.properties.name);
             feature.properties.normalizedName = normalized;
-            state.countryByName.set(normalized, feature);
-            const centroid = d3.geoCentroid(feature);
-            state.centroids.set(normalized, [centroid[0], centroid[1]]);
+            feature.properties.countryCode = state.countryCodeByNormalizedName.get(normalized) || "";
           });
 
           mapLayer
@@ -828,10 +814,11 @@
             .append("path")
             .attr("class", "country")
             .attr("data-name", (d) => d.properties.normalizedName)
+            .attr("data-country-code", (d) => d.properties.countryCode)
             .attr("d", path)
             .on("click", (event, d) => {
               if (state.zoomMoved) return;
-              handleCountrySelection(d.properties.normalizedName);
+              handleCountrySelection(d.properties.countryCode);
             });
 
           const zoomBehavior = d3
@@ -877,12 +864,18 @@
       }
 
       function startGame() {
-        if (!state.mapReady) return;
+        if (!state.mapReady || !state.questionsReady) return;
 
         state.teamNames = [el.team1Name.value.trim() || "الفريق الأول", el.team2Name.value.trim() || "الفريق الثاني"];
         state.scores = [0, 0];
         state.questionIndex = 0;
-        state.questions = buildQuestions();
+        try {
+          state.questions = buildQuestions();
+        } catch (error) {
+          showOverlay("خطأ", CSV_LOAD_ERROR_AR, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          console.error(error);
+          return;
+        }
         state.phase = "active_pick";
         state.teamPicks = [null, null];
         state.otherTeamAcceptedActiveAnswer = false;
@@ -897,7 +890,100 @@
 
       el.startBtn.addEventListener("click", startGame);
       el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
-      loadMap();
+
+      function parseCsvRow(line) {
+        const cells = [];
+        let cell = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i += 1) {
+          const ch = line[i];
+          if (ch === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+              cell += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (ch === "," && !inQuotes) {
+            cells.push(cell);
+            cell = "";
+          } else {
+            cell += ch;
+          }
+        }
+        cells.push(cell);
+        return cells.map((value) => value.trim());
+      }
+
+      function parseQuestionsCsv(csvText) {
+        const lines = csvText
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        if (!lines.length) throw new Error("CSV is empty");
+
+        const headers = parseCsvRow(lines[0]).map((h) => h.toLowerCase());
+        const required = ["country_code", "country_name_ar", "country_name_en", "difficulty", "points", "lat", "lng"];
+        const indices = Object.fromEntries(required.map((key) => [key, headers.indexOf(key)]));
+        if (required.some((key) => indices[key] === -1)) {
+          throw new Error("CSV headers are missing required columns");
+        }
+
+        const rows = [];
+        for (let i = 1; i < lines.length; i += 1) {
+          const cells = parseCsvRow(lines[i]);
+          const countryCode = (cells[indices.country_code] || "").toUpperCase();
+          const countryNameAr = cells[indices.country_name_ar] || "";
+          const countryNameEn = cells[indices.country_name_en] || "";
+          const difficulty = (cells[indices.difficulty] || "").toLowerCase();
+          const points = Number(cells[indices.points]);
+          const lat = Number(cells[indices.lat]);
+          const lng = Number(cells[indices.lng]);
+          if (!countryCode || !countryNameAr || !countryNameEn || !["easy", "medium", "hard"].includes(difficulty)) continue;
+          if (!Number.isFinite(points) || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+          rows.push({ countryCode, countryNameAr, countryNameEn, difficulty, points, lat, lng });
+        }
+        return rows;
+      }
+
+      async function loadQuestionsFromCsv() {
+        try {
+          const response = await fetch(QUESTIONS_CSV_URL, { cache: "no-store" });
+          if (!response.ok) throw new Error("Questions CSV download failed");
+          const csvText = await response.text();
+          const questions = parseQuestionsCsv(csvText);
+          if (!questions.length) throw new Error("No valid rows in CSV");
+
+          state.questionPool = questions;
+          state.questionByCountryCode = new Map(questions.map((item) => [item.countryCode, item]));
+          state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
+          state.centroids = new Map(questions.map((item) => [item.countryCode, [item.lng, item.lat]]));
+          state.questionsReady = true;
+          return true;
+        } catch (error) {
+          console.error(error);
+          state.questionsReady = false;
+          showOverlay("خطأ", CSV_LOAD_ERROR_AR, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          return false;
+        }
+      }
+
+      async function initializeMapGame() {
+        el.startBtn.disabled = true;
+        el.startBtn.textContent = "جاري تحميل البيانات...";
+        const questionsLoaded = await loadQuestionsFromCsv();
+        if (questionsLoaded) {
+          await loadMap();
+        }
+        if (state.mapReady && state.questionsReady) {
+          el.startBtn.disabled = false;
+          el.startBtn.textContent = "ابدأ اللعبة";
+        } else {
+          el.startBtn.textContent = "تعذر تحميل البيانات";
+        }
+      }
+
+      initializeMapGame();
     </script>
   </body>
 </html>
