@@ -145,29 +145,28 @@
 
       .game {
         display: none;
+        gap: 0.85rem;
       }
 
       .game.active {
-        display: block;
+        display: grid;
+        align-content: start;
       }
 
-      .map-stage {
-        position: relative;
-        min-height: min(84vh, 860px);
-        border-radius: 24px;
-        overflow: hidden;
-        border: 1px solid rgba(244, 206, 108, 0.3);
-        box-shadow: 0 20px 34px rgba(1, 5, 15, 0.55);
+      .top-grid {
+        display: grid;
+        gap: 0.8rem;
+        grid-template-columns: 1fr;
       }
 
-      .floating-card {
-        position: absolute;
-        z-index: 10;
-        border-radius: 18px;
-        padding: 0.72rem 0.88rem;
-        border: 1px solid rgba(255, 255, 255, 0.28);
-        background: linear-gradient(180deg, rgba(18, 37, 87, 0.8), rgba(8, 18, 45, 0.8));
-        backdrop-filter: blur(10px);
+      .status-card,
+      .step-card,
+      .score-card,
+      .map-card,
+      .result-card,
+      .controls-card,
+      .end-card {
+        padding: 1rem;
       }
 
       .target-line {
@@ -182,69 +181,47 @@
         line-height: 1.65;
       }
 
-      .meta-chips {
-        margin-top: 0.62rem;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
+      .step-card {
+        border-color: rgba(244, 206, 108, 0.48);
+        background: linear-gradient(180deg, rgba(24, 50, 112, 0.8), rgba(10, 25, 60, 0.92));
+      }
+
+      .step-label {
+        margin: 0;
+        color: var(--gold-300);
+        font-size: 0.95rem;
+      }
+
+      .step-text {
+        margin: 0.45rem 0 0;
+        font-size: clamp(1.12rem, 2.3vw, 1.34rem);
+        font-weight: 800;
       }
 
       .difficulty-pill {
         display: inline-flex;
         border-radius: 999px;
-        padding: 0.24rem 0.65rem;
-        font-size: 0.83rem;
+        padding: 0.2rem 0.72rem;
         font-weight: 700;
-        border: 1px solid rgba(184, 208, 255, 0.45);
-        background: rgba(8, 17, 42, 0.7);
-      }
-
-      .pill-difficulty {
-        color: #fff0be;
-        border-color: rgba(244, 206, 108, 0.6);
-      }
-
-      .pill-points {
-        color: #d4ecff;
-        border-color: rgba(61, 162, 255, 0.7);
-      }
-
-      .pill-turn {
-        color: #f8dcff;
-        border-color: rgba(214, 108, 255, 0.7);
-      }
-
-      .score-overlay {
-        top: 0.7rem;
-        left: 50%;
-        transform: translateX(-50%);
-        width: min(900px, calc(100% - 1.4rem));
-        padding: 0.5rem;
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        background: rgba(255, 217, 118, 0.1);
       }
 
       .score-list {
         display: grid;
-        gap: 0.45rem;
-        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-        align-items: stretch;
+        gap: 0.7rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .score-item {
-        border-radius: 12px;
-        padding: 0.58rem 0.7rem;
-        border: 1px solid rgba(244, 206, 108, 0.35);
-        background: rgba(6, 15, 40, 0.78);
+        border-radius: 14px;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid rgba(244, 206, 108, 0.28);
+        background: rgba(6, 15, 40, 0.6);
         display: flex;
         justify-content: space-between;
         font-weight: 700;
         gap: 0.5rem;
-        min-width: 0;
-      }
-
-      .score-item span:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
 
       .score-item.team-1 {
@@ -260,40 +237,23 @@
       .score-points {
         color: var(--gold-300);
         font-weight: 800;
-        white-space: nowrap;
-      }
-
-      .q-progress {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 112px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        background: rgba(8, 17, 42, 0.82);
-        font-weight: 800;
-        color: var(--gold-300);
       }
 
       .map-card {
         overflow: hidden;
-        position: absolute;
-        inset: 0;
-        border-radius: 0;
-        border: 0;
-        background: radial-gradient(circle at 20% 8%, #13316f, #0a1d4b 60%, #071029 100%);
       }
 
       .instruction {
-        margin: 0;
-        color: var(--text-main);
+        margin: 0 0 0.65rem;
+        color: var(--gold-300);
         font-weight: 700;
       }
 
-      .question-overlay {
-        top: 4.55rem;
-        right: 0.9rem;
-        width: min(430px, calc(100% - 1.8rem));
+      .legend {
+        margin-top: 0.7rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
       }
 
       .legend-item {
@@ -324,11 +284,13 @@
 
       .map-wrapper {
         width: 100%;
-        height: 100%;
-        border-radius: 0;
-        border: 0;
-        background: transparent;
+        border-radius: 14px;
+        border: 1px solid rgba(244, 206, 108, 0.25);
+        background: radial-gradient(circle at 30% 10%, #113074, #091a45 64%, #071029 100%);
         overflow: hidden;
+        aspect-ratio: 2 / 1;
+        min-height: 220px;
+        max-height: min(58vh, 530px);
         touch-action: none;
         overscroll-behavior: contain;
       }
@@ -362,54 +324,34 @@
       .country.team1 {
         fill: var(--team-1);
         stroke: #d8f0ff;
-        stroke-width: var(--team-stroke-width, 2.8);
-        filter: drop-shadow(0 0 5px rgba(61, 162, 255, 0.9));
+        stroke-width: var(--team-stroke-width, 1.35);
       }
 
       .country.team2 {
         fill: var(--team-2);
         stroke: #f5ddff;
-        stroke-width: var(--team-stroke-width, 2.8);
-        filter: drop-shadow(0 0 5px rgba(214, 108, 255, 0.9));
+        stroke-width: var(--team-stroke-width, 1.35);
       }
 
       .country.correct {
         fill: var(--correct);
         stroke: #ecffe6;
-        stroke-width: var(--correct-stroke-width, 3.2);
-        filter: drop-shadow(0 0 5px rgba(98, 243, 151, 0.95));
-      }
-
-      .legend {
-        position: absolute;
-        right: 0.9rem;
-        bottom: 6.65rem;
-        z-index: 7;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-        background: rgba(5, 13, 34, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.24);
-        border-radius: 999px;
-        padding: 0.36rem 0.56rem;
+        stroke-width: var(--correct-stroke-width, 1.9);
       }
 
       .zoom-controls {
-        position: absolute;
-        left: 0.9rem;
-        bottom: 6.65rem;
-        z-index: 8;
-        display: inline-flex;
-        flex-direction: column;
-        gap: 0.35rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
       }
 
       .zoom-btn,
       .action-btn,
       .ghost-btn {
-        border-radius: 12px;
+        border-radius: 10px;
         border: 1px solid rgba(244, 206, 108, 0.55);
-        padding: 0.55rem 0.85rem;
+        padding: 0.5rem 0.85rem;
         font-weight: 700;
         cursor: pointer;
       }
@@ -417,13 +359,7 @@
       .zoom-btn,
       .ghost-btn {
         color: var(--gold-300);
-        background: rgba(9, 21, 54, 0.88);
-      }
-
-      .zoom-btn {
-        min-width: 80px;
-        font-size: 0.82rem;
-        padding: 0.38rem 0.45rem;
+        background: rgba(9, 21, 54, 0.75);
       }
 
       .action-btn {
@@ -433,14 +369,7 @@
 
       .controls-card {
         display: grid;
-        gap: 0.42rem;
-      }
-
-      .action-overlay {
-        right: 50%;
-        transform: translateX(50%);
-        bottom: 0.9rem;
-        width: min(760px, calc(100% - 1.8rem));
+        gap: 0.7rem;
       }
 
       .hint-line {
@@ -454,17 +383,11 @@
 
       .controls-actions {
         display: flex;
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         gap: 0.55rem;
-        justify-content: center;
       }
 
       .result-card {
-        top: 50%;
-        right: 50%;
-        transform: translate(50%, -50%);
-        width: min(720px, calc(100% - 1.8rem));
-        z-index: 16;
         border-color: rgba(78, 203, 120, 0.35);
         background: linear-gradient(180deg, rgba(14, 50, 33, 0.7), rgba(8, 26, 20, 0.88));
       }
@@ -485,11 +408,6 @@
       }
 
       .end-card {
-        top: 50%;
-        right: 50%;
-        transform: translate(50%, -50%);
-        width: min(680px, calc(100% - 1.8rem));
-        z-index: 18;
         text-align: center;
       }
 
@@ -520,18 +438,19 @@
         color: #ffd6de;
       }
 
+      @media (max-width: 900px) {
+        .score-list {
+          grid-template-columns: 1fr;
+        }
+      }
+
       @media (max-width: 768px) {
         body {
-          padding: 0.5rem;
-        }
-
-        .top-nav {
-          font-size: 0.86rem;
-          padding: 0.36rem 0.65rem;
+          padding: 0.65rem;
         }
 
         .title-wrap {
-          margin: 0.6rem 0 0.75rem;
+          margin: 0.7rem 0 0.85rem;
         }
 
         .subtitle {
@@ -543,88 +462,39 @@
           margin: 0.9rem auto;
         }
 
-        .map-stage {
-          min-height: calc(100vh - 138px);
-          border-radius: 16px;
+        .status-card,
+        .step-card,
+        .score-card,
+        .map-card,
+        .result-card,
+        .controls-card,
+        .end-card {
+          padding: 0.8rem;
         }
 
-        .floating-card {
-          padding: 0.58rem 0.65rem;
-          border-radius: 14px;
+        .meta-line {
+          margin-top: 0.35rem;
+          line-height: 1.5;
         }
 
-        .score-overlay {
-          width: calc(100% - 0.8rem);
-          top: 0.4rem;
-          padding: 0.35rem;
-        }
-
-        .score-list {
-          grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-          gap: 0.3rem;
-        }
-
-        .q-progress {
-          min-width: 88px;
-          font-size: 0.82rem;
-          padding: 0 0.25rem;
-        }
-
-        .score-item {
-          padding: 0.4rem 0.45rem;
-          font-size: 0.81rem;
-        }
-
-        .question-overlay {
-          top: 3.95rem;
-          right: 0.4rem;
-          width: calc(100% - 0.8rem);
-        }
-
-        .target-line {
-          font-size: 1.16rem;
-        }
-
-        .instruction {
-          font-size: 0.95rem;
-        }
-
-        .difficulty-pill {
-          font-size: 0.73rem;
-        }
-
-        .legend {
-          right: 0.4rem;
-          bottom: 7.8rem;
-          left: 0.4rem;
-          border-radius: 12px;
-          justify-content: center;
-        }
-
-        .legend-item {
-          font-size: 0.72rem;
+        .map-wrapper {
+          aspect-ratio: 1.68 / 1;
+          min-height: 190px;
+          max-height: 42vh;
         }
 
         .zoom-controls {
-          left: 0.4rem;
-          bottom: 11rem;
+          margin-top: 0.6rem;
+          gap: 0.42rem;
         }
 
-        .action-overlay {
-          bottom: 0.4rem;
-          width: calc(100% - 0.8rem);
+        .controls-card {
+          gap: 0.55rem;
         }
 
-        .controls-actions {
-          flex-wrap: wrap;
-        }
-
-        .action-btn,
-        .ghost-btn {
-          flex: 1 1 auto;
-          min-width: 120px;
-          padding: 0.5rem 0.72rem;
-          font-size: 0.9rem;
+        .result-text {
+          margin: 0.45rem 0 0;
+          line-height: 1.6;
         }
       }
     </style>
@@ -656,22 +526,33 @@
       </section>
 
       <section class="game" id="gameBoard" aria-live="polite">
-        <div class="map-stage">
-          <article class="score-overlay floating-card" aria-label="لوحة النتائج">
+        <div class="top-grid">
+          <article class="step-card card">
+            <p class="step-label">الخطوة الحالية</p>
+            <p class="step-text" id="stepLine">جاري تجهيز الجولة...</p>
+          </article>
+
+          <article class="status-card card">
+            <div class="target-line" id="targetLine">الدولة المطلوبة: —</div>
+            <div class="meta-line" id="metaLine"></div>
+          </article>
+
+          <article class="score-card card">
             <div class="score-list">
               <div class="score-item team-1">
                 <span id="team1Label">الفريق الأول</span>
                 <span class="score-points"><span id="team1Score">0</span> نقطة</span>
               </div>
-              <div class="q-progress" id="questionProgress">السؤال 1/20</div>
               <div class="score-item team-2">
                 <span id="team2Label">الفريق الثاني</span>
                 <span class="score-points"><span id="team2Score">0</span> نقطة</span>
               </div>
             </div>
           </article>
+        </div>
 
-          <article class="map-card">
+        <article class="map-card card">
+          <p class="instruction" id="instructionLine">جاري تحميل الخريطة...</p>
           <div class="map-wrapper" id="mapWrapper">
             <div class="loading" id="mapLoading">جاري تحميل خريطة العالم التفاعلية...</div>
           </div>
@@ -685,38 +566,31 @@
             <button class="zoom-btn" id="zoomOutBtn" type="button">تصغير</button>
             <button class="zoom-btn" id="resetZoomBtn" type="button">إعادة الضبط</button>
           </div>
-          </article>
+        </article>
 
-          <article class="question-overlay floating-card">
-            <div class="target-line" id="targetLine">الدولة المطلوبة: —</div>
-            <p class="instruction" id="instructionLine">جاري تحميل الخريطة...</p>
-            <div class="meta-chips" id="metaLine"></div>
-          </article>
-
-          <article class="controls-card floating-card action-overlay">
-            <div class="hint-line" id="pickHint">فريق الفريق الأول: اختر الدولة على الخريطة.</div>
-            <div class="selection-line" id="selectionSummary">لم يتم اختيار أي دولة بعد.</div>
+        <article class="controls-card card">
+          <div class="hint-line" id="pickHint">اختر الدولة الخاصة بفريقك أولًا.</div>
+          <div class="selection-line" id="selectionSummary">لم يتم اختيار أي دولة بعد.</div>
           <div class="controls-actions">
             <button class="action-btn" id="confirmPickBtn" type="button" disabled>تأكيد اختيار الفريق</button>
             <button class="action-btn" id="revealBtn" type="button" disabled>إظهار الإجابة</button>
             <button class="ghost-btn" id="nextBtn" type="button" disabled>السؤال التالي</button>
           </div>
-          </article>
+        </article>
 
-          <article class="result-card floating-card hidden" id="resultCard">
+        <article class="result-card card hidden" id="resultCard">
           <h3 class="result-title" id="resultTitle">نتيجة الدور</h3>
           <p class="result-text" id="resultText"></p>
-          </article>
+        </article>
 
-          <article class="end-card floating-card hidden" id="endCard">
+        <article class="end-card card hidden" id="endCard">
           <h2>انتهت الجولة</h2>
           <p id="endSummary"></p>
           <div class="end-actions">
             <button class="action-btn" id="restartBtn" type="button">العب مرة أخرى</button>
             <a class="ghost-btn" href="/games/" style="text-decoration: none">العودة إلى الألعاب</a>
           </div>
-          </article>
-        </div>
+        </article>
       </section>
     </main>
 
@@ -785,7 +659,7 @@
         gameBoard: document.getElementById("gameBoard"),
         targetLine: document.getElementById("targetLine"),
         metaLine: document.getElementById("metaLine"),
-        questionProgress: document.getElementById("questionProgress"),
+        stepLine: document.getElementById("stepLine"),
         team1Label: document.getElementById("team1Label"),
         team2Label: document.getElementById("team2Label"),
         team1Score: document.getElementById("team1Score"),
@@ -865,34 +739,39 @@
       function setInstruction() {
         if (!state.mapReady) {
           el.instructionLine.textContent = "جاري تحميل الخريطة...";
+          el.stepLine.textContent = "جاري تحميل الخريطة";
           return;
         }
         if (state.turnStep === "active") {
-          el.instructionLine.textContent = `فريق ${state.teamNames[activeTeamIndex()]}: اختر الدولة على الخريطة`;
+          el.instructionLine.textContent = `اختر الدولة الخاصة بفريق ${state.teamNames[activeTeamIndex()]}`;
           el.pickHint.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة.`;
+          el.stepLine.textContent = `فريق ${state.teamNames[activeTeamIndex()]} يختار على الخريطة`;
         } else if (state.turnStep === "other") {
-          el.instructionLine.textContent = `فريق ${state.teamNames[otherTeamIndex()]}: اختر الدولة على الخريطة`;
+          el.instructionLine.textContent = `الآن اختر الدولة الخاصة بفريق ${state.teamNames[otherTeamIndex()]}`;
           el.pickHint.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة.`;
+          el.stepLine.textContent = `فريق ${state.teamNames[otherTeamIndex()]} يختار على الخريطة`;
         } else if (state.turnStep === "readyReveal") {
           el.instructionLine.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
           el.pickHint.textContent = "الخطوة التالية: عرض النتيجة.";
+          el.stepLine.textContent = 'اضغط "إظهار الإجابة"';
         } else {
           el.instructionLine.textContent = "تم عرض النتيجة. اضغط السؤال التالي.";
           el.pickHint.textContent = "جاهز للسؤال الجديد.";
+          el.stepLine.textContent = "السؤال التالي";
         }
       }
 
       function updateSelectionSummary() {
         if (!state.selections[0] && !state.selections[1]) {
-          el.selectionSummary.textContent = "اختر دولة على الخريطة ثم اضغط زر التأكيد.";
+          el.selectionSummary.textContent = "اختر الدولة الخاصة بالفريق الحالي.";
           return;
         }
         if (state.selections[0] && !state.selections[1]) {
-          el.selectionSummary.textContent = `تم تأكيد اختيار فريق ${state.teamNames[0]}. الآن دور فريق ${state.teamNames[1]}.`;
+          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[0]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[1]}.`;
           return;
         }
         if (!state.selections[0] && state.selections[1]) {
-          el.selectionSummary.textContent = `تم تأكيد اختيار فريق ${state.teamNames[1]}. الآن دور فريق ${state.teamNames[0]}.`;
+          el.selectionSummary.textContent = `تم اختيار دولة لفريق ${state.teamNames[1]}. الآن اختر الدولة الخاصة بفريق ${state.teamNames[0]}.`;
           return;
         }
         el.selectionSummary.textContent = 'تم اختيار الدولتين. اضغط "إظهار الإجابة".';
@@ -923,12 +802,7 @@
         const active = state.teamNames[activeTeamIndex()];
 
         el.targetLine.textContent = `الدولة المطلوبة: ${q.ar}`;
-        el.questionProgress.textContent = `السؤال ${qNum}/20`;
-        el.metaLine.innerHTML = `
-          <span class="difficulty-pill pill-difficulty">الصعوبة: ${DIFFICULTY_AR[q.difficulty]}</span>
-          <span class="difficulty-pill pill-points">النقاط: ${points}</span>
-          <span class="difficulty-pill pill-turn">الدور: ${active}</span>
-        `;
+        el.metaLine.innerHTML = `دور فريق <strong>${active}</strong> — السؤال ${qNum} من 20 — <span class="difficulty-pill">${DIFFICULTY_AR[q.difficulty]}</span> — ${points} نقطة`;
 
         el.team1Label.textContent = state.teamNames[0];
         el.team2Label.textContent = state.teamNames[1];
@@ -958,15 +832,9 @@
         el.nextBtn.classList.toggle("hidden", state.turnStep !== "revealed");
 
         if (state.turnStep === "active") {
-          const picked = state.pendingSelectionName ? formatCountryLabel(state.pendingSelectionName) : "";
-          el.confirmPickBtn.textContent = picked
-            ? `تأكيد اختيار ${picked}`
-            : `تأكيد اختيار ${state.teamNames[activeTeamIndex()]}`;
+          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[activeTeamIndex()]}`;
         } else if (state.turnStep === "other") {
-          const picked = state.pendingSelectionName ? formatCountryLabel(state.pendingSelectionName) : "";
-          el.confirmPickBtn.textContent = picked
-            ? `تأكيد اختيار ${picked}`
-            : `تأكيد اختيار ${state.teamNames[otherTeamIndex()]}`;
+          el.confirmPickBtn.textContent = `تأكيد اختيار ${state.teamNames[otherTeamIndex()]}`;
         }
       }
 
@@ -1062,6 +930,7 @@
         el.nextBtn.disabled = true;
         el.instructionLine.textContent = "انتهت الجولة بالكامل.";
         el.pickHint.textContent = "يمكنك إعادة اللعب أو العودة لصفحة الألعاب.";
+        el.stepLine.textContent = "انتهت الجولة";
       }
 
       function nextQuestion() {
@@ -1104,7 +973,6 @@
       function onCountryClick(name) {
         if (state.turnStep !== "active" && state.turnStep !== "other") return;
         state.pendingSelectionName = name;
-        el.selectionSummary.textContent = `تم اختيار الدولة: ${formatCountryLabel(name)}. اضغط تأكيد الاختيار.`;
         updateTurnButtons();
       }
 
@@ -1124,8 +992,8 @@
           "transform",
           `translate(${baseX + state.zoom.panX}, ${baseY + state.zoom.panY}) scale(${scale})`
         );
-        const teamStrokeWidth = Math.min(4.8, 2.8 + (scale - 1) * 0.85);
-        const correctStrokeWidth = Math.min(5.4, 3.2 + (scale - 1) * 1);
+        const teamStrokeWidth = Math.min(3, 1.35 + (scale - 1) * 0.6);
+        const correctStrokeWidth = Math.min(3.6, 1.9 + (scale - 1) * 0.85);
         svgNode.style.setProperty("--team-stroke-width", teamStrokeWidth.toFixed(2));
         svgNode.style.setProperty("--correct-stroke-width", correctStrokeWidth.toFixed(2));
       }
@@ -1384,6 +1252,7 @@
         } catch (err) {
           el.mapWrapper.innerHTML = '<div class="error">تعذر تحميل الخريطة التفاعلية. تأكد من الاتصال بالإنترنت ثم أعد تحميل الصفحة.</div>';
           el.instructionLine.textContent = "تعذر تحميل الخريطة";
+          el.stepLine.textContent = "تعذر تحميل الخريطة";
           console.error(err);
         }
       }
