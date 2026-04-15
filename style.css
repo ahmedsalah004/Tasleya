@@ -1386,6 +1386,118 @@ button:disabled {
   font-size: 0.95rem;
 }
 
+.games-promo-popup {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(0.8rem, 2.5vw, 1.2rem);
+  z-index: 5200;
+}
+
+.games-promo-popup__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 9, 24, 0.74);
+  backdrop-filter: blur(8px);
+}
+
+.games-promo-popup__card {
+  position: relative;
+  width: min(680px, 100%);
+  max-height: min(92vh, 860px);
+  overflow-y: auto;
+  border-radius: 22px;
+  border: 1px solid rgba(244, 206, 108, 0.62);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255, 212, 103, 0.12), transparent 42%),
+    linear-gradient(160deg, rgba(12, 24, 63, 0.98), rgba(7, 16, 44, 0.98));
+  box-shadow:
+    0 26px 60px rgba(0, 0, 0, 0.48),
+    0 0 30px rgba(247, 203, 89, 0.18);
+  color: #f4f8ff;
+  padding: clamp(1rem, 3.2vw, 1.5rem);
+  display: grid;
+  gap: clamp(0.65rem, 2vw, 0.95rem);
+  text-align: center;
+}
+
+.games-promo-popup__close {
+  position: absolute;
+  top: 0.72rem;
+  inset-inline-end: 0.72rem;
+  inline-size: 2.2rem;
+  block-size: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid rgba(244, 206, 108, 0.62);
+  background: rgba(13, 26, 65, 0.82);
+  color: #ffe29d;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.games-promo-popup__title {
+  margin: 0;
+  padding-inline: 2.2rem;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  color: #ffdf86;
+}
+
+.games-promo-popup__subtitle {
+  margin: 0;
+  font-size: clamp(1rem, 2.7vw, 1.2rem);
+  color: rgba(244, 238, 220, 0.95);
+}
+
+.games-promo-popup__media-wrap {
+  margin: 0 auto;
+  width: min(100%, 560px);
+  border-radius: 16px;
+  border: 1px solid rgba(244, 206, 108, 0.34);
+  overflow: hidden;
+  background: rgba(5, 12, 36, 0.62);
+}
+
+.games-promo-popup__media {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.games-promo-popup__body {
+  margin: 0;
+  line-height: 1.8;
+  color: rgba(228, 236, 255, 0.92);
+}
+
+.games-promo-popup__cta {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0.72rem 1.4rem;
+  border-radius: 13px;
+  border: 2px solid rgba(244, 206, 108, 0.9);
+  color: #f6d989;
+  background: rgba(10, 20, 52, 0.97);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+@media (max-width: 540px) {
+  .games-promo-popup__card {
+    border-radius: 18px;
+    padding: 0.95rem;
+  }
+
+  .games-promo-popup__title {
+    padding-inline: 1.9rem;
+  }
+}
+
 .modal {
   position: fixed;
   inset: 0;
