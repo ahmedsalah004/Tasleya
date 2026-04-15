@@ -254,6 +254,12 @@
         color: var(--text-main);
       }
 
+      .winner-line {
+        margin: 0.5rem 0 0.8rem;
+        color: #fff2c3;
+        font-weight: 700;
+      }
+
       .round-tag {
         color: var(--text-muted);
         margin-bottom: 0.8rem;
@@ -415,6 +421,15 @@
           </div>
         </div>
 
+        <div class="field">
+          <h2 class="field-title">عدد الجولات</h2>
+          <div class="row" id="rounds-options">
+            <button type="button" class="choice-btn active" data-value="3">3 جولات</button>
+            <button type="button" class="choice-btn" data-value="5">5 جولات</button>
+            <button type="button" class="choice-btn" data-value="7">7 جولات</button>
+          </div>
+        </div>
+
         <button id="start-game" class="start-btn" type="button">ابدأ اللعبة</button>
         <p id="cards-status" class="round-tag" aria-live="polite"></p>
       </section>
@@ -453,6 +468,18 @@
         <ul id="summary-board" class="score-strip"></ul>
         <button id="next-turn" class="continue-btn" type="button">دور الفريق التالي</button>
       </section>
+
+      <section id="final-screen" class="panel hidden" aria-label="النتائج النهائية">
+        <h2 class="summary-title">النتائج النهائية</h2>
+        <p class="summary-line">الفائز</p>
+        <p id="winner-line" class="winner-line"></p>
+        <p class="summary-line">ترتيب الفرق حسب النقاط</p>
+        <ul id="final-board" class="score-strip"></ul>
+        <p class="summary-line">إجمالي نقاط كل فريق</p>
+        <ul id="total-board" class="score-strip"></ul>
+        <button id="play-again" class="continue-btn" type="button">العب مرة أخرى</button>
+        <a class="continue-btn" href="/games/" style="display: block; text-align: center; text-decoration: none">العودة للألعاب</a>
+      </section>
     </main>
 
     <script>
@@ -467,6 +494,7 @@
       const state = {
         teams: 2,
         roundTime: 60,
+        totalRounds: 3,
         roundNumber: 1,
         turnIndex: 0,
         scores: [0, 0],
@@ -484,6 +512,7 @@
       const summaryScreen = document.getElementById("summary-screen");
       const teamsOptions = document.getElementById("teams-options");
       const timeOptions = document.getElementById("time-options");
+      const roundsOptions = document.getElementById("rounds-options");
       const startGameBtn = document.getElementById("start-game");
       const cardsStatus = document.getElementById("cards-status");
       const teamLabel = document.getElementById("team-label");
@@ -502,6 +531,11 @@
       const summaryTotal = document.getElementById("summary-total");
       const summaryBoard = document.getElementById("summary-board");
       const nextTurnBtn = document.getElementById("next-turn");
+      const finalScreen = document.getElementById("final-screen");
+      const winnerLine = document.getElementById("winner-line");
+      const finalBoard = document.getElementById("final-board");
+      const totalBoard = document.getElementById("total-board");
+      const playAgainBtn = document.getElementById("play-again");
 
       function chooseOption(container, callback) {
         container.addEventListener("click", (event) => {
@@ -683,6 +717,35 @@
         });
       }
 
+      function renderRankedScore(listEl) {
+        listEl.innerHTML = "";
+        const rankedTeams = state.scores
+          .map((score, index) => ({ score, team: index + 1 }))
+          .sort((a, b) => b.score - a.score || a.team - b.team);
+        rankedTeams.forEach((item, index) => {
+          const li = document.createElement("li");
+          li.textContent = `${index + 1}) الفريق ${item.team}: ${item.score}`;
+          listEl.appendChild(li);
+        });
+      }
+
+      function renderFinalResults() {
+        const highestScore = Math.max(...state.scores);
+        const winners = state.scores
+          .map((score, index) => ({ score, team: index + 1 }))
+          .filter((teamScore) => teamScore.score === highestScore)
+          .map((teamScore) => teamScore.team);
+
+        if (winners.length > 1) {
+          winnerLine.textContent = `تعادل بين ${winners.map((team) => `الفريق ${team}`).join(" و")}`;
+        } else {
+          winnerLine.textContent = `الفريق ${winners[0]}`;
+        }
+
+        renderRankedScore(finalBoard);
+        renderScore(totalBoard);
+      }
+
       function renderTurn() {
         teamLabel.textContent = `دور الفريق ${state.turnIndex + 1}`;
         timerEl.textContent = formatTime(state.remaining);
@@ -721,6 +784,7 @@
       function startTurn() {
         setupScreen.classList.add("hidden");
         summaryScreen.classList.add("hidden");
+        finalScreen.classList.add("hidden");
         turnScreen.classList.remove("hidden");
         state.turnScore = 0;
         state.remaining = state.roundTime;
@@ -733,6 +797,7 @@
 
       function finishTurn() {
         if (!summaryScreen.classList.contains("hidden")) return;
+        if (!finalScreen.classList.contains("hidden")) return;
         if (!turnScreen.classList.contains("hidden")) {
           turnScreen.classList.add("hidden");
         }
@@ -746,6 +811,14 @@
         const endedTeam = state.turnIndex + 1;
         const endedRound = state.roundNumber;
         const finishedRound = state.turnIndex === state.teams - 1;
+        const reachedFinalRound = endedRound === state.totalRounds;
+        const isGameFinished = finishedRound && reachedFinalRound;
+
+        if (isGameFinished) {
+          finalScreen.classList.remove("hidden");
+          renderFinalResults();
+          return;
+        }
 
         summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
         summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
@@ -773,6 +846,14 @@
         startTurn();
       }
 
+      function resetGameState() {
+        state.roundNumber = 1;
+        state.turnIndex = 0;
+        state.scores = Array.from({ length: state.teams }, () => 0);
+        cards = shuffle([...cards]);
+        refillDeck();
+      }
+
       chooseOption(teamsOptions, (value) => {
         state.teams = value;
       });
@@ -781,12 +862,12 @@
         state.roundTime = value;
       });
 
+      chooseOption(roundsOptions, (value) => {
+        state.totalRounds = value;
+      });
+
       startGameBtn.addEventListener("click", () => {
-        state.roundNumber = 1;
-        state.turnIndex = 0;
-        state.scores = Array.from({ length: state.teams }, () => 0);
-        cards = shuffle([...cards]);
-        refillDeck();
+        resetGameState();
         startTurn();
       });
 
@@ -800,6 +881,10 @@
       });
 
       nextTurnBtn.addEventListener("click", handleNextTeam);
+      playAgainBtn.addEventListener("click", () => {
+        resetGameState();
+        startTurn();
+      });
 
       loadCards();
     </script>
