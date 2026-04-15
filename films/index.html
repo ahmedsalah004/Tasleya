@@ -410,6 +410,12 @@
         activeCard: null,
         timerValue: ROUND_SECONDS,
         timerInterval: null,
+        timerWarningTriggered: false,
+      };
+
+      const audioState = {
+        timerWarning: null,
+        timerWarningPlaying: false,
       };
 
       const elements = {
@@ -452,10 +458,51 @@
         playAgainBtn: document.getElementById("playAgainBtn"),
       };
 
+      function ensureTimerWarningAudio() {
+        if (!audioState.timerWarning) {
+          const audio = new Audio("/assets/sounds/timer-warning.mp3");
+          audio.preload = "none";
+          audio.loop = true;
+          audio.volume = 0.5;
+          audioState.timerWarning = audio;
+        }
+        return audioState.timerWarning;
+      }
+
+      function startTimerWarningSound() {
+        if (audioState.timerWarningPlaying) return;
+        const timerWarningAudio = ensureTimerWarningAudio();
+        if (!timerWarningAudio) return;
+        try {
+          const maybePromise = timerWarningAudio.play();
+          audioState.timerWarningPlaying = true;
+          if (maybePromise && typeof maybePromise.catch === "function") {
+            maybePromise.catch(() => {
+              audioState.timerWarningPlaying = false;
+            });
+          }
+        } catch (_) {
+          audioState.timerWarningPlaying = false;
+        }
+      }
+
+      function stopTimerWarningSound() {
+        if (!audioState.timerWarning) {
+          audioState.timerWarningPlaying = false;
+          return;
+        }
+        audioState.timerWarning.pause();
+        audioState.timerWarning.currentTime = 0;
+        audioState.timerWarningPlaying = false;
+      }
+
       function showScreen(name) {
         Object.entries(elements.screens).forEach(([key, node]) => {
           node.classList.toggle("active", key === name);
         });
+        if (name !== "timer") {
+          stopTimerWarningSound();
+        }
       }
 
       function sanitizeTeamName(value, fallback) {
@@ -668,6 +715,8 @@
         const card = gameState.cards[gameState.activeCard];
         if (!card) return;
 
+        stopTimerWarningSound();
+        gameState.timerWarningTriggered = false;
         gameState.timerValue = ROUND_SECONDS;
         elements.timerTurnText.textContent = `الفريق الحالي: ${gameState.teams[gameState.currentTeam]}`;
         elements.timerPointsText.textContent = `النقاط: ${card.points}`;
@@ -678,8 +727,15 @@
         gameState.timerInterval = window.setInterval(() => {
           gameState.timerValue -= 1;
           elements.timerValue.textContent = String(gameState.timerValue);
+
+          if (gameState.timerValue <= 30 && !gameState.timerWarningTriggered && gameState.timerValue > 0) {
+            gameState.timerWarningTriggered = true;
+            startTimerWarningSound();
+          }
+
           if (gameState.timerValue <= 0) {
             clearInterval(gameState.timerInterval);
+            stopTimerWarningSound();
             openStealScreen();
           }
         }, 1000);
@@ -689,6 +745,8 @@
 
       function consumeCardAndAdvance() {
         if (gameState.activeCard === null) return;
+
+        stopTimerWarningSound();
 
         gameState.cards[gameState.activeCard].used = true;
         gameState.activeCard = null;
@@ -709,11 +767,13 @@
         if (!card) return;
         gameState.scores[gameState.currentTeam] += card.points;
         clearInterval(gameState.timerInterval);
+        stopTimerWarningSound();
         consumeCardAndAdvance();
       }
 
       function openStealScreen() {
         clearInterval(gameState.timerInterval);
+        stopTimerWarningSound();
         const otherTeam = gameState.currentTeam === 0 ? 1 : 0;
         elements.stealPromptText.textContent = `${gameState.teams[otherTeam]} لديه فرصة سرقة ${
           gameState.cards[gameState.activeCard].points
@@ -724,6 +784,8 @@
       function applyStealResult(mode) {
         const card = gameState.cards[gameState.activeCard];
         if (!card) return;
+
+        stopTimerWarningSound();
 
         if (mode === "current") {
           gameState.scores[gameState.currentTeam] += card.points;
@@ -781,8 +843,17 @@
       function resetToSetup() {
         clearInterval(gameState.timerInterval);
         gameState.timerInterval = null;
+        stopTimerWarningSound();
         showScreen("setup");
       }
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          stopTimerWarningSound();
+        }
+      });
+      window.addEventListener("pagehide", stopTimerWarningSound);
+      window.addEventListener("beforeunload", stopTimerWarningSound);
 
       elements.introStartBtn.addEventListener("click", () => showScreen("setup"));
       elements.setupStartBtn.addEventListener("click", startGameRound);
