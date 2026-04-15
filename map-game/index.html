@@ -282,6 +282,11 @@
         transition: fill 120ms ease;
       }
 
+      .country:focus,
+      .country:focus-visible {
+        outline: none;
+      }
+
       .country:hover {
         fill: #b3c3e8;
       }
@@ -289,15 +294,15 @@
       .country.team1 {
         fill: var(--team-1);
         stroke: #ddf1ff;
-        stroke-width: 2.9;
-        filter: drop-shadow(0 0 6px rgba(88, 178, 255, 0.85));
+        stroke-width: 3.4;
+        filter: drop-shadow(0 0 10px rgba(88, 178, 255, 0.95));
       }
 
       .country.team2 {
         fill: var(--team-2);
         stroke: #ffe6ff;
-        stroke-width: 2.9;
-        filter: drop-shadow(0 0 6px rgba(210, 121, 255, 0.85));
+        stroke-width: 3.4;
+        filter: drop-shadow(0 0 10px rgba(210, 121, 255, 0.95));
       }
 
       .country.correct {
@@ -475,6 +480,7 @@
       const QUESTIONS_CSV_URL =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
+      const SELECTION_CONFIRM_DELAY_MS = 420;
       const COUNTRY_NAME_ALIASES = new Map([
         ["United States of America", "United States"],
         ["Russian Federation", "Russia"],
@@ -497,6 +503,7 @@
         teamPicks: [null, null],
         otherTeamAcceptedActiveAnswer: false,
         pendingPick: null,
+        pendingTeamIndex: null,
         phase: "active_pick", // active_pick | other_response | ready_reveal | revealed | finished
         mapReady: false,
         questionsReady: false,
@@ -647,6 +654,10 @@
           node.classList.remove("team1", "team2", "correct");
           if (state.teamPicks[0]?.countryCode === code) node.classList.add("team1");
           if (state.teamPicks[1]?.countryCode === code) node.classList.add("team2");
+          if (state.pendingPick === code) {
+            if (state.pendingTeamIndex === 0) node.classList.add("team1");
+            if (state.pendingTeamIndex === 1) node.classList.add("team2");
+          }
           if (state.phase === "revealed" && target.countryCode === code) node.classList.add("correct");
         });
       }
@@ -730,6 +741,7 @@
         state.teamPicks = [null, null];
         state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
+        state.pendingTeamIndex = null;
         updateHeader();
         updateMapHighlights();
       }
@@ -761,7 +773,7 @@
 
       function confirmPendingPick() {
         const q = getQuestion();
-        const teamIdx = selectionTeamIndex();
+        const teamIdx = state.pendingTeamIndex;
         if (teamIdx === null) return;
 
         state.teamPicks[teamIdx] = {
@@ -770,6 +782,7 @@
         };
 
         state.pendingPick = null;
+        state.pendingTeamIndex = null;
         hideOverlay();
         updateMapHighlights();
 
@@ -786,6 +799,13 @@
         ]);
       }
 
+      function cancelPendingPick() {
+        state.pendingPick = null;
+        state.pendingTeamIndex = null;
+        hideOverlay();
+        updateMapHighlights();
+      }
+
       function handleCountrySelection(countryCode) {
         if (el.overlay.classList.contains("active")) return;
         if (!["active_pick", "other_response"].includes(state.phase)) return;
@@ -800,20 +820,30 @@
         }
 
         state.pendingPick = countryCode;
+        state.pendingTeamIndex = teamIdx;
+        updateMapHighlights();
         const teamName = state.teamNames[teamIdx];
 
-        showOverlay(`تأكيد اختيار ${teamName}`, "هل تريد تأكيد هذه الدولة؟", [
-          { label: "تأكيد", kind: "btn-primary", onClick: confirmPendingPick },
-          { label: "تغيير الاختيار", kind: "btn-light", onClick: hideOverlay },
-        ]);
+        window.setTimeout(() => {
+          if (state.pendingPick !== countryCode || state.pendingTeamIndex !== teamIdx) return;
+          if (!["active_pick", "other_response"].includes(state.phase)) return;
+
+          showOverlay(`تأكيد اختيار ${teamName}`, "هل تريد تأكيد هذه الدولة؟", [
+            { label: "تأكيد", kind: "btn-primary", onClick: confirmPendingPick },
+            { label: "تغيير الاختيار", kind: "btn-light", onClick: cancelPendingPick },
+          ]);
+        }, SELECTION_CONFIRM_DELAY_MS);
       }
 
       function acceptActiveAnswer() {
         if (state.phase !== "other_response") return;
         state.teamPicks[otherTeamIndex()] = null;
         state.otherTeamAcceptedActiveAnswer = true;
+        state.pendingPick = null;
+        state.pendingTeamIndex = null;
         state.phase = "ready_reveal";
         updateHeader();
+        updateMapHighlights();
         showOverlay("جاهز لإظهار الإجابة", "تم اعتماد إجابة الفريق النشط من الفريق الآخر.", [
           { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
         ]);
@@ -954,6 +984,7 @@
         state.teamPicks = [null, null];
         state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
+        state.pendingTeamIndex = null;
         state.started = true;
 
         el.setupScreen.style.display = "none";
