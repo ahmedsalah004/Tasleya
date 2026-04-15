@@ -14,7 +14,6 @@ const INSTRUCTIONS_SEEN_STORAGE_KEY = "tasleya_instructions_seen_v1";
 const LOCAL_PROGRESS_STORAGE_KEY = "tasleya_local_progress_v1";
 const LOCAL_PROGRESS_SCHEMA_VERSION = 2;
 const SOUND_MUTED_STORAGE_KEY = "tasleya_sound_muted_v1";
-const GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY = "tasleya_games_promo_popup_dismissed_v1";
 const ONLINE_CLIENT_ID_STORAGE_KEY = "tasleya_online_client_id_v1";
 const FIREBASE_ROOMS_PATH = "rooms";
 const ROOM_USED_HISTORY_FIELD = "usedQuestionIdsByCategory";
@@ -4918,17 +4917,12 @@ async function tryRestoreOnlineSession() {
   }
 }
 
-function isGamesPromoPopupDismissed() {
-  return safeStorageGet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY) === "1";
-}
-
 function dismissGamesPromoPopup() {
-  safeStorageSet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY, "1");
   closeGamesPromoPopup();
 }
 
 function openGamesPromoPopup() {
-  if (!el.gamesPromoPopup || isGamesPromoPopupDismissed()) return;
+  if (!el.gamesPromoPopup) return;
   el.gamesPromoPopup.classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
@@ -4942,7 +4936,6 @@ function closeGamesPromoPopup() {
 function maybeOpenGamesPromoPopup() {
   if (!el.startScreen || !el.gamesPromoPopup) return;
   if (el.startScreen.style.display === "none") return;
-  if (isGamesPromoPopupDismissed()) return;
   window.setTimeout(() => {
     openGamesPromoPopup();
   }, 250);
@@ -5377,7 +5370,6 @@ function initializeApp() {
     }
   }, "gamesPromoPopup");
   bindEvent(el.gamesPromoPopupCtaBtn, "click", () => {
-    safeStorageSet(localStorage, GAMES_PROMO_POPUP_DISMISSED_STORAGE_KEY, "1");
     closeGamesPromoPopup();
   }, "gamesPromoPopupCtaBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
