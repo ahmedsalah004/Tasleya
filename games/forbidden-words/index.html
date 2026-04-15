@@ -311,6 +311,7 @@
         </div>
 
         <button id="start-game" class="start-btn" type="button">ابدأ اللعبة</button>
+        <p id="cards-status" class="round-tag" aria-live="polite"></p>
       </section>
 
       <section id="turn-screen" class="panel hidden" aria-label="دور الفريق">
@@ -350,43 +351,13 @@
     </main>
 
     <script>
-      const cards = [
-        { word: "الأهرامات", forbidden: ["مصر", "الجيزة", "فرعون", "آثار"] },
-        { word: "بيتزا", forbidden: ["جبن", "إيطاليا", "عجينة", "فرن"] },
-        { word: "قهوة", forbidden: ["مقهي", "منبه", "فنجان", "صباح"] },
-        { word: "كرة القدم", forbidden: ["هدف", "ملعب", "لاعب", "حكم"] },
-        { word: "الهاتف", forbidden: ["اتصال", "جوال", "رسالة", "شاشة"] },
-        { word: "المدرسة", forbidden: ["طلاب", "معلم", "فصل", "دراسة"] },
-        { word: "الرياض", forbidden: ["السعودية", "عاصمة", "موسم", "نخيل"] },
-        { word: "برجر", forbidden: ["لحم", "خبز", "مطعم", "بطاطس"] },
-        { word: "نيمار", forbidden: ["برازيلي", "كرة", "هلال", "مهاجم"] },
-        { word: "محمد صلاح", forbidden: ["ليفربول", "مصر", "جناح", "هداف"] },
-        { word: "نار", forbidden: ["حريق", "حرارة", "دخان", "إطفاء"] },
-        { word: "بحر", forbidden: ["ماء", "أمواج", "شاطئ", "سفينة"] },
-        { word: "طائرة", forbidden: ["مطار", "سفر", "طيار", "سماء"] },
-        { word: "كتاب", forbidden: ["قراءة", "صفحات", "مكتبة", "مؤلف"] },
-        { word: "هاتف آيفون", forbidden: ["أبل", "جوال", "كاميرا", "تطبيقات"] },
-        { word: "جدة", forbidden: ["البحر", "السعودية", "كورنيش", "مدينة"] },
-        { word: "كشري", forbidden: ["مصر", "عدس", "أرز", "بصل"] },
-        { word: "شاورما", forbidden: ["دجاج", "ساندويتش", "ثوم", "خبز"] },
-        { word: "ميسي", forbidden: ["الأرجنتين", "برشلونة", "كرة", "رقم 10"] },
-        { word: "رونالدو", forbidden: ["البرتغال", "النصر", "كرة", "هداف"] },
-        { word: "تامر حسني", forbidden: ["مغني", "مصري", "ألبوم", "حفلة"] },
-        { word: "نانسي عجرم", forbidden: ["لبنان", "مغنية", "أغاني", "صوت"] },
-        { word: "سيارة", forbidden: ["عجلات", "قيادة", "طريق", "بنزين"] },
-        { word: "قطار", forbidden: ["سكة", "محطة", "عربات", "سفر"] },
-        { word: "مطار", forbidden: ["طائرة", "جواز", "رحلة", "حقائب"] },
-        { word: "بيت", forbidden: ["منزل", "غرف", "مطبخ", "باب"] },
-        { word: "ثلج", forbidden: ["بارد", "شتاء", "تجميد", "أبيض"] },
-        { word: "تمر", forbidden: ["نخلة", "رمضان", "سكر", "تمرية"] },
-        { word: "كباب", forbidden: ["لحم", "فحم", "مشاوي", "مطعم"] },
-        { word: "الكعبة", forbidden: ["مكة", "حج", "طواف", "قبلة"] },
-        { word: "برج خليفة", forbidden: ["دبي", "طويل", "إمارات", "ناطحة"] },
-        { word: "برشلونة", forbidden: ["إسبانيا", "ميسي", "كامب نو", "فريق"] },
-        { word: "واتساب", forbidden: ["رسائل", "مكالمات", "تطبيق", "أخضر"] },
-        { word: "يوتيوب", forbidden: ["فيديو", "قناة", "مشاهدة", "اشتراك"] },
-        { word: "فلافل", forbidden: ["حمص", "سندويتش", "طعمية", "مقلي"] }
+      const SHEET_CSV_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTkuYhjCaEXXLGMcyGeJKqXEw2CfO3MhezRKY7DpY7DU3eMDLlOx7jGWXO-oLeFtt-BWHqrNWuyplk/pub?output=csv";
+      const fallbackCards = [
+        { word: "بيتزا", forbidden: ["جبن", "إيطاليا", "عجينة", "فرن", "مطعم"] },
+        { word: "كرة القدم", forbidden: ["هدف", "ملعب", "لاعب", "حكم", "فريق"] }
       ];
+      let cards = [...fallbackCards];
 
       const state = {
         teams: 2,
@@ -409,6 +380,7 @@
       const teamsOptions = document.getElementById("teams-options");
       const timeOptions = document.getElementById("time-options");
       const startGameBtn = document.getElementById("start-game");
+      const cardsStatus = document.getElementById("cards-status");
       const teamLabel = document.getElementById("team-label");
       const timerEl = document.getElementById("timer");
       const roundTag = document.getElementById("round-tag");
@@ -455,6 +427,133 @@
       function refillDeck() {
         state.deck = shuffle(cards.map((_, index) => index));
         state.deckIndex = 0;
+      }
+
+      function parseCsv(content) {
+        const rows = [];
+        let row = [];
+        let cell = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < content.length; i += 1) {
+          const char = content[i];
+          const nextChar = content[i + 1];
+
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              cell += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+
+          if (!inQuotes && char === ",") {
+            row.push(cell);
+            cell = "";
+            continue;
+          }
+
+          if (!inQuotes && (char === "\n" || char === "\r")) {
+            if (char === "\r" && nextChar === "\n") {
+              i += 1;
+            }
+            row.push(cell);
+            rows.push(row);
+            row = [];
+            cell = "";
+            continue;
+          }
+
+          cell += char;
+        }
+
+        row.push(cell);
+        if (row.length > 1 || row[0]) {
+          rows.push(row);
+        }
+        return rows;
+      }
+
+      function normalizeValue(value) {
+        return (value || "").replace(/^\uFEFF/, "").trim();
+      }
+
+      function parseCardsFromCsv(content) {
+        const rows = parseCsv(content);
+        if (rows.length < 2) {
+          return [];
+        }
+
+        const headers = rows[0].map((header) => normalizeValue(header).toLowerCase());
+        const col = {
+          word: headers.indexOf("word"),
+          active: headers.indexOf("active"),
+          forbidden1: headers.indexOf("forbidden_1"),
+          forbidden2: headers.indexOf("forbidden_2"),
+          forbidden3: headers.indexOf("forbidden_3"),
+          forbidden4: headers.indexOf("forbidden_4"),
+          forbidden5: headers.indexOf("forbidden_5")
+        };
+
+        if (
+          col.word === -1 ||
+          col.active === -1 ||
+          col.forbidden1 === -1 ||
+          col.forbidden2 === -1 ||
+          col.forbidden3 === -1 ||
+          col.forbidden4 === -1 ||
+          col.forbidden5 === -1
+        ) {
+          return [];
+        }
+
+        return rows
+          .slice(1)
+          .map((rawRow) => rawRow.map((value) => normalizeValue(value)))
+          .filter((rawRow) => rawRow.some((value) => value !== ""))
+          .filter((rawRow) => (rawRow[col.active] || "").toLowerCase() !== "false")
+          .map((rawRow) => ({
+            word: rawRow[col.word],
+            forbidden: [
+              rawRow[col.forbidden1],
+              rawRow[col.forbidden2],
+              rawRow[col.forbidden3],
+              rawRow[col.forbidden4],
+              rawRow[col.forbidden5]
+            ]
+          }))
+          .filter((card) => card.word && card.forbidden.every((word) => word));
+      }
+
+      async function loadCards() {
+        cardsStatus.textContent = "جاري تحميل الكلمات...";
+        startGameBtn.disabled = true;
+        try {
+          const response = await fetch(SHEET_CSV_URL, {
+            headers: {
+              Accept: "text/csv;charset=utf-8"
+            }
+          });
+          if (!response.ok) {
+            throw new Error("Failed to fetch cards CSV.");
+          }
+
+          const csvText = await response.text();
+          const parsedCards = parseCardsFromCsv(csvText);
+          if (!parsedCards.length) {
+            throw new Error("No valid cards in CSV.");
+          }
+
+          cards = parsedCards;
+          cardsStatus.textContent = "";
+        } catch (error) {
+          cards = [...fallbackCards];
+          cardsStatus.textContent = "لم نتمكن من تحميل كلمات اللعبة. حاول مرة أخرى.";
+        } finally {
+          startGameBtn.disabled = false;
+        }
       }
 
       function getNextCard() {
@@ -570,6 +669,7 @@
         state.roundNumber = 1;
         state.turnIndex = 0;
         state.scores = Array.from({ length: state.teams }, () => 0);
+        cards = shuffle([...cards]);
         refillDeck();
         startTurn();
       });
@@ -584,6 +684,8 @@
       });
 
       nextTurnBtn.addEventListener("click", handleNextTeam);
+
+      loadCards();
     </script>
   </body>
 </html>
