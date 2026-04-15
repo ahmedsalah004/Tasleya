@@ -204,6 +204,14 @@
         gap: 0.6rem;
       }
 
+      .board-section-title {
+        grid-column: 1 / -1;
+        margin-top: 1rem;
+        margin-bottom: 0.4rem;
+        color: var(--gold-300);
+        font-size: 0.95rem;
+      }
+
       .film-card {
         border: 1px solid rgba(255, 214, 109, 0.28);
         border-radius: 14px;
@@ -343,10 +351,7 @@
           <p id="revealTurnText" class="subtitle" style="margin-top: 0.6rem"></p>
           <p id="revealPointsText" class="subtitle" style="margin-top: 0.45rem"></p>
           <p class="warning">لا تجعل باقي الفريق يرى الشاشة. الممثل فقط يشاهد الاسم.</p>
-          <div id="hiddenMovieState" class="action-stack">
-            <button id="showMovieBtn" class="btn btn-primary" type="button">إظهار اسم الفيلم للممثل فقط</button>
-          </div>
-          <div id="shownMovieState" class="action-stack" hidden>
+          <div id="shownMovieState" class="action-stack">
             <h3 id="movieTitle" class="movie-title"></h3>
             <button id="startActingBtn" class="btn btn-primary" type="button">ابدأ التمثيل</button>
           </div>
@@ -429,9 +434,7 @@
         filmsBoard: document.getElementById("filmsBoard"),
         revealTurnText: document.getElementById("revealTurnText"),
         revealPointsText: document.getElementById("revealPointsText"),
-        hiddenMovieState: document.getElementById("hiddenMovieState"),
         shownMovieState: document.getElementById("shownMovieState"),
-        showMovieBtn: document.getElementById("showMovieBtn"),
         movieTitle: document.getElementById("movieTitle"),
         startActingBtn: document.getElementById("startActingBtn"),
         timerTurnText: document.getElementById("timerTurnText"),
@@ -593,7 +596,7 @@
           });
         }
 
-        return randomPick(selected, selected.length);
+        return selected;
       }
 
       async function loadFilmsBank() {
@@ -621,15 +624,30 @@
 
       function renderBoard() {
         elements.filmsBoard.innerHTML = "";
-        gameState.cards.forEach((card, index) => {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = `film-card${card.used ? " used" : ""}`;
-          button.disabled = card.used;
-          button.setAttribute("role", "listitem");
-          button.innerHTML = `<small>${difficultyLabel(card.difficulty)}</small><div>${card.points} نقطة</div>`;
-          button.addEventListener("click", () => handleCardClick(index));
-          elements.filmsBoard.appendChild(button);
+        const sections = [
+          { points: 100, heading: "سهل - 100 نقطة" },
+          { points: 300, heading: "متوسط - 300 نقطة" },
+          { points: 500, heading: "صعب - 500 نقطة" },
+        ];
+
+        sections.forEach((section) => {
+          const title = document.createElement("h3");
+          title.className = "board-section-title";
+          title.textContent = section.heading;
+          elements.filmsBoard.appendChild(title);
+
+          gameState.cards.forEach((card, index) => {
+            if (card.points !== section.points) return;
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = `film-card${card.used ? " used" : ""}`;
+            button.disabled = card.used;
+            button.setAttribute("role", "listitem");
+            button.innerHTML = `<small>${difficultyLabel(card.difficulty)}</small><div>${card.points} نقطة</div>`;
+            button.addEventListener("click", () => handleCardClick(index));
+            elements.filmsBoard.appendChild(button);
+          });
         });
       }
 
@@ -641,8 +659,7 @@
         elements.revealTurnText.textContent = `الدور الآن: ${gameState.teams[gameState.currentTeam]}`;
         elements.revealPointsText.textContent = `قيمة البطاقة: ${card.points} نقطة`;
         elements.movieTitle.textContent = card.title;
-        elements.hiddenMovieState.hidden = false;
-        elements.shownMovieState.hidden = true;
+        elements.shownMovieState.hidden = false;
 
         showScreen("reveal");
       }
@@ -769,10 +786,6 @@
 
       elements.introStartBtn.addEventListener("click", () => showScreen("setup"));
       elements.setupStartBtn.addEventListener("click", startGameRound);
-      elements.showMovieBtn.addEventListener("click", () => {
-        elements.hiddenMovieState.hidden = true;
-        elements.shownMovieState.hidden = false;
-      });
       elements.startActingBtn.addEventListener("click", startTimerRound);
       elements.correctBtn.addEventListener("click", applyCurrentTeamCorrect);
       elements.stealBtn.addEventListener("click", openStealScreen);
