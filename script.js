@@ -1067,13 +1067,51 @@ function firstNonEmpty(...values) {
   return "";
 }
 
+function getHistoryBucketKey(category, points = null) {
+  const normalizedCategory = normalizeCell(category);
+  if (!normalizedCategory) return "";
+  const normalizedPoints = Number(points);
+  return Number.isFinite(normalizedPoints) && normalizedPoints > 0
+    ? `${normalizedCategory}::${normalizedPoints}`
+    : normalizedCategory;
+}
+
+function appendToHistoryBucket(history, bucketKey, ids = []) {
+  const normalizedBucketKey = normalizeCell(bucketKey);
+  if (!normalizedBucketKey) return;
+  const normalizedIds = uniqueByText((Array.isArray(ids) ? ids : []).map(normalizeCell).filter(Boolean));
+  if (!normalizedIds.length) return;
+  const current = Array.isArray(history[normalizedBucketKey]) ? history[normalizedBucketKey] : [];
+  history[normalizedBucketKey] = uniqueByText([...current, ...normalizedIds]);
+}
+
 function normalizeUsedHistoryByCategory(rawHistory) {
   if (!rawHistory || typeof rawHistory !== "object" || Array.isArray(rawHistory)) return {};
   const normalized = {};
-  Object.entries(rawHistory).forEach(([category, usedIds]) => {
-    const normalizedCategory = normalizeCell(category);
-    if (!normalizedCategory || !Array.isArray(usedIds)) return;
-    normalized[normalizedCategory] = uniqueByText(usedIds.map(normalizeCell).filter(Boolean));
+  Object.entries(rawHistory).forEach(([rawBucket, rawValue]) => {
+    const normalizedBucket = normalizeCell(rawBucket);
+    if (!normalizedBucket) return;
+
+    if (Array.isArray(rawValue)) {
+      if (!normalizedBucket.includes("::")) {
+        // Legacy format used category-only buckets; migrate into per-points buckets.
+        POINT_LEVELS.forEach((points) => {
+          appendToHistoryBucket(normalized, getHistoryBucketKey(normalizedBucket, points), rawValue);
+        });
+        return;
+      }
+      appendToHistoryBucket(normalized, normalizedBucket, rawValue);
+      return;
+    }
+
+    if (rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)) {
+      Object.entries(rawValue).forEach(([rawPoints, usedIds]) => {
+        if (!Array.isArray(usedIds)) return;
+        const points = Number(rawPoints);
+        if (!Number.isFinite(points) || points <= 0) return;
+        appendToHistoryBucket(normalized, getHistoryBucketKey(normalizedBucket, points), usedIds);
+      });
+    }
   });
   return normalized;
 }
@@ -1478,36 +1516,36 @@ function restoreLocalProgress() {
   if (!isSavedLocalProgressResumable(saved)) return false;
   return applySavedLocalProgress(saved);
 }
-function ensureCategoryHistoryBucket(category) {
-  const normalizedCategory = normalizeCell(category);
-  if (!normalizedCategory) return [];
-  if (!Array.isArray(state.usedHistory[normalizedCategory])) state.usedHistory[normalizedCategory] = [];
-  return state.usedHistory[normalizedCategory];
+function ensureCategoryHistoryBucket(category, points = null) {
+  const bucketKey = getHistoryBucketKey(category, points);
+  if (!bucketKey) return [];
+  if (!Array.isArray(state.usedHistory[bucketKey])) state.usedHistory[bucketKey] = [];
+  return state.usedHistory[bucketKey];
 }
-function ensureOnlineCategoryHistoryBucket(category) {
-  const normalizedCategory = normalizeCell(category);
-  if (!normalizedCategory) return [];
+function ensureOnlineCategoryHistoryBucket(category, points = null) {
+  const bucketKey = getHistoryBucketKey(category, points);
+  if (!bucketKey) return [];
   if (!online.usedQuestionsByCategory || typeof online.usedQuestionsByCategory !== "object" || Array.isArray(online.usedQuestionsByCategory)) {
     online.usedQuestionsByCategory = {};
   }
-  if (!Array.isArray(online.usedQuestionsByCategory[normalizedCategory])) online.usedQuestionsByCategory[normalizedCategory] = [];
-  return online.usedQuestionsByCategory[normalizedCategory];
+  if (!Array.isArray(online.usedQuestionsByCategory[bucketKey])) online.usedQuestionsByCategory[bucketKey] = [];
+  return online.usedQuestionsByCategory[bucketKey];
 }
-async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset = false } = {}) {
-  const normalizedCategory = normalizeCell(category);
+async function syncOnlineUsedCategoryHistory(category, { points = null, questionId = "", reset = false } = {}) {
+  const bucketKey = getHistoryBucketKey(category, points);
   const normalizedQuestionId = normalizeCell(questionId);
-  if (online.mode !== "online" || !online.roomRef || !normalizedCategory || online.applyingRemote || !isOnlineHostClient()) return;
+  if (online.mode !== "online" || !online.roomRef || !bucketKey || online.applyingRemote || !isOnlineHostClient()) return;
   const usedHistoryRef = online.roomRef.child(`public/gameState/${ROOM_USED_HISTORY_FIELD}`);
   const result = await usedHistoryRef.transaction((rawHistory) => {
     const history = normalizeUsedHistoryByCategory(rawHistory);
-    const bucket = Array.isArray(history[normalizedCategory]) ? history[normalizedCategory] : [];
+    const bucket = Array.isArray(history[bucketKey]) ? history[bucketKey] : [];
     if (reset) {
-      history[normalizedCategory] = [];
+      history[bucketKey] = [];
       return history;
     }
     if (!normalizedQuestionId) return history;
     if (!bucket.includes(normalizedQuestionId)) {
-      history[normalizedCategory] = [...bucket, normalizedQuestionId];
+      history[bucketKey] = [...bucket, normalizedQuestionId];
     }
     return history;
   });
@@ -1515,19 +1553,19 @@ async function syncOnlineUsedCategoryHistory(category, { questionId = "", reset 
     online.usedQuestionsByCategory = normalizeUsedHistoryByCategory(result.snapshot?.val());
   }
 }
-function markQuestionAsUsed(category, questionId) {
+function markQuestionAsUsed(category, points, questionId) {
   const normalizedQuestionId = normalizeCell(questionId);
   if (online.mode !== "local" || !normalizedQuestionId) return;
-  const bucket = ensureCategoryHistoryBucket(category);
+  const bucket = ensureCategoryHistoryBucket(category, points);
   if (!bucket.includes(normalizedQuestionId)) {
     bucket.push(normalizedQuestionId);
     saveUsedHistory();
   }
 }
-function clearUsedCategoryHistory(category) {
-  const normalizedCategory = normalizeCell(category);
-  if (!normalizedCategory || !state.usedHistory[normalizedCategory]) return;
-  state.usedHistory[normalizedCategory] = [];
+function clearUsedCategoryHistory(category, points = null) {
+  const bucketKey = getHistoryBucketKey(category, points);
+  if (!bucketKey || !state.usedHistory[bucketKey]) return;
+  state.usedHistory[bucketKey] = [];
   saveUsedHistory();
 }
 function getAssignedQuestionIds() {
@@ -1535,22 +1573,27 @@ function getAssignedQuestionIds() {
     .map((tile) => normalizeCell(tile.questionId))
     .filter(Boolean);
 }
-function getExcludedQuestionIds(category) {
+function getExcludedQuestionIds(category, points = null) {
   const acrossGames = online.mode === "online"
-    ? ensureOnlineCategoryHistoryBucket(category)
-    : ensureCategoryHistoryBucket(category);
+    ? ensureOnlineCategoryHistoryBucket(category, points)
+    : ensureCategoryHistoryBucket(category, points);
   const inCurrentGame = state.boardTiles
-    .filter((tile) => tile.category === category)
+    .filter((tile) => tile.category === category && Number(tile.points) === Number(points))
     .map((tile) => firstNonEmpty(tile.questionHistoryId, tile.questionId))
     .filter(Boolean);
   return uniqueByText([...acrossGames, ...inCurrentGame]);
 }
-function getReservedQuestionIds(category, { ignoreTileId = "" } = {}) {
+function getReservedQuestionIds(category, points = null, { ignoreTileId = "" } = {}) {
   const normalizedCategory = normalizeCell(category);
+  const normalizedPoints = Number(points) || null;
   const normalizedIgnoreTileId = normalizeCell(ignoreTileId);
   if (!normalizedCategory) return [];
   return state.boardTiles
-    .filter((tile) => tile.category === normalizedCategory && !tile.used && !tile.missing && tile.id !== normalizedIgnoreTileId)
+    .filter((tile) => tile.category === normalizedCategory
+      && Number(tile.points) === normalizedPoints
+      && !tile.used
+      && !tile.missing
+      && tile.id !== normalizedIgnoreTileId)
     .map((tile) => normalizeCell(tile.questionId))
     .filter(Boolean);
 }
@@ -1571,7 +1614,7 @@ async function fetchQuestionPayload({
   const normalizedPoints = Number(points) || null;
   const shouldExcludeUsedByCategory = online.mode === "local" || online.mode === "online";
   const excludeIds = (!normalizedId && shouldExcludeUsedByCategory)
-    ? uniqueByText([...getExcludedQuestionIds(normalizedCategory), ...getReservedQuestionIds(normalizedCategory, { ignoreTileId })])
+    ? uniqueByText([...getExcludedQuestionIds(normalizedCategory, normalizedPoints), ...getReservedQuestionIds(normalizedCategory, normalizedPoints, { ignoreTileId })])
     : [];
   const requestFullCategoryPool = preferFullCategoryPool || normalizedPoints === null;
 
@@ -1601,22 +1644,14 @@ async function fetchQuestionPayload({
   } catch (error) {
     const isExhaustedPool = error?.status === 404 && error?.payload?.code === "QUESTION_POOL_EXHAUSTED";
     if (!normalizedId && shouldExcludeUsedByCategory && isExhaustedPool && !resetUsedBucketOnExhaustion) {
-      if (!requestFullCategoryPool && normalizedPoints !== null) {
-        return fetchQuestionPayload({
-          category: normalizedCategory,
-          points: normalizedPoints,
-          preferFullCategoryPool: true,
-        });
-      }
       if (online.mode === "online") {
-        await syncOnlineUsedCategoryHistory(normalizedCategory, { reset: true });
+        await syncOnlineUsedCategoryHistory(normalizedCategory, { points: normalizedPoints, reset: true });
       } else {
-        clearUsedCategoryHistory(normalizedCategory);
+        clearUsedCategoryHistory(normalizedCategory, normalizedPoints);
       }
       return fetchQuestionPayload({
         category: normalizedCategory,
-        points: null,
-        preferFullCategoryPool: true,
+        points: normalizedPoints,
         resetUsedBucketOnExhaustion: true,
       });
     }
@@ -2529,10 +2564,10 @@ async function openQuestion(tileId, {
     const normalizedApiQuestionId = normalizeCell(q.id);
     tile.questionId = normalizedApiQuestionId || tile.questionId;
     tile.questionHistoryId = historyQuestionId;
-    if (historyQuestionId) markQuestionAsUsed(tile.category, historyQuestionId);
+    if (historyQuestionId) markQuestionAsUsed(tile.category, tile.points, historyQuestionId);
     if (online.mode === "online") {
       try {
-        await syncOnlineUsedCategoryHistory(tile.category, { questionId: historyQuestionId });
+        await syncOnlineUsedCategoryHistory(tile.category, { points: tile.points, questionId: historyQuestionId });
       } catch (error) {
         console.warn("[Tasleya] Unable to sync used online question history", { category: tile.category, questionId: historyQuestionId, error });
       }
