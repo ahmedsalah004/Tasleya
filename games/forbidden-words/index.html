@@ -134,13 +134,40 @@
         align-items: center;
         justify-content: space-between;
         gap: 0.8rem;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.55rem;
       }
 
       .team-label {
         margin: 0;
-        font-size: clamp(1.1rem, 4vw, 1.35rem);
-        color: #fff2c3;
+        font-size: clamp(1.25rem, 4.2vw, 1.6rem);
+        color: #fff6d2;
+      }
+
+      .turn-meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.55rem;
+        margin: 0 0 0.85rem;
+      }
+
+      .meta-item {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.45);
+        background: rgba(3, 12, 35, 0.82);
+        padding: 0.52rem 0.62rem;
+      }
+
+      .meta-label {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.86rem;
+      }
+
+      .meta-value {
+        margin: 0.2rem 0 0;
+        color: #fff4cb;
+        font-size: 1.08rem;
+        font-weight: 800;
       }
 
       .timer {
@@ -227,21 +254,56 @@
         border-color: rgba(145, 176, 255, 0.66);
       }
 
+      .score-wrap {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.4);
+        background: rgba(3, 12, 35, 0.84);
+        padding: 0.65rem;
+        margin: 0 0 0.85rem;
+      }
+
+      .score-title {
+        margin: 0 0 0.55rem;
+        color: #fff2c3;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
       .score-strip {
-        margin: 0 0 0.8rem;
+        margin: 0;
         padding: 0;
         list-style: none;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.45rem;
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
       }
 
       .score-strip li {
-        border-radius: 10px;
-        border: 1px solid rgba(255, 225, 140, 0.35);
-        background: rgba(7, 17, 44, 0.85);
-        padding: 0.42rem 0.58rem;
-        font-size: 0.95rem;
+        border-radius: 11px;
+        border: 1px solid rgba(255, 225, 140, 0.4);
+        background: rgba(8, 19, 50, 0.88);
+        padding: 0.6rem 0.72rem;
+        font-size: 1.02rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.7rem;
+      }
+
+      .score-strip li .team-name {
+        font-weight: 700;
+        color: #fff2c3;
+      }
+
+      .score-strip li .team-score {
+        font-weight: 800;
+        font-size: 1.08rem;
+      }
+
+      .score-strip li.current-team {
+        border-color: rgba(83, 230, 160, 0.8);
+        background: rgba(14, 58, 42, 0.72);
+        box-shadow: 0 0 0 2px rgba(83, 230, 160, 0.22);
       }
 
       .summary-title {
@@ -275,7 +337,7 @@
         }
 
         .score-strip {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
@@ -319,19 +381,46 @@
           font-size: 1.1rem;
         }
 
-        #turn-screen .round-tag {
-          margin: 0.22rem 0;
-          font-size: 0.9rem;
+        #turn-screen .turn-meta {
+          margin: 0 0 0.5rem;
+          gap: 0.35rem;
+          grid-template-columns: 1fr;
+        }
+
+        #turn-screen .meta-item {
+          padding: 0.42rem 0.52rem;
+        }
+
+        #turn-screen .meta-label {
+          font-size: 0.79rem;
+        }
+
+        #turn-screen .meta-value {
+          font-size: 0.98rem;
+          margin-top: 0.13rem;
+        }
+
+        #turn-screen .score-wrap {
+          margin: 0.28rem 0 0.5rem;
+          padding: 0.52rem;
+        }
+
+        #turn-screen .score-title {
+          margin-bottom: 0.4rem;
+          font-size: 0.92rem;
         }
 
         #turn-screen .score-strip {
-          margin: 0.38rem 0 0.5rem;
-          gap: 0.28rem;
+          gap: 0.3rem;
         }
 
         #turn-screen .score-strip li {
-          padding: 0.32rem 0.44rem;
-          font-size: 0.82rem;
+          padding: 0.4rem 0.5rem;
+          font-size: 0.9rem;
+        }
+
+        #turn-screen .score-strip li .team-score {
+          font-size: 0.95rem;
         }
 
         #turn-screen .card {
@@ -439,10 +528,25 @@
           <h2 id="team-label" class="team-label">دور الفريق 1</h2>
           <div id="timer" class="timer">01:00</div>
         </div>
-        <p id="round-tag" class="round-tag">الجولة 1</p>
-        <p id="turn-score" class="round-tag">نقاط الدور الحالي: 0</p>
+        <div class="turn-meta">
+          <div class="meta-item">
+            <p class="meta-label">الجولة</p>
+            <p id="round-tag" class="meta-value">1</p>
+          </div>
+          <div class="meta-item">
+            <p class="meta-label">دور الفريق</p>
+            <p id="turn-team-meta" class="meta-value">1</p>
+          </div>
+          <div class="meta-item">
+            <p class="meta-label">نقاط هذا الدور</p>
+            <p id="turn-score" class="meta-value">0</p>
+          </div>
+        </div>
 
-        <ul id="score-strip" class="score-strip"></ul>
+        <div class="score-wrap">
+          <p class="score-title">إجمالي كل فريق</p>
+          <ul id="score-strip" class="score-strip"></ul>
+        </div>
 
         <article class="card" aria-live="polite">
           <p class="card-title">الكلمة</p>
@@ -461,11 +565,13 @@
       </section>
 
       <section id="summary-screen" class="panel hidden" aria-label="ملخص الدور">
-        <h2 class="summary-title">انتهى الدور</h2>
+        <h2 class="summary-title">ملخص الدور</h2>
         <p id="summary-team" class="summary-line"></p>
         <p id="summary-turn-score" class="summary-line"></p>
-        <p id="summary-total" class="summary-line"></p>
-        <ul id="summary-board" class="score-strip"></ul>
+        <div class="score-wrap">
+          <p id="summary-total" class="score-title"></p>
+          <ul id="summary-board" class="score-strip"></ul>
+        </div>
         <button id="next-turn" class="continue-btn" type="button">دور الفريق التالي</button>
       </section>
 
@@ -518,6 +624,7 @@
       const teamLabel = document.getElementById("team-label");
       const timerEl = document.getElementById("timer");
       const roundTag = document.getElementById("round-tag");
+      const turnTeamMeta = document.getElementById("turn-team-meta");
       const scoreStrip = document.getElementById("score-strip");
       const turnScoreEl = document.getElementById("turn-score");
       const mainWord = document.getElementById("main-word");
@@ -776,10 +883,15 @@
         listEl.innerHTML = "";
         state.scores.forEach((score, index) => {
           const li = document.createElement("li");
-          li.textContent = `الفريق ${index + 1}: ${score}`;
+          const teamName = document.createElement("span");
+          teamName.className = "team-name";
+          teamName.textContent = `الفريق ${index + 1}`;
+          const teamScore = document.createElement("span");
+          teamScore.className = "team-score";
+          teamScore.textContent = `${score} نقطة`;
+          li.append(teamName, teamScore);
           if (highlightedIndex === index) {
-            li.style.borderColor = "rgba(83, 230, 160, 0.78)";
-            li.style.color = "#d6ffe9";
+            li.classList.add("current-team");
           }
           listEl.appendChild(li);
         });
@@ -792,7 +904,13 @@
           .sort((a, b) => b.score - a.score || a.team - b.team);
         rankedTeams.forEach((item, index) => {
           const li = document.createElement("li");
-          li.textContent = `${index + 1}) الفريق ${item.team}: ${item.score}`;
+          const teamName = document.createElement("span");
+          teamName.className = "team-name";
+          teamName.textContent = `${index + 1}) الفريق ${item.team}`;
+          const teamScore = document.createElement("span");
+          teamScore.className = "team-score";
+          teamScore.textContent = `${item.score} نقطة`;
+          li.append(teamName, teamScore);
           listEl.appendChild(li);
         });
       }
@@ -817,9 +935,10 @@
       function renderTurn() {
         teamLabel.textContent = `دور الفريق ${state.turnIndex + 1}`;
         timerEl.textContent = formatTime(state.remaining);
-        roundTag.textContent = `الجولة ${state.roundNumber}`;
+        roundTag.textContent = `${state.roundNumber}`;
+        turnTeamMeta.textContent = `${state.turnIndex + 1}`;
         mainWord.textContent = state.currentCard.word;
-        turnScoreEl.textContent = `نقاط الدور الحالي: ${state.turnScore}`;
+        turnScoreEl.textContent = `${state.turnScore}`;
         forbiddenList.innerHTML = "";
         state.currentCard.forbidden.forEach((word) => {
           const li = document.createElement("li");
@@ -894,10 +1013,10 @@
 
         summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
         summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
-        summaryTotal.textContent = "إجمالي النقاط لكل فريق:";
+        summaryTotal.textContent = "إجمالي كل فريق";
         nextTurnBtn.textContent = finishedRound ? "ابدأ الجولة التالية" : "دور الفريق التالي";
         renderScore(summaryBoard, state.turnIndex);
-        roundTag.textContent = `الجولة ${endedRound}`;
+        roundTag.textContent = `${endedRound}`;
       }
 
       function moveToNextCard(addPoint) {
