@@ -171,6 +171,11 @@
         border-color: rgba(202, 93, 255, 0.7);
       }
 
+      .team-pill.active {
+        border-width: 2px;
+        box-shadow: 0 0 0 2px rgba(247, 214, 117, 0.45), 0 10px 20px rgba(0, 0, 0, 0.28);
+      }
+
       .meta-pill {
         text-align: center;
         color: var(--accent);
@@ -191,6 +196,35 @@
         padding: 0.5rem;
         font-weight: 800;
         color: var(--accent);
+      }
+
+      .turn-panel {
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 0.55rem;
+        background: rgba(5, 12, 31, 0.85);
+        display: grid;
+        gap: 0.42rem;
+      }
+
+      .turn-indicator {
+        font-size: 1.02rem;
+        font-weight: 800;
+        color: #ffe9ab;
+      }
+
+      .turn-instruction {
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .accept-answer-btn {
+        display: none;
+        width: 100%;
+      }
+
+      .accept-answer-btn.show {
+        display: block;
       }
 
       .map-stage {
@@ -288,6 +322,15 @@
 
       .popup-actions .btn {
         flex: 1;
+        height: 48px;
+        min-height: 48px;
+        font-size: 1rem;
+        font-weight: 800;
+        line-height: 1.2;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .loading,
@@ -337,17 +380,22 @@
       <section class="game" id="gameScreen" aria-live="polite">
         <header class="scoreboard">
           <div class="score-grid">
-            <div class="team-pill team-1">
+            <div class="team-pill team-1" id="team1Card">
               <span class="team-name" id="team1Label">الفريق الأول</span>
               <span class="team-score"><span id="team1Score">0</span> نقطة</span>
             </div>
             <div class="meta-pill" id="questionMeta">السؤال 1 من 20 — سهل — 100 نقطة</div>
-            <div class="team-pill team-2">
+            <div class="team-pill team-2" id="team2Card">
               <span class="team-name" id="team2Label">الفريق الثاني</span>
               <span class="team-score"><span id="team2Score">0</span> نقطة</span>
             </div>
           </div>
           <div class="target" id="targetCountry">الدولة المطلوبة: —</div>
+          <div class="turn-panel">
+            <div class="turn-indicator" id="turnIndicator">الدور الآن: —</div>
+            <div class="turn-instruction" id="turnInstruction">—</div>
+            <button class="btn btn-light accept-answer-btn" id="acceptActiveAnswerBtn" type="button"></button>
+          </div>
         </header>
 
         <section class="map-stage" id="mapStage">
@@ -398,8 +446,9 @@
         teamNames: ["الفريق الأول", "الفريق الثاني"],
         scores: [0, 0],
         teamPicks: [null, null],
+        otherTeamAcceptedActiveAnswer: false,
         pendingPick: null,
-        phase: "team1_pick", // team1_pick | team2_pick | ready_reveal | revealed | finished
+        phase: "active_pick", // active_pick | other_response | ready_reveal | revealed | finished
         mapReady: false,
         centroids: new Map(),
         countryByName: new Map(),
@@ -417,8 +466,13 @@
         team2Label: document.getElementById("team2Label"),
         team1Score: document.getElementById("team1Score"),
         team2Score: document.getElementById("team2Score"),
+        team1Card: document.getElementById("team1Card"),
+        team2Card: document.getElementById("team2Card"),
         questionMeta: document.getElementById("questionMeta"),
         targetCountry: document.getElementById("targetCountry"),
+        turnIndicator: document.getElementById("turnIndicator"),
+        turnInstruction: document.getElementById("turnInstruction"),
+        acceptActiveAnswerBtn: document.getElementById("acceptActiveAnswerBtn"),
         mapStage: document.getElementById("mapStage"),
         mapLoading: document.getElementById("mapLoading"),
         overlay: document.getElementById("overlay"),
@@ -459,8 +513,18 @@
         return POINTS[getQuestion().difficulty];
       }
 
-      function currentTeamIndex() {
-        return state.phase === "team1_pick" ? 0 : 1;
+      function activeTeamIndex() {
+        return state.questionIndex % 2 === 0 ? 0 : 1;
+      }
+
+      function otherTeamIndex() {
+        return activeTeamIndex() === 0 ? 1 : 0;
+      }
+
+      function selectionTeamIndex() {
+        if (state.phase === "active_pick") return activeTeamIndex();
+        if (state.phase === "other_response") return otherTeamIndex();
+        return null;
       }
 
       function showOverlay(title, text, actions) {
@@ -484,12 +548,35 @@
 
       function updateHeader() {
         const q = getQuestion();
+        const activeIdx = activeTeamIndex();
+        const otherIdx = otherTeamIndex();
         el.team1Label.textContent = state.teamNames[0];
         el.team2Label.textContent = state.teamNames[1];
         el.team1Score.textContent = String(state.scores[0]);
         el.team2Score.textContent = String(state.scores[1]);
         el.questionMeta.textContent = `السؤال ${state.questionIndex + 1} من 20 — ${DIFFICULTY_AR[q.difficulty]} — ${POINTS[q.difficulty]} نقطة`;
         el.targetCountry.textContent = `الدولة المطلوبة: ${q.ar}`;
+        el.team1Card.classList.toggle("active", activeIdx === 0 && ["active_pick", "other_response"].includes(state.phase));
+        el.team2Card.classList.toggle("active", activeIdx === 1 && ["active_pick", "other_response"].includes(state.phase));
+
+        if (state.phase === "active_pick") {
+          el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[activeIdx]}`;
+          el.turnInstruction.textContent = `اختر دولة على الخريطة لفريق ${state.teamNames[activeIdx]}`;
+          el.acceptActiveAnswerBtn.classList.remove("show");
+        } else if (state.phase === "other_response") {
+          el.turnIndicator.textContent = `الآن دور فريق ${state.teamNames[otherIdx]}`;
+          el.turnInstruction.textContent = `فريق ${state.teamNames[otherIdx]}: اختر دولة أخرى أو أكّد أن إجابة فريق ${state.teamNames[activeIdx]} صحيحة`;
+          el.acceptActiveAnswerBtn.textContent = `إجابة فريق ${state.teamNames[activeIdx]} صحيحة`;
+          el.acceptActiveAnswerBtn.classList.add("show");
+        } else if (state.phase === "ready_reveal") {
+          el.turnIndicator.textContent = "جاهز لإظهار الإجابة";
+          el.turnInstruction.textContent = "تم تأكيد الاختيارات. اضغط إظهار الإجابة.";
+          el.acceptActiveAnswerBtn.classList.remove("show");
+        } else {
+          el.turnIndicator.textContent = "—";
+          el.turnInstruction.textContent = "—";
+          el.acceptActiveAnswerBtn.classList.remove("show");
+        }
       }
 
       function updateMapHighlights() {
@@ -520,21 +607,25 @@
         const q = getQuestion();
         const points = POINTS[q.difficulty];
         const half = Math.floor(points / 2);
+        const activeIdx = activeTeamIndex();
+        const otherIdx = otherTeamIndex();
         const pickedCorrect = [state.teamPicks[0]?.name === q.name, state.teamPicks[1]?.name === q.name];
 
         let result;
 
-        if (pickedCorrect[0] || pickedCorrect[1]) {
-          const winners = [];
-          if (pickedCorrect[0]) {
-            state.scores[0] += points;
-            winners.push(state.teamNames[0]);
+        if (state.otherTeamAcceptedActiveAnswer) {
+          if (pickedCorrect[activeIdx]) {
+            state.scores[activeIdx] += points;
+            result = `إجابة ${state.teamNames[activeIdx]} صحيحة — +${points}`;
+          } else {
+            result = "إجابة الفريق النشط غير صحيحة — لا نقاط لهذا السؤال";
           }
-          if (pickedCorrect[1]) {
-            state.scores[1] += points;
-            winners.push(state.teamNames[1]);
-          }
-          result = `إجابة صحيحة لفريق ${winners.join(" و") } — +${points}`;
+        } else if (pickedCorrect[activeIdx]) {
+          state.scores[activeIdx] += points;
+          result = `إجابة صحيحة لفريق ${state.teamNames[activeIdx]} — +${points}`;
+        } else if (pickedCorrect[otherIdx]) {
+          state.scores[otherIdx] += points;
+          result = `إجابة صحيحة لفريق ${state.teamNames[otherIdx]} — +${points}`;
         } else {
           const target = state.centroids.get(q.name);
           const c1 = state.centroids.get(state.teamPicks[0]?.name);
@@ -576,8 +667,9 @@
         }
 
         state.questionIndex += 1;
-        state.phase = "team1_pick";
+        state.phase = "active_pick";
         state.teamPicks = [null, null];
+        state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
         updateHeader();
         updateMapHighlights();
@@ -610,7 +702,8 @@
 
       function confirmPendingPick() {
         const q = getQuestion();
-        const teamIdx = currentTeamIndex();
+        const teamIdx = selectionTeamIndex();
+        if (teamIdx === null) return;
 
         state.teamPicks[teamIdx] = {
           name: state.pendingPick,
@@ -621,27 +714,47 @@
         hideOverlay();
         updateMapHighlights();
 
-        if (state.phase === "team1_pick") {
-          state.phase = "team2_pick";
+        if (state.phase === "active_pick") {
+          state.phase = "other_response";
+          updateHeader();
           return;
         }
 
         state.phase = "ready_reveal";
+        updateHeader();
         showOverlay("جاهز لإظهار الإجابة", "تم تأكيد اختيار الفريقين.", [
           { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
         ]);
       }
 
       function handleCountrySelection(countryName) {
-        if (!["team1_pick", "team2_pick"].includes(state.phase)) return;
+        if (!["active_pick", "other_response"].includes(state.phase)) return;
+        const activeIdx = activeTeamIndex();
+        const teamIdx = selectionTeamIndex();
+        if (teamIdx === null) return;
+
+        if (state.phase === "other_response" && state.teamPicks[activeIdx]?.name === countryName) {
+          showOverlay("تنبيه", "لا يمكن اختيار نفس دولة الفريق الآخر", [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          return;
+        }
 
         state.pendingPick = countryName;
-        const teamIdx = currentTeamIndex();
         const teamName = state.teamNames[teamIdx];
 
         showOverlay(`تأكيد اختيار ${teamName}`, "هل تريد تأكيد هذه الدولة؟", [
           { label: "تأكيد", kind: "btn-primary", onClick: confirmPendingPick },
           { label: "تغيير الاختيار", kind: "btn-light", onClick: hideOverlay },
+        ]);
+      }
+
+      function acceptActiveAnswer() {
+        if (state.phase !== "other_response") return;
+        state.teamPicks[otherTeamIndex()] = null;
+        state.otherTeamAcceptedActiveAnswer = true;
+        state.phase = "ready_reveal";
+        updateHeader();
+        showOverlay("جاهز لإظهار الإجابة", "تم اعتماد إجابة الفريق النشط من الفريق الآخر.", [
+          { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
         ]);
       }
 
@@ -743,8 +856,9 @@
         state.scores = [0, 0];
         state.questionIndex = 0;
         state.questions = buildQuestions();
-        state.phase = "team1_pick";
+        state.phase = "active_pick";
         state.teamPicks = [null, null];
+        state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
         state.started = true;
 
@@ -755,6 +869,7 @@
       }
 
       el.startBtn.addEventListener("click", startGame);
+      el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
       loadMap();
     </script>
   </body>
