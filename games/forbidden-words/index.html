@@ -637,7 +637,12 @@
         unlocked: false,
         enabled: true,
         timerWarningPlaying: false,
-        timerWarning: null
+        timerWarning: null,
+        oneShot: {
+          correct: null,
+          wrong: null
+        },
+        oneShotPlaying: false
       };
 
       function stopTimerWarningSound() {
@@ -650,6 +655,7 @@
       function disableAudio() {
         audioState.enabled = false;
         stopTimerWarningSound();
+        stopOneShotSounds();
         audioState.timerWarning = null;
       }
 
@@ -667,19 +673,45 @@
           audioState.timerWarning = new Audio(soundFiles.timerWarning);
           audioState.timerWarning.preload = "auto";
           audioState.timerWarning.loop = true;
+          audioState.oneShot.correct = new Audio(soundFiles.correct);
+          audioState.oneShot.correct.preload = "auto";
+          audioState.oneShot.wrong = new Audio(soundFiles.wrong);
+          audioState.oneShot.wrong.preload = "auto";
           audioState.unlocked = true;
         } catch (error) {
           disableAudio();
         }
       }
 
+      function stopOneShotSounds() {
+        ["correct", "wrong"].forEach((type) => {
+          const sound = audioState.oneShot[type];
+          if (!sound) return;
+          sound.pause();
+          sound.currentTime = 0;
+        });
+        audioState.oneShotPlaying = false;
+      }
+
       function playOneShotSound(type) {
         ensureAudioReady();
         if (!audioState.enabled) return;
         try {
-          const oneShot = new Audio(soundFiles[type]);
-          oneShot.preload = "auto";
-          safePlayAudio(oneShot);
+          const oneShot = audioState.oneShot[type];
+          if (!oneShot) return;
+          stopTimerWarningSound();
+          stopOneShotSounds();
+          oneShot.currentTime = 0;
+          audioState.oneShotPlaying = true;
+          oneShot.onended = () => {
+            audioState.oneShotPlaying = false;
+          };
+          const playPromise = oneShot.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {
+              audioState.oneShotPlaying = false;
+            });
+          }
         } catch (error) {
           disableAudio();
         }
@@ -687,6 +719,7 @@
 
       function maybePlayTimerWarning() {
         if (!audioState.enabled || !audioState.timerWarning || audioState.timerWarningPlaying) return;
+        if (audioState.oneShotPlaying) return;
         if (!state.timerRunning || state.remaining > 10 || summaryScreen.classList.contains("hidden") === false) return;
         audioState.timerWarningPlaying = true;
         const playPromise = audioState.timerWarning.play();
@@ -982,7 +1015,6 @@
         state.remaining = 0;
         timerEl.textContent = formatTime(0);
         state.scores[state.turnIndex] += state.turnScore;
-        summaryScreen.classList.remove("hidden");
 
         const endedTeam = state.turnIndex + 1;
         const endedRound = state.roundNumber;
@@ -996,6 +1028,7 @@
           return;
         }
 
+        summaryScreen.classList.remove("hidden");
         summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
         summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
         summaryTotal.textContent = "إجمالي كل فريق";
