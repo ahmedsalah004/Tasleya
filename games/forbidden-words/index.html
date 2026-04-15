@@ -504,6 +504,14 @@
       <p class="subtitle">اشرح الكلمة لفريقك بدون استخدام الكلمات الممنوعة قبل انتهاء الوقت.</p>
 
       <section id="setup-screen" class="panel" aria-label="إعداد اللعبة">
+        <div id="resume-game-panel" class="deck-empty hidden" aria-live="polite">
+          <p class="deck-empty-message">لديك لعبة غير مكتملة</p>
+          <div class="deck-empty-actions">
+            <button id="resume-game-btn" class="continue-btn" type="button">أكمل اللعبة</button>
+            <button id="new-game-btn" class="continue-btn" type="button">ابدأ من جديد</button>
+          </div>
+        </div>
+
         <div class="field">
           <h2 class="field-title">عدد الفرق</h2>
           <div class="row" id="teams-options">
@@ -612,6 +620,7 @@
         { word: "بيتزا", forbidden: ["جبن", "إيطاليا", "عجينة", "فرن", "مطعم"] },
         { word: "كرة القدم", forbidden: ["هدف", "ملعب", "لاعب", "حكم", "فريق"] }
       ];
+      const SNAPSHOT_KEY = "tasleya.forbiddenWords.snapshot.v1";
       let cards = [...fallbackCards];
 
       const state = {
@@ -627,13 +636,20 @@
         timerId: null,
         deck: [],
         deckIndex: 0,
+        currentCardIndex: null,
+        currentCardDeckPosition: null,
         currentCard: null,
         isDeckExhausted: false
       };
+      let currentScreen = "setup";
+      let pendingSnapshot = null;
 
       const setupScreen = document.getElementById("setup-screen");
       const turnScreen = document.getElementById("turn-screen");
       const summaryScreen = document.getElementById("summary-screen");
+      const resumeGamePanel = document.getElementById("resume-game-panel");
+      const resumeGameBtn = document.getElementById("resume-game-btn");
+      const newGameBtn = document.getElementById("new-game-btn");
       const teamsOptions = document.getElementById("teams-options");
       const timeOptions = document.getElementById("time-options");
       const roundsOptions = document.getElementById("rounds-options");
@@ -772,7 +788,17 @@
           [...container.querySelectorAll("button")].forEach((btn) => btn.classList.remove("active"));
           button.classList.add("active");
           callback(Number(button.dataset.value));
+          if (currentScreen === "setup") {
+            clearGameSnapshot();
+          }
         });
+      }
+
+      function setActiveChoice(container, value) {
+        const button = container.querySelector(`button[data-value="${value}"]`);
+        if (!button) return;
+        [...container.querySelectorAll("button")].forEach((btn) => btn.classList.remove("active"));
+        button.classList.add("active");
       }
 
       function formatTime(seconds) {
@@ -927,9 +953,141 @@
         if (state.deckIndex >= state.deck.length) {
           return null;
         }
-        const card = cards[state.deck[state.deckIndex]];
+        const nextDeckPosition = state.deckIndex;
+        const cardIndex = state.deck[nextDeckPosition];
+        const card = cards[cardIndex];
         state.deckIndex += 1;
+        state.currentCardDeckPosition = nextDeckPosition;
+        state.currentCardIndex = cardIndex;
         return card;
+      }
+
+      function clearGameSnapshot() {
+        sessionStorage.removeItem(SNAPSHOT_KEY);
+      }
+
+      function buildSnapshot() {
+        return {
+          teams: state.teams,
+          roundTime: state.roundTime,
+          totalRounds: state.totalRounds,
+          turnIndex: state.turnIndex,
+          roundNumber: state.roundNumber,
+          scores: [...state.scores],
+          turnScore: state.turnScore,
+          remaining: state.remaining,
+          deck: [...state.deck],
+          deckIndex: state.deckIndex,
+          currentCardIndex: state.currentCardIndex,
+          currentCardDeckPosition: state.currentCardDeckPosition,
+          isDeckExhausted: state.isDeckExhausted,
+          timerRunning: state.timerRunning,
+          screen: currentScreen
+        };
+      }
+
+      function persistSnapshot() {
+        if (currentScreen === "setup") return;
+        sessionStorage.setItem(SNAPSHOT_KEY, JSON.stringify(buildSnapshot()));
+      }
+
+      function readSavedSnapshot() {
+        try {
+          const raw = sessionStorage.getItem(SNAPSHOT_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          const allowedScreens = new Set(["active", "summary", "final"]);
+          const valid =
+            parsed &&
+            [2, 3, 4].includes(parsed.teams) &&
+            [60, 90].includes(parsed.roundTime) &&
+            [3, 5, 7].includes(parsed.totalRounds) &&
+            Number.isInteger(parsed.turnIndex) &&
+            parsed.turnIndex >= 0 &&
+            parsed.turnIndex < parsed.teams &&
+            Number.isInteger(parsed.roundNumber) &&
+            parsed.roundNumber >= 1 &&
+            Array.isArray(parsed.scores) &&
+            parsed.scores.length === parsed.teams &&
+            parsed.scores.every((score) => Number.isInteger(score)) &&
+            Number.isInteger(parsed.turnScore) &&
+            Number.isInteger(parsed.remaining) &&
+            parsed.remaining >= 0 &&
+            Array.isArray(parsed.deck) &&
+            parsed.deck.every((item) => Number.isInteger(item)) &&
+            Number.isInteger(parsed.deckIndex) &&
+            parsed.deckIndex >= 0 &&
+            parsed.deckIndex <= parsed.deck.length &&
+            (parsed.currentCardIndex === null || Number.isInteger(parsed.currentCardIndex)) &&
+            (parsed.currentCardDeckPosition === null || Number.isInteger(parsed.currentCardDeckPosition)) &&
+            typeof parsed.isDeckExhausted === "boolean" &&
+            typeof parsed.timerRunning === "boolean" &&
+            allowedScreens.has(parsed.screen);
+          return valid ? parsed : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function showScreen(screen) {
+        currentScreen = screen;
+        setupScreen.classList.toggle("hidden", screen !== "setup");
+        turnScreen.classList.toggle("hidden", screen !== "active");
+        summaryScreen.classList.toggle("hidden", screen !== "summary");
+        finalScreen.classList.toggle("hidden", screen !== "final");
+      }
+
+      function restoreSavedGame(snapshot) {
+        state.teams = snapshot.teams;
+        state.roundTime = snapshot.roundTime;
+        state.totalRounds = snapshot.totalRounds;
+        state.turnIndex = snapshot.turnIndex;
+        state.roundNumber = snapshot.roundNumber;
+        state.scores = [...snapshot.scores];
+        state.turnScore = snapshot.turnScore;
+        state.remaining = snapshot.remaining;
+        state.deck = [...snapshot.deck];
+        state.deckIndex = snapshot.deckIndex;
+        state.currentCardIndex = snapshot.currentCardIndex;
+        state.currentCardDeckPosition = snapshot.currentCardDeckPosition;
+        state.isDeckExhausted = snapshot.isDeckExhausted;
+        state.timerRunning = snapshot.timerRunning;
+        state.currentCard =
+          Number.isInteger(state.currentCardIndex) && state.currentCardIndex >= 0 && state.currentCardIndex < cards.length
+            ? cards[state.currentCardIndex]
+            : null;
+
+        setActiveChoice(teamsOptions, state.teams);
+        setActiveChoice(timeOptions, state.roundTime);
+        setActiveChoice(roundsOptions, state.totalRounds);
+        resumeGamePanel.classList.add("hidden");
+
+        if (snapshot.screen === "active") {
+          showScreen("active");
+          if (state.isDeckExhausted || !state.currentCard) {
+            showDeckExhaustedPanel();
+          } else {
+            hideDeckExhaustedPanel();
+          }
+          btnPause.textContent = state.timerRunning ? "إيقاف المؤقت" : "استكمال المؤقت";
+          renderTurn();
+          if (state.timerRunning && !state.isDeckExhausted && state.remaining > 0) {
+            startTimer();
+          }
+        } else if (snapshot.screen === "summary") {
+          showScreen("summary");
+          const endedTeam = snapshot.turnIndex + 1;
+          const finishedRound = snapshot.turnIndex === snapshot.teams - 1;
+          summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
+          summaryTurnScore.textContent = `نقاط هذا الدور: ${snapshot.turnScore}`;
+          summaryTotal.textContent = "إجمالي كل فريق";
+          nextTurnBtn.textContent = finishedRound ? "ابدأ الجولة التالية" : "دور الفريق التالي";
+          renderScore(summaryBoard, snapshot.turnIndex);
+          roundTag.textContent = `${snapshot.roundNumber}`;
+        } else {
+          showScreen("final");
+          renderFinalResults();
+        }
       }
 
       function renderScore(listEl, highlightedIndex = null, options = {}) {
@@ -986,6 +1144,7 @@
 
         renderRankedScore(finalBoard);
         renderScore(totalBoard);
+        persistSnapshot();
       }
 
       function renderTurn() {
@@ -1004,6 +1163,7 @@
           });
         }
         renderScore(scoreStrip, state.turnIndex, { includeLiveTurnScore: true });
+        persistSnapshot();
       }
 
       function setTurnActionsDisabled(disabled) {
@@ -1018,12 +1178,14 @@
         state.isDeckExhausted = true;
         deckEmptyPanel.classList.remove("hidden");
         setTurnActionsDisabled(true);
+        persistSnapshot();
       }
 
       function hideDeckExhaustedPanel() {
         state.isDeckExhausted = false;
         deckEmptyPanel.classList.add("hidden");
         setTurnActionsDisabled(false);
+        persistSnapshot();
       }
 
       function stopTimer() {
@@ -1051,10 +1213,7 @@
       }
 
       function startTurn() {
-        setupScreen.classList.add("hidden");
-        summaryScreen.classList.add("hidden");
-        finalScreen.classList.add("hidden");
-        turnScreen.classList.remove("hidden");
+        showScreen("active");
         hideDeckExhaustedPanel();
         state.turnScore = 0;
         state.remaining = state.roundTime;
@@ -1067,14 +1226,12 @@
         btnPause.textContent = "إيقاف المؤقت";
         renderTurn();
         startTimer();
+        persistSnapshot();
       }
 
       function finishTurn() {
-        if (!summaryScreen.classList.contains("hidden")) return;
-        if (!finalScreen.classList.contains("hidden")) return;
-        if (!turnScreen.classList.contains("hidden")) {
-          turnScreen.classList.add("hidden");
-        }
+        if (currentScreen === "summary") return;
+        if (currentScreen === "final") return;
         stopTimer();
         state.timerRunning = false;
         state.remaining = 0;
@@ -1088,18 +1245,19 @@
         const isGameFinished = finishedRound && reachedFinalRound;
 
         if (isGameFinished) {
-          finalScreen.classList.remove("hidden");
+          showScreen("final");
           renderFinalResults();
           return;
         }
 
-        summaryScreen.classList.remove("hidden");
+        showScreen("summary");
         summaryTeam.textContent = `انتهى دور الفريق ${endedTeam}`;
         summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
         summaryTotal.textContent = "إجمالي كل فريق";
         nextTurnBtn.textContent = finishedRound ? "ابدأ الجولة التالية" : "دور الفريق التالي";
         renderScore(summaryBoard, state.turnIndex);
         roundTag.textContent = `${endedRound}`;
+        persistSnapshot();
       }
 
       function moveToNextCard(addPoint) {
@@ -1120,13 +1278,11 @@
       function endGameFromDeckExhaustion() {
         stopTimer();
         state.timerRunning = false;
-        if (!turnScreen.classList.contains("hidden")) {
-          turnScreen.classList.add("hidden");
-        }
         state.scores[state.turnIndex] += state.turnScore;
         state.turnScore = 0;
-        finalScreen.classList.remove("hidden");
+        showScreen("final");
         renderFinalResults();
+        persistSnapshot();
       }
 
       function handleNextTeam() {
@@ -1139,9 +1295,17 @@
       }
 
       function resetGameState() {
+        stopTimer();
+        state.timerRunning = false;
         state.roundNumber = 1;
         state.turnIndex = 0;
         state.scores = Array.from({ length: state.teams }, () => 0);
+        state.turnScore = 0;
+        state.remaining = state.roundTime;
+        state.currentCard = null;
+        state.currentCardIndex = null;
+        state.currentCardDeckPosition = null;
+        state.isDeckExhausted = false;
         cards = shuffle([...cards]);
         refillDeck();
       }
@@ -1160,6 +1324,9 @@
 
       startGameBtn.addEventListener("click", () => {
         ensureAudioReady();
+        clearGameSnapshot();
+        pendingSnapshot = null;
+        resumeGamePanel.classList.add("hidden");
         resetGameState();
         startTurn();
       });
@@ -1184,6 +1351,7 @@
           maybePlayTimerWarning();
         }
         btnPause.textContent = state.timerRunning ? "إيقاف المؤقت" : "استكمال المؤقت";
+        persistSnapshot();
       });
 
       nextTurnBtn.addEventListener("click", () => {
@@ -1199,25 +1367,53 @@
         state.timerRunning = true;
         btnPause.textContent = "إيقاف المؤقت";
         startTimer();
+        persistSnapshot();
       });
       btnEndGame.addEventListener("click", () => {
         endGameFromDeckExhaustion();
       });
       playAgainBtn.addEventListener("click", () => {
         ensureAudioReady();
+        clearGameSnapshot();
+        pendingSnapshot = null;
         resetGameState();
         startTurn();
       });
 
-      window.addEventListener("pagehide", stopTimerWarningSound);
-      window.addEventListener("beforeunload", stopTimerWarningSound);
+      resumeGameBtn.addEventListener("click", () => {
+        ensureAudioReady();
+        if (!pendingSnapshot) return;
+        restoreSavedGame(pendingSnapshot);
+        persistSnapshot();
+      });
+
+      newGameBtn.addEventListener("click", () => {
+        clearGameSnapshot();
+        pendingSnapshot = null;
+        resumeGamePanel.classList.add("hidden");
+      });
+
+      window.addEventListener("pagehide", () => {
+        stopTimerWarningSound();
+        persistSnapshot();
+      });
+      window.addEventListener("beforeunload", () => {
+        stopTimerWarningSound();
+        persistSnapshot();
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           stopTimerWarningSound();
+          persistSnapshot();
         }
       });
 
-      loadCards();
+      loadCards().finally(() => {
+        pendingSnapshot = readSavedSnapshot();
+        if (pendingSnapshot) {
+          resumeGamePanel.classList.remove("hidden");
+        }
+      });
     </script>
   </body>
 </html>
