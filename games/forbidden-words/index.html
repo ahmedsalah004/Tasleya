@@ -4,14 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>ممنوع تقولها | تسلية</title>
-    <meta name="description" content="قريبًا — لعبة شرح الكلمات بدون قول الكلمات الممنوعة." />
+    <meta name="description" content="لعبة ممنوع تقولها - شرح الكلمات بدون قول الكلمات الممنوعة." />
     <style>
       :root {
         --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
         --gold-300: #ffe8a0;
         --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
         --text-main: #f5f8ff;
         --text-muted: rgba(228, 238, 255, 0.84);
+        --green-400: #45db8f;
+        --red-400: #ff7d7d;
       }
 
       * {
@@ -27,11 +32,11 @@
           radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
           radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
           linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
-        padding: clamp(1rem, 3vw, 2rem);
+        padding: clamp(0.9rem, 3vw, 1.6rem);
       }
 
       .shell {
-        width: min(880px, 100%);
+        width: min(760px, 100%);
         margin: 0 auto;
       }
 
@@ -48,15 +53,236 @@
       }
 
       h1 {
-        margin: 1rem 0 0.6rem;
-        font-size: clamp(1.8rem, 4.6vw, 2.9rem);
+        margin: 1rem 0 0.4rem;
+        font-size: clamp(1.8rem, 4.6vw, 2.7rem);
         color: var(--gold-400);
       }
 
-      p {
-        margin: 0;
+      .subtitle {
+        margin: 0 0 1rem;
         color: var(--text-muted);
         line-height: 1.85;
+      }
+
+      .panel {
+        border-radius: 20px;
+        border: 1px solid rgba(244, 206, 108, 0.26);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.88));
+        box-shadow: 0 14px 30px rgba(1, 6, 20, 0.42);
+        padding: clamp(0.9rem, 3.3vw, 1.2rem);
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .row {
+        display: flex;
+        gap: 0.7rem;
+        flex-wrap: wrap;
+      }
+
+      .field {
+        display: grid;
+        gap: 0.55rem;
+        margin-bottom: 1rem;
+      }
+
+      .field-title {
+        margin: 0;
+        font-size: 1.02rem;
+        color: #fff2c3;
+      }
+
+      .choice-btn,
+      .action-btn,
+      .start-btn,
+      .continue-btn,
+      .pause-btn {
+        min-height: 52px;
+        padding: 0.72rem 1rem;
+        border-radius: 12px;
+        border: 2px solid transparent;
+        background: rgba(10, 20, 52, 0.96);
+        color: var(--text-main);
+        font-size: 1rem;
+        font-weight: 700;
+        font-family: inherit;
+      }
+
+      .choice-btn {
+        flex: 1 1 90px;
+        border-color: rgba(244, 206, 108, 0.48);
+      }
+
+      .choice-btn.active {
+        color: #10244a;
+        background: linear-gradient(180deg, #ffe097, #f5c95d);
+        border-color: #ffe7af;
+      }
+
+      .start-btn,
+      .continue-btn {
+        width: 100%;
+        margin-top: 0.4rem;
+        border-color: rgba(244, 206, 108, 0.86);
+        color: #f6d989;
+      }
+
+      .turn-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.8rem;
+        margin-bottom: 0.8rem;
+      }
+
+      .team-label {
+        margin: 0;
+        font-size: clamp(1.1rem, 4vw, 1.35rem);
+        color: #fff2c3;
+      }
+
+      .timer {
+        min-width: 92px;
+        text-align: center;
+        padding: 0.45rem 0.75rem;
+        border-radius: 12px;
+        background: rgba(1, 10, 31, 0.8);
+        border: 1px solid rgba(255, 227, 144, 0.4);
+        color: #ffe39b;
+        font-size: 1.4rem;
+        font-weight: 800;
+      }
+
+      .card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 219, 126, 0.34);
+        background: rgba(3, 13, 35, 0.82);
+        padding: 1rem;
+        margin-bottom: 0.8rem;
+      }
+
+      .card-title {
+        margin: 0 0 0.3rem;
+        color: var(--gold-300);
+        font-size: 1.05rem;
+      }
+
+      .main-word {
+        margin: 0;
+        font-size: clamp(1.7rem, 8vw, 2.2rem);
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      .forbidden-title {
+        margin: 0.85rem 0 0.35rem;
+        color: #ffd3d3;
+        font-size: 1rem;
+      }
+
+      .forbidden-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .forbidden-list li {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 133, 133, 0.45);
+        background: rgba(77, 14, 24, 0.36);
+        padding: 0.5rem 0.7rem;
+        color: #ffd9d9;
+        font-weight: 700;
+      }
+
+      .action-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.6rem;
+      }
+
+      .action-btn.correct {
+        border-color: rgba(83, 230, 160, 0.7);
+        background: rgba(16, 58, 41, 0.94);
+        color: #d6ffe9;
+      }
+
+      .action-btn.skip {
+        border-color: rgba(244, 206, 108, 0.74);
+        color: #ffe39d;
+      }
+
+      .action-btn.forbidden {
+        border-color: rgba(255, 125, 125, 0.7);
+        background: rgba(64, 20, 27, 0.94);
+        color: #ffdede;
+      }
+
+      .pause-btn {
+        width: 100%;
+        border-color: rgba(145, 176, 255, 0.66);
+      }
+
+      .score-strip {
+        margin: 0 0 0.8rem;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.45rem;
+      }
+
+      .score-strip li {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 225, 140, 0.35);
+        background: rgba(7, 17, 44, 0.85);
+        padding: 0.42rem 0.58rem;
+        font-size: 0.95rem;
+      }
+
+      .summary-title {
+        margin-top: 0;
+        color: #fff1bf;
+      }
+
+      .summary-line {
+        margin: 0.5rem 0;
+        color: var(--text-main);
+      }
+
+      .round-tag {
+        color: var(--text-muted);
+        margin-bottom: 0.8rem;
+      }
+
+      @media (min-width: 640px) {
+        .action-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .action-btn.forbidden {
+          grid-column: span 2;
+        }
+
+        .score-strip {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .top-nav:hover,
+        .choice-btn:hover,
+        .action-btn:hover,
+        .start-btn:hover,
+        .continue-btn:hover,
+        .pause-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 18px rgba(1, 7, 25, 0.35);
+        }
       }
     </style>
   </head>
@@ -64,7 +290,300 @@
     <main class="shell">
       <a class="top-nav" href="/games/">← العودة للألعاب</a>
       <h1>ممنوع تقولها</h1>
-      <p>قريبًا — لعبة شرح الكلمات بدون قول الكلمات الممنوعة.</p>
+      <p class="subtitle">اشرح الكلمة لفريقك بدون استخدام الكلمات الممنوعة قبل انتهاء الوقت.</p>
+
+      <section id="setup-screen" class="panel" aria-label="إعداد اللعبة">
+        <div class="field">
+          <h2 class="field-title">عدد الفرق</h2>
+          <div class="row" id="teams-options">
+            <button type="button" class="choice-btn active" data-value="2">2 فرق</button>
+            <button type="button" class="choice-btn" data-value="3">3 فرق</button>
+            <button type="button" class="choice-btn" data-value="4">4 فرق</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <h2 class="field-title">مدة الجولة</h2>
+          <div class="row" id="time-options">
+            <button type="button" class="choice-btn active" data-value="60">60 ثانية</button>
+            <button type="button" class="choice-btn" data-value="90">90 ثانية</button>
+          </div>
+        </div>
+
+        <button id="start-game" class="start-btn" type="button">ابدأ اللعبة</button>
+      </section>
+
+      <section id="turn-screen" class="panel hidden" aria-label="دور الفريق">
+        <div class="turn-head">
+          <h2 id="team-label" class="team-label">دور الفريق 1</h2>
+          <div id="timer" class="timer">01:00</div>
+        </div>
+        <p id="round-tag" class="round-tag">الجولة 1</p>
+        <p id="turn-score" class="round-tag">نقاط الدور الحالي: 0</p>
+
+        <ul id="score-strip" class="score-strip"></ul>
+
+        <article class="card" aria-live="polite">
+          <p class="card-title">الكلمة</p>
+          <p id="main-word" class="main-word"></p>
+          <p class="forbidden-title">ممنوع تقول:</p>
+          <ul id="forbidden-list" class="forbidden-list"></ul>
+        </article>
+
+        <div class="action-grid">
+          <button id="btn-correct" class="action-btn correct" type="button">صح (+1)</button>
+          <button id="btn-skip" class="action-btn skip" type="button">تخطي</button>
+          <button id="btn-forbidden" class="action-btn forbidden" type="button">قال كلمة ممنوعة</button>
+        </div>
+
+        <button id="btn-pause" class="pause-btn" type="button">إيقاف المؤقت</button>
+      </section>
+
+      <section id="summary-screen" class="panel hidden" aria-label="ملخص الدور">
+        <h2 class="summary-title">انتهى الدور</h2>
+        <p id="summary-team" class="summary-line"></p>
+        <p id="summary-turn-score" class="summary-line"></p>
+        <p id="summary-total" class="summary-line"></p>
+        <ul id="summary-board" class="score-strip"></ul>
+        <button id="next-turn" class="continue-btn" type="button">دور الفريق التالي</button>
+      </section>
     </main>
+
+    <script>
+      const cards = [
+        { word: "الأهرامات", forbidden: ["مصر", "الجيزة", "فرعون", "آثار"] },
+        { word: "بيتزا", forbidden: ["جبن", "إيطاليا", "عجينة", "فرن"] },
+        { word: "قهوة", forbidden: ["مقهي", "منبه", "فنجان", "صباح"] },
+        { word: "كرة القدم", forbidden: ["هدف", "ملعب", "لاعب", "حكم"] },
+        { word: "الهاتف", forbidden: ["اتصال", "جوال", "رسالة", "شاشة"] },
+        { word: "المدرسة", forbidden: ["طلاب", "معلم", "فصل", "دراسة"] },
+        { word: "الرياض", forbidden: ["السعودية", "عاصمة", "موسم", "نخيل"] },
+        { word: "برجر", forbidden: ["لحم", "خبز", "مطعم", "بطاطس"] },
+        { word: "نيمار", forbidden: ["برازيلي", "كرة", "هلال", "مهاجم"] },
+        { word: "محمد صلاح", forbidden: ["ليفربول", "مصر", "جناح", "هداف"] },
+        { word: "نار", forbidden: ["حريق", "حرارة", "دخان", "إطفاء"] },
+        { word: "بحر", forbidden: ["ماء", "أمواج", "شاطئ", "سفينة"] },
+        { word: "طائرة", forbidden: ["مطار", "سفر", "طيار", "سماء"] },
+        { word: "كتاب", forbidden: ["قراءة", "صفحات", "مكتبة", "مؤلف"] },
+        { word: "هاتف آيفون", forbidden: ["أبل", "جوال", "كاميرا", "تطبيقات"] },
+        { word: "جدة", forbidden: ["البحر", "السعودية", "كورنيش", "مدينة"] },
+        { word: "كشري", forbidden: ["مصر", "عدس", "أرز", "بصل"] },
+        { word: "شاورما", forbidden: ["دجاج", "ساندويتش", "ثوم", "خبز"] },
+        { word: "ميسي", forbidden: ["الأرجنتين", "برشلونة", "كرة", "رقم 10"] },
+        { word: "رونالدو", forbidden: ["البرتغال", "النصر", "كرة", "هداف"] },
+        { word: "تامر حسني", forbidden: ["مغني", "مصري", "ألبوم", "حفلة"] },
+        { word: "نانسي عجرم", forbidden: ["لبنان", "مغنية", "أغاني", "صوت"] },
+        { word: "سيارة", forbidden: ["عجلات", "قيادة", "طريق", "بنزين"] },
+        { word: "قطار", forbidden: ["سكة", "محطة", "عربات", "سفر"] },
+        { word: "مطار", forbidden: ["طائرة", "جواز", "رحلة", "حقائب"] },
+        { word: "بيت", forbidden: ["منزل", "غرف", "مطبخ", "باب"] },
+        { word: "ثلج", forbidden: ["بارد", "شتاء", "تجميد", "أبيض"] },
+        { word: "تمر", forbidden: ["نخلة", "رمضان", "سكر", "تمرية"] },
+        { word: "كباب", forbidden: ["لحم", "فحم", "مشاوي", "مطعم"] },
+        { word: "الكعبة", forbidden: ["مكة", "حج", "طواف", "قبلة"] },
+        { word: "برج خليفة", forbidden: ["دبي", "طويل", "إمارات", "ناطحة"] },
+        { word: "برشلونة", forbidden: ["إسبانيا", "ميسي", "كامب نو", "فريق"] },
+        { word: "واتساب", forbidden: ["رسائل", "مكالمات", "تطبيق", "أخضر"] },
+        { word: "يوتيوب", forbidden: ["فيديو", "قناة", "مشاهدة", "اشتراك"] },
+        { word: "فلافل", forbidden: ["حمص", "سندويتش", "طعمية", "مقلي"] }
+      ];
+
+      const state = {
+        teams: 2,
+        roundTime: 60,
+        roundNumber: 1,
+        turnIndex: 0,
+        scores: [0, 0],
+        turnScore: 0,
+        remaining: 60,
+        timerRunning: false,
+        timerId: null,
+        deck: [],
+        deckIndex: 0,
+        currentCard: null
+      };
+
+      const setupScreen = document.getElementById("setup-screen");
+      const turnScreen = document.getElementById("turn-screen");
+      const summaryScreen = document.getElementById("summary-screen");
+      const teamsOptions = document.getElementById("teams-options");
+      const timeOptions = document.getElementById("time-options");
+      const startGameBtn = document.getElementById("start-game");
+      const teamLabel = document.getElementById("team-label");
+      const timerEl = document.getElementById("timer");
+      const roundTag = document.getElementById("round-tag");
+      const scoreStrip = document.getElementById("score-strip");
+      const turnScoreEl = document.getElementById("turn-score");
+      const mainWord = document.getElementById("main-word");
+      const forbiddenList = document.getElementById("forbidden-list");
+      const btnCorrect = document.getElementById("btn-correct");
+      const btnSkip = document.getElementById("btn-skip");
+      const btnForbidden = document.getElementById("btn-forbidden");
+      const btnPause = document.getElementById("btn-pause");
+      const summaryTeam = document.getElementById("summary-team");
+      const summaryTurnScore = document.getElementById("summary-turn-score");
+      const summaryTotal = document.getElementById("summary-total");
+      const summaryBoard = document.getElementById("summary-board");
+      const nextTurnBtn = document.getElementById("next-turn");
+
+      function chooseOption(container, callback) {
+        container.addEventListener("click", (event) => {
+          const button = event.target.closest("button[data-value]");
+          if (!button) return;
+          [...container.querySelectorAll("button")].forEach((btn) => btn.classList.remove("active"));
+          button.classList.add("active");
+          callback(Number(button.dataset.value));
+        });
+      }
+
+      function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60)
+          .toString()
+          .padStart(2, "0");
+        const secs = (seconds % 60).toString().padStart(2, "0");
+        return `${mins}:${secs}`;
+      }
+
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      function refillDeck() {
+        state.deck = shuffle(cards.map((_, index) => index));
+        state.deckIndex = 0;
+      }
+
+      function getNextCard() {
+        if (state.deckIndex >= state.deck.length) {
+          refillDeck();
+        }
+        const card = cards[state.deck[state.deckIndex]];
+        state.deckIndex += 1;
+        return card;
+      }
+
+      function renderScore(listEl, highlightedIndex = null) {
+        listEl.innerHTML = "";
+        state.scores.forEach((score, index) => {
+          const li = document.createElement("li");
+          li.textContent = `الفريق ${index + 1}: ${score}`;
+          if (highlightedIndex === index) {
+            li.style.borderColor = "rgba(83, 230, 160, 0.78)";
+            li.style.color = "#d6ffe9";
+          }
+          listEl.appendChild(li);
+        });
+      }
+
+      function renderTurn() {
+        teamLabel.textContent = `دور الفريق ${state.turnIndex + 1}`;
+        timerEl.textContent = formatTime(state.remaining);
+        roundTag.textContent = `الجولة ${state.roundNumber}`;
+        mainWord.textContent = state.currentCard.word;
+        turnScoreEl.textContent = `نقاط الدور الحالي: ${state.turnScore}`;
+        forbiddenList.innerHTML = "";
+        state.currentCard.forbidden.forEach((word) => {
+          const li = document.createElement("li");
+          li.textContent = word;
+          forbiddenList.appendChild(li);
+        });
+        renderScore(scoreStrip, state.turnIndex);
+      }
+
+      function stopTimer() {
+        if (state.timerId) {
+          clearInterval(state.timerId);
+          state.timerId = null;
+        }
+      }
+
+      function startTimer() {
+        stopTimer();
+        state.timerRunning = true;
+        state.timerId = setInterval(() => {
+          if (!state.timerRunning) return;
+          state.remaining -= 1;
+          timerEl.textContent = formatTime(state.remaining);
+          if (state.remaining <= 0) {
+            finishTurn();
+          }
+        }, 1000);
+      }
+
+      function startTurn() {
+        setupScreen.classList.add("hidden");
+        summaryScreen.classList.add("hidden");
+        turnScreen.classList.remove("hidden");
+        state.turnScore = 0;
+        state.remaining = state.roundTime;
+        state.currentCard = getNextCard();
+        state.timerRunning = true;
+        btnPause.textContent = "إيقاف المؤقت";
+        renderTurn();
+        startTimer();
+      }
+
+      function finishTurn() {
+        stopTimer();
+        state.timerRunning = false;
+        state.scores[state.turnIndex] += state.turnScore;
+        turnScreen.classList.add("hidden");
+        summaryScreen.classList.remove("hidden");
+
+        summaryTeam.textContent = `الفريق ${state.turnIndex + 1} أنهى دوره.`;
+        summaryTurnScore.textContent = `نقاط هذا الدور: ${state.turnScore}`;
+        summaryTotal.textContent = `إجمالي نقاط الفريق ${state.turnIndex + 1}: ${state.scores[state.turnIndex]}`;
+        renderScore(summaryBoard, state.turnIndex);
+      }
+
+      function moveToNextCard(addPoint) {
+        if (!state.timerRunning || state.remaining <= 0) return;
+        if (addPoint) {
+          state.turnScore += 1;
+        }
+        state.currentCard = getNextCard();
+        renderTurn();
+      }
+
+      function handleNextTeam() {
+        const wasLastTeam = state.turnIndex === state.teams - 1;
+        state.turnIndex = wasLastTeam ? 0 : state.turnIndex + 1;
+        if (wasLastTeam) {
+          state.roundNumber += 1;
+        }
+        startTurn();
+      }
+
+      chooseOption(teamsOptions, (value) => {
+        state.teams = value;
+      });
+
+      chooseOption(timeOptions, (value) => {
+        state.roundTime = value;
+      });
+
+      startGameBtn.addEventListener("click", () => {
+        state.roundNumber = 1;
+        state.turnIndex = 0;
+        state.scores = Array.from({ length: state.teams }, () => 0);
+        refillDeck();
+        startTurn();
+      });
+
+      btnCorrect.addEventListener("click", () => moveToNextCard(true));
+      btnSkip.addEventListener("click", () => moveToNextCard(false));
+      btnForbidden.addEventListener("click", () => moveToNextCard(false));
+
+      btnPause.addEventListener("click", () => {
+        state.timerRunning = !state.timerRunning;
+        btnPause.textContent = state.timerRunning ? "إيقاف المؤقت" : "استكمال المؤقت";
+      });
+
+      nextTurnBtn.addEventListener("click", handleNextTeam);
+    </script>
   </body>
 </html>
