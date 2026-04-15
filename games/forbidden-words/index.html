@@ -932,16 +932,19 @@
         return card;
       }
 
-      function renderScore(listEl, highlightedIndex = null) {
+      function renderScore(listEl, highlightedIndex = null, options = {}) {
+        const { includeLiveTurnScore = false } = options;
         listEl.innerHTML = "";
         state.scores.forEach((score, index) => {
+          const displayedScore =
+            includeLiveTurnScore && index === state.turnIndex ? score + state.turnScore : score;
           const li = document.createElement("li");
           const teamName = document.createElement("span");
           teamName.className = "team-name";
           teamName.textContent = `الفريق ${index + 1}`;
           const teamScore = document.createElement("span");
           teamScore.className = "team-score";
-          teamScore.textContent = `${score} نقطة`;
+          teamScore.textContent = `${displayedScore} نقطة`;
           li.append(teamName, teamScore);
           if (highlightedIndex === index) {
             li.classList.add("current-team");
@@ -1000,7 +1003,7 @@
             forbiddenList.appendChild(li);
           });
         }
-        renderScore(scoreStrip, state.turnIndex);
+        renderScore(scoreStrip, state.turnIndex, { includeLiveTurnScore: true });
       }
 
       function setTurnActionsDisabled(disabled) {
