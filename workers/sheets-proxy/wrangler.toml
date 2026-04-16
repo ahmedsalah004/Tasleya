@@ -4,8 +4,11 @@ compatibility_date = "2026-03-23"
 workers_dev = true
 
 [vars]
-# Replace with your published Google Sheet CSV URL.
-SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkJrYhyba86QOQooWig5SveDZXxrp_ERypkLZlslSzp2KtTK4gwUqqIWYTqwq0bQHETiUI_Z2b8gvd/pub?gid=0&single=true&output=csv"
+# Configure these per environment via `wrangler secret put` (recommended) or dashboard vars.
+SHEET_CSV_URL = ""
+FILMS_SHEET_CSV_URL = ""
+MAP_GAME_SHEET_CSV_URL = ""
+
 # Production frontend origin.
 ALLOWED_ORIGIN = "https://tasleya.online"
 CACHE_TTL_SECONDS = "300"

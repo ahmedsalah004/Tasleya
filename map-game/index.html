@@ -860,11 +860,12 @@
       </section>
     </main>
 
+    <script src="/game-config.js"></script>
     <script>
       const POINTS = { easy: 100, medium: 300, hard: 500 };
       const DIFFICULTY_AR = { easy: "سهل", medium: "متوسط", hard: "صعب" };
-      const QUESTIONS_CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
+      const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+      const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
       const SELECTION_CONFIRM_DELAY_MS = 420;
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
@@ -972,6 +973,33 @@
         overlayText: document.getElementById("overlayText"),
         overlayActions: document.getElementById("overlayActions"),
       };
+
+
+      function normalizeCell(value) {
+        return String(value || "").replace(/^\uFEFF/, "").trim();
+      }
+
+      function getConfiguredApiBaseUrl() {
+        const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+          return DEFAULT_WORKER_API_BASE_URL;
+        }
+        return configuredBaseUrl.replace(/\/+$/, "");
+      }
+
+      function buildApiUrl(path) {
+        return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+      }
+
+      async function apiFetchJson(path) {
+        const response = await fetch(buildApiUrl(path));
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = normalizeCell(payload?.error) || CSV_LOAD_ERROR_AR;
+          throw new Error(message);
+        }
+        return payload;
+      }
 
       const shuffle = (list) => {
         const arr = [...list];
@@ -1774,74 +1802,16 @@
       el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
       window.addEventListener("beforeunload", clearPendingResultReveal);
 
-      function parseCsvRow(line) {
-        const cells = [];
-        let cell = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i += 1) {
-          const ch = line[i];
-          if (ch === '"') {
-            if (inQuotes && line[i + 1] === '"') {
-              cell += '"';
-              i += 1;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (ch === "," && !inQuotes) {
-            cells.push(cell);
-            cell = "";
-          } else {
-            cell += ch;
-          }
-        }
-        cells.push(cell);
-        return cells.map((value) => value.trim());
-      }
-
-      function parseQuestionsCsv(csvText) {
-        const lines = csvText
-          .split(/\r?\n/)
-          .map((line) => line.trim())
-          .filter(Boolean);
-        if (!lines.length) throw new Error("CSV is empty");
-
-        const headers = parseCsvRow(lines[0]).map((h) => h.toLowerCase());
-        const required = ["country_code", "country_name_ar", "country_name_en", "difficulty", "points", "lat", "lng"];
-        const indices = Object.fromEntries(required.map((key) => [key, headers.indexOf(key)]));
-        const idHeaderCandidates = ["id", "question_id", "questionid"];
-        const idIndex = idHeaderCandidates.map((key) => headers.indexOf(key)).find((index) => index !== -1) ?? -1;
-        if (required.some((key) => indices[key] === -1)) {
-          throw new Error("CSV headers are missing required columns");
-        }
-
-        const rows = [];
-        for (let i = 1; i < lines.length; i += 1) {
-          const cells = parseCsvRow(lines[i]);
-          const countryCode = (cells[indices.country_code] || "").toUpperCase();
-          const countryNameAr = cells[indices.country_name_ar] || "";
-          const countryNameEn = cells[indices.country_name_en] || "";
-          const difficulty = (cells[indices.difficulty] || "").toLowerCase();
-          const points = Number(cells[indices.points]);
-          const lat = Number(cells[indices.lat]);
-          const lng = Number(cells[indices.lng]);
-          const id = idIndex >= 0 ? (cells[idIndex] || "").trim() : "";
-          if (!countryCode || !countryNameAr || !countryNameEn || !["easy", "medium", "hard"].includes(difficulty)) continue;
-          if (!Number.isFinite(points) || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-          rows.push({ id, countryCode, countryNameAr, countryNameEn, difficulty, points, lat, lng });
-        }
-        return rows;
-      }
-
-      async function loadQuestionsFromCsv() {
+      async function loadQuestionsFromApi() {
         try {
-          const response = await fetch(QUESTIONS_CSV_URL, { cache: "no-store" });
-          if (!response.ok) throw new Error("Questions CSV download failed");
-          const csvText = await response.text();
-          const questions = parseQuestionsCsv(csvText).map((question) => ({
-            ...question,
-            questionKey: buildQuestionKey(question),
-          }));
-          if (!questions.length) throw new Error("No valid rows in CSV");
+          const payload = await apiFetchJson("/map-game/questions");
+          const questions = Array.isArray(payload?.questions)
+            ? payload.questions.map((question) => ({
+                ...question,
+                questionKey: buildQuestionKey(question),
+              }))
+            : [];
+          if (!questions.length) throw new Error("No valid map-game rows in API response");
 
           state.questionPool = questions;
           state.questionByCountryCode = new Map(questions.map((item) => [item.countryCode, item]));
@@ -1861,7 +1831,7 @@
         state.usedQuestionHistory = loadUsedQuestionHistory();
         el.startBtn.disabled = true;
         el.startBtn.textContent = "جاري تحميل البيانات...";
-        const questionsLoaded = await loadQuestionsFromCsv();
+        const questionsLoaded = await loadQuestionsFromApi();
         if (questionsLoaded) {
           await loadMap();
         }
