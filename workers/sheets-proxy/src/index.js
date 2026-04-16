@@ -1,8 +1,5 @@
 const DEFAULT_CACHE_TTL_SECONDS = 300;
-let memoryCache = {
-  expiresAt: 0,
-  data: null,
-};
+const sheetMemoryCache = new Map();
 
 export default {
   async fetch(request, env, ctx) {
@@ -71,6 +68,24 @@ export default {
         }, 200, request, env);
       }
 
+      if (url.pathname === '/films/questions' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'FILMS_SHEET_CSV_URL',
+          cacheKeyPrefix: 'films-questions',
+        });
+        const films = buildFilms(rows);
+        return json({ films }, 200, request, env);
+      }
+
+      if (url.pathname === '/map-game/questions' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAP_GAME_SHEET_CSV_URL',
+          cacheKeyPrefix: 'map-game-questions',
+        });
+        const questions = buildMapGameQuestions(rows);
+        return json({ questions }, 200, request, env);
+      }
+
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
     } catch (err) {
       console.error('[sheets-proxy] Request failed', err);
@@ -80,25 +95,40 @@ export default {
 };
 
 async function getQuestionBank(request, env, ctx) {
+  const rows = await getSheetRows(request, env, ctx, {
+    envVarName: 'SHEET_CSV_URL',
+    cacheKeyPrefix: 'question-bank',
+  });
+
+  const bank = buildQuestionBank(rows);
+  return {
+    ...bank,
+    byId: new Map(bank.questions.map((question) => [question.id, question])),
+  };
+}
+
+async function getSheetRows(request, env, ctx, { envVarName, cacheKeyPrefix }) {
   const ttlSeconds = getCacheTtl(env);
+  const sheetUrl = normalizeCell(env[envVarName]);
+  if (!sheetUrl) {
+    throw new Error(`Missing ${envVarName} environment variable.`);
+  }
+
+  const memoryKey = `${cacheKeyPrefix}:${sheetUrl}`;
   const now = Date.now();
-  if (memoryCache.data && memoryCache.expiresAt > now) {
-    return memoryCache.data;
+  const memoryEntry = sheetMemoryCache.get(memoryKey);
+  if (memoryEntry && memoryEntry.expiresAt > now) {
+    return memoryEntry.rows;
   }
 
   const cache = caches.default;
-  const sheetUrl = normalizeCell(env.SHEET_CSV_URL);
-  if (!sheetUrl) {
-    throw new Error('Missing SHEET_CSV_URL environment variable.');
-  }
-
-  const cacheKey = new Request(`https://tasleya-worker-cache.local/question-bank?sheet=${encodeURIComponent(sheetUrl)}`);
+  const cacheKey = new Request(`https://tasleya-worker-cache.local/${cacheKeyPrefix}?sheet=${encodeURIComponent(sheetUrl)}`);
   const cached = await cache.match(cacheKey);
   if (cached) {
-    const cachedBank = await cached.json();
-    const hydrated = hydrateQuestionBank(cachedBank);
-    memoryCache = { data: hydrated, expiresAt: now + ttlSeconds * 1000 };
-    return hydrated;
+    const cachedRows = await cached.json();
+    const hydratedRows = Array.isArray(cachedRows?.rows) ? cachedRows.rows : [];
+    sheetMemoryCache.set(memoryKey, { rows: hydratedRows, expiresAt: now + ttlSeconds * 1000 });
+    return hydratedRows;
   }
 
   const response = await fetch(sheetUrl, {
@@ -116,14 +146,9 @@ async function getQuestionBank(request, env, ctx) {
     throw new Error('Google Sheet CSV does not contain enough rows.');
   }
 
-  const bank = buildQuestionBank(rows);
-  memoryCache = { data: bank, expiresAt: now + ttlSeconds * 1000 };
+  sheetMemoryCache.set(memoryKey, { rows, expiresAt: now + ttlSeconds * 1000 });
 
-  const serialized = JSON.stringify({
-    questions: bank.questions,
-    categories: bank.categories,
-  });
-
+  const serialized = JSON.stringify({ rows });
   ctx.waitUntil(cache.put(cacheKey, new Response(serialized, {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -131,17 +156,7 @@ async function getQuestionBank(request, env, ctx) {
     },
   })));
 
-  return bank;
-}
-
-function hydrateQuestionBank(cachedBank) {
-  const questions = Array.isArray(cachedBank?.questions) ? cachedBank.questions : [];
-  const categories = Array.isArray(cachedBank?.categories) ? cachedBank.categories : [];
-  return {
-    questions,
-    categories,
-    byId: new Map(questions.map((question) => [question.id, question])),
-  };
+  return rows;
 }
 
 function buildQuestionBank(rows) {
@@ -190,8 +205,74 @@ function buildQuestionBank(rows) {
   return {
     questions,
     categories,
-    byId: new Map(questions.map((question) => [question.id, question])),
   };
+}
+
+function buildFilms(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  return dataRows
+    .map((row) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      const title = normalizeCell(raw.title);
+      if (!title) return null;
+
+      return {
+        id: normalizeCell(raw.id),
+        title,
+        difficulty: normalizeCell(raw.difficulty),
+        points: toInteger(raw.points) ?? 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildMapGameQuestions(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  const requiredHeaders = ['country_code', 'country_name_ar', 'country_name_en', 'difficulty', 'points', 'lat', 'lng'];
+  const missingHeaders = requiredHeaders.filter((header) => !headerMap.includes(header));
+  if (missingHeaders.length) {
+    throw new Error(`CSV headers are missing required columns: ${missingHeaders.join(', ')}`);
+  }
+
+  return dataRows
+    .map((row) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      const countryCode = normalizeCell(raw.country_code).toUpperCase();
+      const countryNameAr = normalizeCell(raw.country_name_ar);
+      const countryNameEn = normalizeCell(raw.country_name_en);
+      const difficulty = normalizeCell(raw.difficulty).toLowerCase();
+      const points = toInteger(raw.points);
+      const lat = Number.parseFloat(raw.lat);
+      const lng = Number.parseFloat(raw.lng);
+      const id = firstNonEmpty(raw.id, raw.question_id, raw.questionid);
+
+      if (!countryCode || !countryNameAr || !countryNameEn || !['easy', 'medium', 'hard'].includes(difficulty)) return null;
+      if (!Number.isFinite(points) || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+      return {
+        id,
+        countryCode,
+        countryNameAr,
+        countryNameEn,
+        difficulty,
+        points,
+        lat,
+        lng,
+      };
+    })
+    .filter(Boolean);
 }
 
 function sanitizeQuestion(question, allQuestions) {
