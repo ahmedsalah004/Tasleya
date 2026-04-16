@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>خمنها من التلميح | تسلية</title>
+    <meta name="description" content="خمن الإجابة من ٥ تلميحات وفي فئات متنوعة." />
+    <style>
+      :root {
+        --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
+        --gold-300: #ffe8a0;
+        --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
+        --text-main: #f5f8ff;
+        --text-muted: rgba(228, 238, 255, 0.84);
+        --good: #45db8f;
+        --warn: #ffd36e;
+        --bad: #ff8f8f;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Tahoma, Arial, sans-serif;
+        color: var(--text-main);
+        background:
+          radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
+          radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
+          linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
+        padding: clamp(0.9rem, 3vw, 1.6rem);
+        overflow-x: hidden;
+      }
+
+      .shell { width: min(980px, 100%); margin: 0 auto; }
+      .hidden { display: none !important; }
+
+      .top-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        text-decoration: none;
+        color: var(--gold-300);
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        background: rgba(14, 27, 67, 0.38);
+      }
+
+      h1 {
+        margin: 1rem 0 0.55rem;
+        font-size: clamp(1.8rem, 4.8vw, 2.8rem);
+        color: var(--gold-400);
+      }
+
+      .subtitle { margin: 0 0 1rem; color: var(--text-muted); line-height: 1.8; }
+
+      .panel {
+        border-radius: 24px;
+        border: 1px solid rgba(244, 206, 108, 0.26);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.9));
+        box-shadow: 0 18px 40px rgba(1, 6, 20, 0.5);
+        padding: clamp(1rem, 3.5vw, 1.6rem);
+      }
+
+      .stack { display: grid; gap: 0.85rem; }
+
+      label { font-weight: 700; color: #fff2c3; }
+      input {
+        width: 100%; min-height: 52px; border-radius: 12px; border: 1px solid rgba(255,225,140,.4);
+        background: rgba(8, 19, 50, 0.9); color: #fff; padding: .7rem .9rem; font-size: 1.05rem;
+      }
+
+      .btn {
+        min-height: 52px;
+        border-radius: 13px;
+        border: 2px solid rgba(244, 206, 108, 0.9);
+        color: #f6d989;
+        background: rgba(10, 20, 52, 0.95);
+        font-size: 1rem;
+        font-weight: 800;
+        cursor: pointer;
+        padding: 0.5rem 0.95rem;
+      }
+
+      .btn.primary {
+        background: linear-gradient(180deg, #f9d679, #d7a943);
+        color: #12264d;
+      }
+
+      .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+      .score-grid {
+        display: grid; gap: .7rem; margin-bottom: .95rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .team-score {
+        border-radius: 14px;
+        border: 1px solid rgba(255,225,140,.42);
+        background: rgba(8, 19, 50, 0.88);
+        padding: .75rem;
+      }
+      .team-score h3 { margin: 0 0 .35rem; color: #fff2c3; font-size: 1rem; }
+      .team-score p { margin: 0; font-size: 1.4rem; font-weight: 900; }
+
+      .meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: .55rem;
+      }
+
+      .pill {
+        border-radius: 999px;
+        border: 1px solid rgba(255,225,140,.38);
+        background: rgba(3, 12, 35, 0.78);
+        padding: .55rem .8rem;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .hint-box {
+        margin-top: .9rem;
+        border-radius: 16px;
+        border: 1px solid rgba(244, 206, 108, 0.35);
+        background: rgba(8, 19, 50, 0.86);
+        padding: 1rem;
+      }
+      .hint-label { margin: 0 0 .45rem; color: #fff2c3; font-weight: 800; }
+      .hint-text { margin: 0; line-height: 1.8; font-size: clamp(1.1rem, 2.8vw, 1.3rem); }
+
+      .teams-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: .8rem;
+        margin-top: 1rem;
+      }
+
+      .team-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255,225,140,.32);
+        background: rgba(5, 15, 40, 0.84);
+        padding: .8rem;
+        display: grid;
+        gap: .65rem;
+      }
+      .team-card h4 { margin: 0; color: #fff2c3; font-size: 1.04rem; }
+      .team-card .actions { display: grid; gap: .5rem; }
+      .team-note { margin: 0; font-size: .9rem; color: var(--warn); min-height: 1.3rem; }
+
+      .status-msg {
+        margin-top: .8rem;
+        padding: .72rem .85rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255,225,140,.35);
+        background: rgba(4, 16, 45, .82);
+      }
+      .status-msg.bad { color: #ffd4d4; border-color: rgba(255, 125, 125, 0.5); background: rgba(68, 16, 24, 0.66); }
+      .status-msg.good { color: #d4ffe8; border-color: rgba(83, 230, 160, 0.5); background: rgba(7, 36, 28, 0.66); }
+      .fallback-note { margin: .8rem 0 0; color: #ffe39b; font-size: .92rem; }
+
+      .result-panel { text-align: center; display: grid; gap: .8rem; }
+      .result-title { margin: 0; color: #fff2c3; font-size: clamp(1.5rem, 4.4vw, 2rem); }
+      .result-text { margin: 0; color: var(--text-muted); line-height: 1.9; }
+
+      .modal {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        background: rgba(1, 6, 20, .75); padding: 1rem; z-index: 50;
+      }
+      .modal-card {
+        width: min(520px, 100%);
+        border-radius: 18px;
+        border: 1px solid rgba(255,225,140,.4);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.95), rgba(7, 17, 44, 0.95));
+        padding: 1rem;
+        display: grid;
+        gap: .8rem;
+      }
+      .modal-title { margin: 0; color: #fff2c3; font-size: 1.2rem; }
+      .modal-actions { display: grid; gap: .5rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+      @media (max-width: 640px) {
+        .score-grid { grid-template-columns: 1fr; }
+        .modal-actions { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <a class="top-nav" href="/games/">← العودة للألعاب</a>
+      <h1>خمنها من التلميح</h1>
+      <p class="subtitle">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر.</p>
+
+      <section id="setupScreen" class="panel stack" aria-label="إعداد اللعبة">
+        <div class="stack">
+          <label for="teamOneInput">اسم الفريق الأول</label>
+          <input id="teamOneInput" type="text" maxlength="40" placeholder="الفريق الأول" />
+        </div>
+        <div class="stack">
+          <label for="teamTwoInput">اسم الفريق الثاني</label>
+          <input id="teamTwoInput" type="text" maxlength="40" placeholder="الفريق الثاني" />
+        </div>
+        <button id="startBtn" class="btn primary">ابدأ اللعبة</button>
+        <p id="setupMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+        <p id="fallbackNotice" class="fallback-note hidden">تم استخدام بيانات احتياطية مؤقتًا.</p>
+      </section>
+
+      <section id="roundScreen" class="panel hidden" aria-label="الجولة الحالية">
+        <div class="score-grid" id="scoreGrid"></div>
+        <div class="meta">
+          <div class="pill" id="roundMeta"></div>
+          <div class="pill" id="categoryMeta"></div>
+          <div class="pill" id="hintMeta"></div>
+          <div class="pill" id="pointsMeta"></div>
+        </div>
+        <div class="hint-box">
+          <p class="hint-label">نص التلميح</p>
+          <p class="hint-text" id="hintText"></p>
+        </div>
+        <div id="teamsActions" class="teams-actions"></div>
+        <p id="roundMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="resultScreen" class="panel hidden result-panel" aria-label="نتيجة الجولة">
+        <h2 id="resultTitle" class="result-title"></h2>
+        <p id="resultText" class="result-text"></p>
+        <button id="nextRoundBtn" class="btn primary">الجولة التالية</button>
+      </section>
+
+      <section id="finalScreen" class="panel hidden result-panel" aria-label="النتيجة النهائية">
+        <h2 class="result-title">انتهت اللعبة</h2>
+        <p id="finalText" class="result-text"></p>
+        <button id="playAgainBtn" class="btn primary">العب مرة أخرى</button>
+        <a class="btn" href="/games/" style="text-decoration:none;display:inline-grid;place-items:center;">العودة لصفحة الألعاب</a>
+      </section>
+    </main>
+
+    <div id="guessModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="guessModalTitle">
+      <div class="modal-card">
+        <h3 id="guessModalTitle" class="modal-title"></h3>
+        <input id="guessInput" type="text" placeholder="اكتب التخمين هنا" maxlength="100" />
+        <p id="guessError" class="status-msg bad hidden"></p>
+        <div class="modal-actions">
+          <button id="checkGuessBtn" class="btn primary">تحقق من الإجابة</button>
+          <button id="cancelGuessBtn" class="btn">إلغاء</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="./data.js"></script>
+    <script>
+      (function () {
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTmLsOgbohSBxnm7aueFYfr_s2wdjMBaic7sGjwn5GZ4yTpMs1cHi1PXOUF4zujesC5W5Zyb5Y6UxKX/pub?output=csv";
+        const POINTS = [5, 4, 3, 2, 1];
+
+        const setupScreen = document.getElementById("setupScreen");
+        const roundScreen = document.getElementById("roundScreen");
+        const resultScreen = document.getElementById("resultScreen");
+        const finalScreen = document.getElementById("finalScreen");
+
+        const teamOneInput = document.getElementById("teamOneInput");
+        const teamTwoInput = document.getElementById("teamTwoInput");
+        const startBtn = document.getElementById("startBtn");
+        const setupMessage = document.getElementById("setupMessage");
+        const fallbackNotice = document.getElementById("fallbackNotice");
+
+        const scoreGrid = document.getElementById("scoreGrid");
+        const roundMeta = document.getElementById("roundMeta");
+        const categoryMeta = document.getElementById("categoryMeta");
+        const hintMeta = document.getElementById("hintMeta");
+        const pointsMeta = document.getElementById("pointsMeta");
+        const hintText = document.getElementById("hintText");
+        const teamsActions = document.getElementById("teamsActions");
+        const roundMessage = document.getElementById("roundMessage");
+
+        const resultTitle = document.getElementById("resultTitle");
+        const resultText = document.getElementById("resultText");
+        const nextRoundBtn = document.getElementById("nextRoundBtn");
+
+        const finalText = document.getElementById("finalText");
+        const playAgainBtn = document.getElementById("playAgainBtn");
+
+        const guessModal = document.getElementById("guessModal");
+        const guessModalTitle = document.getElementById("guessModalTitle");
+        const guessInput = document.getElementById("guessInput");
+        const guessError = document.getElementById("guessError");
+        const checkGuessBtn = document.getElementById("checkGuessBtn");
+        const cancelGuessBtn = document.getElementById("cancelGuessBtn");
+
+        const state = {
+          rounds: [],
+          usingFallback: false,
+          currentRoundIndex: 0,
+          currentHintIndex: 0,
+          teams: [
+            { name: "الفريق الأول", score: 0, blockedHintIndex: null, waitedHintIndex: null },
+            { name: "الفريق الثاني", score: 0, blockedHintIndex: null, waitedHintIndex: null }
+          ],
+          selectedTeamIndex: null
+        };
+
+        function setMessage(el, text, tone) {
+          if (!text) {
+            el.textContent = "";
+            el.classList.add("hidden");
+            el.classList.remove("good", "bad");
+            return;
+          }
+          el.textContent = text;
+          el.classList.remove("hidden");
+          el.classList.toggle("good", tone === "good");
+          el.classList.toggle("bad", tone === "bad");
+        }
+
+        function normalizeArabic(value) {
+          return String(value || "")
+            .replace(/[أإآٱ]/g, "ا")
+            .replace(/ة/g, "ه")
+            .replace(/ى/g, "ي")
+            .replace(/ؤ/g, "و")
+            .replace(/ئ/g, "ي")
+            .replace(/[\u064B-\u065F\u0670]/g, "")
+            .replace(/ـ/g, "")
+            .replace(/[\u200E\u200F]/g, "")
+            .replace(/[^\p{L}\p{N}\s]/gu, " ")
+            .toLowerCase()
+            .replace(/\s+/g, " ")
+            .trim();
+        }
+
+        function parseAliases(rawAliases) {
+          if (!rawAliases) return [];
+          return String(rawAliases)
+            .split(/[،,]/)
+            .map((item) => item.trim())
+            .filter(Boolean);
+        }
+
+        function levenshtein(a, b) {
+          if (a === b) return 0;
+          const rows = a.length + 1;
+          const cols = b.length + 1;
+          const matrix = Array.from({ length: rows }, (_, i) => {
+            const line = new Array(cols).fill(0);
+            line[0] = i;
+            return line;
+          });
+          for (let j = 0; j < cols; j++) matrix[0][j] = j;
+          for (let i = 1; i < rows; i++) {
+            for (let j = 1; j < cols; j++) {
+              const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+              matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+              );
+            }
+          }
+          return matrix[rows - 1][cols - 1];
+        }
+
+        function isAcceptedAnswer(guess, acceptedList) {
+          const normalizedGuess = normalizeArabic(guess);
+          if (!normalizedGuess) return false;
+
+          for (const accepted of acceptedList) {
+            const normalizedAccepted = normalizeArabic(accepted);
+            if (!normalizedAccepted) continue;
+            if (normalizedGuess === normalizedAccepted) return true;
+
+            const minLen = Math.min(normalizedGuess.length, normalizedAccepted.length);
+            if (minLen < 5) continue;
+
+            const distance = levenshtein(normalizedGuess, normalizedAccepted);
+            const maxLen = Math.max(normalizedGuess.length, normalizedAccepted.length);
+            const allowed = maxLen >= 10 ? 2 : 1;
+            if (distance <= allowed) return true;
+          }
+          return false;
+        }
+
+        function parseCSVLine(line) {
+          const out = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i += 1;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === "," && !inQuotes) {
+              out.push(current);
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          out.push(current);
+          return out;
+        }
+
+        function parseCSV(csvText) {
+          const lines = String(csvText || "").split(/\r?\n/).filter((line) => line.trim().length > 0);
+          if (!lines.length) return [];
+          const headers = parseCSVLine(lines[0]).map((h) => h.trim());
+          const rows = [];
+          for (let i = 1; i < lines.length; i++) {
+            const values = parseCSVLine(lines[i]);
+            const item = {};
+            headers.forEach((header, idx) => {
+              item[header] = (values[idx] || "").trim();
+            });
+            rows.push(item);
+          }
+          return rows;
+        }
+
+        function isRowActive(activeValue) {
+          const value = String(activeValue || "").trim().toLowerCase();
+          return value === "" || value === "true" || value === "1" || value === "yes";
+        }
+
+        function normalizeRow(raw, index) {
+          const answer = (raw.answer || "").trim();
+          const hints = [raw.hint_1, raw.hint_2, raw.hint_3, raw.hint_4, raw.hint_5].map((h) => String(h || "").trim());
+          if (!answer || hints.some((hint) => !hint)) return null;
+          if (!isRowActive(raw.active)) return null;
+          return {
+            id: raw.id || String(index + 1),
+            category: (raw.category || "").trim(),
+            answer,
+            aliases: parseAliases(raw.aliases),
+            hints
+          };
+        }
+
+        function shuffle(items) {
+          const arr = items.slice();
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+          return arr;
+        }
+
+        async function loadRounds() {
+          fallbackNotice.classList.add("hidden");
+          const normalizedSet = new Set();
+
+          try {
+            const response = await fetch(CSV_URL, { cache: "no-store" });
+            if (!response.ok) throw new Error("Failed CSV request");
+            const text = await response.text();
+            const rows = parseCSV(text);
+            const valid = [];
+            for (let i = 0; i < rows.length; i++) {
+              const row = normalizeRow(rows[i], i);
+              if (!row) continue;
+              const normalizedAnswer = normalizeArabic(row.answer);
+              if (!normalizedAnswer || normalizedSet.has(normalizedAnswer)) continue;
+              normalizedSet.add(normalizedAnswer);
+              valid.push(row);
+            }
+            if (valid.length < 1) throw new Error("No valid rows");
+            state.usingFallback = false;
+            return shuffle(valid).slice(0, 10);
+          } catch (error) {
+            const fallback = Array.isArray(window.GUESS_FROM_HINT_FALLBACK_DATA)
+              ? window.GUESS_FROM_HINT_FALLBACK_DATA
+              : [];
+            const validFallback = [];
+            for (let i = 0; i < fallback.length; i++) {
+              const source = fallback[i];
+              const row = normalizeRow(
+                {
+                  id: source.id,
+                  category: source.category,
+                  answer: source.answer,
+                  aliases: Array.isArray(source.aliases) ? source.aliases.join(",") : source.aliases,
+                  hint_1: source.hint_1,
+                  hint_2: source.hint_2,
+                  hint_3: source.hint_3,
+                  hint_4: source.hint_4,
+                  hint_5: source.hint_5,
+                  active: "true"
+                },
+                i
+              );
+              if (!row) continue;
+              const normalizedAnswer = normalizeArabic(row.answer);
+              if (!normalizedAnswer || normalizedSet.has(normalizedAnswer)) continue;
+              normalizedSet.add(normalizedAnswer);
+              validFallback.push(row);
+            }
+            state.usingFallback = true;
+            fallbackNotice.classList.remove("hidden");
+            return shuffle(validFallback).slice(0, 10);
+          }
+        }
+
+        function resetWaitStatesForHint(hintIndex) {
+          state.teams.forEach((team) => {
+            if (team.waitedHintIndex !== hintIndex) team.waitedHintIndex = null;
+          });
+        }
+
+        function isBlockedNow(team) {
+          return team.blockedHintIndex === state.currentHintIndex;
+        }
+
+        function renderRound() {
+          const round = state.rounds[state.currentRoundIndex];
+          const hintNumber = state.currentHintIndex + 1;
+          const points = POINTS[state.currentHintIndex] || 1;
+
+          scoreGrid.innerHTML = state.teams
+            .map((team) =>
+              `<article class="team-score"><h3>${team.name}</h3><p>${team.score}</p></article>`
+            )
+            .join("");
+
+          roundMeta.textContent = `الجولة ${state.currentRoundIndex + 1} / ${state.rounds.length}`;
+          categoryMeta.textContent = round.category ? `الفئة: ${round.category}` : "الفئة: غير محددة";
+          hintMeta.textContent = `التلميح ${hintNumber} / 5`;
+          pointsMeta.textContent = `النقاط المتاحة: ${points}`;
+          hintText.textContent = round.hints[state.currentHintIndex];
+
+          teamsActions.innerHTML = state.teams
+            .map((team, idx) => {
+              const blocked = isBlockedNow(team);
+              const note = blocked
+                ? "ممنوع التخمين في هذا التلميح بسبب إجابة خاطئة سابقة"
+                : "";
+              return `
+                <article class="team-card">
+                  <h4>${team.name}</h4>
+                  <div class="actions">
+                    <button class="btn" data-action="guess" data-team="${idx}" ${blocked ? "disabled" : ""}>تخمين</button>
+                    <button class="btn" data-action="wait" data-team="${idx}">انتظار / التلميح التالي</button>
+                  </div>
+                  <p class="team-note">${note}</p>
+                </article>
+              `;
+            })
+            .join("");
+        }
+
+        function showScreen(screen) {
+          setupScreen.classList.add("hidden");
+          roundScreen.classList.add("hidden");
+          resultScreen.classList.add("hidden");
+          finalScreen.classList.add("hidden");
+          screen.classList.remove("hidden");
+        }
+
+        function openGuessModal(teamIndex) {
+          state.selectedTeamIndex = teamIndex;
+          guessModalTitle.textContent = `اكتب تخمين فريق ${state.teams[teamIndex].name}`;
+          guessInput.value = "";
+          setMessage(guessError, "");
+          guessModal.classList.remove("hidden");
+          window.setTimeout(() => guessInput.focus(), 50);
+        }
+
+        function closeGuessModal() {
+          guessModal.classList.add("hidden");
+          state.selectedTeamIndex = null;
+          setMessage(guessError, "");
+        }
+
+        function endRoundAsNoAnswer() {
+          const round = state.rounds[state.currentRoundIndex];
+          resultTitle.textContent = "انتهت التلميحات";
+          resultText.textContent = `الإجابة: ${round.answer} — لم يحصل أي فريق على نقاط`;
+          showScreen(resultScreen);
+        }
+
+        function progressHintIfAllowed() {
+          const waiters = state.teams.filter((team) => team.waitedHintIndex === state.currentHintIndex).length;
+          const blockedTeams = state.teams.filter((team) => isBlockedNow(team)).length;
+
+          if ((waiters === 2) || (blockedTeams === 1 && waiters === 1) || (blockedTeams === 2)) {
+            state.currentHintIndex += 1;
+            state.teams.forEach((team) => {
+              if (team.blockedHintIndex !== null && team.blockedHintIndex < state.currentHintIndex) {
+                team.blockedHintIndex = null;
+              }
+              team.waitedHintIndex = null;
+            });
+
+            if (state.currentHintIndex > 4) {
+              endRoundAsNoAnswer();
+            } else {
+              resetWaitStatesForHint(state.currentHintIndex);
+              renderRound();
+            }
+          }
+        }
+
+        function handleWrongGuess(teamIndex) {
+          const team = state.teams[teamIndex];
+          team.blockedHintIndex = state.currentHintIndex + 1;
+          setMessage(roundMessage, "إجابة خاطئة. لا يمكن لهذا الفريق التخمين في التلميح التالي.", "bad");
+        }
+
+        function checkGuess() {
+          const guess = guessInput.value;
+          if (!guess.trim()) {
+            setMessage(guessError, "اكتب إجابة أولًا.", "bad");
+            return;
+          }
+
+          const round = state.rounds[state.currentRoundIndex];
+          const accepted = [round.answer, ...(round.aliases || [])];
+          const correct = isAcceptedAnswer(guess, accepted);
+          const teamIndex = state.selectedTeamIndex;
+          closeGuessModal();
+
+          if (correct) {
+            const points = POINTS[state.currentHintIndex] || 1;
+            state.teams[teamIndex].score += points;
+            resultTitle.textContent = "إجابة صحيحة";
+            resultText.textContent = `الفريق الفائز: ${state.teams[teamIndex].name} — النقاط: ${points} — الإجابة: ${round.answer}`;
+            showScreen(resultScreen);
+            return;
+          }
+
+          handleWrongGuess(teamIndex);
+          renderRound();
+        }
+
+        function handleTeamAction(event) {
+          const btn = event.target.closest("button[data-action]");
+          if (!btn) return;
+          const action = btn.getAttribute("data-action");
+          const teamIndex = Number(btn.getAttribute("data-team"));
+
+          if (action === "guess") {
+            if (isBlockedNow(state.teams[teamIndex])) return;
+            openGuessModal(teamIndex);
+            return;
+          }
+
+          if (action === "wait") {
+            state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
+            setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
+            progressHintIfAllowed();
+          }
+        }
+
+        function prepareNextRound() {
+          state.currentRoundIndex += 1;
+          if (state.currentRoundIndex >= state.rounds.length) {
+            const [teamA, teamB] = state.teams;
+            let winnerText = "تعادل";
+            if (teamA.score > teamB.score) winnerText = `الفائز: ${teamA.name}`;
+            if (teamB.score > teamA.score) winnerText = `الفائز: ${teamB.name}`;
+
+            finalText.textContent = `${teamA.name}: ${teamA.score} نقطة | ${teamB.name}: ${teamB.score} نقطة — ${winnerText}`;
+            showScreen(finalScreen);
+            return;
+          }
+
+          state.currentHintIndex = 0;
+          state.teams.forEach((team) => {
+            team.blockedHintIndex = null;
+            team.waitedHintIndex = null;
+          });
+          setMessage(roundMessage, "");
+          showScreen(roundScreen);
+          renderRound();
+        }
+
+        async function startGame() {
+          const t1 = teamOneInput.value.trim() || "الفريق الأول";
+          const t2 = teamTwoInput.value.trim() || "الفريق الثاني";
+
+          state.teams = [
+            { name: t1, score: 0, blockedHintIndex: null, waitedHintIndex: null },
+            { name: t2, score: 0, blockedHintIndex: null, waitedHintIndex: null }
+          ];
+          state.currentRoundIndex = 0;
+          state.currentHintIndex = 0;
+          setMessage(setupMessage, "جاري تحميل الأسئلة...");
+
+          const rounds = await loadRounds();
+          if (!rounds.length) {
+            setMessage(setupMessage, "تعذر تحميل بيانات اللعبة.", "bad");
+            return;
+          }
+
+          state.rounds = rounds;
+          setMessage(setupMessage, "");
+          setMessage(roundMessage, "");
+          showScreen(roundScreen);
+          renderRound();
+        }
+
+        startBtn.addEventListener("click", startGame);
+        teamsActions.addEventListener("click", handleTeamAction);
+        nextRoundBtn.addEventListener("click", prepareNextRound);
+        playAgainBtn.addEventListener("click", () => {
+          showScreen(setupScreen);
+        });
+        cancelGuessBtn.addEventListener("click", closeGuessModal);
+        checkGuessBtn.addEventListener("click", checkGuess);
+        guessInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            checkGuess();
+          }
+          if (event.key === "Escape") closeGuessModal();
+        });
+      })();
+    </script>
+  </body>
+</html>
