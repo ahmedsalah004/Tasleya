@@ -867,6 +867,8 @@
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vQlW5DmKhM4RajmahB2Z06DDw_xEtzw_RUvWT5vse4Jx2VLp-dQMSQ7R0MzMMox8pulLQvzFsvbndaj/pub?output=csv";
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
       const SELECTION_CONFIRM_DELAY_MS = 420;
+      const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
+      const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -939,6 +941,8 @@
           medium: new Set(),
           hard: new Set(),
         },
+        isRevealingAnswer: false,
+        resultRevealTimeoutId: null,
       };
 
       const el = {
@@ -1202,6 +1206,23 @@
         el.overlay.classList.add("active");
       }
 
+      function isMobileViewport() {
+        return window.matchMedia(MOBILE_VIEWPORT_QUERY).matches;
+      }
+
+      function clearPendingResultReveal() {
+        if (state.resultRevealTimeoutId !== null) {
+          window.clearTimeout(state.resultRevealTimeoutId);
+          state.resultRevealTimeoutId = null;
+        }
+        state.isRevealingAnswer = false;
+      }
+
+      function openResultOverlay(payload) {
+        clearPendingResultReveal();
+        showQuestionResultOverlay(payload);
+      }
+
       function hideOverlay() {
         el.overlay.classList.remove("active");
       }
@@ -1395,10 +1416,20 @@
         updateHeader();
         updateMapHighlights();
 
-        showQuestionResultOverlay(resultState);
+        if (!isMobileViewport()) {
+          showQuestionResultOverlay(resultState);
+          return;
+        }
+
+        clearPendingResultReveal();
+        state.isRevealingAnswer = true;
+        state.resultRevealTimeoutId = window.setTimeout(() => {
+          openResultOverlay(resultState);
+        }, MOBILE_RESULT_REVEAL_DELAY_MS);
       }
 
       function goNextQuestion() {
+        clearPendingResultReveal();
         hideOverlay();
 
         if (state.questionIndex >= 19) {
@@ -1419,6 +1450,7 @@
       }
 
       function finishGame() {
+        clearPendingResultReveal();
         const [s1, s2] = state.scores;
         let finalLine = "تعادل رائع بين الفريقين";
         if (s1 > s2) finalLine = `الفائز: ${state.teamNames[0]}`;
@@ -1480,6 +1512,7 @@
 
       function handleCountrySelection(countryCode) {
         if (el.overlay.classList.contains("active")) return;
+        if (state.isRevealingAnswer) return;
         if (!["active_pick", "other_response"].includes(state.phase)) return;
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
@@ -1688,6 +1721,7 @@
             .scaleExtent([1, 8])
             .filter((event) => {
               if (event.type === "dblclick") return false;
+              if (state.isRevealingAnswer) return false;
               return !el.overlay.classList.contains("active");
             })
             .on("zoom", (event) => {
@@ -1710,6 +1744,7 @@
 
       function startGame() {
         if (!state.mapReady || !state.questionsReady) return;
+        clearPendingResultReveal();
 
         state.teamNames = [el.team1Name.value.trim() || "الفريق الأول", el.team2Name.value.trim() || "الفريق الثاني"];
         state.scores = [0, 0];
@@ -1737,6 +1772,7 @@
 
       el.startBtn.addEventListener("click", startGame);
       el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
+      window.addEventListener("beforeunload", clearPendingResultReveal);
 
       function parseCsvRow(line) {
         const cells = [];
