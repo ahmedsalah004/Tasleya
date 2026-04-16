@@ -285,15 +285,31 @@
       }
 
       .turn-indicator {
-        font-size: 1.02rem;
-        font-weight: 800;
-        color: #fff1c0;
-        border: 1px solid rgba(247, 214, 117, 0.4);
-        border-radius: 999px;
-        padding: 0.28rem 0.6rem;
-        background: rgba(8, 18, 44, 0.74);
-        box-shadow: inset 0 0 0 1px rgba(255, 236, 180, 0.12);
-        line-height: 1.25;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.44rem;
+        font-size: clamp(1.05rem, 2.2vw, 1.32rem);
+        font-weight: 900;
+        color: #fff8df;
+        border: 1px solid rgba(247, 214, 117, 0.64);
+        border-radius: 14px;
+        padding: 0.46rem 0.82rem;
+        background: linear-gradient(180deg, rgba(14, 30, 70, 0.94), rgba(8, 18, 44, 0.9));
+        box-shadow:
+          inset 0 0 0 1px rgba(255, 236, 180, 0.2),
+          0 10px 24px rgba(0, 0, 0, 0.34),
+          0 0 16px rgba(247, 214, 117, 0.18);
+        line-height: 1.2;
+      }
+
+      .turn-indicator .turn-label {
+        color: #ffe8a8;
+      }
+
+      .turn-indicator .turn-value {
+        font-size: 1.08em;
+        color: #ffffff;
+        text-shadow: 0 0 10px rgba(168, 222, 255, 0.22);
       }
 
       .turn-instruction {
@@ -396,9 +412,26 @@
 
       .country.correct {
         fill: var(--correct);
-        stroke: #d9ffe7;
-        stroke-width: 3.4;
-        filter: drop-shadow(0 0 8px rgba(64, 222, 132, 0.95));
+        stroke: #effff5;
+        stroke-width: 4.6;
+        filter:
+          drop-shadow(0 0 8px rgba(64, 222, 132, 0.96))
+          drop-shadow(0 0 20px rgba(64, 222, 132, 0.76));
+        animation: correctPulse 1.35s ease-in-out infinite;
+      }
+
+      @keyframes correctPulse {
+        0%,
+        100% {
+          filter:
+            drop-shadow(0 0 6px rgba(64, 222, 132, 0.9))
+            drop-shadow(0 0 14px rgba(64, 222, 132, 0.55));
+        }
+        50% {
+          filter:
+            drop-shadow(0 0 14px rgba(96, 255, 164, 1))
+            drop-shadow(0 0 26px rgba(96, 255, 164, 0.85));
+        }
       }
 
       .overlay {
@@ -414,6 +447,15 @@
 
       .overlay.active {
         display: flex;
+      }
+
+      .overlay.result-overlay {
+        justify-content: flex-end;
+        align-items: flex-start;
+        padding: clamp(0.6rem, 2vw, 1.2rem);
+        background: transparent;
+        backdrop-filter: none;
+        pointer-events: none;
       }
 
       .popup {
@@ -461,19 +503,22 @@
       }
 
       .popup.result-popup {
-        width: min(760px, 100%);
-        border-radius: 22px;
+        width: min(420px, 100%);
+        max-height: min(70vh, 500px);
+        overflow: auto;
+        border-radius: 18px;
         border: 1px solid rgba(247, 214, 117, 0.45);
         background:
           radial-gradient(circle at 50% 0%, rgba(247, 214, 117, 0.14), transparent 62%),
-          linear-gradient(180deg, rgba(9, 18, 44, 0.98), rgba(7, 14, 36, 0.98));
-        padding: clamp(1rem, 2.8vw, 1.9rem);
+          linear-gradient(180deg, rgba(9, 18, 44, 0.92), rgba(7, 14, 36, 0.92));
+        padding: clamp(0.9rem, 2.5vw, 1.35rem);
         box-shadow:
           0 0 0 1px rgba(255, 232, 177, 0.14),
-          0 22px 56px rgba(0, 0, 0, 0.55),
+          0 14px 36px rgba(0, 0, 0, 0.48),
           0 0 24px rgba(247, 214, 117, 0.17);
         display: grid;
-        gap: clamp(0.75rem, 2vw, 1.15rem);
+        gap: clamp(0.55rem, 1.5vw, 0.9rem);
+        pointer-events: auto;
       }
 
       .popup.result-popup h2 {
@@ -656,8 +701,9 @@
         }
 
         .turn-indicator {
-          font-size: 0.83rem;
-          padding: 0.2rem 0.44rem;
+          font-size: clamp(0.94rem, 3.6vw, 1.04rem);
+          padding: 0.34rem 0.56rem;
+          border-radius: 11px;
         }
 
         .turn-instruction {
@@ -665,8 +711,15 @@
         }
 
         .popup.result-popup {
-          width: 100%;
-          border-radius: 18px;
+          width: min(340px, 90%);
+          border-radius: 14px;
+          max-height: min(62vh, 460px);
+        }
+
+        .overlay.result-overlay {
+          justify-content: center;
+          align-items: flex-end;
+          padding: 0.5rem;
         }
       }
 
@@ -738,8 +791,8 @@
         }
 
         .turn-indicator {
-          font-size: 0.68rem;
-          padding: 0.16rem 0.38rem;
+          font-size: 0.88rem;
+          padding: 0.24rem 0.46rem;
         }
 
         .turn-instruction {
@@ -837,7 +890,10 @@
             <div class="target" id="targetCountry">—</div>
             <div class="target-support-row">
               <div class="target-hint">اختر هذه الدولة على الخريطة</div>
-              <div class="turn-indicator" id="turnIndicator">الدور الآن: —</div>
+              <div class="turn-indicator" id="turnIndicator">
+                <span class="turn-label">الدور الآن:</span>
+                <span class="turn-value" id="turnValue">—</span>
+              </div>
             </div>
           </div>
           <div class="turn-panel">
@@ -964,6 +1020,7 @@
         questionPointsMeta: document.getElementById("questionPointsMeta"),
         targetCountry: document.getElementById("targetCountry"),
         turnIndicator: document.getElementById("turnIndicator"),
+        turnValue: document.getElementById("turnValue"),
         turnInstruction: document.getElementById("turnInstruction"),
         acceptActiveAnswerBtn: document.getElementById("acceptActiveAnswerBtn"),
         mapStage: document.getElementById("mapStage"),
@@ -1175,6 +1232,7 @@
 
       function showOverlay(title, text, actions) {
         el.overlayTitle.parentElement.classList.remove("result-popup");
+        el.overlay.classList.remove("result-overlay");
         el.overlayTitle.textContent = title;
         el.overlayText.innerHTML = "";
         el.overlayText.textContent = text;
@@ -1193,6 +1251,7 @@
       function showQuestionResultOverlay(payload) {
         const popup = el.overlayTitle.parentElement;
         popup.classList.add("result-popup");
+        el.overlay.classList.add("result-overlay");
         el.overlayTitle.textContent = "نتيجة السؤال";
         el.overlayText.innerHTML = "";
 
@@ -1253,6 +1312,7 @@
 
       function hideOverlay() {
         el.overlay.classList.remove("active");
+        el.overlay.classList.remove("result-overlay");
       }
 
       function updateHeader() {
@@ -1273,20 +1333,20 @@
         el.team2Card.classList.toggle("active", shouldShowTurnHighlight && currentTurnIdx === 1);
 
         if (state.phase === "active_pick") {
-          el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[activeIdx]}`;
+          el.turnValue.textContent = state.teamNames[activeIdx];
           el.turnInstruction.textContent = "اختر دولة على الخريطة";
           el.acceptActiveAnswerBtn.classList.remove("show");
         } else if (state.phase === "other_response") {
-          el.turnIndicator.textContent = `الدور الآن: ${state.teamNames[otherIdx]}`;
+          el.turnValue.textContent = state.teamNames[otherIdx];
           el.turnInstruction.textContent = "اختر دولة أخرى أو أكّد الإجابة";
           el.acceptActiveAnswerBtn.textContent = `إجابة فريق ${state.teamNames[activeIdx]} صحيحة`;
           el.acceptActiveAnswerBtn.classList.add("show");
         } else if (state.phase === "ready_reveal") {
-          el.turnIndicator.textContent = "جاهز لإظهار الإجابة";
+          el.turnValue.textContent = "جاهز لإظهار الإجابة";
           el.turnInstruction.textContent = "تم تأكيد الاختيارات. اضغط إظهار الإجابة.";
           el.acceptActiveAnswerBtn.classList.remove("show");
         } else {
-          el.turnIndicator.textContent = "—";
+          el.turnValue.textContent = "—";
           el.turnInstruction.textContent = "—";
           el.acceptActiveAnswerBtn.classList.remove("show");
         }
