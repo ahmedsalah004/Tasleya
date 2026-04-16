@@ -253,7 +253,8 @@
     <script src="./data.js"></script>
     <script>
       (function () {
-        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTmLsOgbohSBxnm7aueFYfr_s2wdjMBaic7sGjwn5GZ4yTpMs1cHi1PXOUF4zujesC5W5Zyb5Y6UxKX/pub?output=csv";
+        const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+        const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
         const POINTS = [5, 4, 3, 2, 1];
 
         const setupScreen = document.getElementById("setupScreen");
@@ -339,6 +340,32 @@
             .filter(Boolean);
         }
 
+        function normalizeCell(value) {
+          return String(value || "").replace(/^\uFEFF/, "").trim();
+        }
+
+        function getConfiguredApiBaseUrl() {
+          const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+          if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+            return DEFAULT_WORKER_API_BASE_URL;
+          }
+          return configuredBaseUrl.replace(/\/+$/, "");
+        }
+
+        function buildApiUrl(path) {
+          return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+        }
+
+        async function apiFetchJson(path) {
+          const response = await fetch(buildApiUrl(path), { cache: "no-store" });
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            const message = normalizeCell(payload?.error) || "تعذر تحميل بيانات اللعبة.";
+            throw new Error(message);
+          }
+          return payload;
+        }
+
         function levenshtein(a, b) {
           if (a === b) return 0;
           const rows = a.length + 1;
@@ -382,46 +409,6 @@
           return false;
         }
 
-        function parseCSVLine(line) {
-          const out = [];
-          let current = "";
-          let inQuotes = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-              if (inQuotes && line[i + 1] === '"') {
-                current += '"';
-                i += 1;
-              } else {
-                inQuotes = !inQuotes;
-              }
-            } else if (char === "," && !inQuotes) {
-              out.push(current);
-              current = "";
-            } else {
-              current += char;
-            }
-          }
-          out.push(current);
-          return out;
-        }
-
-        function parseCSV(csvText) {
-          const lines = String(csvText || "").split(/\r?\n/).filter((line) => line.trim().length > 0);
-          if (!lines.length) return [];
-          const headers = parseCSVLine(lines[0]).map((h) => h.trim());
-          const rows = [];
-          for (let i = 1; i < lines.length; i++) {
-            const values = parseCSVLine(lines[i]);
-            const item = {};
-            headers.forEach((header, idx) => {
-              item[header] = (values[idx] || "").trim();
-            });
-            rows.push(item);
-          }
-          return rows;
-        }
-
         function isRowActive(activeValue) {
           const value = String(activeValue || "").trim().toLowerCase();
           return value === "" || value === "true" || value === "1" || value === "yes";
@@ -455,10 +442,8 @@
           const normalizedSet = new Set();
 
           try {
-            const response = await fetch(CSV_URL, { cache: "no-store" });
-            if (!response.ok) throw new Error("Failed CSV request");
-            const text = await response.text();
-            const rows = parseCSV(text);
+            const payload = await apiFetchJson("/guess-from-hint/questions");
+            const rows = Array.isArray(payload?.questions) ? payload.questions : [];
             const valid = [];
             for (let i = 0; i < rows.length; i++) {
               const row = normalizeRow(rows[i], i);

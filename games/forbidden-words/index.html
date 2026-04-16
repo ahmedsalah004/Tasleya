@@ -542,8 +542,8 @@
     </main>
 
     <script>
-      const SHEET_CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vSTkuYhjCaEXXLGMcyGeJKqXEw2CfO3MhezRKY7DpY7DU3eMDLlOx7jGWXO-oLeFtt-BWHqrNWuyplk/pub?output=csv";
+      const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+      const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 
       const fallbackCards = [
         {
@@ -633,114 +633,26 @@
         return (value || "").replace(/^\uFEFF/, "").trim();
       }
 
-      function parseCsv(content) {
-        const rows = [];
-        let row = [];
-        let cell = "";
-        let inQuotes = false;
-
-        for (let i = 0; i < content.length; i += 1) {
-          const char = content[i];
-          const nextChar = content[i + 1];
-          if (char === '"') {
-            if (inQuotes && nextChar === '"') {
-              cell += '"';
-              i += 1;
-            } else {
-              inQuotes = !inQuotes;
-            }
-            continue;
-          }
-
-          if (!inQuotes && char === ",") {
-            row.push(cell);
-            cell = "";
-            continue;
-          }
-
-          if (!inQuotes && (char === "\n" || char === "\r")) {
-            if (char === "\r" && nextChar === "\n") i += 1;
-            row.push(cell);
-            rows.push(row);
-            row = [];
-            cell = "";
-            continue;
-          }
-
-          cell += char;
+      function getConfiguredApiBaseUrl() {
+        const configuredBaseUrl = normalizeValue(window.TASLEYA_API_BASE_URL);
+        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+          return DEFAULT_WORKER_API_BASE_URL;
         }
-
-        row.push(cell);
-        if (row.length > 1 || row[0]) rows.push(row);
-        return rows;
+        return configuredBaseUrl.replace(/\/+$/, "");
       }
 
-      function firstMatchedIndex(headers, aliases) {
-        for (const alias of aliases) {
-          const index = headers.indexOf(alias);
-          if (index !== -1) return index;
-        }
-        return -1;
+      function buildApiUrl(path) {
+        return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
       }
 
-      function parseCardsFromCsv(content) {
-        const rows = parseCsv(content);
-        if (rows.length < 2) return [];
-
-        const headers = rows[0].map((header) => normalizeValue(header).toLowerCase());
-        const columns = {
-          id: firstMatchedIndex(headers, ["id", "card_id", "term_id"]),
-          word: firstMatchedIndex(headers, ["word", "term", "الكلمة"]),
-          active: firstMatchedIndex(headers, ["active", "is_active", "enabled"]),
-          difficulty: firstMatchedIndex(headers, ["difficulty", "level", "الصعوبة"]),
-          points: firstMatchedIndex(headers, ["points", "score", "point", "النقاط"]),
-          forbidden1: firstMatchedIndex(headers, ["forbidden_1", "forbidden1", "forbidden 1"]),
-          forbidden2: firstMatchedIndex(headers, ["forbidden_2", "forbidden2", "forbidden 2"]),
-          forbidden3: firstMatchedIndex(headers, ["forbidden_3", "forbidden3", "forbidden 3"]),
-          forbidden4: firstMatchedIndex(headers, ["forbidden_4", "forbidden4", "forbidden 4"]),
-          forbidden5: firstMatchedIndex(headers, ["forbidden_5", "forbidden5", "forbidden 5"])
-        };
-
-        if (
-          columns.word === -1 ||
-          columns.forbidden1 === -1 ||
-          columns.forbidden2 === -1 ||
-          columns.forbidden3 === -1 ||
-          columns.forbidden4 === -1 ||
-          columns.forbidden5 === -1
-        ) {
-          return [];
+      async function apiFetchJson(path) {
+        const response = await fetch(buildApiUrl(path), { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = normalizeValue(payload?.error) || "تعذر تحميل كلمات اللعبة.";
+          throw new Error(message);
         }
-
-        return rows
-          .slice(1)
-          .map((rawRow) => rawRow.map((value) => normalizeValue(value)))
-          .filter((rawRow) => rawRow.some(Boolean))
-          .filter((rawRow) => {
-            if (columns.active === -1) return true;
-            return (rawRow[columns.active] || "").toLowerCase() !== "false";
-          })
-          .map((rawRow) => {
-            const difficultyRaw = Number.parseInt(rawRow[columns.difficulty], 10);
-            const difficulty = Number.isInteger(difficultyRaw) && difficultyRaw >= 1 && difficultyRaw <= 5 ? difficultyRaw : 1;
-            const sheetPoints = Number.parseInt(rawRow[columns.points], 10);
-            const points = Number.isInteger(sheetPoints) && sheetPoints > 0 ? sheetPoints : difficulty;
-
-            return {
-              id: columns.id === -1 ? "" : rawRow[columns.id],
-              word: rawRow[columns.word],
-              difficulty,
-              points,
-              forbidden: [
-                rawRow[columns.forbidden1],
-                rawRow[columns.forbidden2],
-                rawRow[columns.forbidden3],
-                rawRow[columns.forbidden4],
-                rawRow[columns.forbidden5]
-              ]
-            };
-          })
-          .filter((card) => card.word && card.forbidden.every(Boolean));
+        return payload;
       }
 
       function shuffle(array) {
@@ -757,16 +669,8 @@
         startGameBtn.disabled = true;
 
         try {
-          const response = await fetch(SHEET_CSV_URL, {
-            headers: {
-              Accept: "text/csv;charset=utf-8"
-            }
-          });
-          if (!response.ok) {
-            throw new Error("Failed to fetch cards CSV");
-          }
-
-          const parsed = parseCardsFromCsv(await response.text());
+          const payload = await apiFetchJson("/forbidden-words/cards");
+          const parsed = Array.isArray(payload?.cards) ? payload.cards : [];
           if (!parsed.length) {
             throw new Error("No valid rows");
           }

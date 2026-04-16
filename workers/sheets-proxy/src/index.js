@@ -86,6 +86,24 @@ export default {
         return json({ questions }, 200, request, env);
       }
 
+      if (url.pathname === '/guess-from-hint/questions' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'GUESS_FROM_HINT_SHEET_CSV_URL',
+          cacheKeyPrefix: 'guess-from-hint-questions',
+        });
+        const questions = buildGuessFromHintQuestions(rows);
+        return json({ questions }, 200, request, env);
+      }
+
+      if (url.pathname === '/forbidden-words/cards' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'FORBIDDEN_WORDS_SHEET_CSV_URL',
+          cacheKeyPrefix: 'forbidden-words-cards',
+        });
+        const cards = buildForbiddenWordsCards(rows);
+        return json({ cards }, 200, request, env);
+      }
+
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
     } catch (err) {
       console.error('[sheets-proxy] Request failed', err);
@@ -275,6 +293,91 @@ function buildMapGameQuestions(rows) {
     .filter(Boolean);
 }
 
+function buildGuessFromHintQuestions(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  return dataRows
+    .map((row, index) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      return {
+        id: normalizeCell(raw.id) || String(index + 1),
+        category: normalizeCell(raw.category),
+        answer: normalizeCell(raw.answer),
+        aliases: normalizeCell(raw.aliases),
+        hint_1: normalizeCell(raw.hint_1),
+        hint_2: normalizeCell(raw.hint_2),
+        hint_3: normalizeCell(raw.hint_3),
+        hint_4: normalizeCell(raw.hint_4),
+        hint_5: normalizeCell(raw.hint_5),
+        active: normalizeCell(raw.active),
+      };
+    })
+    .filter((question) => question.answer);
+}
+
+function buildForbiddenWordsCards(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  const columns = {
+    id: firstMatchedHeaderIndex(headerMap, ['id', 'card_id', 'term_id']),
+    word: firstMatchedHeaderIndex(headerMap, ['word', 'term', 'الكلمة']),
+    active: firstMatchedHeaderIndex(headerMap, ['active', 'is_active', 'enabled']),
+    difficulty: firstMatchedHeaderIndex(headerMap, ['difficulty', 'level', 'الصعوبة']),
+    points: firstMatchedHeaderIndex(headerMap, ['points', 'score', 'point', 'النقاط']),
+    forbidden1: firstMatchedHeaderIndex(headerMap, ['forbidden_1', 'forbidden1', 'forbidden_1']),
+    forbidden2: firstMatchedHeaderIndex(headerMap, ['forbidden_2', 'forbidden2', 'forbidden_2']),
+    forbidden3: firstMatchedHeaderIndex(headerMap, ['forbidden_3', 'forbidden3', 'forbidden_3']),
+    forbidden4: firstMatchedHeaderIndex(headerMap, ['forbidden_4', 'forbidden4', 'forbidden_4']),
+    forbidden5: firstMatchedHeaderIndex(headerMap, ['forbidden_5', 'forbidden5', 'forbidden_5']),
+  };
+
+  if (
+    columns.word === -1
+    || columns.forbidden1 === -1
+    || columns.forbidden2 === -1
+    || columns.forbidden3 === -1
+    || columns.forbidden4 === -1
+    || columns.forbidden5 === -1
+  ) {
+    return [];
+  }
+
+  return dataRows
+    .map((row) => row.map((value) => normalizeCell(value)))
+    .filter((row) => row.some(Boolean))
+    .filter((row) => {
+      if (columns.active === -1) return true;
+      return normalizeCell(row[columns.active]).toLowerCase() !== 'false';
+    })
+    .map((row) => {
+      const difficultyRaw = toInteger(row[columns.difficulty]);
+      const difficulty = difficultyRaw && difficultyRaw >= 1 && difficultyRaw <= 5 ? difficultyRaw : 1;
+      const pointsRaw = toInteger(row[columns.points]);
+      const points = pointsRaw && pointsRaw > 0 ? pointsRaw : difficulty;
+
+      return {
+        id: columns.id === -1 ? '' : normalizeCell(row[columns.id]),
+        word: normalizeCell(row[columns.word]),
+        difficulty,
+        points,
+        forbidden: [
+          normalizeCell(row[columns.forbidden1]),
+          normalizeCell(row[columns.forbidden2]),
+          normalizeCell(row[columns.forbidden3]),
+          normalizeCell(row[columns.forbidden4]),
+          normalizeCell(row[columns.forbidden5]),
+        ],
+      };
+    })
+    .filter((card) => card.word && card.forbidden.every(Boolean));
+}
+
 function sanitizeQuestion(question, allQuestions) {
   return {
     id: question.id,
@@ -404,6 +507,14 @@ function uniqueByText(items) {
     seen.add(normalized);
     return true;
   });
+}
+
+function firstMatchedHeaderIndex(headers, aliases) {
+  for (const alias of aliases) {
+    const index = headers.indexOf(alias);
+    if (index !== -1) return index;
+  }
+  return -1;
 }
 
 function shuffle(input) {
