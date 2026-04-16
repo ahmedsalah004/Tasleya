@@ -566,6 +566,8 @@
       const DIFFICULTIES = [1, 2, 3, 4, 5];
       const STORAGE_KEY = "tasleya_forbidden_words_state";
       const STORAGE_VERSION = 1;
+      const USED_HISTORY_KEY = "tasleya_forbidden_words_used_v1";
+      const USED_HISTORY_VERSION = 1;
 
       let cards = [];
 
@@ -687,6 +689,7 @@
 
         const headers = rows[0].map((header) => normalizeValue(header).toLowerCase());
         const columns = {
+          id: firstMatchedIndex(headers, ["id", "card_id", "term_id"]),
           word: firstMatchedIndex(headers, ["word", "term", "الكلمة"]),
           active: firstMatchedIndex(headers, ["active", "is_active", "enabled"]),
           difficulty: firstMatchedIndex(headers, ["difficulty", "level", "الصعوبة"]),
@@ -724,6 +727,7 @@
             const points = Number.isInteger(sheetPoints) && sheetPoints > 0 ? sheetPoints : difficulty;
 
             return {
+              id: columns.id === -1 ? "" : rawRow[columns.id],
               word: rawRow[columns.word],
               difficulty,
               points,
@@ -821,11 +825,133 @@
         if (!card || typeof card !== "object") return null;
         if (!card.word || !Array.isArray(card.forbidden)) return null;
         return {
+          id: card.id == null ? "" : String(card.id),
           word: String(card.word),
           difficulty: Number(card.difficulty) || 1,
           points: Number(card.points) || 1,
           forbidden: card.forbidden.map((item) => String(item || ""))
         };
+      }
+
+      function difficultyKey(difficulty) {
+        const normalized = Number(difficulty);
+        if (!Number.isInteger(normalized) || normalized < 1 || normalized > 5) return null;
+        return String(normalized);
+      }
+
+      function createEmptyUsedHistory() {
+        return {
+          version: USED_HISTORY_VERSION,
+          byDifficulty: {
+            "1": [],
+            "2": [],
+            "3": [],
+            "4": [],
+            "5": []
+          }
+        };
+      }
+
+      function normalizeUsedHistory(raw) {
+        const history = createEmptyUsedHistory();
+        if (!raw || typeof raw !== "object") return { history, changed: true };
+        if (raw.version !== USED_HISTORY_VERSION || !raw.byDifficulty || typeof raw.byDifficulty !== "object") {
+          return { history, changed: true };
+        }
+
+        let changed = false;
+        DIFFICULTIES.forEach((difficulty) => {
+          const key = String(difficulty);
+          const list = raw.byDifficulty[key];
+          if (!Array.isArray(list)) {
+            changed = true;
+            return;
+          }
+          const normalized = [];
+          const seen = new Set();
+          list.forEach((item) => {
+            if (typeof item !== "string") {
+              changed = true;
+              return;
+            }
+            const trimmed = item.trim();
+            if (!trimmed || seen.has(trimmed)) {
+              changed = true;
+              return;
+            }
+            seen.add(trimmed);
+            normalized.push(trimmed);
+          });
+          history.byDifficulty[key] = normalized;
+        });
+
+        return {
+          history,
+          changed
+        };
+      }
+
+      function readUsedHistory() {
+        let raw = null;
+        try {
+          raw = localStorage.getItem(USED_HISTORY_KEY);
+        } catch (error) {
+          return createEmptyUsedHistory();
+        }
+
+        if (!raw) return createEmptyUsedHistory();
+
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (error) {
+          const empty = createEmptyUsedHistory();
+          writeUsedHistory(empty);
+          return empty;
+        }
+
+        const normalized = normalizeUsedHistory(parsed);
+        if (!normalized || !normalized.history) {
+          const empty = createEmptyUsedHistory();
+          writeUsedHistory(empty);
+          return empty;
+        }
+        if (normalized.changed) {
+          writeUsedHistory(normalized.history);
+        }
+        return normalized.history;
+      }
+
+      function writeUsedHistory(history) {
+        try {
+          localStorage.setItem(USED_HISTORY_KEY, JSON.stringify(history));
+        } catch (error) {
+          // Ignore storage failures.
+        }
+      }
+
+      function getCardPersistentId(card) {
+        const difficulty = difficultyKey(card?.difficulty) || "1";
+        const rawId = card?.id == null ? "" : String(card.id).trim();
+        if (rawId) return `id:${rawId}`;
+        return `fallback:${String(card?.word || "").trim()}|${difficulty}`;
+      }
+
+      function markCardAsUsed(card) {
+        if (!card) return;
+        const key = difficultyKey(card.difficulty);
+        if (!key) return;
+        const termId = getCardPersistentId(card);
+        const history = readUsedHistory();
+        const bucket = history.byDifficulty[key];
+        if (!Array.isArray(bucket)) {
+          history.byDifficulty[key] = [termId];
+          writeUsedHistory(history);
+          return;
+        }
+        if (bucket.includes(termId)) return;
+        bucket.push(termId);
+        writeUsedHistory(history);
       }
 
       function clearSavedGameState() {
@@ -1064,17 +1190,60 @@
           throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\n${shortages.join("\n")}`);
         }
 
+        const usedHistory = readUsedHistory();
         const teamDecks = [[], []];
+        const selectedTermIds = new Set();
+        let usedHistoryChanged = false;
 
         DIFFICULTIES.forEach((difficulty) => {
-          const pool = shuffle([...byDifficulty.get(difficulty)]);
-          const selected = pool.slice(0, REQUIRED_PER_DIFFICULTY * 2);
+          const difficultyId = String(difficulty);
+          const usedBucket = new Set(usedHistory.byDifficulty[difficultyId] || []);
+          const rawPool = shuffle([...byDifficulty.get(difficulty)]);
+          const uniquePool = [];
+          const seenInPool = new Set();
+          rawPool.forEach((cardIndex) => {
+            const termId = getCardPersistentId(cards[cardIndex]);
+            if (seenInPool.has(termId)) return;
+            seenInPool.add(termId);
+            uniquePool.push(cardIndex);
+          });
+
+          const requiredTotal = REQUIRED_PER_DIFFICULTY * 2;
+          if (uniquePool.length < requiredTotal) {
+            throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\nالمستوى ${difficulty}: المتاح ${uniquePool.length}، المطلوب ${requiredTotal}`);
+          }
+
+          let available = uniquePool.filter((cardIndex) => {
+            const termId = getCardPersistentId(cards[cardIndex]);
+            return !selectedTermIds.has(termId) && !usedBucket.has(termId);
+          });
+
+          if (available.length < requiredTotal) {
+            usedHistory.byDifficulty[difficultyId] = [];
+            usedHistoryChanged = true;
+            available = uniquePool.filter((cardIndex) => {
+              const termId = getCardPersistentId(cards[cardIndex]);
+              return !selectedTermIds.has(termId);
+            });
+          }
+
+          if (available.length < requiredTotal) {
+            throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\nالمستوى ${difficulty}: المتاح ${available.length}، المطلوب ${requiredTotal}`);
+          }
+
+          const selected = available.slice(0, requiredTotal);
+          selected.forEach((cardIndex) => {
+            selectedTermIds.add(getCardPersistentId(cards[cardIndex]));
+          });
           const teamOneCards = shuffle(selected.slice(0, REQUIRED_PER_DIFFICULTY));
           const teamTwoCards = shuffle(selected.slice(REQUIRED_PER_DIFFICULTY, REQUIRED_PER_DIFFICULTY * 2));
           teamDecks[0].push(...teamOneCards);
           teamDecks[1].push(...teamTwoCards);
         });
 
+        if (usedHistoryChanged) {
+          writeUsedHistory(usedHistory);
+        }
         state.teams[0].deck = shuffle(teamDecks[0]).map((cardIndex) => cards[cardIndex]);
         state.teams[1].deck = shuffle(teamDecks[1]).map((cardIndex) => cards[cardIndex]);
       }
@@ -1262,6 +1431,7 @@
       btnReveal.addEventListener("click", () => {
         if (!state.currentCard) return;
         ensureAudioReady();
+        markCardAsUsed(state.currentCard);
         state.revealed = true;
         state.remaining = TURN_TIME_SECONDS;
         state.timerStarted = true;
