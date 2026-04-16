@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>خمن العمل من الإيموجي | تسلية</title>
+    <meta
+      name="description"
+      content="لعبة خمن العمل من الإيموجي: تنافس بين فريقين لتخمين الأفلام والمسلسلات والكرتون من الرموز."
+    />
+    <style>
+      :root {
+        --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
+        --gold-300: #ffe8a0;
+        --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
+        --text-main: #f5f8ff;
+        --text-muted: rgba(228, 238, 255, 0.84);
+        --green-400: #45db8f;
+        --red-400: #ff7d7d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Tahoma", "Arial", sans-serif;
+        color: var(--text-main);
+        background:
+          radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
+          radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
+          linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
+        padding: clamp(0.9rem, 3vw, 1.6rem);
+      }
+
+      .shell {
+        width: min(860px, 100%);
+        margin: 0 auto;
+      }
+
+      .top-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        text-decoration: none;
+        color: var(--gold-300);
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        background: rgba(14, 27, 67, 0.38);
+      }
+
+      h1 {
+        margin: 1rem 0 0.5rem;
+        color: var(--gold-400);
+        font-size: clamp(1.75rem, 5vw, 2.7rem);
+      }
+
+      .subtitle {
+        margin: 0 0 1rem;
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      .panel {
+        border-radius: 22px;
+        border: 1px solid rgba(244, 206, 108, 0.26);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.88));
+        box-shadow: 0 18px 40px rgba(1, 6, 20, 0.5);
+        padding: clamp(1rem, 3.4vw, 1.5rem);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .score-strip {
+        margin: 0 0 1rem;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+      }
+
+      .score-item {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.38);
+        background: rgba(8, 19, 50, 0.88);
+        padding: 0.85rem 0.9rem;
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      .score-item.active {
+        border-color: rgba(83, 230, 160, 0.9);
+        box-shadow:
+          0 0 0 2px rgba(83, 230, 160, 0.25),
+          0 0 18px rgba(83, 230, 160, 0.22);
+      }
+
+      .team-name {
+        color: #fff2c3;
+        font-weight: 700;
+      }
+
+      .team-score {
+        font-size: clamp(1.4rem, 4.5vw, 1.85rem);
+        font-weight: 900;
+      }
+
+      .turn-title {
+        margin: 0;
+        font-size: clamp(1.2rem, 3.8vw, 1.55rem);
+        color: #fff2c3;
+        text-align: center;
+      }
+
+      .timer {
+        margin: 0.7rem auto 0.95rem;
+        width: fit-content;
+        min-width: 148px;
+        text-align: center;
+        border-radius: 999px;
+        padding: 0.5rem 0.9rem;
+        border: 1px solid rgba(255, 225, 140, 0.46);
+        background: rgba(6, 17, 45, 0.88);
+        font-weight: 800;
+      }
+
+      .emoji-card {
+        margin: 0 0 0.95rem;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 225, 140, 0.3);
+        background: rgba(6, 18, 48, 0.84);
+        min-height: min(45vh, 260px);
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+      }
+
+      .emoji-value {
+        font-size: clamp(3.2rem, 14vw, 6.2rem);
+        line-height: 1.2;
+        text-align: center;
+        word-break: break-word;
+      }
+
+      .answer-form {
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .answer-input {
+        width: 100%;
+        min-height: 56px;
+        border-radius: 13px;
+        border: 1px solid rgba(255, 225, 140, 0.45);
+        background: rgba(5, 14, 37, 0.92);
+        color: #fff;
+        font-family: inherit;
+        font-size: 1.08rem;
+        padding: 0.7rem 0.85rem;
+      }
+
+      .btn {
+        width: 100%;
+        min-height: 56px;
+        border-radius: 13px;
+        border: 2px solid rgba(244, 206, 108, 0.86);
+        background: linear-gradient(180deg, #f9d679, #d7a943);
+        color: #12264d;
+        font-family: inherit;
+        font-size: 1.05rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .btn.secondary {
+        background: rgba(10, 20, 52, 0.95);
+        color: #f6d989;
+      }
+
+      .status {
+        margin: 0.8rem 0 0;
+        min-height: 1.5rem;
+        text-align: center;
+        font-weight: 700;
+      }
+
+      .status.error {
+        color: var(--red-400);
+      }
+
+      .status.success {
+        color: var(--green-400);
+      }
+
+      .reveal {
+        text-align: center;
+        display: grid;
+        gap: 0.8rem;
+      }
+
+      .answer-text {
+        margin: 0;
+        font-size: clamp(1.25rem, 4.2vw, 1.7rem);
+        color: #fff1bf;
+        font-weight: 800;
+      }
+
+      .result-message {
+        margin: 0;
+        color: var(--text-muted);
+        font-weight: 700;
+      }
+
+      .final {
+        text-align: center;
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .loading {
+        text-align: center;
+        color: var(--text-muted);
+      }
+
+      .error-box {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 125, 125, 0.5);
+        background: rgba(68, 16, 24, 0.66);
+        color: #ffd1d1;
+        padding: 0.85rem 1rem;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <a class="top-nav" href="/games/">← العودة للألعاب</a>
+      <h1>خمن العمل من الإيموجي</h1>
+      <p class="subtitle">تظهر لك رموز إيموجي تمثل اسم فيلم أو مسلسل أو كرتون. لكل فريق ٦٠ ثانية للتخمين، والفريق الذي يكتب الإجابة الصحيحة يحصل على النقاط.</p>
+
+      <section class="panel">
+        <ul class="score-strip" aria-label="نتائج الفرق">
+          <li class="score-item" id="team1ScoreCard">
+            <span class="team-name">الفريق 1</span>
+            <span class="team-score" id="team1Score">0</span>
+          </li>
+          <li class="score-item" id="team2ScoreCard">
+            <span class="team-name">الفريق 2</span>
+            <span class="team-score" id="team2Score">0</span>
+          </li>
+        </ul>
+
+        <div id="loadingScreen" class="loading">جاري تحميل بطاقات الإيموجي...</div>
+        <div id="errorScreen" class="error-box hidden"></div>
+
+        <div id="playScreen" class="hidden">
+          <h2 class="turn-title" id="turnTitle"></h2>
+          <div class="timer" id="timerLabel">60 ثانية</div>
+
+          <div class="emoji-card" aria-live="polite">
+            <div class="emoji-value" id="emojiText">🎬</div>
+          </div>
+
+          <form id="answerForm" class="answer-form" autocomplete="off">
+            <input
+              id="answerInput"
+              class="answer-input"
+              type="text"
+              placeholder="اكتب اسم الفيلم أو المسلسل أو الكرتون"
+              aria-label="إجابة الفريق الحالي"
+              required
+            />
+            <button type="submit" class="btn">إرسال الإجابة</button>
+          </form>
+          <p id="turnStatus" class="status" aria-live="polite"></p>
+        </div>
+
+        <div id="revealScreen" class="reveal hidden">
+          <p class="answer-text" id="answerReveal"></p>
+          <p class="result-message" id="revealResult"></p>
+          <button id="nextCardBtn" class="btn">السؤال التالي</button>
+        </div>
+
+        <div id="finalScreen" class="final hidden">
+          <h2 class="turn-title">النتيجة النهائية</h2>
+          <p class="answer-text" id="finalScoreLine"></p>
+          <p class="result-message" id="winnerLine"></p>
+          <button id="restartBtn" class="btn">العب مرة أخرى</button>
+          <a class="btn secondary" href="/games/" style="text-decoration:none;display:flex;align-items:center;justify-content:center;">العودة للألعاب</a>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const EMOJI_CSV_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9tLZcu6jKK9jV_IUhmk6-9WqUtfJKV3wJDXwUZHJrC0gzxAGgOKWE1QbPFTyiuCOt7JrlF3AINbZm/pub?output=csv";
+      const TURN_SECONDS = 60;
+      const DIFFICULTY_POINTS = { 1: 100, 2: 200, 3: 300, 4: 400, 5: 500 };
+
+      const elements = {
+        team1Score: document.getElementById("team1Score"),
+        team2Score: document.getElementById("team2Score"),
+        team1ScoreCard: document.getElementById("team1ScoreCard"),
+        team2ScoreCard: document.getElementById("team2ScoreCard"),
+        loadingScreen: document.getElementById("loadingScreen"),
+        errorScreen: document.getElementById("errorScreen"),
+        playScreen: document.getElementById("playScreen"),
+        revealScreen: document.getElementById("revealScreen"),
+        finalScreen: document.getElementById("finalScreen"),
+        turnTitle: document.getElementById("turnTitle"),
+        timerLabel: document.getElementById("timerLabel"),
+        emojiText: document.getElementById("emojiText"),
+        answerForm: document.getElementById("answerForm"),
+        answerInput: document.getElementById("answerInput"),
+        turnStatus: document.getElementById("turnStatus"),
+        answerReveal: document.getElementById("answerReveal"),
+        revealResult: document.getElementById("revealResult"),
+        nextCardBtn: document.getElementById("nextCardBtn"),
+        finalScoreLine: document.getElementById("finalScoreLine"),
+        winnerLine: document.getElementById("winnerLine"),
+        restartBtn: document.getElementById("restartBtn"),
+      };
+
+      const state = {
+        cards: [],
+        currentIndex: 0,
+        phase: "loading",
+        scores: [0, 0],
+        teamCorrect: [false, false],
+        currentTeam: 0,
+        timerValue: TURN_SECONDS,
+        timerInterval: null,
+      };
+
+      const emojiGameDataSource = {
+        async fetchCsvText() {
+          const response = await fetch(EMOJI_CSV_URL, { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error("تعذر تحميل ملف البيانات.");
+          }
+          return response.text();
+        },
+
+        parseCsv(text) {
+          const rows = [];
+          let row = [];
+          let value = "";
+          let inQuotes = false;
+
+          for (let i = 0; i < text.length; i += 1) {
+            const char = text[i];
+            const next = text[i + 1];
+
+            if (char === '"') {
+              if (inQuotes && next === '"') {
+                value += '"';
+                i += 1;
+              } else {
+                inQuotes = !inQuotes;
+              }
+              continue;
+            }
+
+            if (char === "," && !inQuotes) {
+              row.push(value.trim());
+              value = "";
+              continue;
+            }
+
+            if ((char === "\n" || char === "\r") && !inQuotes) {
+              if (char === "\r" && next === "\n") i += 1;
+              row.push(value.trim());
+              rows.push(row);
+              row = [];
+              value = "";
+              continue;
+            }
+
+            value += char;
+          }
+
+          if (value.length > 0 || row.length > 0) {
+            row.push(value.trim());
+            rows.push(row);
+          }
+
+          return rows;
+        },
+
+        mapCards(rows) {
+          if (!rows.length) return [];
+          const headers = rows[0].map((h) => String(h || "").trim().toLowerCase());
+          const indexOf = (key) => headers.indexOf(key);
+          const aliasKeys = ["alias_1", "alias_2", "alias_3", "alias_4", "alias_5"];
+
+          const mapped = [];
+          for (let i = 1; i < rows.length; i += 1) {
+            const raw = rows[i];
+            if (!raw || raw.every((cell) => !String(cell || "").trim())) continue;
+
+            const getValue = (name) => {
+              const idx = indexOf(name);
+              return idx >= 0 ? String(raw[idx] || "").trim() : "";
+            };
+
+            const emoji = getValue("emoji");
+            const answer = getValue("answer");
+            if (!emoji || !answer) continue;
+
+            const difficulty = Number.parseInt(getValue("difficulty"), 10);
+            const rawPoints = Number.parseInt(getValue("points"), 10);
+            const points = Number.isFinite(rawPoints) && rawPoints > 0 ? rawPoints : DIFFICULTY_POINTS[difficulty] || 100;
+
+            const aliases = aliasKeys
+              .map((key) => getValue(key))
+              .filter((alias) => Boolean(alias));
+
+            mapped.push({
+              id: getValue("id") || `row-${i}`,
+              emoji,
+              answer,
+              difficulty: Number.isFinite(difficulty) ? difficulty : null,
+              contentType: getValue("content_type"),
+              hint: getValue("hint"),
+              points,
+              acceptedAnswers: [answer, ...aliases],
+            });
+          }
+
+          return mapped;
+        },
+
+        async loadCards() {
+          const csvText = await this.fetchCsvText();
+          const rows = this.parseCsv(csvText);
+          return this.mapCards(rows);
+        },
+      };
+
+      function normalizeArabicAnswer(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, "")
+          .replace(/\u0640/g, "")
+          .replace(/[أإآٱ]/g, "ا")
+          .replace(/ى/g, "ي")
+          .replace(/ة/g, "ه")
+          .replace(/["'“”‘’«»`´]/g, "")
+          .replace(/[\p{P}\p{S}]/gu, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function isCorrectAnswer(submittedAnswer, card) {
+        const normalizedSubmitted = normalizeArabicAnswer(submittedAnswer);
+        if (!normalizedSubmitted) return false;
+
+        const validAnswers = new Set(card.acceptedAnswers.map((item) => normalizeArabicAnswer(item)).filter(Boolean));
+        return validAnswers.has(normalizedSubmitted);
+      }
+
+      function shuffleArray(items) {
+        const clone = [...items];
+        for (let i = clone.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [clone[i], clone[j]] = [clone[j], clone[i]];
+        }
+        return clone;
+      }
+
+      function clearTimer() {
+        if (state.timerInterval) {
+          clearInterval(state.timerInterval);
+          state.timerInterval = null;
+        }
+      }
+
+      function updateScoreboard() {
+        elements.team1Score.textContent = String(state.scores[0]);
+        elements.team2Score.textContent = String(state.scores[1]);
+
+        elements.team1ScoreCard.classList.toggle("active", state.phase === "team1");
+        elements.team2ScoreCard.classList.toggle("active", state.phase === "team2");
+      }
+
+      function setVisibleScreen(name) {
+        elements.loadingScreen.classList.toggle("hidden", name !== "loading");
+        elements.errorScreen.classList.toggle("hidden", name !== "error");
+        elements.playScreen.classList.toggle("hidden", name !== "play");
+        elements.revealScreen.classList.toggle("hidden", name !== "reveal");
+        elements.finalScreen.classList.toggle("hidden", name !== "final");
+      }
+
+      function getCurrentCard() {
+        return state.cards[state.currentIndex] || null;
+      }
+
+      function startTeamTurn(teamIndex) {
+        const card = getCurrentCard();
+        if (!card) return;
+
+        state.phase = teamIndex === 0 ? "team1" : "team2";
+        state.currentTeam = teamIndex;
+        state.timerValue = TURN_SECONDS;
+        clearTimer();
+        updateScoreboard();
+
+        elements.turnTitle.textContent = teamIndex === 0 ? "دور الفريق 1" : "دور الفريق 2";
+        elements.emojiText.textContent = card.emoji;
+        elements.timerLabel.textContent = `${state.timerValue} ثانية`;
+        elements.turnStatus.textContent = "";
+        elements.turnStatus.className = "status";
+        elements.answerInput.value = "";
+
+        setVisibleScreen("play");
+        elements.answerInput.focus();
+
+        state.timerInterval = window.setInterval(() => {
+          state.timerValue -= 1;
+          elements.timerLabel.textContent = `${Math.max(0, state.timerValue)} ثانية`;
+
+          if (state.timerValue <= 0) {
+            clearTimer();
+            if (teamIndex === 0) {
+              startTeamTurn(1);
+            } else {
+              revealCurrentCard();
+            }
+          }
+        }, 1000);
+      }
+
+      function getRevealMessage(points, team1Correct, team2Correct) {
+        if (team1Correct && team2Correct) {
+          return `حصل الفريقان على ${points} نقطة`;
+        }
+        if (team1Correct) {
+          return `حصل الفريق 1 على ${points} نقطة`;
+        }
+        if (team2Correct) {
+          return `حصل الفريق 2 على ${points} نقطة`;
+        }
+        return "لم يحصل أي فريق على نقاط";
+      }
+
+      function revealCurrentCard() {
+        const card = getCurrentCard();
+        if (!card) return;
+
+        state.phase = "reveal";
+        clearTimer();
+
+        if (state.teamCorrect[0]) {
+          state.scores[0] += card.points;
+        }
+        if (state.teamCorrect[1]) {
+          state.scores[1] += card.points;
+        }
+
+        updateScoreboard();
+        elements.answerReveal.textContent = `الإجابة: ${card.answer}`;
+        elements.revealResult.textContent = getRevealMessage(card.points, state.teamCorrect[0], state.teamCorrect[1]);
+        setVisibleScreen("reveal");
+      }
+
+      function goToNextCard() {
+        state.currentIndex += 1;
+        state.teamCorrect = [false, false];
+
+        if (state.currentIndex >= state.cards.length) {
+          showFinalScreen();
+          return;
+        }
+
+        startTeamTurn(0);
+      }
+
+      function showFinalScreen() {
+        clearTimer();
+        state.phase = "final";
+        const [team1, team2] = state.scores;
+
+        elements.finalScoreLine.textContent = `الفريق 1: ${team1} — الفريق 2: ${team2}`;
+        if (team1 > team2) {
+          elements.winnerLine.textContent = "فاز الفريق 1";
+        } else if (team2 > team1) {
+          elements.winnerLine.textContent = "فاز الفريق 2";
+        } else {
+          elements.winnerLine.textContent = "تعادل";
+        }
+
+        setVisibleScreen("final");
+        updateScoreboard();
+      }
+
+      function startNewGame(cards) {
+        clearTimer();
+        state.cards = shuffleArray(cards);
+        state.currentIndex = 0;
+        state.scores = [0, 0];
+        state.teamCorrect = [false, false];
+        startTeamTurn(0);
+      }
+
+      elements.answerForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const card = getCurrentCard();
+        if (!card || (state.phase !== "team1" && state.phase !== "team2")) return;
+
+        const answer = elements.answerInput.value;
+        const correct = isCorrectAnswer(answer, card);
+
+        if (!correct) {
+          elements.turnStatus.textContent = "غير صحيح، جرّب مرة أخرى";
+          elements.turnStatus.className = "status error";
+          elements.answerInput.value = "";
+          elements.answerInput.focus();
+          return;
+        }
+
+        state.teamCorrect[state.currentTeam] = true;
+        clearTimer();
+        elements.answerInput.value = "";
+
+        if (state.currentTeam === 0) {
+          elements.turnStatus.textContent = "تم تسجيل إجابة الفريق";
+          elements.turnStatus.className = "status success";
+          window.setTimeout(() => startTeamTurn(1), 450);
+          return;
+        }
+
+        revealCurrentCard();
+      });
+
+      elements.nextCardBtn.addEventListener("click", () => {
+        goToNextCard();
+      });
+
+      elements.restartBtn.addEventListener("click", () => {
+        startNewGame(state.cards);
+      });
+
+      async function init() {
+        try {
+          const cards = await emojiGameDataSource.loadCards();
+          if (!cards.length) {
+            throw new Error("لم يتم العثور على بطاقات صالحة في ملف البيانات.");
+          }
+          startNewGame(cards);
+        } catch (error) {
+          clearTimer();
+          elements.errorScreen.textContent = error && error.message ? error.message : "حدث خطأ أثناء تحميل اللعبة.";
+          setVisibleScreen("error");
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>
