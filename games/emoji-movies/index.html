@@ -301,10 +301,8 @@
     </main>
 
     <script>
-      const EMOJI_CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vQ9tLZcu6jKK9jV_IUhmk6-9WqUtfJKV3wJDXwUZHJrC0gzxAGgOKWE1QbPFTyiuCOt7JrlF3AINbZm/pub?output=csv";
       const TURN_SECONDS = 60;
-      const DIFFICULTY_POINTS = { 1: 100, 2: 200, 3: 300, 4: 400, 5: 500 };
+      const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 
       const elements = {
         team1Score: document.getElementById("team1Score"),
@@ -341,110 +339,63 @@
         timerInterval: null,
       };
 
-      const emojiGameDataSource = {
-        async fetchCsvText() {
-          const response = await fetch(EMOJI_CSV_URL, { cache: "no-store" });
-          if (!response.ok) {
-            throw new Error("تعذر تحميل ملف البيانات.");
-          }
-          return response.text();
-        },
+      function normalizeCell(value) {
+        return String(value || "").trim();
+      }
 
-        parseCsv(text) {
-          const rows = [];
-          let row = [];
-          let value = "";
-          let inQuotes = false;
+      function resolveApiBaseUrl() {
+        const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+        if (!configuredBaseUrl) {
+          return DEFAULT_WORKER_API_BASE_URL;
+        }
+        return configuredBaseUrl.replace(/\/+$/, "");
+      }
 
-          for (let i = 0; i < text.length; i += 1) {
-            const char = text[i];
-            const next = text[i + 1];
+      async function apiFetchJson(path) {
+        const baseUrl = resolveApiBaseUrl();
+        const response = await fetch(`${baseUrl}${path}`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
 
-            if (char === '"') {
-              if (inQuotes && next === '"') {
-                value += '"';
-                i += 1;
-              } else {
-                inQuotes = !inQuotes;
-              }
-              continue;
-            }
+        let payload = null;
+        try {
+          payload = await response.json();
+        } catch (_) {
+          payload = null;
+        }
 
-            if (char === "," && !inQuotes) {
-              row.push(value.trim());
-              value = "";
-              continue;
-            }
+        if (!response.ok) {
+          const message = payload && payload.error ? payload.error : "تعذر تحميل بيانات اللعبة.";
+          throw new Error(message);
+        }
 
-            if ((char === "\n" || char === "\r") && !inQuotes) {
-              if (char === "\r" && next === "\n") i += 1;
-              row.push(value.trim());
-              rows.push(row);
-              row = [];
-              value = "";
-              continue;
-            }
+        return payload;
+      }
 
-            value += char;
-          }
+      async function loadEmojiMoviesCards() {
+        const payload = await apiFetchJson("/emoji-movies/cards");
+        const cards = Array.isArray(payload && payload.cards) ? payload.cards : [];
+        return cards
+          .map((card) => {
+            const answer = normalizeCell(card && card.answer);
+            const aliases = Array.isArray(card && card.aliases)
+              ? card.aliases.map((alias) => normalizeCell(alias)).filter(Boolean)
+              : [];
 
-          if (value.length > 0 || row.length > 0) {
-            row.push(value.trim());
-            rows.push(row);
-          }
-
-          return rows;
-        },
-
-        mapCards(rows) {
-          if (!rows.length) return [];
-          const headers = rows[0].map((h) => String(h || "").trim().toLowerCase());
-          const indexOf = (key) => headers.indexOf(key);
-          const aliasKeys = ["alias_1", "alias_2", "alias_3", "alias_4", "alias_5"];
-
-          const mapped = [];
-          for (let i = 1; i < rows.length; i += 1) {
-            const raw = rows[i];
-            if (!raw || raw.every((cell) => !String(cell || "").trim())) continue;
-
-            const getValue = (name) => {
-              const idx = indexOf(name);
-              return idx >= 0 ? String(raw[idx] || "").trim() : "";
-            };
-
-            const emoji = getValue("emoji");
-            const answer = getValue("answer");
-            if (!emoji || !answer) continue;
-
-            const difficulty = Number.parseInt(getValue("difficulty"), 10);
-            const rawPoints = Number.parseInt(getValue("points"), 10);
-            const points = Number.isFinite(rawPoints) && rawPoints > 0 ? rawPoints : DIFFICULTY_POINTS[difficulty] || 100;
-
-            const aliases = aliasKeys
-              .map((key) => getValue(key))
-              .filter((alias) => Boolean(alias));
-
-            mapped.push({
-              id: getValue("id") || `row-${i}`,
-              emoji,
+            return {
+              id: normalizeCell(card && card.id),
+              emoji: normalizeCell(card && card.emoji),
               answer,
-              difficulty: Number.isFinite(difficulty) ? difficulty : null,
-              contentType: getValue("content_type"),
-              hint: getValue("hint"),
-              points,
+              difficulty: Number.isFinite(card && card.difficulty) ? card.difficulty : null,
+              contentType: normalizeCell(card && card.content_type),
+              hint: normalizeCell(card && card.hint),
+              points: Number.isFinite(card && card.points) ? card.points : 100,
               acceptedAnswers: [answer, ...aliases],
-            });
-          }
-
-          return mapped;
-        },
-
-        async loadCards() {
-          const csvText = await this.fetchCsvText();
-          const rows = this.parseCsv(csvText);
-          return this.mapCards(rows);
-        },
-      };
+            };
+          })
+          .filter((card) => card.emoji && card.answer);
+      }
 
       function normalizeArabicAnswer(value) {
         return String(value || "")
@@ -652,7 +603,7 @@
 
       async function init() {
         try {
-          const cards = await emojiGameDataSource.loadCards();
+          const cards = await loadEmojiMoviesCards();
           if (!cards.length) {
             throw new Error("لم يتم العثور على بطاقات صالحة في ملف البيانات.");
           }

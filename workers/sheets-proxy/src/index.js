@@ -104,6 +104,15 @@ export default {
         return json({ cards }, 200, request, env);
       }
 
+      if (url.pathname === '/emoji-movies/cards' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'EMOJI_MOVIES_SHEET_CSV_URL',
+          cacheKeyPrefix: 'emoji-movies-cards',
+        });
+        const cards = buildEmojiMoviesCards(rows);
+        return json({ cards }, 200, request, env);
+      }
+
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
     } catch (err) {
       console.error('[sheets-proxy] Request failed', err);
@@ -376,6 +385,44 @@ function buildForbiddenWordsCards(rows) {
       };
     })
     .filter((card) => card.word && card.forbidden.every(Boolean));
+}
+
+function buildEmojiMoviesCards(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  return dataRows
+    .map((row, index) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      const emoji = normalizeCell(raw.emoji);
+      const answer = normalizeCell(raw.answer);
+      if (!emoji || !answer) return null;
+
+      const difficulty = toInteger(raw.difficulty);
+      const parsedPoints = toInteger(raw.points);
+      const points = parsedPoints && parsedPoints > 0
+        ? parsedPoints
+        : (difficulty && difficulty >= 1 && difficulty <= 5 ? difficulty * 100 : 100);
+      const aliases = [raw.alias_1, raw.alias_2, raw.alias_3, raw.alias_4, raw.alias_5]
+        .map(normalizeCell)
+        .filter(Boolean);
+
+      return {
+        id: normalizeCell(raw.id) || `row-${index + 1}`,
+        difficulty,
+        emoji,
+        answer,
+        content_type: normalizeCell(raw.content_type),
+        points,
+        hint: normalizeCell(raw.hint),
+        aliases,
+      };
+    })
+    .filter(Boolean);
 }
 
 function sanitizeQuestion(question, allQuestions) {
