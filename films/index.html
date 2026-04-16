@@ -401,6 +401,7 @@
       const FILMS_CSV_URL =
         "https://docs.google.com/spreadsheets/d/e/2PACX-1vT51s3pCzunVJ6o9k4PKYZoeNM9Bo57k9qYxe2vNW7ZGwbZqvhDewY-bTcpbUA-e4GoNYn41HrWfepr/pub?output=csv";
       const ROUND_SECONDS = 90;
+      const FILMS_USED_STORAGE_KEY = "tasleya_films_used_v1";
 
       const gameState = {
         teams: ["الفريق الأول", "الفريق الثاني"],
@@ -411,6 +412,7 @@
         timerValue: ROUND_SECONDS,
         timerInterval: null,
         timerWarningTriggered: false,
+        persistedUsedFilmIds: new Set(),
       };
 
       const audioState = {
@@ -586,6 +588,51 @@
         });
       }
 
+      function normalizeFilmKeyPart(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+      }
+
+      function buildFilmFallbackId(item) {
+        const titlePart = normalizeFilmKeyPart(item.title) || "untitled";
+        const difficultyPart = normalizeDifficulty(item.difficulty) || "unknown";
+        const pointsPart = Number(item.points) || 0;
+        return `fallback:${titlePart}|${difficultyPart}|${pointsPart}`;
+      }
+
+      function resolveFilmId(item) {
+        const explicitId = String(item.id || "").trim();
+        if (explicitId) return explicitId;
+        return buildFilmFallbackId(item);
+      }
+
+      function readPersistedFilmUsedIds() {
+        try {
+          const raw = window.localStorage.getItem(FILMS_USED_STORAGE_KEY);
+          if (!raw) return new Set();
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return new Set();
+
+          const sanitized = parsed
+            .map((value) => String(value || "").trim())
+            .filter((value) => value.length > 0);
+
+          return new Set(sanitized);
+        } catch (_) {
+          return new Set();
+        }
+      }
+
+      function writePersistedFilmUsedIds(usedIds) {
+        try {
+          window.localStorage.setItem(FILMS_USED_STORAGE_KEY, JSON.stringify([...usedIds]));
+        } catch (_) {
+          // Ignore storage write failures safely.
+        }
+      }
+
       function randomPick(list, count) {
         const shuffled = [...list];
         for (let i = shuffled.length - 1; i > 0; i -= 1) {
@@ -595,14 +642,14 @@
         return shuffled.slice(0, count);
       }
 
-      function finalizeRoundSelection(films) {
+      function buildRoundDeckWithPersistentFilter(films, persistedUsedIds) {
         const config = [
           { difficulty: "easy", points: 100, count: 6 },
           { difficulty: "medium", points: 300, count: 6 },
           { difficulty: "hard", points: 500, count: 6 },
         ];
 
-        const usedIds = new Set();
+        const roundUsedIds = new Set();
         const selected = [];
 
         for (const bucket of config) {
@@ -610,7 +657,8 @@
             (film) =>
               normalizeDifficulty(film.difficulty) === bucket.difficulty &&
               Number(film.points) === bucket.points &&
-              !usedIds.has(film.id)
+              !persistedUsedIds.has(film.id) &&
+              !roundUsedIds.has(film.id)
           );
 
           let picks = randomPick(strictPool, bucket.count);
@@ -619,7 +667,8 @@
             const fallbackPool = films.filter(
               (film) =>
                 normalizeDifficulty(film.difficulty) === bucket.difficulty &&
-                !usedIds.has(film.id) &&
+                !persistedUsedIds.has(film.id) &&
+                !roundUsedIds.has(film.id) &&
                 !picks.some((picked) => picked.id === film.id)
             );
             picks = picks.concat(randomPick(fallbackPool, bucket.count - picks.length));
@@ -627,13 +676,20 @@
 
           if (picks.length < bucket.count) {
             const openPool = films.filter(
-              (film) => !usedIds.has(film.id) && !picks.some((picked) => picked.id === film.id)
+              (film) =>
+                !persistedUsedIds.has(film.id) &&
+                !roundUsedIds.has(film.id) &&
+                !picks.some((picked) => picked.id === film.id)
             );
             picks = picks.concat(randomPick(openPool, bucket.count - picks.length));
           }
 
+          if (picks.length < bucket.count) {
+            return null;
+          }
+
           picks.forEach((pick) => {
-            usedIds.add(pick.id);
+            roundUsedIds.add(pick.id);
             selected.push({
               ...pick,
               difficulty: bucket.difficulty,
@@ -646,6 +702,19 @@
         return selected;
       }
 
+      function finalizeRoundSelection(films, persistedUsedIds) {
+        let selected = buildRoundDeckWithPersistentFilter(films, persistedUsedIds);
+        if (selected) return selected;
+
+        persistedUsedIds.clear();
+        writePersistedFilmUsedIds(persistedUsedIds);
+
+        selected = buildRoundDeckWithPersistentFilter(films, persistedUsedIds);
+        if (selected) return selected;
+
+        throw new Error("عدد أفلام غير كافٍ لبدء الجولة.");
+      }
+
       async function loadFilmsBank() {
         const response = await fetch(FILMS_CSV_URL, { cache: "no-store" });
         if (!response.ok) {
@@ -655,8 +724,8 @@
         const csv = await response.text();
         const parsed = parseCSV(csv)
           .filter((item) => item.title)
-          .map((item, index) => ({
-            id: item.id || String(index + 1),
+          .map((item) => ({
+            id: resolveFilmId(item),
             title: item.title,
             difficulty: item.difficulty,
             points: Number(item.points) || 0,
@@ -666,7 +735,9 @@
           throw new Error("عدد أفلام غير كافٍ لبدء الجولة.");
         }
 
-        return finalizeRoundSelection(parsed);
+        const persistedUsedIds = readPersistedFilmUsedIds();
+        gameState.persistedUsedFilmIds = persistedUsedIds;
+        return finalizeRoundSelection(parsed, persistedUsedIds);
       }
 
       function renderBoard() {
@@ -748,7 +819,12 @@
 
         stopTimerWarningSound();
 
-        gameState.cards[gameState.activeCard].used = true;
+        const consumedCard = gameState.cards[gameState.activeCard];
+        consumedCard.used = true;
+        if (consumedCard.id) {
+          gameState.persistedUsedFilmIds.add(consumedCard.id);
+          writePersistedFilmUsedIds(gameState.persistedUsedFilmIds);
+        }
         gameState.activeCard = null;
         gameState.currentTeam = gameState.currentTeam === 0 ? 1 : 0;
 
