@@ -397,9 +397,10 @@
       </section>
     </main>
 
+    <script src="/game-config.js"></script>
     <script>
-      const FILMS_CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vT51s3pCzunVJ6o9k4PKYZoeNM9Bo57k9qYxe2vNW7ZGwbZqvhDewY-bTcpbUA-e4GoNYn41HrWfepr/pub?output=csv";
+      const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+      const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const ROUND_SECONDS = 90;
       const FILMS_USED_STORAGE_KEY = "tasleya_films_used_v1";
 
@@ -512,6 +513,32 @@
         return trimmed ? trimmed.slice(0, 24) : fallback;
       }
 
+      function normalizeCell(value) {
+        return String(value || "").replace(/^\uFEFF/, "").trim();
+      }
+
+      function getConfiguredApiBaseUrl() {
+        const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+          return DEFAULT_WORKER_API_BASE_URL;
+        }
+        return configuredBaseUrl.replace(/\/+$/, "");
+      }
+
+      function buildApiUrl(path) {
+        return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+      }
+
+      async function apiFetchJson(path) {
+        const response = await fetch(buildApiUrl(path));
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = normalizeCell(payload?.error) || "تعذر تحميل بنك الأفلام.";
+          throw new Error(message);
+        }
+        return payload;
+      }
+
       function updateStatusBar() {
         elements.teamOneLabel.textContent = gameState.teams[0];
         elements.teamTwoLabel.textContent = gameState.teams[1];
@@ -534,58 +561,6 @@
         if (["medium", "m", "متوسط"].includes(normalized)) return "medium";
         if (["hard", "h", "صعب"].includes(normalized)) return "hard";
         return "unknown";
-      }
-
-      function parseCSV(text) {
-        const rows = [];
-        let row = [];
-        let cell = "";
-        let inQuotes = false;
-
-        for (let i = 0; i < text.length; i += 1) {
-          const char = text[i];
-          const nextChar = text[i + 1];
-
-          if (char === '"') {
-            if (inQuotes && nextChar === '"') {
-              cell += '"';
-              i += 1;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (char === "," && !inQuotes) {
-            row.push(cell);
-            cell = "";
-          } else if ((char === "\n" || char === "\r") && !inQuotes) {
-            if (char === "\r" && nextChar === "\n") {
-              i += 1;
-            }
-            row.push(cell);
-            if (row.some((entry) => entry.trim().length > 0)) {
-              rows.push(row);
-            }
-            row = [];
-            cell = "";
-          } else {
-            cell += char;
-          }
-        }
-
-        if (cell.length > 0 || row.length > 0) {
-          row.push(cell);
-          rows.push(row);
-        }
-
-        if (!rows.length) return [];
-
-        const headers = rows[0].map((h) => h.trim());
-        return rows.slice(1).map((values) => {
-          const item = {};
-          headers.forEach((header, index) => {
-            item[header] = (values[index] || "").trim();
-          });
-          return item;
-        });
       }
 
       function normalizeFilmKeyPart(value) {
@@ -716,20 +691,17 @@
       }
 
       async function loadFilmsBank() {
-        const response = await fetch(FILMS_CSV_URL, { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("تعذر تحميل بنك الأفلام.");
-        }
-
-        const csv = await response.text();
-        const parsed = parseCSV(csv)
-          .filter((item) => item.title)
-          .map((item) => ({
-            id: resolveFilmId(item),
-            title: item.title,
-            difficulty: item.difficulty,
-            points: Number(item.points) || 0,
-          }));
+        const payload = await apiFetchJson("/films/questions");
+        const parsed = Array.isArray(payload?.films)
+          ? payload.films
+              .filter((item) => item?.title)
+              .map((item) => ({
+                id: resolveFilmId(item),
+                title: item.title,
+                difficulty: item.difficulty,
+                points: Number(item.points) || 0,
+              }))
+          : [];
 
         if (parsed.length < 18) {
           throw new Error("عدد أفلام غير كافٍ لبدء الجولة.");
