@@ -188,12 +188,12 @@
       }
 
       .team-name {
-        font-size: 1.01rem;
+        font-size: 1.12rem;
         color: var(--muted);
       }
 
       .team-score {
-        font-size: 1.26rem;
+        font-size: 1.4rem;
         line-height: 1.3;
       }
 
@@ -218,13 +218,13 @@
 
       .meta-label {
         display: block;
-        font-size: 0.86rem;
+        font-size: 0.96rem;
         color: rgba(233, 243, 255, 0.76);
       }
 
       .meta-value {
         display: block;
-        font-size: 1.03rem;
+        font-size: 1.18rem;
         color: #fff1c8;
         line-height: 1.3;
       }
@@ -237,7 +237,7 @@
         font-weight: 800;
         color: var(--accent);
         line-height: 1.35;
-        font-size: 1.07rem;
+        font-size: 1.2rem;
       }
 
       .turn-panel {
@@ -250,7 +250,7 @@
       }
 
       .turn-indicator {
-        font-size: 1.04rem;
+        font-size: 1.2rem;
         font-weight: 800;
         color: #ffe9ab;
         line-height: 1.25;
@@ -259,7 +259,7 @@
       .turn-instruction {
         color: var(--muted);
         font-weight: 700;
-        font-size: 0.96rem;
+        font-size: 1.08rem;
         line-height: 1.22;
       }
 
@@ -359,30 +359,6 @@
         stroke: #d9ffe7;
         stroke-width: 3.4;
         filter: drop-shadow(0 0 8px rgba(64, 222, 132, 0.95));
-      }
-
-      .small-country-marker {
-        fill: rgba(247, 214, 117, 0.96);
-        stroke: #132857;
-        stroke-width: 1.4;
-        vector-effect: non-scaling-stroke;
-        cursor: pointer;
-        pointer-events: all;
-      }
-
-      .small-country-marker.team1 {
-        fill: var(--team-1);
-        stroke: #ddf1ff;
-      }
-
-      .small-country-marker.team2 {
-        fill: var(--team-2);
-        stroke: #ffe6ff;
-      }
-
-      .small-country-marker.correct {
-        fill: var(--correct);
-        stroke: #d9ffe7;
       }
 
       .overlay {
@@ -677,8 +653,6 @@
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const WORLD_MAP_URL =
         "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
-      const SMALL_COUNTRY_AREA_THRESHOLD = 58;
-      const SMALL_COUNTRY_MARKER_RADIUS = 8;
       const NAME_NORMALIZATION_ALIASES = new Map([
         ["unitedstatesofamerica", "unitedstates"],
         ["usa", "unitedstates"],
@@ -878,7 +852,7 @@
 
       function updateMapHighlights() {
         if (!state.mapReady) return;
-        const countryNodes = el.mapStage.querySelectorAll(".country, .small-country-marker");
+        const countryNodes = el.mapStage.querySelectorAll(".country");
         const target = getQuestion();
         countryNodes.forEach((node) => {
           const code = node.dataset.countryCode;
@@ -1152,7 +1126,6 @@
           const path = d3.geoPath(projection);
           const mapLayer = svg.append("g");
           const countriesLayer = mapLayer.append("g").attr("class", "countries-layer");
-          const markersLayer = mapLayer.append("g").attr("class", "small-countries-layer");
 
           const clearActivePointer = () => {
             state.activePointer = null;
@@ -1282,32 +1255,7 @@
               trySelectCountryFromEvent(event);
             });
 
-          const smallCountryFeatures = geojson.features.filter((feature) => {
-            if (!feature.properties.countryCode) return false;
-            const bounds = path.bounds(feature);
-            const widthPx = Math.abs(bounds[1][0] - bounds[0][0]);
-            const heightPx = Math.abs(bounds[1][1] - bounds[0][1]);
-            const projectedArea = widthPx * heightPx;
-            return projectedArea <= SMALL_COUNTRY_AREA_THRESHOLD;
-          });
-
-          state.mapDiagnostics.smallCountryCodes = smallCountryFeatures.map((feature) => feature.properties.countryCode);
-
-          markersLayer
-            .selectAll("circle")
-            .data(smallCountryFeatures)
-            .enter()
-            .append("circle")
-            .attr("class", "small-country-marker")
-            .attr("data-country-code", (d) => d.properties.countryCode)
-            .attr("data-name", (d) => d.properties.normalizedName)
-            .attr("r", SMALL_COUNTRY_MARKER_RADIUS)
-            .attr("cx", (d) => path.centroid(d)[0])
-            .attr("cy", (d) => path.centroid(d)[1])
-            .on("click", (event, d) => {
-              event.stopPropagation();
-              handleCountrySelection(d.properties.countryCode || "");
-            });
+          state.mapDiagnostics.smallCountryCodes = [];
 
           const zoomBehavior = d3
             .zoom()
