@@ -119,6 +119,26 @@
         gap: 0.9rem;
       }
 
+      .resume-wrap {
+        width: min(560px, 100%);
+        margin: 0 auto;
+        text-align: center;
+        display: grid;
+        gap: 0.95rem;
+      }
+
+      .resume-title {
+        margin: 0;
+        color: #fff2c3;
+        font-size: clamp(1.35rem, 4.4vw, 1.85rem);
+      }
+
+      .resume-subtitle {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.75;
+      }
+
       .status-text {
         margin: 0;
         color: #fff2c3;
@@ -448,6 +468,15 @@
         </div>
       </section>
 
+      <section id="resume-screen" class="panel hidden" aria-label="استئناف لعبة ممنوع تقولها">
+        <div class="resume-wrap">
+          <h2 class="resume-title">لديك لعبة غير مكتملة في ممنوع تقولها</h2>
+          <p class="resume-subtitle">هل تريد إكمالها أم بدء لعبة جديدة؟</p>
+          <button id="resume-game" class="primary-btn" type="button">أكمل اللعبة</button>
+          <button id="new-game" class="ghost-btn" type="button">ابدأ لعبة جديدة</button>
+        </div>
+      </section>
+
       <section id="turn-screen" class="panel hidden" aria-label="دور الفريق">
         <div class="score-wrap">
           <p class="score-title">النتيجة</p>
@@ -535,6 +564,8 @@
       const TURN_TIME_SECONDS = 30;
       const REQUIRED_PER_DIFFICULTY = 2;
       const DIFFICULTIES = [1, 2, 3, 4, 5];
+      const STORAGE_KEY = "tasleya_forbidden_words_state";
+      const STORAGE_VERSION = 1;
 
       let cards = [];
 
@@ -550,10 +581,13 @@
         remaining: TURN_TIME_SECONDS,
         currentCard: null,
         gameStarted: false,
-        gameFinished: false
+        gameFinished: false,
+        timerStarted: false,
+        termTimeExpired: false
       };
 
       const setupScreen = document.getElementById("setup-screen");
+      const resumeScreen = document.getElementById("resume-screen");
       const turnScreen = document.getElementById("turn-screen");
       const finalScreen = document.getElementById("final-screen");
 
@@ -577,6 +611,10 @@
       const winnerLine = document.getElementById("winner-line");
       const finalBoard = document.getElementById("final-board");
       const playAgainBtn = document.getElementById("play-again");
+      const resumeGameBtn = document.getElementById("resume-game");
+      const newGameBtn = document.getElementById("new-game");
+
+      let pendingResumeState = null;
 
       const soundFiles = {
         timerWarning: "/assets/sounds/timer-warning.mp3"
@@ -779,6 +817,147 @@
         stopTimerWarningSound();
       }
 
+      function cloneCard(card) {
+        if (!card || typeof card !== "object") return null;
+        if (!card.word || !Array.isArray(card.forbidden)) return null;
+        return {
+          word: String(card.word),
+          difficulty: Number(card.difficulty) || 1,
+          points: Number(card.points) || 1,
+          forbidden: card.forbidden.map((item) => String(item || ""))
+        };
+      }
+
+      function clearSavedGameState() {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      function createPersistedState() {
+        if (!state.gameStarted) return null;
+        return {
+          version: STORAGE_VERSION,
+          game: "forbidden-words",
+          gameStarted: state.gameStarted,
+          gameFinished: state.gameFinished,
+          activeTeamIndex: state.activeTeamIndex,
+          revealed: state.revealed,
+          timerRunning: state.timerRunning,
+          timerStarted: state.timerStarted,
+          termTimeExpired: state.termTimeExpired,
+          remaining: state.remaining,
+          lastSavedAt: Date.now(),
+          currentCard: cloneCard(state.currentCard),
+          teams: state.teams.map((team) => ({
+            name: team.name,
+            score: team.score,
+            usedCount: team.usedCount,
+            deck: team.deck.map((card) => cloneCard(card))
+          }))
+        };
+      }
+
+      function persistGameState() {
+        const snapshot = createPersistedState();
+        if (!snapshot || state.gameFinished) {
+          clearSavedGameState();
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+        } catch (error) {
+          // Ignore storage failures.
+        }
+      }
+
+      function readSavedGameState() {
+        let raw = null;
+        try {
+          raw = localStorage.getItem(STORAGE_KEY);
+        } catch (error) {
+          return null;
+        }
+        if (!raw) return null;
+
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (error) {
+          clearSavedGameState();
+          return null;
+        }
+
+        const isValidGame = parsed && parsed.game === "forbidden-words" && parsed.version === STORAGE_VERSION;
+        const validTeams = Array.isArray(parsed?.teams) && parsed.teams.length === 2;
+        const validActive = Number.isInteger(parsed?.activeTeamIndex) && parsed.activeTeamIndex >= 0 && parsed.activeTeamIndex <= 1;
+        const validRemaining = Number.isFinite(parsed?.remaining) && parsed.remaining >= 0;
+        const validStarted = parsed?.gameStarted === true && parsed?.gameFinished !== true;
+
+        if (!isValidGame || !validTeams || !validActive || !validRemaining || !validStarted) {
+          clearSavedGameState();
+          return null;
+        }
+
+        const normalizedTeams = parsed.teams.map((team, index) => {
+          const validDeck = Array.isArray(team?.deck);
+          const validUsedCount = Number.isInteger(team?.usedCount) && team.usedCount >= 0 && team.usedCount <= TERMS_PER_TEAM;
+          const validScore = Number.isFinite(team?.score) && team.score >= 0;
+          const validName = typeof team?.name === "string" && team.name.trim();
+          if (!validDeck || !validUsedCount || !validScore || !validName || team.deck.length !== TERMS_PER_TEAM) return null;
+
+          const normalizedDeck = team.deck.map((card) => cloneCard(card));
+          if (normalizedDeck.some((card) => !card || card.forbidden.length !== 5 || card.forbidden.some((item) => !item))) return null;
+
+          return {
+            name: index === 0 ? "الفريق 1" : "الفريق 2",
+            score: Math.floor(team.score),
+            usedCount: team.usedCount,
+            deck: normalizedDeck
+          };
+        });
+
+        if (normalizedTeams.some((team) => team === null)) {
+          clearSavedGameState();
+          return null;
+        }
+
+        const currentCard = cloneCard(parsed.currentCard);
+        const timerStarted = parsed.timerStarted === true;
+        const termTimeExpired = parsed.termTimeExpired === true;
+        const timerRunning = parsed.timerRunning === true;
+        const revealed = parsed.revealed === true;
+        const allCompleted = normalizedTeams.every((team) => team.usedCount >= TERMS_PER_TEAM);
+        if (allCompleted) {
+          clearSavedGameState();
+          return null;
+        }
+
+        return {
+          teams: normalizedTeams,
+          activeTeamIndex: parsed.activeTeamIndex,
+          remaining: Math.max(0, Math.floor(parsed.remaining)),
+          revealed,
+          timerRunning,
+          timerStarted,
+          termTimeExpired,
+          currentCard,
+          lastSavedAt: Number(parsed.lastSavedAt) || Date.now()
+        };
+      }
+
+      function showSetupScreen() {
+        resumeScreen.classList.add("hidden");
+        turnScreen.classList.add("hidden");
+        finalScreen.classList.add("hidden");
+        setupScreen.classList.remove("hidden");
+      }
+
+      function showResumeScreen() {
+        setupScreen.classList.add("hidden");
+        turnScreen.classList.add("hidden");
+        finalScreen.classList.add("hidden");
+        resumeScreen.classList.remove("hidden");
+      }
+
       function formatTime(seconds) {
         const mins = String(Math.floor(seconds / 60)).padStart(2, "0");
         const secs = String(seconds % 60).padStart(2, "0");
@@ -918,9 +1097,12 @@
         state.activeTeamIndex = getOtherTeamIndex(state.activeTeamIndex);
         state.revealed = false;
         state.remaining = TURN_TIME_SECONDS;
+        state.timerStarted = false;
+        state.termTimeExpired = false;
         stopTimer();
         updateCurrentCardFromDeck();
         renderCurrentTurn();
+        persistGameState();
       }
 
       function registerTermResult(resultType) {
@@ -938,6 +1120,7 @@
         }
 
         state.teams[activeIndex].usedCount += 1;
+        persistGameState();
         goToNextTurn();
       }
 
@@ -949,6 +1132,7 @@
           state.remaining -= 1;
           timerValueEl.textContent = formatTime(Math.max(0, state.remaining));
           timerEl.classList.toggle("low-time", state.remaining <= 10 && state.remaining > 0);
+          persistGameState();
 
           if (state.remaining <= 10 && state.remaining > 0) {
             playTimerWarning();
@@ -956,9 +1140,11 @@
 
           if (state.remaining <= 0) {
             state.remaining = 0;
+            state.termTimeExpired = true;
             stopTimer();
             timerValueEl.textContent = formatTime(0);
             timerEl.classList.remove("low-time");
+            persistGameState();
           }
         }, 1000);
       }
@@ -976,14 +1162,18 @@
         state.remaining = TURN_TIME_SECONDS;
         state.gameStarted = true;
         state.gameFinished = false;
+        state.timerStarted = false;
+        state.termTimeExpired = false;
 
         buildDecksOrThrow();
         updateCurrentCardFromDeck();
 
         setupScreen.classList.add("hidden");
+        resumeScreen.classList.add("hidden");
         finalScreen.classList.add("hidden");
         turnScreen.classList.remove("hidden");
         renderCurrentTurn();
+        persistGameState();
       }
 
       function finishGame() {
@@ -1020,6 +1210,53 @@
           li.append(name, score, meta);
           finalBoard.appendChild(li);
         });
+
+        clearSavedGameState();
+      }
+
+      function restoreSavedGame(saved) {
+        stopTimer();
+        state.teams = saved.teams;
+        state.activeTeamIndex = saved.activeTeamIndex;
+        state.revealed = saved.revealed;
+        state.gameStarted = true;
+        state.gameFinished = false;
+        state.timerStarted = saved.timerStarted;
+        state.termTimeExpired = saved.termTimeExpired;
+        state.remaining = saved.remaining;
+        state.currentCard = saved.currentCard;
+
+        const elapsed = Math.max(0, Math.floor((Date.now() - saved.lastSavedAt) / 1000));
+        if (saved.timerRunning && state.timerStarted && !state.termTimeExpired && state.remaining > 0) {
+          state.remaining = Math.max(0, state.remaining - elapsed);
+          if (state.remaining === 0) {
+            state.termTimeExpired = true;
+            state.timerRunning = false;
+          }
+        }
+
+        if (!state.currentCard) {
+          updateCurrentCardFromDeck();
+        }
+        const activeDeckCard = state.teams[state.activeTeamIndex].deck[state.teams[state.activeTeamIndex].usedCount] || null;
+        if (!activeDeckCard || !state.currentCard || activeDeckCard.word !== state.currentCard.word) {
+          state.currentCard = activeDeckCard;
+        }
+
+        setupScreen.classList.add("hidden");
+        resumeScreen.classList.add("hidden");
+        finalScreen.classList.add("hidden");
+        turnScreen.classList.remove("hidden");
+        renderCurrentTurn();
+
+        if (saved.timerRunning && state.timerStarted && !state.termTimeExpired && state.revealed && state.remaining > 0) {
+          startRevealedTermTimer();
+        } else {
+          state.timerRunning = false;
+          stopTimerWarningSound();
+        }
+
+        persistGameState();
       }
 
       btnReveal.addEventListener("click", () => {
@@ -1027,7 +1264,10 @@
         ensureAudioReady();
         state.revealed = true;
         state.remaining = TURN_TIME_SECONDS;
+        state.timerStarted = true;
+        state.termTimeExpired = false;
         renderCurrentTurn();
+        persistGameState();
         startRevealedTermTimer();
       });
 
@@ -1047,6 +1287,7 @@
       });
 
       playAgainBtn.addEventListener("click", () => {
+        clearSavedGameState();
         try {
           startGame();
         } catch (error) {
@@ -1058,13 +1299,41 @@
         }
       });
 
-      window.addEventListener("pagehide", stopTimer);
-      window.addEventListener("beforeunload", stopTimer);
+      resumeGameBtn.addEventListener("click", () => {
+        if (!pendingResumeState) {
+          showSetupScreen();
+          return;
+        }
+        restoreSavedGame(pendingResumeState);
+        pendingResumeState = null;
+      });
+
+      newGameBtn.addEventListener("click", () => {
+        pendingResumeState = null;
+        clearSavedGameState();
+        showSetupScreen();
+      });
+
+      window.addEventListener("pagehide", () => {
+        persistGameState();
+        stopTimer();
+      });
+      window.addEventListener("beforeunload", () => {
+        persistGameState();
+        stopTimer();
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) stopTimerWarningSound();
       });
 
-      loadCards();
+      loadCards().then(() => {
+        pendingResumeState = readSavedGameState();
+        if (pendingResumeState) {
+          showResumeScreen();
+        } else {
+          showSetupScreen();
+        }
+      });
     </script>
   </body>
 </html>
