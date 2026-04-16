@@ -7,5 +7,6 @@ workers_dev = true
 SHEET_CSV_URL = ""
 FILMS_SHEET_CSV_URL = ""
 MAP_GAME_SHEET_CSV_URL = ""
+
 ALLOWED_ORIGIN = "https://tasleya.online"
 CACHE_TTL_SECONDS = "300"
