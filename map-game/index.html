@@ -868,6 +868,13 @@
       const CSV_LOAD_ERROR_AR = "تعذر تحميل بيانات الخريطة. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.";
       const SELECTION_CONFIRM_DELAY_MS = 420;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
+      const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
+      const MAP_GAME_USED_STORAGE_VERSION = 1;
+      const ROUND_REQUIREMENTS = [
+        { difficulty: "easy", points: 100, count: 4 },
+        { difficulty: "medium", points: 300, count: 8 },
+        { difficulty: "hard", points: 500, count: 8 },
+      ];
       const WORLD_MAP_URL =
         "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
       const NAME_NORMALIZATION_ALIASES = new Map([
@@ -927,6 +934,11 @@
           unmatchedByName: [],
           smallCountryCodes: [],
         },
+        usedQuestionHistory: {
+          easy: new Set(),
+          medium: new Set(),
+          hard: new Set(),
+        },
       };
 
       const el = {
@@ -979,14 +991,132 @@
         return NAME_NORMALIZATION_ALIASES.get(baseName) || baseName;
       }
 
-      function buildQuestions() {
-        const easy = shuffle(state.questionPool.filter((item) => item.difficulty === "easy" && item.points === 100)).slice(0, 4);
-        const medium = shuffle(state.questionPool.filter((item) => item.difficulty === "medium" && item.points === 300)).slice(0, 8);
-        const hard = shuffle(state.questionPool.filter((item) => item.difficulty === "hard" && item.points === 500)).slice(0, 8);
-        if (easy.length < 4 || medium.length < 8 || hard.length < 8) {
-          throw new Error("Not enough valid rows in CSV to build 20 questions");
+      function normalizeIdentityPart(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "_");
+      }
+
+      function buildQuestionKey(question) {
+        const stableId = String(question.id || "").trim();
+        if (stableId) return `id:${stableId}`;
+        const normalizedCountry = normalizeIdentityPart(question.countryNameEn || question.countryNameAr || question.countryCode);
+        return `fallback:${normalizedCountry}|${question.difficulty}|${question.points}`;
+      }
+
+      function getEmptyUsedHistory() {
+        return {
+          easy: new Set(),
+          medium: new Set(),
+          hard: new Set(),
+        };
+      }
+
+      function loadUsedQuestionHistory() {
+        const empty = getEmptyUsedHistory();
+        try {
+          const raw = localStorage.getItem(MAP_GAME_USED_STORAGE_KEY);
+          if (!raw) return empty;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return empty;
+          if (parsed.version !== MAP_GAME_USED_STORAGE_VERSION || !parsed.usedByBucket || typeof parsed.usedByBucket !== "object") {
+            return empty;
+          }
+          ["easy", "medium", "hard"].forEach((bucket) => {
+            const values = parsed.usedByBucket[bucket];
+            if (!Array.isArray(values)) return;
+            values.forEach((value) => {
+              if (typeof value === "string" && value) empty[bucket].add(value);
+            });
+          });
+          return empty;
+        } catch (error) {
+          console.warn("[MapGame] Failed to parse used history. Resetting.", error);
+          return empty;
         }
-        return [...easy, ...medium, ...hard];
+      }
+
+      function saveUsedQuestionHistory(history = state.usedQuestionHistory) {
+        try {
+          const payload = {
+            version: MAP_GAME_USED_STORAGE_VERSION,
+            usedByBucket: {
+              easy: Array.from(history.easy),
+              medium: Array.from(history.medium),
+              hard: Array.from(history.hard),
+            },
+          };
+          localStorage.setItem(MAP_GAME_USED_STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+          console.warn("[MapGame] Failed to save used history.", error);
+        }
+      }
+
+      function pickUniqueQuestions(candidates, count, roundUsedKeys) {
+        const picked = [];
+        const shuffled = shuffle(candidates);
+        for (const item of shuffled) {
+          if (picked.length >= count) break;
+          if (roundUsedKeys.has(item.questionKey)) continue;
+          roundUsedKeys.add(item.questionKey);
+          picked.push(item);
+        }
+        return picked;
+      }
+
+      function buildQuestions() {
+        const roundUsedKeys = new Set();
+        const questions = [];
+        let historyUpdatedByReset = false;
+
+        for (const bucket of ROUND_REQUIREMENTS) {
+          const bucketPool = state.questionPool.filter(
+            (item) => item.difficulty === bucket.difficulty && item.points === bucket.points
+          );
+          if (bucketPool.length < bucket.count) {
+            throw new Error("Not enough valid rows in CSV to build 20 questions");
+          }
+
+          const bucketHistory = state.usedQuestionHistory[bucket.difficulty];
+          const unused = bucketPool.filter((item) => !bucketHistory.has(item.questionKey));
+          let selected = pickUniqueQuestions(unused, bucket.count, roundUsedKeys);
+
+          if (selected.length < bucket.count) {
+            bucketHistory.clear();
+            historyUpdatedByReset = true;
+            selected = pickUniqueQuestions(bucketPool, bucket.count, roundUsedKeys);
+          }
+
+          if (selected.length < bucket.count) {
+            throw new Error("Not enough unique rows in CSV to build 20 questions");
+          }
+
+          questions.push(...selected);
+        }
+
+        if (historyUpdatedByReset) {
+          saveUsedQuestionHistory();
+        }
+        return questions;
+      }
+
+      function markQuestionAsUsed(question) {
+        if (!question) return;
+        const bucket = question.difficulty;
+        if (!["easy", "medium", "hard"].includes(bucket)) return;
+        const key = question.questionKey;
+        if (!key) return;
+        const bucketSet = state.usedQuestionHistory[bucket];
+        if (bucketSet.has(key)) return;
+        bucketSet.add(key);
+        saveUsedQuestionHistory();
+      }
+
+      function markCurrentQuestionAsUsed() {
+        markQuestionAsUsed(getQuestion());
       }
 
       function getQuestion() {
@@ -1283,6 +1413,7 @@
         state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
         state.pendingTeamIndex = null;
+        markCurrentQuestionAsUsed();
         updateHeader();
         updateMapHighlights();
       }
@@ -1596,6 +1727,7 @@
         state.pendingPick = null;
         state.pendingTeamIndex = null;
         state.started = true;
+        markCurrentQuestionAsUsed();
 
         el.setupScreen.style.display = "none";
         el.gameScreen.classList.add("active");
@@ -1640,6 +1772,8 @@
         const headers = parseCsvRow(lines[0]).map((h) => h.toLowerCase());
         const required = ["country_code", "country_name_ar", "country_name_en", "difficulty", "points", "lat", "lng"];
         const indices = Object.fromEntries(required.map((key) => [key, headers.indexOf(key)]));
+        const idHeaderCandidates = ["id", "question_id", "questionid"];
+        const idIndex = idHeaderCandidates.map((key) => headers.indexOf(key)).find((index) => index !== -1) ?? -1;
         if (required.some((key) => indices[key] === -1)) {
           throw new Error("CSV headers are missing required columns");
         }
@@ -1654,9 +1788,10 @@
           const points = Number(cells[indices.points]);
           const lat = Number(cells[indices.lat]);
           const lng = Number(cells[indices.lng]);
+          const id = idIndex >= 0 ? (cells[idIndex] || "").trim() : "";
           if (!countryCode || !countryNameAr || !countryNameEn || !["easy", "medium", "hard"].includes(difficulty)) continue;
           if (!Number.isFinite(points) || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-          rows.push({ countryCode, countryNameAr, countryNameEn, difficulty, points, lat, lng });
+          rows.push({ id, countryCode, countryNameAr, countryNameEn, difficulty, points, lat, lng });
         }
         return rows;
       }
@@ -1666,7 +1801,10 @@
           const response = await fetch(QUESTIONS_CSV_URL, { cache: "no-store" });
           if (!response.ok) throw new Error("Questions CSV download failed");
           const csvText = await response.text();
-          const questions = parseQuestionsCsv(csvText);
+          const questions = parseQuestionsCsv(csvText).map((question) => ({
+            ...question,
+            questionKey: buildQuestionKey(question),
+          }));
           if (!questions.length) throw new Error("No valid rows in CSV");
 
           state.questionPool = questions;
@@ -1684,6 +1822,7 @@
       }
 
       async function initializeMapGame() {
+        state.usedQuestionHistory = loadUsedQuestionHistory();
         el.startBtn.disabled = true;
         el.startBtn.textContent = "جاري تحميل البيانات...";
         const questionsLoaded = await loadQuestionsFromCsv();
