@@ -56,3 +56,18 @@ Open **Realtime Database** → **Rules** and replace rules with:
 1. Click **Publish** in the Rules editor.
 2. Confirm the publish prompt.
 3. Test by creating a room and joining from another device/session.
+
+---
+
+## New games (`gameRooms`) planning reference
+
+For adding online mode to **new games only** (starting with **خمنها من التلميح**) without touching existing `rooms`, see:
+
+- `GAME_ROOMS_ONLINE_PLAN.md`
+
+This includes:
+- proposed `gameRooms/{roomCode}` schema,
+- safe action queue rules,
+- Firebase Rules block to add as a sibling to `rooms`,
+- manual Console insertion steps,
+- PR2/PR3 rollout plan.
