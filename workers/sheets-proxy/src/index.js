@@ -410,6 +410,7 @@ function buildEmojiMoviesCards(rows) {
       const aliases = [raw.alias_1, raw.alias_2, raw.alias_3, raw.alias_4, raw.alias_5]
         .map(normalizeCell)
         .filter(Boolean);
+      const hint = firstNonEmpty(raw.hint, raw['تلميح'], raw['تلميح_(hint)'], raw.hint_text, raw.clue);
 
       return {
         id: normalizeCell(raw.id) || `row-${index + 1}`,
@@ -418,7 +419,7 @@ function buildEmojiMoviesCards(rows) {
         answer,
         content_type: normalizeCell(raw.content_type),
         points,
-        hint: normalizeCell(raw.hint),
+        hint,
         aliases,
       };
     })
