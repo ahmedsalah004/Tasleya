@@ -313,6 +313,7 @@
             <button type="submit" class="btn">اكتب الإجابة</button>
             <button id="hintBtn" type="button" class="btn secondary">تلميح</button>
             <button id="showAnswerBtn" type="button" class="btn secondary">إظهار الإجابة</button>
+            <button id="skipTurnBtn" type="button" class="btn secondary hidden">السؤال التالي</button>
           </form>
           <div id="hintBox" class="card-extra hidden" role="status" aria-live="polite">
             <p class="card-extra-label">تلميح</p>
@@ -367,6 +368,7 @@
         answerInput: document.getElementById("answerInput"),
         hintBtn: document.getElementById("hintBtn"),
         showAnswerBtn: document.getElementById("showAnswerBtn"),
+        skipTurnBtn: document.getElementById("skipTurnBtn"),
         hintBox: document.getElementById("hintBox"),
         hintText: document.getElementById("hintText"),
         showAnswerBox: document.getElementById("showAnswerBox"),
@@ -394,6 +396,7 @@
         showAnswerVisible: false,
         statusText: "",
         statusTone: "",
+        isAdvancing: false,
       };
       let pendingResumeState = null;
 
@@ -559,10 +562,34 @@
         return state.cards[state.currentIndex] || null;
       }
 
+      function shouldShowSkipTurnButton() {
+        if (state.phase !== "team1" && state.phase !== "team2") return false;
+        return state.showAnswerVisible || state.statusTone === "success";
+      }
+
+      function updateSkipTurnButtonVisibility() {
+        const shouldShow = shouldShowSkipTurnButton();
+        elements.skipTurnBtn.classList.toggle("hidden", !shouldShow);
+        elements.skipTurnBtn.disabled = !shouldShow || state.isAdvancing;
+      }
+
+      function advanceAfterCurrentTurn() {
+        if (state.isAdvancing || (state.phase !== "team1" && state.phase !== "team2")) return;
+        state.isAdvancing = true;
+        updateSkipTurnButtonVisibility();
+        clearTimer();
+        if (state.currentTeam === 0) {
+          startTeamTurn(1);
+        } else {
+          revealCurrentCard();
+        }
+      }
+
       function startTeamTurn(teamIndex) {
         const card = getCurrentCard();
         if (!card) return;
 
+        state.isAdvancing = false;
         state.phase = teamIndex === 0 ? "team1" : "team2";
         state.currentTeam = teamIndex;
         state.timerValue = TURN_SECONDS;
@@ -583,6 +610,7 @@
         elements.showAnswerText.textContent = "";
         state.showAnswerVisible = false;
         elements.answerInput.value = "";
+        updateSkipTurnButtonVisibility();
 
         setVisibleScreen("play");
         elements.answerInput.focus();
@@ -621,6 +649,7 @@
         const card = getCurrentCard();
         if (!card) return;
 
+        state.isAdvancing = false;
         state.phase = "reveal";
         clearTimer();
 
@@ -635,6 +664,7 @@
         elements.answerReveal.textContent = `الإجابة: ${card.answer}`;
         elements.revealResult.textContent = getRevealMessage(card.points, state.teamCorrect[0], state.teamCorrect[1]);
         setVisibleScreen("reveal");
+        updateSkipTurnButtonVisibility();
         saveGameSnapshot();
       }
 
@@ -652,6 +682,7 @@
 
       function showFinalScreen() {
         clearTimer();
+        state.isAdvancing = false;
         state.phase = "final";
         const [team1, team2] = state.scores;
 
@@ -666,6 +697,7 @@
 
         setVisibleScreen("final");
         updateScoreboard();
+        updateSkipTurnButtonVisibility();
         clearSavedGame();
       }
 
@@ -693,6 +725,8 @@
         elements.hintBox.classList.toggle("hidden", !state.hintVisible);
         elements.showAnswerText.textContent = state.showAnswerVisible ? card.answer : "";
         elements.showAnswerBox.classList.toggle("hidden", !state.showAnswerVisible);
+        state.isAdvancing = false;
+        updateSkipTurnButtonVisibility();
         setVisibleScreen("play");
         if (state.timerValue > 0) {
           state.timerInterval = window.setInterval(() => {
@@ -756,6 +790,7 @@
           state.statusTone = "error";
           elements.answerInput.value = "";
           elements.answerInput.focus();
+          updateSkipTurnButtonVisibility();
           saveGameSnapshot();
           return;
         }
@@ -769,6 +804,7 @@
           elements.turnStatus.className = "status success";
           state.statusText = elements.turnStatus.textContent;
           state.statusTone = "success";
+          updateSkipTurnButtonVisibility();
           saveGameSnapshot();
           window.setTimeout(() => startTeamTurn(1), 450);
           return;
@@ -795,7 +831,12 @@
         elements.showAnswerText.textContent = card.answer;
         elements.showAnswerBox.classList.remove("hidden");
         state.showAnswerVisible = true;
+        updateSkipTurnButtonVisibility();
         saveGameSnapshot();
+      });
+
+      elements.skipTurnBtn.addEventListener("click", () => {
+        advanceAfterCurrentTurn();
       });
 
       elements.nextCardBtn.addEventListener("click", () => {
