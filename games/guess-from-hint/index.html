@@ -37,6 +37,34 @@
 
       .shell { width: min(980px, 100%); margin: 0 auto; }
       .hidden { display: none !important; }
+      .mode-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 0.75rem;
+      }
+      .room-code {
+        letter-spacing: 0.12em;
+        font-weight: 900;
+        font-size: clamp(1.2rem, 3vw, 1.5rem);
+        color: #fff2c3;
+        border-radius: 12px;
+        border: 1px dashed rgba(255, 225, 140, 0.5);
+        padding: 0.6rem 0.8rem;
+        text-align: center;
+      }
+      .players-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.5rem;
+      }
+      .players-list li {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 225, 140, 0.28);
+        background: rgba(8, 19, 50, 0.62);
+        padding: 0.55rem 0.7rem;
+      }
 
       .top-nav {
         display: inline-flex;
@@ -194,7 +222,42 @@
       <h1>خمنها من التلميح</h1>
       <p class="subtitle">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر.</p>
 
-      <section id="setupScreen" class="panel stack" aria-label="إعداد اللعبة">
+      <section id="modeScreen" class="panel stack" aria-label="اختيار طريقة اللعب">
+        <p class="subtitle" style="margin:0;">اختر طريقة اللعب المناسبة لكم.</p>
+        <div class="mode-actions">
+          <button id="singleDeviceModeBtn" class="btn primary">لعب على جهاز واحد</button>
+          <button id="onlineModeBtn" class="btn">لعب على أجهزة مختلفة</button>
+        </div>
+      </section>
+
+      <section id="onlineRoomScreen" class="panel stack hidden" aria-label="غرف اللعب أونلاين">
+        <div class="stack">
+          <label for="playerNameInput">اسم اللاعب</label>
+          <input id="playerNameInput" type="text" maxlength="40" placeholder="اكتب اسمك" />
+        </div>
+        <div class="mode-actions">
+          <button id="createRoomBtn" class="btn primary">إنشاء غرفة</button>
+          <button id="showJoinRoomBtn" class="btn">الانضمام إلى غرفة</button>
+        </div>
+        <div id="joinRoomPanel" class="stack hidden">
+          <label for="roomCodeInput">كود الغرفة</label>
+          <input id="roomCodeInput" type="text" maxlength="12" placeholder="مثال: A1B2C3" />
+          <button id="joinRoomBtn" class="btn">انضمام</button>
+        </div>
+        <button id="backToModeBtn" class="btn">رجوع</button>
+        <p id="onlineRoomMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="onlineLobbyScreen" class="panel stack hidden" aria-label="لوبي الغرفة">
+        <p>كود الغرفة</p>
+        <p id="roomCodeLabel" class="room-code"></p>
+        <ul id="playersList" class="players-list"></ul>
+        <button id="startOnlineBtn" class="btn primary hidden">بدء اللعبة</button>
+        <p id="onlineLobbyMessage" class="status-msg" role="status" aria-live="polite">في انتظار انضمام اللاعب الآخر</p>
+        <button id="leaveRoomBtn" class="btn">مغادرة الغرفة</button>
+      </section>
+
+      <section id="setupScreen" class="panel stack hidden" aria-label="إعداد اللعبة">
         <div class="stack">
           <label for="teamOneInput">اسم الفريق الأول</label>
           <input id="teamOneInput" type="text" maxlength="40" placeholder="الفريق الأول" />
@@ -250,13 +313,38 @@
       </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+    <script src="/firebase-config.js"></script>
+    <script src="/games/shared/game-rooms.js"></script>
     <script src="./data.js"></script>
     <script>
       (function () {
         const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
         const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
         const POINTS = [5, 4, 3, 2, 1];
+        const GAME_KEY = "guess-from-hint";
+        const gameRooms = window.TasleyaGameRooms || null;
 
+        const modeScreen = document.getElementById("modeScreen");
+        const singleDeviceModeBtn = document.getElementById("singleDeviceModeBtn");
+        const onlineModeBtn = document.getElementById("onlineModeBtn");
+        const onlineRoomScreen = document.getElementById("onlineRoomScreen");
+        const playerNameInput = document.getElementById("playerNameInput");
+        const createRoomBtn = document.getElementById("createRoomBtn");
+        const showJoinRoomBtn = document.getElementById("showJoinRoomBtn");
+        const joinRoomPanel = document.getElementById("joinRoomPanel");
+        const roomCodeInput = document.getElementById("roomCodeInput");
+        const joinRoomBtn = document.getElementById("joinRoomBtn");
+        const backToModeBtn = document.getElementById("backToModeBtn");
+        const onlineRoomMessage = document.getElementById("onlineRoomMessage");
+        const onlineLobbyScreen = document.getElementById("onlineLobbyScreen");
+        const roomCodeLabel = document.getElementById("roomCodeLabel");
+        const playersList = document.getElementById("playersList");
+        const startOnlineBtn = document.getElementById("startOnlineBtn");
+        const onlineLobbyMessage = document.getElementById("onlineLobbyMessage");
+        const leaveRoomBtn = document.getElementById("leaveRoomBtn");
         const setupScreen = document.getElementById("setupScreen");
         const roundScreen = document.getElementById("roundScreen");
         const resultScreen = document.getElementById("resultScreen");
@@ -301,6 +389,14 @@
             { name: "الفريق الثاني", score: 0, blockedHintIndex: null, waitedHintIndex: null }
           ],
           selectedTeamIndex: null
+        };
+        const onlineState = {
+          enabled: false,
+          session: null,
+          unsubscribeRoom: null,
+          unsubscribePresence: null,
+          roomData: null,
+          processingActions: false,
         };
 
         function setMessage(el, text, tone) {
@@ -502,6 +598,10 @@
 
         function renderRound() {
           const round = state.rounds[state.currentRoundIndex];
+          if (!round || !Array.isArray(round.hints) || !state.teams?.length) {
+            setMessage(roundMessage, "تعذر عرض الجولة الحالية.", "bad");
+            return;
+          }
           const hintNumber = state.currentHintIndex + 1;
           const points = POINTS[state.currentHintIndex] || 1;
 
@@ -538,6 +638,9 @@
         }
 
         function showScreen(screen) {
+          modeScreen.classList.add("hidden");
+          onlineRoomScreen.classList.add("hidden");
+          onlineLobbyScreen.classList.add("hidden");
           setupScreen.classList.add("hidden");
           roundScreen.classList.add("hidden");
           resultScreen.classList.add("hidden");
@@ -603,9 +706,18 @@
           }
 
           const round = state.rounds[state.currentRoundIndex];
+          if (!round) {
+            closeGuessModal();
+            setMessage(roundMessage, "تعذر التحقق من الإجابة حاليًا.", "bad");
+            return;
+          }
           const accepted = [round.answer, ...(round.aliases || [])];
           const correct = isAcceptedAnswer(guess, accepted);
           const teamIndex = state.selectedTeamIndex;
+          if (!Number.isInteger(teamIndex) || !state.teams[teamIndex]) {
+            closeGuessModal();
+            return;
+          }
           closeGuessModal();
 
           if (correct) {
@@ -666,13 +778,7 @@
         async function startGame() {
           const t1 = teamOneInput.value.trim() || "الفريق الأول";
           const t2 = teamTwoInput.value.trim() || "الفريق الثاني";
-
-          state.teams = [
-            { name: t1, score: 0, blockedHintIndex: null, waitedHintIndex: null },
-            { name: t2, score: 0, blockedHintIndex: null, waitedHintIndex: null }
-          ];
-          state.currentRoundIndex = 0;
-          state.currentHintIndex = 0;
+          resetLocalRoundState(t1, t2);
           setMessage(setupMessage, "جاري تحميل الأسئلة...");
 
           const rounds = await loadRounds();
@@ -688,21 +794,415 @@
           renderRound();
         }
 
+        function resetLocalRoundState(teamOneName, teamTwoName) {
+          state.teams = [
+            { name: teamOneName, score: 0, blockedHintIndex: null, waitedHintIndex: null },
+            { name: teamTwoName, score: 0, blockedHintIndex: null, waitedHintIndex: null }
+          ];
+          state.currentRoundIndex = 0;
+          state.currentHintIndex = 0;
+        }
+
+        function syncStateFromGameState(gameState) {
+          if (!gameState) return;
+          state.rounds = Array.isArray(gameState.rounds) ? gameState.rounds : [];
+          state.currentRoundIndex = Number(gameState.currentRoundIndex) || 0;
+          state.currentHintIndex = Number(gameState.currentHintIndex) || 0;
+          if (Array.isArray(gameState.teams) && gameState.teams.length >= 2) {
+            state.teams = gameState.teams;
+          }
+        }
+
+        function getOnlinePlayerName() {
+          return playerNameInput.value.trim() || "لاعب";
+        }
+
+        function getPlayerList(roomData) {
+          return Object.entries(roomData?.players || {}).map(([uid, player]) => ({ uid, ...(player || {}) }));
+        }
+
+        function renderLobby(roomData) {
+          roomCodeLabel.textContent = onlineState.session?.roomCode || "";
+          const players = getPlayerList(roomData);
+          playersList.innerHTML = players
+            .map((player) => {
+              const roleLabel = player.role === "host" ? " (المنشئ)" : "";
+              const status = player.isConnected ? "متصل" : "غير متصل";
+              return `<li>${player.name || "لاعب"}${roleLabel} — ${status}</li>`;
+            })
+            .join("");
+
+          const isHost = onlineState.session?.role === "host";
+          const enoughPlayers = players.length >= 2;
+          startOnlineBtn.classList.toggle("hidden", !isHost);
+          startOnlineBtn.disabled = !enoughPlayers;
+
+          if (isHost) {
+            setMessage(
+              onlineLobbyMessage,
+              enoughPlayers ? "تم الانضمام إلى الغرفة. يمكنك بدء اللعبة." : "في انتظار انضمام اللاعب الآخر"
+            );
+          } else {
+            setMessage(onlineLobbyMessage, "تم الانضمام إلى الغرفة");
+            if (roomData?.public?.gameState?.phase === "lobby") {
+              setMessage(onlineLobbyMessage, "فقط منشئ الغرفة يمكنه بدء اللعبة");
+            }
+          }
+        }
+
+        async function submitOnlineAction(type, payload) {
+          if (!onlineState.session || !gameRooms) return;
+          await gameRooms.submitGameRoomAction(onlineState.session.roomCode, { type, payload });
+        }
+
+        async function hostUpdateGameState(patch) {
+          if (!onlineState.session || onlineState.session.role !== "host") return;
+          await gameRooms.updateGameRoomPublicState(onlineState.session.roomCode, { gameState: patch });
+        }
+
+        async function bootstrapOnlineGame(teamsFromRoom) {
+          const rounds = await loadRounds();
+          if (!rounds.length) throw new Error("تعذر تحميل بيانات اللعبة.");
+          const gameState = {
+            phase: "round",
+            status: "playing",
+            rounds,
+            currentRoundIndex: 0,
+            currentHintIndex: 0,
+            teams: teamsFromRoom.map((team) => ({
+              name: team.name || "فريق",
+              score: 0,
+              blockedHintIndex: null,
+              waitedHintIndex: null,
+            })),
+            roundResult: null,
+            finalResult: null,
+            processedClientRequestIds: [],
+            updatedAt: Date.now(),
+          };
+          await hostUpdateGameState(gameState);
+        }
+
+        function withProcessedAction(gameState, action) {
+          const processed = Array.isArray(gameState.processedClientRequestIds)
+            ? gameState.processedClientRequestIds.slice(-100)
+            : [];
+          if (processed.includes(action.clientRequestId)) return null;
+          processed.push(action.clientRequestId);
+          return { ...gameState, processedClientRequestIds: processed, updatedAt: Date.now() };
+        }
+
+        function calculateAfterWait(gameState, teamIndex) {
+          const nextState = structuredClone(gameState);
+          if (!Number.isInteger(teamIndex) || !nextState.teams?.[teamIndex]) return nextState;
+          nextState.teams[teamIndex].waitedHintIndex = nextState.currentHintIndex;
+          const waiters = nextState.teams.filter((team) => team.waitedHintIndex === nextState.currentHintIndex).length;
+          const blockedTeams = nextState.teams.filter((team) => team.blockedHintIndex === nextState.currentHintIndex).length;
+          if ((waiters === 2) || (blockedTeams === 1 && waiters === 1) || (blockedTeams === 2)) {
+            nextState.currentHintIndex += 1;
+            nextState.teams.forEach((team) => {
+              if (team.blockedHintIndex !== null && team.blockedHintIndex < nextState.currentHintIndex) {
+                team.blockedHintIndex = null;
+              }
+              team.waitedHintIndex = null;
+            });
+            if (nextState.currentHintIndex > 4) {
+              nextState.phase = "result";
+              nextState.roundResult = {
+                title: "انتهت التلميحات",
+                text: `الإجابة: ${nextState.rounds[nextState.currentRoundIndex].answer} — لم يحصل أي فريق على نقاط`,
+              };
+            }
+          }
+          return nextState;
+        }
+
+        function calculateAfterGuess(gameState, teamIndex, guess) {
+          const nextState = structuredClone(gameState);
+          if (!Number.isInteger(teamIndex) || !nextState.teams?.[teamIndex]) return nextState;
+          const round = nextState.rounds[nextState.currentRoundIndex];
+          if (!round) return nextState;
+          const accepted = [round.answer, ...(round.aliases || [])];
+          const correct = isAcceptedAnswer(guess, accepted);
+          if (correct) {
+            const points = POINTS[nextState.currentHintIndex] || 1;
+            nextState.teams[teamIndex].score += points;
+            nextState.phase = "result";
+            nextState.roundResult = {
+              title: "إجابة صحيحة",
+              text: `الفريق الفائز: ${nextState.teams[teamIndex].name} — النقاط: ${points} — الإجابة: ${round.answer}`,
+            };
+            return nextState;
+          }
+          nextState.teams[teamIndex].blockedHintIndex = nextState.currentHintIndex + 1;
+          return nextState;
+        }
+
+        function calculateAfterNextRound(gameState) {
+          const nextState = structuredClone(gameState);
+          nextState.currentRoundIndex += 1;
+          if (nextState.currentRoundIndex >= nextState.rounds.length) {
+            const [teamA, teamB] = nextState.teams;
+            let winnerText = "تعادل";
+            if (teamA.score > teamB.score) winnerText = `الفائز: ${teamA.name}`;
+            if (teamB.score > teamA.score) winnerText = `الفائز: ${teamB.name}`;
+            nextState.phase = "final";
+            nextState.finalResult = `${teamA.name}: ${teamA.score} نقطة | ${teamB.name}: ${teamB.score} نقطة — ${winnerText}`;
+            return nextState;
+          }
+          nextState.phase = "round";
+          nextState.currentHintIndex = 0;
+          nextState.roundResult = null;
+          nextState.teams.forEach((team) => {
+            team.blockedHintIndex = null;
+            team.waitedHintIndex = null;
+          });
+          return nextState;
+        }
+
+        async function processRoomActions(roomData) {
+          if (!roomData || onlineState.session?.role !== "host" || onlineState.processingActions) return;
+          const gameState = roomData.public?.gameState;
+          if (!gameState || gameState.phase === "lobby") return;
+          onlineState.processingActions = true;
+          try {
+            const actions = Object.values(roomData.actions || {})
+              .filter((action) => action && action.status === "pending")
+              .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            let workingState = gameState;
+            for (const action of actions) {
+              const withMeta = withProcessedAction(workingState, action);
+              if (!withMeta) {
+                await gameRooms.markGameRoomActionProcessed(onlineState.session.roomCode, action.actionId, { skipped: true });
+                continue;
+              }
+              let nextState = withMeta;
+              if (action.type === "submitGuess") {
+                nextState = calculateAfterGuess(nextState, Number(action.payload?.teamIndex), action.payload?.guess || "");
+              } else if (action.type === "waitAction") {
+                nextState = calculateAfterWait(nextState, Number(action.payload?.teamIndex));
+              } else if (action.type === "nextRoundRequest") {
+                nextState = calculateAfterNextRound(nextState);
+              }
+              workingState = { ...nextState, updatedAt: Date.now() };
+              await gameRooms.markGameRoomActionProcessed(onlineState.session.roomCode, action.actionId, { ok: true });
+            }
+            if (actions.length) {
+              await hostUpdateGameState(workingState);
+            }
+          } finally {
+            onlineState.processingActions = false;
+          }
+        }
+
+        async function startOnlineRoomListeners(session) {
+          if (onlineState.unsubscribeRoom) onlineState.unsubscribeRoom();
+          if (onlineState.unsubscribePresence) onlineState.unsubscribePresence();
+          onlineState.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, async (roomData) => {
+            onlineState.roomData = roomData || null;
+            if (!roomData) {
+              setMessage(onlineLobbyMessage, "الغرفة غير متاحة حاليًا.", "bad");
+              showScreen(onlineLobbyScreen);
+              return;
+            }
+            if (roomData.meta?.gameKey !== GAME_KEY) {
+              setMessage(onlineLobbyMessage, "هذه الغرفة ليست للعبة خمنها من التلميح.", "bad");
+              showScreen(onlineLobbyScreen);
+              return;
+            }
+            renderLobby(roomData);
+            const gs = roomData.public?.gameState;
+            if (gs?.phase === "lobby") {
+              showScreen(onlineLobbyScreen);
+            } else if (gs) {
+              syncStateFromGameState(gs);
+              if (gs.phase === "round") {
+                showScreen(roundScreen);
+                renderRound();
+              } else if (gs.phase === "result") {
+                resultTitle.textContent = gs.roundResult?.title || "نتيجة الجولة";
+                resultText.textContent = gs.roundResult?.text || "";
+                showScreen(resultScreen);
+              } else if (gs.phase === "final") {
+                finalText.textContent = gs.finalResult || "";
+                showScreen(finalScreen);
+              }
+            }
+            await processRoomActions(roomData);
+          });
+          onlineState.unsubscribePresence = await gameRooms.attachGameRoomPresence(session.roomCode, {
+            sessionId: session.sessionId,
+          });
+        }
+
+        async function createRoomFlow() {
+          try {
+            if (!gameRooms) throw new Error("خدمة اللعب الأونلاين غير متاحة الآن.");
+            setMessage(onlineRoomMessage, "جاري إنشاء الغرفة...");
+            const session = await gameRooms.createGameRoom({
+              gameType: GAME_KEY,
+              hostName: getOnlinePlayerName(),
+              maxTeams: 2,
+            });
+            onlineState.enabled = true;
+            onlineState.session = session;
+            await startOnlineRoomListeners(session);
+            showScreen(onlineLobbyScreen);
+          } catch (error) {
+            setMessage(onlineRoomMessage, error.message || "تعذر إنشاء الغرفة.", "bad");
+          }
+        }
+
+        async function joinRoomFlow() {
+          try {
+            if (!gameRooms) throw new Error("خدمة اللعب الأونلاين غير متاحة الآن.");
+            const roomCode = roomCodeInput.value.trim().toUpperCase();
+            if (!roomCode) {
+              setMessage(onlineRoomMessage, "أدخل كود الغرفة أولًا.", "bad");
+              return;
+            }
+            setMessage(onlineRoomMessage, "جاري الانضمام...");
+            const session = await gameRooms.joinGameRoom({
+              roomCode,
+              playerName: getOnlinePlayerName(),
+            });
+            onlineState.enabled = true;
+            onlineState.session = { ...session, gameType: GAME_KEY };
+            gameRooms.saveGameRoomSession(onlineState.session);
+            await startOnlineRoomListeners(onlineState.session);
+            showScreen(onlineLobbyScreen);
+          } catch (error) {
+            setMessage(onlineRoomMessage, error.message || "تعذر الانضمام للغرفة.", "bad");
+          }
+        }
+
+        async function startOnlineGameByHost() {
+          if (onlineState.session?.role !== "host") return;
+          const phase = onlineState.roomData?.public?.gameState?.phase;
+          if (phase && phase !== "lobby") {
+            setMessage(onlineLobbyMessage, "اللعبة بدأت بالفعل.");
+            return;
+          }
+          const players = getPlayerList(onlineState.roomData);
+          const hostPlayer = players.find((player) => player.role === "host");
+          const guestPlayer = players.find((player) => player.role !== "host" && player.isConnected);
+          if (!hostPlayer || !guestPlayer) {
+            setMessage(onlineLobbyMessage, "في انتظار انضمام اللاعب الآخر", "bad");
+            return;
+          }
+          setMessage(onlineLobbyMessage, "جاري بدء اللعبة...");
+          await bootstrapOnlineGame([hostPlayer, guestPlayer]);
+        }
+
+        async function restoreSessionIfAvailable() {
+          if (!gameRooms) return;
+          const restored = gameRooms.restoreGameRoomSession();
+          if (!restored || restored.gameType !== GAME_KEY) return;
+          onlineState.enabled = true;
+          onlineState.session = restored;
+          playerNameInput.value = restored.playerName || "";
+          try {
+            await startOnlineRoomListeners(restored);
+          } catch (_error) {
+            gameRooms.clearGameRoomSession();
+          }
+        }
+
+        function openGuess(teamIndex) {
+          if (!onlineState.enabled) {
+            if (isBlockedNow(state.teams[teamIndex])) return;
+            openGuessModal(teamIndex);
+            return;
+          }
+          if (isBlockedNow(state.teams[teamIndex])) return;
+          openGuessModal(teamIndex);
+        }
+
+        async function submitGuessFromModal() {
+          const guess = guessInput.value;
+          if (!guess.trim()) {
+            setMessage(guessError, "اكتب إجابة أولًا.", "bad");
+            return;
+          }
+          if (!onlineState.enabled) {
+            checkGuess();
+            return;
+          }
+          const teamIndex = state.selectedTeamIndex;
+          closeGuessModal();
+          await submitOnlineAction("submitGuess", { teamIndex, guess });
+        }
+
         startBtn.addEventListener("click", startGame);
-        teamsActions.addEventListener("click", handleTeamAction);
-        nextRoundBtn.addEventListener("click", prepareNextRound);
+        teamsActions.addEventListener("click", async (event) => {
+          const btn = event.target.closest("button[data-action]");
+          if (!btn) return;
+          const action = btn.getAttribute("data-action");
+          const teamIndex = Number(btn.getAttribute("data-team"));
+          if (action === "guess") {
+            openGuess(teamIndex);
+            return;
+          }
+          if (action === "wait") {
+            if (!onlineState.enabled) {
+              state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
+              setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
+              progressHintIfAllowed();
+              return;
+            }
+            await submitOnlineAction("waitAction", { teamIndex });
+          }
+        });
+        nextRoundBtn.addEventListener("click", async () => {
+          if (!onlineState.enabled) {
+            prepareNextRound();
+            return;
+          }
+          await submitOnlineAction("nextRoundRequest", {});
+        });
         playAgainBtn.addEventListener("click", () => {
+          if (onlineState.enabled) {
+            showScreen(onlineLobbyScreen);
+            return;
+          }
           showScreen(setupScreen);
         });
         cancelGuessBtn.addEventListener("click", closeGuessModal);
-        checkGuessBtn.addEventListener("click", checkGuess);
+        checkGuessBtn.addEventListener("click", submitGuessFromModal);
         guessInput.addEventListener("keydown", (event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            checkGuess();
+            submitGuessFromModal();
           }
           if (event.key === "Escape") closeGuessModal();
         });
+
+        singleDeviceModeBtn.addEventListener("click", () => {
+          onlineState.enabled = false;
+          showScreen(setupScreen);
+        });
+        onlineModeBtn.addEventListener("click", () => {
+          showScreen(onlineRoomScreen);
+          setMessage(onlineRoomMessage, "");
+        });
+        showJoinRoomBtn.addEventListener("click", () => {
+          joinRoomPanel.classList.toggle("hidden");
+        });
+        backToModeBtn.addEventListener("click", () => showScreen(modeScreen));
+        createRoomBtn.addEventListener("click", createRoomFlow);
+        joinRoomBtn.addEventListener("click", joinRoomFlow);
+        startOnlineBtn.addEventListener("click", startOnlineGameByHost);
+        leaveRoomBtn.addEventListener("click", () => {
+          if (onlineState.unsubscribeRoom) onlineState.unsubscribeRoom();
+          if (onlineState.unsubscribePresence) onlineState.unsubscribePresence();
+          onlineState.enabled = false;
+          onlineState.session = null;
+          onlineState.roomData = null;
+          if (gameRooms) gameRooms.clearGameRoomSession();
+          showScreen(modeScreen);
+        });
+
+        restoreSessionIfAvailable();
       })();
     </script>
   </body>
