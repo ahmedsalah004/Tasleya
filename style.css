@@ -2236,6 +2236,75 @@ body.image-question-active {
   min-height: 44px;
 }
 
+@media (min-width: 1200px) {
+  #gameScreen .app {
+    max-width: min(1440px, calc(100vw - 40px));
+    grid-template-columns: minmax(320px, 370px) minmax(0, 1fr);
+    gap: clamp(0.65rem, 0.9vw, 1rem);
+    padding: clamp(0.55rem, 0.9vw, 0.85rem);
+  }
+
+  #gameScreen .board-wrap {
+    padding: clamp(0.55rem, 0.85vw, 0.8rem);
+  }
+
+  #gameScreen .board {
+    --board-col-width: clamp(130px, 7.7vw, 190px);
+    gap: clamp(0.5rem, 0.7vw, 0.68rem);
+    grid-auto-rows: minmax(112px, auto);
+  }
+
+  #gameScreen .board-cell {
+    min-height: 112px;
+    padding: 0.62rem 0.58rem;
+  }
+
+  #gameScreen .category {
+    font-size: clamp(1rem, 0.48vw + 0.88rem, 1.18rem);
+    line-height: 1.42;
+  }
+
+  #gameScreen .tile {
+    font-size: clamp(1.5rem, 0.7vw + 1.18rem, 1.95rem);
+  }
+
+  #gameScreen .team-name-label {
+    font-size: 0.9rem;
+  }
+
+  #gameScreen .team-name-input {
+    font-size: 1rem;
+  }
+
+  #gameScreen .score {
+    font-size: clamp(1.72rem, 1.1vw + 1.25rem, 2.35rem);
+  }
+
+  #gameScreen .status-card p {
+    font-size: clamp(0.96rem, 0.42vw + 0.84rem, 1.1rem);
+  }
+
+  #gameScreen #currentTurn {
+    font-size: clamp(1.06rem, 0.42vw + 0.9rem, 1.26rem);
+    font-weight: 800;
+  }
+
+  #gameScreen .primary-btn,
+  #gameScreen .secondary-btn,
+  #gameScreen .success-btn,
+  #gameScreen .danger-btn,
+  #gameScreen .ghost-btn {
+    font-size: clamp(0.98rem, 0.3vw + 0.86rem, 1.08rem);
+    min-height: 48px;
+    padding: 0.76rem 1rem;
+  }
+
+  #gameScreen .adjust-btn {
+    min-height: 46px;
+    font-size: 0.92rem;
+  }
+}
+
 .click-pop {
   animation: clickPop 240ms ease-out;
 }
