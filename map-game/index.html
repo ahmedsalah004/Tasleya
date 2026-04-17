@@ -1013,6 +1013,7 @@
         isRevealingAnswer: false,
         resultRevealTimeoutId: null,
         pendingResume: null,
+        initializing: false,
       };
 
       const el = {
@@ -1094,6 +1095,10 @@
           .replace(/&/g, "and")
           .replace(/[^a-z0-9]+/g, "");
         return NAME_NORMALIZATION_ALIASES.get(baseName) || baseName;
+      }
+
+      function normalizeCountryCode(value) {
+        return String(value || "").trim().toUpperCase();
       }
 
       function normalizeIdentityPart(value) {
@@ -1959,7 +1964,13 @@
         persistGameState();
       }
 
-      el.startBtn.addEventListener("click", startGame);
+      el.startBtn.addEventListener("click", () => {
+        if (!state.mapReady || !state.questionsReady) {
+          initializeMapGame({ forceRetry: true });
+          return;
+        }
+        startGame();
+      });
       el.resumeBtn.addEventListener("click", () => {
         el.resumePrompt.classList.add("hidden");
         if (!restoreSavedGameState(state.pendingResume)) {
@@ -1981,8 +1992,9 @@
           const questions = Array.isArray(payload?.questions)
             ? payload.questions.map((question) => ({
                 ...question,
+                countryCode: normalizeCountryCode(question.countryCode),
                 questionKey: buildQuestionKey(question),
-              }))
+              })).filter((question) => question.countryCode)
             : [];
           if (!questions.length) throw new Error("No valid map-game rows in API response");
 
@@ -2000,23 +2012,34 @@
         }
       }
 
-      async function initializeMapGame() {
-        state.usedQuestionHistory = loadUsedQuestionHistory();
-        el.startBtn.disabled = true;
-        el.startBtn.textContent = "جاري تحميل البيانات...";
-        const questionsLoaded = await loadQuestionsFromApi();
-        if (questionsLoaded) {
-          await loadMap();
-        }
-        if (state.mapReady && state.questionsReady) {
-          state.pendingResume = readSavedGameState();
-          if (state.pendingResume) {
-            el.resumePrompt.classList.remove("hidden");
+      async function initializeMapGame({ forceRetry = false } = {}) {
+        if (state.initializing) return;
+        state.initializing = true;
+        try {
+          state.usedQuestionHistory = loadUsedQuestionHistory();
+          el.startBtn.disabled = true;
+          el.startBtn.textContent = "جاري تحميل البيانات...";
+          if (forceRetry && el.mapLoading && !state.mapReady) {
+            el.mapLoading.className = "map-loading";
+            el.mapLoading.textContent = "جاري تحميل الخريطة...";
           }
-          el.startBtn.disabled = false;
-          el.startBtn.textContent = "ابدأ اللعبة";
-        } else {
-          el.startBtn.textContent = "تعذر تحميل البيانات";
+          const questionsLoaded = await loadQuestionsFromApi();
+          if (questionsLoaded) {
+            await loadMap();
+          }
+          if (state.mapReady && state.questionsReady) {
+            state.pendingResume = readSavedGameState();
+            if (state.pendingResume) {
+              el.resumePrompt.classList.remove("hidden");
+            }
+            el.startBtn.disabled = false;
+            el.startBtn.textContent = "ابدأ اللعبة";
+          } else {
+            el.startBtn.disabled = false;
+            el.startBtn.textContent = "إعادة المحاولة";
+          }
+        } finally {
+          state.initializing = false;
         }
       }
 
