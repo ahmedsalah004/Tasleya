@@ -1012,11 +1012,19 @@
         el.leadingLabel.textContent = state.bid.leadingTeam == null ? "-" : TEAMS[state.bid.leadingTeam];
       }
 
+      function syncRoleButtonActiveState() {
+        el.roleButtons.forEach((btn) => {
+          const team = Number(btn.dataset.team);
+          const player = Number(btn.dataset.player);
+          btn.classList.toggle("active", state.roles[team] === player);
+        });
+      }
+
       function startRound() {
         state.roles = [null, null];
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = { team: null, target: 0, endsAt: null };
-        el.roleButtons.forEach((btn) => btn.classList.remove("active"));
+        syncRoleButtonActiveState();
         const q = getQuestion();
         el.questionCategory.textContent = `الفئة: ${q.category}`;
         el.questionPrompt.textContent = q.prompt;
@@ -1474,6 +1482,7 @@
         state.bid = saved.bid && typeof saved.bid === "object" ? saved.bid : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = saved.attempt && typeof saved.attempt === "object" ? saved.attempt : { team: null, target: 0, endsAt: null };
         state.timerValue = toInt(saved.timerValue, 60);
+        syncRoleButtonActiveState();
         showScreen("game");
         const q = getQuestion();
         if (q) {

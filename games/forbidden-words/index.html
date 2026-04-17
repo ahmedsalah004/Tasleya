@@ -1038,15 +1038,32 @@
       function renderCurrentTurn() {
         renderScoreboard();
         const team = activeTeam();
+        if (!state.currentCard) {
+          updateCurrentCardFromDeck();
+        }
         const card = state.currentCard;
+        const hasCard = !!card;
+
+        btnReveal.disabled = !hasCard || state.revealed;
+        btnCorrect.disabled = !hasCard || !state.revealed;
+        btnWrong.disabled = !hasCard || !state.revealed;
+        btnOtherTeam.disabled = !hasCard || !state.revealed;
 
         activeTeamMeta.textContent = team.name;
         termMeta.textContent = `${termNumberForTeam(state.activeTeamIndex)} / ${TERMS_PER_TEAM}`;
-        difficultyMeta.textContent = `${card.difficulty} / ${card.points}`;
+        difficultyMeta.textContent = hasCard ? `${card.difficulty} / ${card.points}` : "— / —";
         preRevealText.textContent = `${team.name} — مصطلح رقم ${termNumberForTeam(state.activeTeamIndex)} من ${TERMS_PER_TEAM}`;
 
         timerValueEl.textContent = formatTime(state.remaining);
         timerEl.classList.toggle("low-time", state.remaining <= 10 && state.remaining > 0);
+
+        if (!hasCard) {
+          preRevealPanel.classList.remove("hidden");
+          revealedPanel.classList.add("hidden");
+          mainWord.textContent = "";
+          forbiddenList.innerHTML = "";
+          return;
+        }
 
         if (state.revealed) {
           preRevealPanel.classList.add("hidden");
@@ -1091,7 +1108,29 @@
       function buildDecksOrThrow() {
         const { byDifficulty, shortages } = validateSourcePoolForGame();
         if (shortages.length) {
-          throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\n${shortages.join("\n")}`);
+          const availableIndexes = cards
+            .map((card, index) => ({ card, index }))
+            .filter(({ card }) => card && Array.isArray(card.forbidden) && card.forbidden.length === 5 && difficultyKey(card.difficulty))
+            .map(({ index }) => index);
+
+          if (!availableIndexes.length) {
+            throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\n${shortages.join("\n")}`);
+          }
+
+          const requiredTotal = TERMS_PER_TEAM * 2;
+          const rotatedPool = shuffle([...availableIndexes]);
+          const pickedIndexes = [];
+
+          while (pickedIndexes.length < requiredTotal) {
+            pickedIndexes.push(rotatedPool[pickedIndexes.length % rotatedPool.length]);
+            if (pickedIndexes.length % rotatedPool.length === 0) {
+              shuffle(rotatedPool);
+            }
+          }
+
+          state.teams[0].deck = shuffle(pickedIndexes.slice(0, TERMS_PER_TEAM)).map((cardIndex) => cards[cardIndex]);
+          state.teams[1].deck = shuffle(pickedIndexes.slice(TERMS_PER_TEAM)).map((cardIndex) => cards[cardIndex]);
+          return;
         }
 
         const usedHistory = readUsedHistory();
