@@ -406,7 +406,6 @@ const online = {
   firebaseReady: false,
   db: null,
   auth: null,
-  firestore: null,
   creatingRoom: false,
   joiningRoom: false,
   selectedTeamCount: 2,
@@ -4076,9 +4075,6 @@ function initFirebase() {
   online.db = firebase.database();
   if (typeof firebase.auth === "function") {
     online.auth = firebase.auth();
-  }
-  if (typeof firebase.firestore === "function") {
-    online.firestore = firebase.firestore();
   }
   online.firebaseReady = true;
   return true;
