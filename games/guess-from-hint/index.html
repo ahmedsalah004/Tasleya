@@ -174,9 +174,26 @@
         padding: .8rem;
         display: grid;
         gap: .65rem;
+        transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      }
+      .team-card.wait-selected {
+        border-color: rgba(255, 219, 118, 0.96);
+        background: linear-gradient(180deg, rgba(43, 76, 163, 0.86), rgba(16, 36, 86, 0.92));
+        box-shadow:
+          0 0 0 1px rgba(255, 227, 149, 0.58) inset,
+          0 0 22px rgba(255, 218, 110, 0.42);
+      }
+      .team-card.wait-selected h4 {
+        color: #ffeeba;
       }
       .team-card h4 { margin: 0; color: #fff2c3; font-size: 1.04rem; }
       .team-card .actions { display: grid; gap: .5rem; }
+      .btn.wait-active {
+        border-color: rgba(255, 220, 126, 0.98);
+        background: linear-gradient(180deg, rgba(255, 219, 118, 0.98), rgba(215, 169, 67, 0.95));
+        color: #12264d;
+        box-shadow: 0 0 18px rgba(255, 221, 132, 0.36);
+      }
       .team-note { margin: 0; font-size: .9rem; color: var(--warn); min-height: 1.3rem; }
 
       .status-msg {
@@ -385,8 +402,8 @@
           currentRoundIndex: 0,
           currentHintIndex: 0,
           teams: [
-            { name: "الفريق الأول", score: 0, blockedHintIndex: null, waitedHintIndex: null },
-            { name: "الفريق الثاني", score: 0, blockedHintIndex: null, waitedHintIndex: null }
+            { name: "الفريق الأول", score: 0, blockedHintIndex: null, waitedHintIndex: null, wrongHintIndex: null },
+            { name: "الفريق الثاني", score: 0, blockedHintIndex: null, waitedHintIndex: null, wrongHintIndex: null }
           ],
           selectedTeamIndex: null
         };
@@ -620,15 +637,21 @@
           teamsActions.innerHTML = state.teams
             .map((team, idx) => {
               const blocked = isBlockedNow(team);
-              const note = blocked
-                ? "ممنوع التخمين في هذا التلميح بسبب إجابة خاطئة سابقة"
-                : "";
+              const waitedNow = team.waitedHintIndex === state.currentHintIndex;
+              const wrongNow = team.wrongHintIndex === state.currentHintIndex;
+              const note = wrongNow
+                ? "إجابة خاطئة في هذا التلميح"
+                : blocked
+                  ? "ممنوع التخمين في هذا التلميح بسبب إجابة خاطئة سابقة"
+                  : waitedNow
+                    ? "تم اختيار التلميح التالي"
+                    : "";
               return `
-                <article class="team-card">
+                <article class="team-card${waitedNow ? " wait-selected" : ""}">
                   <h4>${team.name}</h4>
                   <div class="actions">
                     <button class="btn" data-action="guess" data-team="${idx}" ${blocked ? "disabled" : ""}>تخمين</button>
-                    <button class="btn" data-action="wait" data-team="${idx}">انتظار / التلميح التالي</button>
+                    <button class="btn${waitedNow ? " wait-active" : ""}" data-action="wait" data-team="${idx}">انتظار / التلميح التالي</button>
                   </div>
                   <p class="team-note">${note}</p>
                 </article>
@@ -670,30 +693,39 @@
           showScreen(resultScreen);
         }
 
+        function shouldAdvanceHint(teams, currentHintIndex) {
+          const waiters = teams.filter((team) => team.waitedHintIndex === currentHintIndex).length;
+          const wrongTeams = teams.filter((team) => team.wrongHintIndex === currentHintIndex).length;
+          const blockedTeams = teams.filter((team) => team.blockedHintIndex === currentHintIndex).length;
+          return (waiters === 2) || (wrongTeams === 1 && waiters === 1) || (blockedTeams === 2);
+        }
+
         function progressHintIfAllowed() {
-          const waiters = state.teams.filter((team) => team.waitedHintIndex === state.currentHintIndex).length;
-          const blockedTeams = state.teams.filter((team) => isBlockedNow(team)).length;
-
-          if ((waiters === 2) || (blockedTeams === 1 && waiters === 1) || (blockedTeams === 2)) {
-            state.currentHintIndex += 1;
-            state.teams.forEach((team) => {
-              if (team.blockedHintIndex !== null && team.blockedHintIndex < state.currentHintIndex) {
-                team.blockedHintIndex = null;
-              }
-              team.waitedHintIndex = null;
-            });
-
-            if (state.currentHintIndex > 4) {
-              endRoundAsNoAnswer();
-            } else {
-              resetWaitStatesForHint(state.currentHintIndex);
-              renderRound();
+          if (!shouldAdvanceHint(state.teams, state.currentHintIndex)) return false;
+          const previousHintIndex = state.currentHintIndex;
+          state.currentHintIndex += 1;
+          state.teams.forEach((team) => {
+            if (team.blockedHintIndex !== null && team.blockedHintIndex < state.currentHintIndex) {
+              team.blockedHintIndex = null;
             }
+            if (team.wrongHintIndex === previousHintIndex) {
+              team.wrongHintIndex = null;
+            }
+            team.waitedHintIndex = null;
+          });
+
+          if (state.currentHintIndex > 4) {
+            endRoundAsNoAnswer();
+          } else {
+            resetWaitStatesForHint(state.currentHintIndex);
+            renderRound();
           }
+          return true;
         }
 
         function handleWrongGuess(teamIndex) {
           const team = state.teams[teamIndex];
+          team.wrongHintIndex = state.currentHintIndex;
           team.blockedHintIndex = state.currentHintIndex + 1;
           setMessage(roundMessage, "إجابة خاطئة. لا يمكن لهذا الفريق التخمين في التلميح التالي.", "bad");
         }
@@ -730,7 +762,10 @@
           }
 
           handleWrongGuess(teamIndex);
-          renderRound();
+          const advanced = progressHintIfAllowed();
+          if (!advanced) {
+            renderRound();
+          }
         }
 
         function handleTeamAction(event) {
@@ -796,8 +831,8 @@
 
         function resetLocalRoundState(teamOneName, teamTwoName) {
           state.teams = [
-            { name: teamOneName, score: 0, blockedHintIndex: null, waitedHintIndex: null },
-            { name: teamTwoName, score: 0, blockedHintIndex: null, waitedHintIndex: null }
+            { name: teamOneName, score: 0, blockedHintIndex: null, waitedHintIndex: null, wrongHintIndex: null },
+            { name: teamTwoName, score: 0, blockedHintIndex: null, waitedHintIndex: null, wrongHintIndex: null }
           ];
           state.currentRoundIndex = 0;
           state.currentHintIndex = 0;
@@ -874,6 +909,7 @@
               score: 0,
               blockedHintIndex: null,
               waitedHintIndex: null,
+              wrongHintIndex: null,
             })),
             roundResult: null,
             finalResult: null,
@@ -896,13 +932,15 @@
           const nextState = structuredClone(gameState);
           if (!Number.isInteger(teamIndex) || !nextState.teams?.[teamIndex]) return nextState;
           nextState.teams[teamIndex].waitedHintIndex = nextState.currentHintIndex;
-          const waiters = nextState.teams.filter((team) => team.waitedHintIndex === nextState.currentHintIndex).length;
-          const blockedTeams = nextState.teams.filter((team) => team.blockedHintIndex === nextState.currentHintIndex).length;
-          if ((waiters === 2) || (blockedTeams === 1 && waiters === 1) || (blockedTeams === 2)) {
+          const previousHintIndex = nextState.currentHintIndex;
+          if (shouldAdvanceHint(nextState.teams, nextState.currentHintIndex)) {
             nextState.currentHintIndex += 1;
             nextState.teams.forEach((team) => {
               if (team.blockedHintIndex !== null && team.blockedHintIndex < nextState.currentHintIndex) {
                 team.blockedHintIndex = null;
+              }
+              if (team.wrongHintIndex === previousHintIndex) {
+                team.wrongHintIndex = null;
               }
               team.waitedHintIndex = null;
             });
@@ -934,7 +972,28 @@
             };
             return nextState;
           }
+          nextState.teams[teamIndex].wrongHintIndex = nextState.currentHintIndex;
           nextState.teams[teamIndex].blockedHintIndex = nextState.currentHintIndex + 1;
+          if (shouldAdvanceHint(nextState.teams, nextState.currentHintIndex)) {
+            const previousHintIndex = nextState.currentHintIndex;
+            nextState.currentHintIndex += 1;
+            nextState.teams.forEach((team) => {
+              if (team.blockedHintIndex !== null && team.blockedHintIndex < nextState.currentHintIndex) {
+                team.blockedHintIndex = null;
+              }
+              if (team.wrongHintIndex === previousHintIndex) {
+                team.wrongHintIndex = null;
+              }
+              team.waitedHintIndex = null;
+            });
+            if (nextState.currentHintIndex > 4) {
+              nextState.phase = "result";
+              nextState.roundResult = {
+                title: "انتهت التلميحات",
+                text: `الإجابة: ${nextState.rounds[nextState.currentRoundIndex].answer} — لم يحصل أي فريق على نقاط`,
+              };
+            }
+          }
           return nextState;
         }
 
@@ -956,6 +1015,7 @@
           nextState.teams.forEach((team) => {
             team.blockedHintIndex = null;
             team.waitedHintIndex = null;
+            team.wrongHintIndex = null;
           });
           return nextState;
         }
