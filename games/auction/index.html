@@ -393,7 +393,7 @@
 
         <section id="phaseLoading" class="phase-card visible">
           <h2 class="phase-title">تحميل بيانات المزاد</h2>
-          <p class="target">جارٍ تحميل بنك الأسئلة من Google Sheets...</p>
+          <p class="target">جارٍ تحميل بنك الأسئلة من خدمة البيانات...</p>
         </section>
 
         <section id="phaseDataState" class="phase-card hidden">
@@ -591,10 +591,10 @@
 
           resetGame();
         } catch (error) {
-          console.error("[auction] Failed to load questions from Google Sheets CSV", error);
+          console.error("[auction] Failed to load questions from Worker endpoint", error);
           setDataState({
             title: "تعذر بدء اللعبة",
-            message: "تعذر تحميل بنك الأسئلة من Google Sheets. حاول مرة أخرى.",
+            message: "تعذر تحميل بنك الأسئلة من خدمة البيانات. حاول مرة أخرى.",
             canRetry: true,
           });
         }

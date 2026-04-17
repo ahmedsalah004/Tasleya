@@ -1,5 +1,6 @@
 const DEFAULT_CACHE_TTL_SECONDS = 300;
 const sheetMemoryCache = new Map();
+const TRUTHY_VALUES = new Set(['1', 'true', 'yes', 'y', 'on', 'active', 'enabled']);
 
 export default {
   async fetch(request, env, ctx) {
@@ -111,6 +112,15 @@ export default {
         });
         const cards = buildEmojiMoviesCards(rows);
         return json({ cards }, 200, request, env);
+      }
+
+      if (url.pathname === '/mazad/questions' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAZAD_SHEET_CSV_URL',
+          cacheKeyPrefix: 'mazad-questions',
+        });
+        const questions = buildMazadQuestions(rows);
+        return json({ questions }, 200, request, env);
       }
 
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
@@ -426,6 +436,40 @@ function buildEmojiMoviesCards(rows) {
     .filter(Boolean);
 }
 
+function buildMazadQuestions(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  return dataRows
+    .map((row, index) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      const category = normalizeCell(raw.category);
+      const prompt = normalizeCell(raw.prompt);
+      const acceptedAnswers = normalizeCell(raw.accepted_answers)
+        .split('|')
+        .map((item) => normalizeCell(item))
+        .filter(Boolean);
+      if (!isTruthyCell(raw.is_active)) return null;
+      if (!category || !prompt || !acceptedAnswers.length) return null;
+
+      const difficulty = toInteger(raw.difficulty);
+
+      return {
+        id: normalizeCell(raw.id) || `row-${index + 1}`,
+        category,
+        prompt,
+        difficulty: Number.isFinite(difficulty) ? difficulty : null,
+        accepted_answers: acceptedAnswers,
+        notes: normalizeCell(raw.notes),
+      };
+    })
+    .filter(Boolean);
+}
+
 function sanitizeQuestion(question, allQuestions) {
   return {
     id: question.id,
@@ -520,6 +564,10 @@ function normalizeCell(value) {
 
 function normalizeForComparison(value) {
   return normalizeCell(value).toLowerCase();
+}
+
+function isTruthyCell(value) {
+  return TRUTHY_VALUES.has(normalizeCell(value).toLowerCase());
 }
 
 function splitCsvParam(value) {
