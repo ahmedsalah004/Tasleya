@@ -1021,14 +1021,6 @@
         });
       }
 
-      function isValidRoleSelection(value) {
-        return Number.isInteger(value) && (value === 0 || value === 1);
-      }
-
-      function hasRequiredRoleSelections() {
-        return state.roles.every((role) => isValidRoleSelection(role));
-      }
-
       function startRound() {
         state.roles = [null, null];
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
@@ -1550,28 +1542,14 @@
       }
 
       el.roleButtons.forEach((btn) => btn.addEventListener("click", async () => {
-        const team = Number(btn.dataset.team);
-        const player = Number(btn.dataset.player);
-        if (!isValidRoleSelection(team) || !isValidRoleSelection(player)) return;
+        const team = Number(btn.dataset.team); const player = Number(btn.dataset.player);
         if (onlineState.enabled) { await submitOnlineAction("SELECT_ANSWERER", { teamId: team, playerIndex: player }); return; }
         state.roles[team] = player;
-        syncRoleButtonActiveState();
+        el.roleButtons.filter((b) => Number(b.dataset.team) === team).forEach((b) => b.classList.toggle("active", b === btn));
         updateHeader();
-        saveLocalResume();
       }));
 
-      el.revealBtn.addEventListener("click", () => {
-        if (onlineState.enabled) {
-          submitOnlineAction("REVEAL_QUESTION");
-          return;
-        }
-        if (!hasRequiredRoleSelections()) {
-          alert("اختر المجيب لكل فريق أولًا.");
-          return;
-        }
-        setPhase("reveal");
-        saveLocalResume();
-      });
+      el.revealBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("REVEAL_QUESTION") : (state.roles.includes(null) ? alert("اختر المجيب لكل فريق أولًا.") : setPhase("reveal")));
       el.startBidBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("START_BIDDING") : beginBidding());
       el.raiseBidBtn.addEventListener("click", () => {
         const minValue = state.bid.current + 1; const value = Number(el.bidInput.value);
