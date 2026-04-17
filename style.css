@@ -1014,6 +1014,7 @@ body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 button,
@@ -1083,8 +1084,10 @@ body::after {
 
 #gameScreen {
   position: relative;
-  overflow: hidden;
-  overscroll-behavior: none;
+  overflow-x: hidden;
+  overflow-y: visible;
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: auto;
   touch-action: manipulation;
 }
