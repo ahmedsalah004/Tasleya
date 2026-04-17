@@ -286,6 +286,12 @@
 
         <div id="loadingScreen" class="loading">جاري تحميل بطاقات الإيموجي...</div>
         <div id="errorScreen" class="error-box hidden"></div>
+        <div id="resumePrompt" class="card-extra hidden">
+          <p class="card-extra-label">لعبة سابقة</p>
+          <p class="card-extra-text">يوجد لعبة غير مكتملة. هل تريد إكمالها؟</p>
+          <button id="resumeBtn" type="button" class="btn">أكمل اللعبة</button>
+          <button id="discardResumeBtn" type="button" class="btn secondary">ابدأ لعبة جديدة</button>
+        </div>
 
         <div id="playScreen" class="hidden">
           <h2 class="turn-title" id="turnTitle"></h2>
@@ -338,6 +344,8 @@
     <script>
       const TURN_SECONDS = 60;
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
+      const EMOJI_MOVIES_STORAGE_KEY = "tasleya_emoji_movies_state_v1";
+      const EMOJI_MOVIES_STORAGE_VERSION = 1;
 
       const elements = {
         team1Score: document.getElementById("team1Score"),
@@ -349,6 +357,9 @@
         playScreen: document.getElementById("playScreen"),
         revealScreen: document.getElementById("revealScreen"),
         finalScreen: document.getElementById("finalScreen"),
+        resumePrompt: document.getElementById("resumePrompt"),
+        resumeBtn: document.getElementById("resumeBtn"),
+        discardResumeBtn: document.getElementById("discardResumeBtn"),
         turnTitle: document.getElementById("turnTitle"),
         timerLabel: document.getElementById("timerLabel"),
         emojiText: document.getElementById("emojiText"),
@@ -378,7 +389,13 @@
         currentTeam: 0,
         timerValue: TURN_SECONDS,
         timerInterval: null,
+        timerDeadlineTs: null,
+        hintVisible: false,
+        showAnswerVisible: false,
+        statusText: "",
+        statusTone: "",
       };
+      let pendingResumeState = null;
 
       function normalizeCell(value) {
         return String(value || "").trim();
@@ -475,6 +492,51 @@
           clearInterval(state.timerInterval);
           state.timerInterval = null;
         }
+        state.timerDeadlineTs = null;
+      }
+
+      function clearSavedGame() {
+        try {
+          localStorage.removeItem(EMOJI_MOVIES_STORAGE_KEY);
+        } catch (_) {}
+      }
+
+      function saveGameSnapshot() {
+        if (state.phase === "loading" || state.phase === "error" || state.phase === "final") {
+          clearSavedGame();
+          return;
+        }
+        try {
+          const payload = {
+            version: EMOJI_MOVIES_STORAGE_VERSION,
+            phase: state.phase,
+            cards: state.cards,
+            currentIndex: state.currentIndex,
+            scores: state.scores,
+            teamCorrect: state.teamCorrect,
+            currentTeam: state.currentTeam,
+            timerValue: state.timerValue,
+            timerDeadlineTs: state.timerDeadlineTs,
+            hintVisible: state.hintVisible,
+            showAnswerVisible: state.showAnswerVisible,
+            statusText: state.statusText,
+            statusTone: state.statusTone,
+            savedAt: Date.now(),
+          };
+          localStorage.setItem(EMOJI_MOVIES_STORAGE_KEY, JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      function loadSavedGame() {
+        try {
+          const raw = localStorage.getItem(EMOJI_MOVIES_STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== EMOJI_MOVIES_STORAGE_VERSION || !Array.isArray(parsed.cards) || !parsed.cards.length) return null;
+          return parsed;
+        } catch (_) {
+          return null;
+        }
       }
 
       function updateScoreboard() {
@@ -512,18 +574,24 @@
         elements.timerLabel.textContent = `${state.timerValue} ثانية`;
         elements.turnStatus.textContent = "";
         elements.turnStatus.className = "status";
+        state.statusText = "";
+        state.statusTone = "";
         elements.hintBox.classList.add("hidden");
         elements.hintText.textContent = "";
+        state.hintVisible = false;
         elements.showAnswerBox.classList.add("hidden");
         elements.showAnswerText.textContent = "";
+        state.showAnswerVisible = false;
         elements.answerInput.value = "";
 
         setVisibleScreen("play");
         elements.answerInput.focus();
+        state.timerDeadlineTs = Date.now() + TURN_SECONDS * 1000;
 
         state.timerInterval = window.setInterval(() => {
-          state.timerValue -= 1;
-          elements.timerLabel.textContent = `${Math.max(0, state.timerValue)} ثانية`;
+          state.timerValue = Math.max(0, Math.ceil((state.timerDeadlineTs - Date.now()) / 1000));
+          elements.timerLabel.textContent = `${state.timerValue} ثانية`;
+          saveGameSnapshot();
 
           if (state.timerValue <= 0) {
             clearTimer();
@@ -567,6 +635,7 @@
         elements.answerReveal.textContent = `الإجابة: ${card.answer}`;
         elements.revealResult.textContent = getRevealMessage(card.points, state.teamCorrect[0], state.teamCorrect[1]);
         setVisibleScreen("reveal");
+        saveGameSnapshot();
       }
 
       function goToNextCard() {
@@ -597,15 +666,79 @@
 
         setVisibleScreen("final");
         updateScoreboard();
+        clearSavedGame();
       }
 
       function startNewGame(cards) {
+        clearSavedGame();
         clearTimer();
         state.cards = shuffleArray(cards);
         state.currentIndex = 0;
         state.scores = [0, 0];
         state.teamCorrect = [false, false];
         startTeamTurn(0);
+        saveGameSnapshot();
+      }
+
+      function renderRestoredPlayingState() {
+        const card = getCurrentCard();
+        if (!card) return false;
+        updateScoreboard();
+        elements.turnTitle.textContent = state.currentTeam === 0 ? "دور الفريق 1" : "دور الفريق 2";
+        elements.emojiText.textContent = card.emoji;
+        elements.timerLabel.textContent = `${state.timerValue} ثانية`;
+        elements.turnStatus.textContent = state.statusText || "";
+        elements.turnStatus.className = `status${state.statusTone ? ` ${state.statusTone}` : ""}`;
+        elements.hintText.textContent = state.hintVisible ? normalizeCell(card.hint) || "لا يوجد تلميح متاح لهذه البطاقة." : "";
+        elements.hintBox.classList.toggle("hidden", !state.hintVisible);
+        elements.showAnswerText.textContent = state.showAnswerVisible ? card.answer : "";
+        elements.showAnswerBox.classList.toggle("hidden", !state.showAnswerVisible);
+        setVisibleScreen("play");
+        if (state.timerValue > 0) {
+          state.timerInterval = window.setInterval(() => {
+            state.timerValue = Math.max(0, Math.ceil((state.timerDeadlineTs - Date.now()) / 1000));
+            elements.timerLabel.textContent = `${state.timerValue} ثانية`;
+            saveGameSnapshot();
+            if (state.timerValue <= 0) {
+              clearTimer();
+              if (state.currentTeam === 0) startTeamTurn(1);
+              else revealCurrentCard();
+            }
+          }, 1000);
+        } else if (state.currentTeam === 0) {
+          startTeamTurn(1);
+        } else {
+          revealCurrentCard();
+        }
+        return true;
+      }
+
+      function restoreSavedGame(saved) {
+        state.cards = saved.cards;
+        state.currentIndex = Number(saved.currentIndex) || 0;
+        state.phase = String(saved.phase || "");
+        state.scores = Array.isArray(saved.scores) ? [Number(saved.scores[0]) || 0, Number(saved.scores[1]) || 0] : [0, 0];
+        state.teamCorrect = Array.isArray(saved.teamCorrect) ? [Boolean(saved.teamCorrect[0]), Boolean(saved.teamCorrect[1])] : [false, false];
+        state.currentTeam = Number(saved.currentTeam) === 1 ? 1 : 0;
+        state.statusText = normalizeCell(saved.statusText);
+        state.statusTone = normalizeCell(saved.statusTone);
+        state.hintVisible = Boolean(saved.hintVisible);
+        state.showAnswerVisible = Boolean(saved.showAnswerVisible);
+        if (state.currentIndex < 0 || state.currentIndex >= state.cards.length) return false;
+        if (state.phase === "reveal") {
+          updateScoreboard();
+          const card = getCurrentCard();
+          elements.answerReveal.textContent = `الإجابة: ${card.answer}`;
+          elements.revealResult.textContent = getRevealMessage(card.points, state.teamCorrect[0], state.teamCorrect[1]);
+          setVisibleScreen("reveal");
+          saveGameSnapshot();
+          return true;
+        }
+        if (state.phase !== "team1" && state.phase !== "team2") return false;
+        const deadline = Number(saved.timerDeadlineTs);
+        state.timerDeadlineTs = Number.isFinite(deadline) ? deadline : Date.now() + TURN_SECONDS * 1000;
+        state.timerValue = Math.max(0, Math.ceil((state.timerDeadlineTs - Date.now()) / 1000));
+        return renderRestoredPlayingState();
       }
 
       elements.answerForm.addEventListener("submit", (event) => {
@@ -619,8 +752,11 @@
         if (!correct) {
           elements.turnStatus.textContent = "غير صحيح، جرّب مرة أخرى";
           elements.turnStatus.className = "status error";
+          state.statusText = elements.turnStatus.textContent;
+          state.statusTone = "error";
           elements.answerInput.value = "";
           elements.answerInput.focus();
+          saveGameSnapshot();
           return;
         }
 
@@ -631,6 +767,9 @@
         if (state.currentTeam === 0) {
           elements.turnStatus.textContent = "تم تسجيل إجابة الفريق";
           elements.turnStatus.className = "status success";
+          state.statusText = elements.turnStatus.textContent;
+          state.statusTone = "success";
+          saveGameSnapshot();
           window.setTimeout(() => startTeamTurn(1), 450);
           return;
         }
@@ -645,6 +784,8 @@
         const hint = normalizeCell(card.hint);
         elements.hintText.textContent = hint || "لا يوجد تلميح متاح لهذه البطاقة.";
         elements.hintBox.classList.remove("hidden");
+        state.hintVisible = true;
+        saveGameSnapshot();
       });
 
       elements.showAnswerBtn.addEventListener("click", () => {
@@ -653,6 +794,8 @@
 
         elements.showAnswerText.textContent = card.answer;
         elements.showAnswerBox.classList.remove("hidden");
+        state.showAnswerVisible = true;
+        saveGameSnapshot();
       });
 
       elements.nextCardBtn.addEventListener("click", () => {
@@ -669,13 +812,35 @@
           if (!cards.length) {
             throw new Error("لم يتم العثور على بطاقات صالحة في ملف البيانات.");
           }
-          startNewGame(cards);
+          pendingResumeState = loadSavedGame();
+          if (pendingResumeState) {
+            elements.resumePrompt.classList.remove("hidden");
+            state.cards = cards;
+            setVisibleScreen("loading");
+          } else {
+            startNewGame(cards);
+          }
         } catch (error) {
           clearTimer();
           elements.errorScreen.textContent = error && error.message ? error.message : "حدث خطأ أثناء تحميل اللعبة.";
           setVisibleScreen("error");
         }
       }
+
+      elements.resumeBtn.addEventListener("click", () => {
+        if (!pendingResumeState || !restoreSavedGame(pendingResumeState)) {
+          clearSavedGame();
+          startNewGame(state.cards);
+        }
+        pendingResumeState = null;
+        elements.resumePrompt.classList.add("hidden");
+      });
+      elements.discardResumeBtn.addEventListener("click", () => {
+        clearSavedGame();
+        pendingResumeState = null;
+        elements.resumePrompt.classList.add("hidden");
+        startNewGame(state.cards);
+      });
 
       init();
     </script>
