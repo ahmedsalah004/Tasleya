@@ -283,6 +283,7 @@
       .status-msg.bad { color: #ffd4d4; border-color: rgba(255, 125, 125, 0.5); background: rgba(68, 16, 24, 0.66); }
       .status-msg.good { color: #d4ffe8; border-color: rgba(83, 230, 160, 0.5); background: rgba(7, 36, 28, 0.66); }
       .fallback-note { margin: .8rem 0 0; color: #ffe39b; font-size: .92rem; }
+      .resume-box { border:1px solid rgba(255,225,140,.35); border-radius:14px; padding:.8rem; display:grid; gap:.55rem; background:rgba(4,16,45,.75); }
 
       .result-panel { text-align: center; display: grid; gap: .8rem; }
       .result-title { margin: 0; color: #fff2c3; font-size: clamp(1.5rem, 4.4vw, 2rem); }
@@ -321,6 +322,11 @@
         <div class="mode-actions">
           <button id="singleDeviceModeBtn" class="btn primary">لعب على جهاز واحد</button>
           <button id="onlineModeBtn" class="btn">لعب على أجهزة مختلفة</button>
+        </div>
+        <div id="localResumeBox" class="resume-box hidden">
+          <p class="subtitle" style="margin:0;">يوجد لعبة محلية غير مكتملة.</p>
+          <button id="resumeLocalBtn" class="btn primary">أكمل اللعبة</button>
+          <button id="discardLocalBtn" class="btn">ابدأ لعبة جديدة</button>
         </div>
       </section>
 
@@ -419,11 +425,16 @@
         const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
         const POINTS = [5, 4, 3, 2, 1];
         const GAME_KEY = "guess-from-hint";
+        const LOCAL_RESUME_KEY = "tasleya_guess_from_hint_local_state_v1";
+        const LOCAL_RESUME_VERSION = 1;
         const gameRooms = window.TasleyaGameRooms || null;
 
         const modeScreen = document.getElementById("modeScreen");
         const singleDeviceModeBtn = document.getElementById("singleDeviceModeBtn");
         const onlineModeBtn = document.getElementById("onlineModeBtn");
+        const localResumeBox = document.getElementById("localResumeBox");
+        const resumeLocalBtn = document.getElementById("resumeLocalBtn");
+        const discardLocalBtn = document.getElementById("discardLocalBtn");
         const onlineRoomScreen = document.getElementById("onlineRoomScreen");
         const playerNameInput = document.getElementById("playerNameInput");
         const createRoomBtn = document.getElementById("createRoomBtn");
@@ -498,6 +509,7 @@
           pendingWaitTeams: new Set(),
           statusPulseTeams: new Set(),
         };
+        let pendingLocalResume = null;
 
         function setMessage(el, text, tone) {
           if (!text) {
@@ -790,6 +802,83 @@
           screen.classList.remove("hidden");
         }
 
+        function getLocalPhase() {
+          if (!roundScreen.classList.contains("hidden")) return "round";
+          if (!resultScreen.classList.contains("hidden")) return "result";
+          if (!finalScreen.classList.contains("hidden")) return "final";
+          if (!setupScreen.classList.contains("hidden")) return "setup";
+          return "mode";
+        }
+
+        function clearLocalResume() {
+          try {
+            localStorage.removeItem(LOCAL_RESUME_KEY);
+          } catch (_) {}
+        }
+
+        function saveLocalResume() {
+          if (onlineState.enabled) return;
+          const phase = getLocalPhase();
+          if (phase === "setup" || phase === "mode") {
+            clearLocalResume();
+            return;
+          }
+          try {
+            localStorage.setItem(LOCAL_RESUME_KEY, JSON.stringify({
+              version: LOCAL_RESUME_VERSION,
+              rounds: state.rounds,
+              currentRoundIndex: state.currentRoundIndex,
+              currentHintIndex: state.currentHintIndex,
+              teams: state.teams,
+              phase,
+              resultTitle: resultTitle.textContent,
+              resultText: resultText.textContent,
+              finalTextValue: finalText.textContent,
+              savedAt: Date.now(),
+            }));
+          } catch (_) {}
+        }
+
+        function readLocalResume() {
+          try {
+            const raw = localStorage.getItem(LOCAL_RESUME_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || parsed.version !== LOCAL_RESUME_VERSION || !Array.isArray(parsed.rounds) || !parsed.rounds.length) return null;
+            return parsed;
+          } catch (_) {
+            return null;
+          }
+        }
+
+        function applyLocalResume(saved) {
+          if (!saved) return false;
+          state.rounds = saved.rounds;
+          state.currentRoundIndex = Number(saved.currentRoundIndex) || 0;
+          state.currentHintIndex = Number(saved.currentHintIndex) || 0;
+          state.teams = Array.isArray(saved.teams) ? saved.teams : state.teams;
+          uiState.activeGuessTeamIndex = null;
+          uiState.pendingGuessTeams.clear();
+          uiState.pendingWaitTeams.clear();
+          uiState.statusPulseTeams.clear();
+          setMessage(roundMessage, "");
+          if (saved.phase === "round") {
+            showScreen(roundScreen);
+            renderRound();
+          } else if (saved.phase === "result") {
+            resultTitle.textContent = saved.resultTitle || "نتيجة الجولة";
+            resultText.textContent = saved.resultText || "";
+            showScreen(resultScreen);
+          } else if (saved.phase === "final") {
+            finalText.textContent = saved.finalTextValue || "";
+            showScreen(finalScreen);
+          } else {
+            return false;
+          }
+          saveLocalResume();
+          return true;
+        }
+
         function openGuessModal(teamIndex) {
           state.selectedTeamIndex = teamIndex;
           uiState.activeGuessTeamIndex = teamIndex;
@@ -814,6 +903,7 @@
           resultTitle.textContent = "انتهت التلميحات";
           resultText.textContent = `الإجابة: ${round.answer} — لم يحصل أي فريق على نقاط`;
           showScreen(resultScreen);
+          saveLocalResume();
         }
 
         function shouldAdvanceHint(teams, currentHintIndex) {
@@ -887,6 +977,7 @@
             resultTitle.textContent = "إجابة صحيحة";
             resultText.textContent = `الفريق الفائز: ${state.teams[teamIndex].name} — النقاط: ${points} — الإجابة: ${round.answer}`;
             showScreen(resultScreen);
+            saveLocalResume();
             return;
           }
 
@@ -895,6 +986,7 @@
           if (!advanced) {
             renderRound();
           }
+          saveLocalResume();
         }
 
         function handleTeamAction(event) {
@@ -928,6 +1020,7 @@
 
             finalText.textContent = `${teamA.name}: ${teamA.score} نقطة | ${teamB.name}: ${teamB.score} نقطة — ${winnerText}`;
             showScreen(finalScreen);
+            saveLocalResume();
             return;
           }
 
@@ -943,6 +1036,7 @@
           setMessage(roundMessage, "");
           showScreen(roundScreen);
           renderRound();
+          saveLocalResume();
         }
 
         async function startGame() {
@@ -962,6 +1056,7 @@
           setMessage(roundMessage, "");
           showScreen(roundScreen);
           renderRound();
+          saveLocalResume();
         }
 
         function resetLocalRoundState(teamOneName, teamTwoName) {
@@ -1378,6 +1473,7 @@
             showScreen(onlineLobbyScreen);
             return;
           }
+          clearLocalResume();
           showScreen(setupScreen);
         });
         cancelGuessBtn.addEventListener("click", closeGuessModal);
@@ -1392,9 +1488,13 @@
 
         singleDeviceModeBtn.addEventListener("click", () => {
           onlineState.enabled = false;
+          clearLocalResume();
+          localResumeBox.classList.add("hidden");
           showScreen(setupScreen);
         });
         onlineModeBtn.addEventListener("click", () => {
+          clearLocalResume();
+          localResumeBox.classList.add("hidden");
           showScreen(onlineRoomScreen);
           setMessage(onlineRoomMessage, "");
         });
@@ -1415,7 +1515,26 @@
           showScreen(modeScreen);
         });
 
+        resumeLocalBtn.addEventListener("click", () => {
+          localResumeBox.classList.add("hidden");
+          if (!applyLocalResume(pendingLocalResume)) {
+            clearLocalResume();
+            showScreen(modeScreen);
+          }
+          pendingLocalResume = null;
+        });
+        discardLocalBtn.addEventListener("click", () => {
+          pendingLocalResume = null;
+          clearLocalResume();
+          localResumeBox.classList.add("hidden");
+        });
+
         restoreSessionIfAvailable();
+        pendingLocalResume = readLocalResume();
+        if (pendingLocalResume) {
+          localResumeBox.classList.remove("hidden");
+          showScreen(modeScreen);
+        }
       })();
     </script>
   </body>

@@ -325,6 +325,17 @@
         </div>
       </section>
 
+      <section id="resumeScreen" class="screen" aria-label="استئناف لعبة أفلام">
+        <div class="panel">
+          <h2>لعبة غير مكتملة</h2>
+          <p class="subtitle" style="margin-top:.7rem;">يوجد تقدم محفوظ. هل تريد إكمال اللعبة السابقة أم بدء لعبة جديدة؟</p>
+          <div class="action-stack">
+            <button id="resumeGameBtn" class="btn btn-primary" type="button">أكمل اللعبة</button>
+            <button id="discardGameBtn" class="btn btn-secondary" type="button">ابدأ لعبة جديدة</button>
+          </div>
+        </div>
+      </section>
+
       <section id="boardScreen" class="screen" aria-label="لوحة لعبة الأفلام">
         <div class="panel">
           <div class="status-bar">
@@ -403,6 +414,8 @@
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const ROUND_SECONDS = 90;
       const FILMS_USED_STORAGE_KEY = "tasleya_films_used_v1";
+      const FILMS_STATE_STORAGE_KEY = "tasleya_films_state_v1";
+      const FILMS_STATE_STORAGE_VERSION = 1;
 
       const gameState = {
         teams: ["الفريق الأول", "الفريق الثاني"],
@@ -411,10 +424,13 @@
         cards: [],
         activeCard: null,
         timerValue: ROUND_SECONDS,
+        timerDeadlineTs: null,
         timerInterval: null,
         timerWarningTriggered: false,
         persistedUsedFilmIds: new Set(),
+        currentScreen: "intro",
       };
+      let pendingResumePayload = null;
 
       const audioState = {
         timerWarning: null,
@@ -425,6 +441,7 @@
         screens: {
           intro: document.getElementById("introScreen"),
           setup: document.getElementById("setupScreen"),
+          resume: document.getElementById("resumeScreen"),
           board: document.getElementById("boardScreen"),
           reveal: document.getElementById("revealScreen"),
           timer: document.getElementById("timerScreen"),
@@ -433,6 +450,8 @@
         },
         introStartBtn: document.getElementById("introStartBtn"),
         setupStartBtn: document.getElementById("setupStartBtn"),
+        resumeGameBtn: document.getElementById("resumeGameBtn"),
+        discardGameBtn: document.getElementById("discardGameBtn"),
         teamOneInput: document.getElementById("teamOneInput"),
         teamTwoInput: document.getElementById("teamTwoInput"),
         teamOneLabel: document.getElementById("teamOneLabel"),
@@ -500,11 +519,52 @@
       }
 
       function showScreen(name) {
+        gameState.currentScreen = name;
         Object.entries(elements.screens).forEach(([key, node]) => {
           node.classList.toggle("active", key === name);
         });
         if (name !== "timer") {
           stopTimerWarningSound();
+        }
+      }
+
+      function clearSavedProgress() {
+        try {
+          localStorage.removeItem(FILMS_STATE_STORAGE_KEY);
+        } catch (_) {}
+      }
+
+      function persistProgress() {
+        if (["intro", "setup", "end", "resume"].includes(gameState.currentScreen)) {
+          clearSavedProgress();
+          return;
+        }
+        try {
+          const payload = {
+            version: FILMS_STATE_STORAGE_VERSION,
+            teams: gameState.teams,
+            scores: gameState.scores,
+            currentTeam: gameState.currentTeam,
+            cards: gameState.cards,
+            activeCard: gameState.activeCard,
+            timerValue: gameState.timerValue,
+            timerDeadlineTs: gameState.timerDeadlineTs,
+            currentScreen: gameState.currentScreen,
+            savedAt: Date.now(),
+          };
+          localStorage.setItem(FILMS_STATE_STORAGE_KEY, JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      function readSavedProgress() {
+        try {
+          const raw = localStorage.getItem(FILMS_STATE_STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== FILMS_STATE_STORAGE_VERSION || !Array.isArray(parsed.cards) || !parsed.cards.length) return null;
+          return parsed;
+        } catch (_) {
+          return null;
         }
       }
 
@@ -752,6 +812,7 @@
         elements.shownMovieState.hidden = false;
 
         showScreen("reveal");
+        persistProgress();
       }
 
       function startTimerRound() {
@@ -761,6 +822,7 @@
         stopTimerWarningSound();
         gameState.timerWarningTriggered = false;
         gameState.timerValue = ROUND_SECONDS;
+        gameState.timerDeadlineTs = Date.now() + ROUND_SECONDS * 1000;
         elements.timerTurnText.textContent = `الفريق الحالي: ${gameState.teams[gameState.currentTeam]}`;
         elements.timerPointsText.textContent = `النقاط: ${card.points}`;
         elements.timerMovieTitle.textContent = card.title;
@@ -768,8 +830,9 @@
 
         clearInterval(gameState.timerInterval);
         gameState.timerInterval = window.setInterval(() => {
-          gameState.timerValue -= 1;
+          gameState.timerValue = Math.max(0, Math.ceil((gameState.timerDeadlineTs - Date.now()) / 1000));
           elements.timerValue.textContent = String(gameState.timerValue);
+          persistProgress();
 
           if (gameState.timerValue <= 30 && !gameState.timerWarningTriggered && gameState.timerValue > 0) {
             gameState.timerWarningTriggered = true;
@@ -784,6 +847,7 @@
         }, 1000);
 
         showScreen("timer");
+        persistProgress();
       }
 
       function consumeCardAndAdvance() {
@@ -798,6 +862,7 @@
           writePersistedFilmUsedIds(gameState.persistedUsedFilmIds);
         }
         gameState.activeCard = null;
+        gameState.timerDeadlineTs = null;
         gameState.currentTeam = gameState.currentTeam === 0 ? 1 : 0;
 
         updateStatusBar();
@@ -807,6 +872,7 @@
           openEndScreen();
         } else {
           showScreen("board");
+          persistProgress();
         }
       }
 
@@ -827,6 +893,7 @@
           gameState.cards[gameState.activeCard].points
         } نقطة.`;
         showScreen("steal");
+        persistProgress();
       }
 
       function applyStealResult(mode) {
@@ -860,6 +927,7 @@
         elements.finalResult.textContent = result;
         elements.finalScores.textContent = `${gameState.teams[0]}: ${teamOne} — ${gameState.teams[1]}: ${teamTwo}`;
         showScreen("end");
+        clearSavedProgress();
       }
 
       async function startGameRound() {
@@ -870,6 +938,8 @@
         gameState.scores = [0, 0];
         gameState.currentTeam = 0;
         gameState.activeCard = null;
+        gameState.timerDeadlineTs = null;
+        clearSavedProgress();
 
         elements.setupStartBtn.disabled = true;
         elements.setupStartBtn.textContent = "جاري تحميل بنك الأفلام...";
@@ -879,6 +949,7 @@
           updateStatusBar();
           renderBoard();
           showScreen("board");
+          persistProgress();
         } catch (error) {
           window.alert(error.message || "حصل خطأ أثناء تحميل الأفلام.");
           showScreen("setup");
@@ -891,8 +962,74 @@
       function resetToSetup() {
         clearInterval(gameState.timerInterval);
         gameState.timerInterval = null;
+        gameState.timerDeadlineTs = null;
         stopTimerWarningSound();
+        clearSavedProgress();
         showScreen("setup");
+      }
+
+      function restoreSavedProgress(saved) {
+        if (!saved) return false;
+        gameState.teams = Array.isArray(saved.teams) ? [sanitizeTeamName(saved.teams[0], "الفريق الأول"), sanitizeTeamName(saved.teams[1], "الفريق الثاني")] : ["الفريق الأول", "الفريق الثاني"];
+        gameState.scores = Array.isArray(saved.scores) ? [Number(saved.scores[0]) || 0, Number(saved.scores[1]) || 0] : [0, 0];
+        gameState.currentTeam = Number(saved.currentTeam) === 1 ? 1 : 0;
+        gameState.cards = saved.cards;
+        gameState.activeCard = Number.isInteger(saved.activeCard) ? saved.activeCard : null;
+        updateStatusBar();
+        renderBoard();
+        const screen = String(saved.currentScreen || "board");
+        if (screen === "board") {
+          showScreen("board");
+          persistProgress();
+          return true;
+        }
+        const card = gameState.cards[gameState.activeCard];
+        if (!card) return false;
+        elements.revealTurnText.textContent = `الدور الآن: ${gameState.teams[gameState.currentTeam]}`;
+        elements.revealPointsText.textContent = `قيمة البطاقة: ${card.points} نقطة`;
+        elements.movieTitle.textContent = card.title;
+        elements.shownMovieState.hidden = false;
+        if (screen === "reveal") {
+          showScreen("reveal");
+          persistProgress();
+          return true;
+        }
+        if (screen === "timer") {
+          const deadline = Number(saved.timerDeadlineTs);
+          gameState.timerDeadlineTs = Number.isFinite(deadline) ? deadline : (Date.now() + ROUND_SECONDS * 1000);
+          gameState.timerValue = Math.max(0, Math.ceil((gameState.timerDeadlineTs - Date.now()) / 1000));
+          elements.timerTurnText.textContent = `الفريق الحالي: ${gameState.teams[gameState.currentTeam]}`;
+          elements.timerPointsText.textContent = `النقاط: ${card.points}`;
+          elements.timerMovieTitle.textContent = card.title;
+          elements.timerValue.textContent = String(gameState.timerValue);
+          if (gameState.timerValue <= 0) {
+            openStealScreen();
+            return true;
+          }
+          showScreen("timer");
+          clearInterval(gameState.timerInterval);
+          gameState.timerInterval = window.setInterval(() => {
+            gameState.timerValue = Math.max(0, Math.ceil((gameState.timerDeadlineTs - Date.now()) / 1000));
+            elements.timerValue.textContent = String(gameState.timerValue);
+            persistProgress();
+            if (gameState.timerValue <= 30 && !gameState.timerWarningTriggered && gameState.timerValue > 0) {
+              gameState.timerWarningTriggered = true;
+              startTimerWarningSound();
+            }
+            if (gameState.timerValue <= 0) {
+              clearInterval(gameState.timerInterval);
+              stopTimerWarningSound();
+              openStealScreen();
+            }
+          }, 1000);
+          persistProgress();
+          return true;
+        }
+        if (screen === "steal") {
+          openStealScreen();
+          return true;
+        }
+        return false;
       }
 
       document.addEventListener("visibilitychange", () => {
@@ -912,6 +1049,23 @@
       elements.stealOtherCorrectBtn.addEventListener("click", () => applyStealResult("other"));
       elements.stealNoOneBtn.addEventListener("click", () => applyStealResult("none"));
       elements.playAgainBtn.addEventListener("click", resetToSetup);
+      elements.resumeGameBtn.addEventListener("click", () => {
+        if (!restoreSavedProgress(pendingResumePayload)) {
+          clearSavedProgress();
+          showScreen("setup");
+        }
+        pendingResumePayload = null;
+      });
+      elements.discardGameBtn.addEventListener("click", () => {
+        pendingResumePayload = null;
+        clearSavedProgress();
+        showScreen("setup");
+      });
+
+      pendingResumePayload = readSavedProgress();
+      if (pendingResumePayload) {
+        showScreen("resume");
+      }
     </script>
   </body>
 </html>

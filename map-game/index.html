@@ -857,6 +857,11 @@
           <input id="team2Name" type="text" maxlength="30" placeholder="الفريق الثاني" />
         </div>
         <button class="btn btn-primary" id="startBtn" type="button">ابدأ اللعبة</button>
+        <div id="resumePrompt" class="hidden" style="margin-top:12px; display:grid; gap:8px;">
+          <p style="margin:0; color:#ffe39b; font-weight:700;">يوجد لعبة خريطة غير مكتملة.</p>
+          <button class="btn btn-primary" id="resumeBtn" type="button">أكمل اللعبة</button>
+          <button class="btn btn-light" id="discardResumeBtn" type="button">ابدأ لعبة جديدة</button>
+        </div>
       </section>
 
       <section class="game" id="gameScreen" aria-live="polite">
@@ -929,6 +934,8 @@
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
+      const MAP_GAME_STATE_STORAGE_KEY = "tasleya_map_game_state_v1";
+      const MAP_GAME_STATE_STORAGE_VERSION = 1;
       const ROUND_REQUIREMENTS = [
         { difficulty: "easy", points: 100, count: 4 },
         { difficulty: "medium", points: 300, count: 8 },
@@ -1001,6 +1008,7 @@
         },
         isRevealingAnswer: false,
         resultRevealTimeoutId: null,
+        pendingResume: null,
       };
 
       const el = {
@@ -1030,6 +1038,9 @@
         overlayTitle: document.getElementById("overlayTitle"),
         overlayText: document.getElementById("overlayText"),
         overlayActions: document.getElementById("overlayActions"),
+        resumePrompt: document.getElementById("resumePrompt"),
+        resumeBtn: document.getElementById("resumeBtn"),
+        discardResumeBtn: document.getElementById("discardResumeBtn"),
       };
 
 
@@ -1155,6 +1166,79 @@
           picked.push(item);
         }
         return picked;
+      }
+
+      function clearSavedGameState() {
+        try {
+          localStorage.removeItem(MAP_GAME_STATE_STORAGE_KEY);
+        } catch (_) {}
+      }
+
+      function createPersistedGameState() {
+        if (!state.started || state.phase === "finished") return null;
+        return {
+          version: MAP_GAME_STATE_STORAGE_VERSION,
+          started: true,
+          questions: state.questions,
+          questionIndex: state.questionIndex,
+          teamNames: state.teamNames,
+          scores: state.scores,
+          teamPicks: state.teamPicks,
+          otherTeamAcceptedActiveAnswer: state.otherTeamAcceptedActiveAnswer,
+          pendingPick: state.pendingPick,
+          pendingTeamIndex: state.pendingTeamIndex,
+          phase: state.phase,
+          savedAt: Date.now(),
+        };
+      }
+
+      function persistGameState() {
+        const snapshot = createPersistedGameState();
+        if (!snapshot) {
+          clearSavedGameState();
+          return;
+        }
+        try {
+          localStorage.setItem(MAP_GAME_STATE_STORAGE_KEY, JSON.stringify(snapshot));
+        } catch (_) {}
+      }
+
+      function readSavedGameState() {
+        try {
+          const raw = localStorage.getItem(MAP_GAME_STATE_STORAGE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || parsed.version !== MAP_GAME_STATE_STORAGE_VERSION || !parsed.started) return null;
+          if (!Array.isArray(parsed.questions) || !parsed.questions.length) return null;
+          return parsed;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function restoreSavedGameState(saved) {
+        if (!saved) return false;
+        if (!Array.isArray(saved.questions) || !saved.questions.length) return false;
+        state.questions = saved.questions;
+        state.questionIndex = Math.max(0, Math.min(saved.questions.length - 1, Number(saved.questionIndex) || 0));
+        state.teamNames = Array.isArray(saved.teamNames) ? [String(saved.teamNames[0] || "الفريق الأول"), String(saved.teamNames[1] || "الفريق الثاني")] : ["الفريق الأول", "الفريق الثاني"];
+        state.scores = Array.isArray(saved.scores) ? [Number(saved.scores[0]) || 0, Number(saved.scores[1]) || 0] : [0, 0];
+        state.teamPicks = Array.isArray(saved.teamPicks) ? [saved.teamPicks[0] || null, saved.teamPicks[1] || null] : [null, null];
+        state.otherTeamAcceptedActiveAnswer = Boolean(saved.otherTeamAcceptedActiveAnswer);
+        state.pendingPick = saved.pendingPick || null;
+        state.pendingTeamIndex = Number.isInteger(saved.pendingTeamIndex) ? saved.pendingTeamIndex : null;
+        state.phase = ["active_pick", "other_response", "ready_reveal", "revealed"].includes(saved.phase) ? saved.phase : "active_pick";
+        state.started = true;
+        el.team1Name.value = state.teamNames[0];
+        el.team2Name.value = state.teamNames[1];
+        el.setupScreen.style.display = "none";
+        el.gameScreen.classList.add("active");
+        clearPendingResultReveal();
+        hideOverlay();
+        updateHeader();
+        updateMapHighlights();
+        persistGameState();
+        return true;
       }
 
       function buildQuestions() {
@@ -1507,6 +1591,7 @@
 
         if (!isMobileViewport()) {
           showQuestionResultOverlay(resultState);
+          persistGameState();
           return;
         }
 
@@ -1514,6 +1599,7 @@
         state.isRevealingAnswer = true;
         state.resultRevealTimeoutId = window.setTimeout(() => {
           openResultOverlay(resultState);
+          persistGameState();
         }, MOBILE_RESULT_REVEAL_DELAY_MS);
       }
 
@@ -1536,9 +1622,11 @@
         markCurrentQuestionAsUsed();
         updateHeader();
         updateMapHighlights();
+        persistGameState();
       }
 
       function finishGame() {
+        clearSavedGameState();
         clearPendingResultReveal();
         const [s1, s2] = state.scores;
         let finalLine = "تعادل رائع بين الفريقين";
@@ -1555,6 +1643,7 @@
               onClick: () => {
                 hideOverlay();
                 state.started = false;
+                clearSavedGameState();
                 el.gameScreen.classList.remove("active");
                 el.setupScreen.style.display = "block";
               },
@@ -1582,6 +1671,7 @@
         if (state.phase === "active_pick") {
           state.phase = "other_response";
           updateHeader();
+          persistGameState();
           return;
         }
 
@@ -1590,6 +1680,7 @@
         showOverlay("جاهز لإظهار الإجابة", "تم تأكيد اختيار الفريقين.", [
           { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
         ]);
+        persistGameState();
       }
 
       function cancelPendingPick() {
@@ -1644,6 +1735,7 @@
         showOverlay("جاهز لإظهار الإجابة", "تم اعتماد إجابة الفريق النشط من الفريق الآخر.", [
           { label: "إظهار الإجابة", kind: "btn-accent", onClick: () => { hideOverlay(); revealAnswer(); } },
         ]);
+        persistGameState();
       }
 
       async function loadMap() {
@@ -1836,6 +1928,7 @@
       function startGame() {
         if (!state.mapReady || !state.questionsReady) return;
         clearPendingResultReveal();
+        clearSavedGameState();
 
         state.teamNames = [el.team1Name.value.trim() || "الفريق الأول", el.team2Name.value.trim() || "الفريق الثاني"];
         state.scores = [0, 0];
@@ -1859,9 +1952,22 @@
         el.gameScreen.classList.add("active");
         updateHeader();
         updateMapHighlights();
+        persistGameState();
       }
 
       el.startBtn.addEventListener("click", startGame);
+      el.resumeBtn.addEventListener("click", () => {
+        el.resumePrompt.classList.add("hidden");
+        if (!restoreSavedGameState(state.pendingResume)) {
+          clearSavedGameState();
+        }
+        state.pendingResume = null;
+      });
+      el.discardResumeBtn.addEventListener("click", () => {
+        clearSavedGameState();
+        state.pendingResume = null;
+        el.resumePrompt.classList.add("hidden");
+      });
       el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
       window.addEventListener("beforeunload", clearPendingResultReveal);
 
@@ -1899,6 +2005,10 @@
           await loadMap();
         }
         if (state.mapReady && state.questionsReady) {
+          state.pendingResume = readSavedGameState();
+          if (state.pendingResume) {
+            el.resumePrompt.classList.remove("hidden");
+          }
           el.startBtn.disabled = false;
           el.startBtn.textContent = "ابدأ اللعبة";
         } else {
