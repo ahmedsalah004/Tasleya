@@ -68,7 +68,7 @@
 
       .status-strip {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
         gap: 0.7rem;
         margin-bottom: 1rem;
       }
@@ -172,9 +172,45 @@
         border-radius: 14px;
         border: 1px solid rgba(255, 225, 140, 0.36);
         background: rgba(8, 25, 62, 0.85);
-        padding: 0.9rem;
+        padding: 1rem;
         display: grid;
-        gap: 0.75rem;
+        gap: 0.9rem;
+      }
+
+      .bid-status-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+      }
+
+      .bid-status-box {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.32);
+        background: rgba(3, 12, 35, 0.74);
+        padding: 0.65rem 0.75rem;
+      }
+
+      .bid-status-label {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.82rem;
+      }
+
+      .bid-status-value {
+        margin: 0.3rem 0 0;
+        font-weight: 900;
+        font-size: 1.2rem;
+      }
+
+      .bid-status-box.active-turn {
+        border-color: rgba(83, 230, 160, 0.88);
+        box-shadow: 0 0 0 2px rgba(83, 230, 160, 0.18);
+        background: linear-gradient(180deg, rgba(17, 72, 51, 0.84), rgba(8, 38, 27, 0.78));
+      }
+
+      .bid-status-box.leading-team {
+        border-color: rgba(244, 206, 108, 0.72);
+        background: linear-gradient(180deg, rgba(78, 58, 20, 0.62), rgba(29, 23, 8, 0.72));
       }
 
       .turn-pill {
@@ -184,15 +220,35 @@
         padding: 0.55rem 0.85rem;
         font-weight: 800;
         width: fit-content;
+        margin: 0;
       }
 
-      .bid-value { margin: 0; font-size: clamp(1.4rem, 4.5vw, 2rem); font-weight: 900; color: #fff2c3; }
+      .bid-value {
+        margin: 0;
+        text-align: center;
+        font-size: clamp(2.1rem, 7vw, 3.3rem);
+        font-weight: 900;
+        color: #fff2c3;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.5);
+        background: radial-gradient(circle at 50% 0%, rgba(244, 206, 108, 0.22), rgba(3, 12, 35, 0.8) 55%);
+        padding: 0.85rem;
+        line-height: 1.25;
+      }
+
+      .bid-value small {
+        display: block;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+      }
 
       .bid-controls {
         display: flex;
         flex-wrap: wrap;
         gap: 0.6rem;
         align-items: center;
+        justify-content: space-between;
       }
 
       .bid-input {
@@ -248,11 +304,55 @@
         color: #ffd8d8;
       }
 
+      .btn-stop {
+        border-color: rgba(255, 125, 125, 0.9);
+        background: linear-gradient(180deg, rgba(125, 30, 47, 0.95), rgba(73, 12, 24, 0.95));
+        color: #ffe4e4;
+      }
+
+      .helper-note {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.92rem;
+      }
+
+      .attempt-team-banner {
+        margin: 0;
+        border-radius: 14px;
+        border: 1px solid rgba(83, 230, 160, 0.7);
+        background: linear-gradient(180deg, rgba(17, 72, 51, 0.88), rgba(8, 38, 27, 0.78));
+        padding: 0.8rem;
+        font-size: 1.2rem;
+        font-weight: 900;
+      }
+
       .timer {
-        font-size: clamp(2rem, 7vw, 2.8rem);
         margin: 0;
         font-weight: 900;
         color: #fff2c3;
+        text-align: center;
+      }
+
+      .timer-label {
+        display: block;
+        color: var(--text-muted);
+        font-size: 1rem;
+        margin-bottom: 0.4rem;
+      }
+
+      .timer-value {
+        display: block;
+        font-size: clamp(3.3rem, 14vw, 5.6rem);
+        line-height: 1;
+      }
+
+      .attempt-focus {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.46);
+        background: rgba(2, 8, 27, 0.88);
+        display: grid;
+        gap: 0.9rem;
+        padding: 1rem;
       }
 
       .target {
@@ -265,6 +365,17 @@
         font-weight: 800;
       }
 
+      .target-major {
+        text-align: center;
+        font-size: clamp(2rem, 9vw, 4rem);
+        font-weight: 900;
+        line-height: 1.2;
+        border-radius: 16px;
+        border: 2px solid rgba(244, 206, 108, 0.8);
+        background: radial-gradient(circle at center, rgba(244, 206, 108, 0.22), rgba(3, 12, 35, 0.9) 62%);
+        padding: 0.9rem;
+      }
+
       .result-text {
         margin: 0;
         border-radius: 12px;
@@ -274,8 +385,17 @@
         color: #dcffef;
       }
 
+      .judge-actions .btn { min-height: 66px; font-size: 1.08rem; }
+
       @media (max-width: 640px) {
         .score-grid { grid-template-columns: 1fr; }
+        .bid-status-grid { grid-template-columns: 1fr; }
+        .bid-controls { flex-direction: column; align-items: stretch; }
+        .bid-input { width: 100%; }
+        .btn { min-height: 62px; }
+        .phase-card { padding: 0.9rem; }
+        .status-value { font-size: 1.12rem; }
+        .action-row { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -296,8 +416,12 @@
             <p id="currentBid" class="status-value">0</p>
           </article>
           <article class="status-pill">
-            <p class="status-label">دور المزاد</p>
+            <p class="status-label">دور المزايدة</p>
             <p id="turnLabel" class="status-value">-</p>
+          </article>
+          <article class="status-pill">
+            <p class="status-label">متصدر المزاد</p>
+            <p id="leadingLabel" class="status-value">-</p>
           </article>
         </div>
 
@@ -339,38 +463,56 @@
         </section>
 
         <section id="phaseBidding" class="phase-card hidden">
-          <h2 class="phase-title">يبدأ المزاد</h2>
+          <h2 class="phase-title">المزاد جارٍ الآن</h2>
           <div class="bid-board">
-            <p id="turnPill" class="turn-pill">مزايدة الفريق الأول</p>
-            <p id="bidInfo" class="bid-value">أعلى مزايدة: 0</p>
+            <p id="turnPill" class="turn-pill">دور المزايدة: الفريق الأول</p>
+            <div class="bid-status-grid">
+              <article id="activeTeamBox" class="bid-status-box active-turn">
+                <p class="bid-status-label">الفريق صاحب الدور الآن</p>
+                <p id="activeTeamText" class="bid-status-value">الفريق الأول</p>
+              </article>
+              <article id="leadingTeamBox" class="bid-status-box leading-team">
+                <p class="bid-status-label">الفريق المتصدر حاليًا</p>
+                <p id="leadingTeamText" class="bid-status-value">لا يوجد بعد</p>
+              </article>
+            </div>
+            <p id="bidInfo" class="bid-value"><small>أعلى مزايدة مسجلة</small>0</p>
             <div class="bid-controls">
-              <label for="bidInput">المزايدة التالية</label>
+              <label for="bidInput">الرقم التالي للمزايدة</label>
               <input id="bidInput" class="bid-input" type="number" min="1" step="1" value="1" />
             </div>
+            <p class="helper-note">تأكدوا قبل الضغط على «إيقاف المزاد» لأن الدور ينتقل مباشرة للمحاولة.</p>
           </div>
           <div class="action-row">
-            <button id="raiseBidBtn" class="btn btn-primary" type="button">مزايدة الفريق الأول</button>
-            <button id="stopBidBtn" class="btn btn-secondary" type="button">توقف</button>
+            <button id="raiseBidBtn" class="btn btn-primary" type="button">تأكيد مزايدة الفريق الأول</button>
+            <button id="stopBidBtn" class="btn btn-stop" type="button">إيقاف المزاد عند هذا الرقم</button>
           </div>
         </section>
 
         <section id="phaseAttemptReady" class="phase-card hidden">
           <h2 class="phase-title">الاستعداد للمحاولة</h2>
-          <p id="attemptTeamText" class="target"></p>
-          <p id="attemptTargetText" class="target">الهدف: 0</p>
+          <p id="attemptTeamText" class="attempt-team-banner"></p>
+          <p id="attemptTargetText" class="target target-major">0</p>
           <div class="action-row"><button id="startAttemptBtn" class="btn btn-primary" type="button">أجب الآن</button></div>
         </section>
 
         <section id="phaseAttempt" class="phase-card hidden">
           <h2 class="phase-title">أجب الآن</h2>
-          <p class="target" id="timerTarget">الهدف: 0</p>
-          <p class="timer"><span>الوقت المتبقي:</span> <span id="timerText">60</span></p>
+          <div class="attempt-focus">
+            <p id="attemptNowTeam" class="attempt-team-banner"></p>
+            <p class="target target-major" id="timerTarget">0</p>
+            <div class="question-box">
+              <p id="timerQuestionCategory" class="question-category"></p>
+              <p id="timerQuestionPrompt" class="question-prompt"></p>
+            </div>
+            <p class="timer"><span class="timer-label">الوقت المتبقي</span><span id="timerText" class="timer-value">60</span></p>
+          </div>
         </section>
 
         <section id="phaseJudge" class="phase-card hidden">
-          <h2 class="phase-title">اختيار الحكم</h2>
+          <h2 class="phase-title">انتهى الوقت — قرار الحكم</h2>
           <p id="judgeHint" class="target"></p>
-          <div class="action-row">
+          <div class="action-row judge-actions">
             <button id="correctBtn" class="btn btn-success" type="button">إجابة صحيحة</button>
             <button id="otherPointBtn" class="btn btn-danger" type="button">نقطة للفريق الآخر</button>
           </div>
@@ -429,6 +571,7 @@
         questionCounter: document.getElementById("questionCounter"),
         currentBid: document.getElementById("currentBid"),
         turnLabel: document.getElementById("turnLabel"),
+        leadingLabel: document.getElementById("leadingLabel"),
         team1Score: document.getElementById("team1Score"),
         team2Score: document.getElementById("team2Score"),
         team1Roles: document.getElementById("team1Roles"),
@@ -439,6 +582,10 @@
         questionPrompt: document.getElementById("questionPrompt"),
         startBidBtn: document.getElementById("startBidBtn"),
         turnPill: document.getElementById("turnPill"),
+        activeTeamBox: document.getElementById("activeTeamBox"),
+        activeTeamText: document.getElementById("activeTeamText"),
+        leadingTeamBox: document.getElementById("leadingTeamBox"),
+        leadingTeamText: document.getElementById("leadingTeamText"),
         bidInfo: document.getElementById("bidInfo"),
         bidInput: document.getElementById("bidInput"),
         raiseBidBtn: document.getElementById("raiseBidBtn"),
@@ -448,6 +595,9 @@
         startAttemptBtn: document.getElementById("startAttemptBtn"),
         timerText: document.getElementById("timerText"),
         timerTarget: document.getElementById("timerTarget"),
+        attemptNowTeam: document.getElementById("attemptNowTeam"),
+        timerQuestionCategory: document.getElementById("timerQuestionCategory"),
+        timerQuestionPrompt: document.getElementById("timerQuestionPrompt"),
         judgeHint: document.getElementById("judgeHint"),
         correctBtn: document.getElementById("correctBtn"),
         otherPointBtn: document.getElementById("otherPointBtn"),
@@ -526,9 +676,11 @@
         el.team2Roles.textContent = formatRoles(1);
 
         if (state.phase === "bidding") {
-          el.turnLabel.textContent = state.bid.turnTeam === 0 ? "الفريق الأول" : "الفريق الثاني";
+          el.turnLabel.textContent = TEAMS[state.bid.turnTeam];
+          el.leadingLabel.textContent = state.bid.leadingTeam == null ? "لا يوجد بعد" : TEAMS[state.bid.leadingTeam];
         } else {
           el.turnLabel.textContent = "-";
+          el.leadingLabel.textContent = state.bid.leadingTeam == null ? "-" : TEAMS[state.bid.leadingTeam];
         }
       }
 
@@ -608,33 +760,43 @@
       }
 
       function renderBidding() {
-        const teamName = state.bid.turnTeam === 0 ? "الفريق الأول" : "الفريق الثاني";
+        const teamName = TEAMS[state.bid.turnTeam];
         const minValue = state.bid.current + 1;
-        el.turnPill.textContent = state.bid.turnTeam === 0 ? "مزايدة الفريق الأول" : "مزايدة الفريق الثاني";
-        el.raiseBidBtn.textContent = state.bid.turnTeam === 0 ? "مزايدة الفريق الأول" : "مزايدة الفريق الثاني";
-        el.bidInfo.textContent = `أعلى مزايدة: ${state.bid.current}`;
+        const leadingText = state.bid.leadingTeam == null ? "لا يوجد بعد" : TEAMS[state.bid.leadingTeam];
+        el.turnPill.textContent = `دور المزايدة: ${teamName}`;
+        el.activeTeamText.textContent = teamName;
+        el.leadingTeamText.textContent = leadingText;
+        el.activeTeamBox.classList.add("active-turn");
+        el.leadingTeamBox.classList.toggle("leading-team", state.bid.leadingTeam != null);
+        el.raiseBidBtn.textContent = `تأكيد مزايدة ${teamName}`;
+        el.bidInfo.innerHTML = `<small>أعلى مزايدة مسجلة</small>${state.bid.current}`;
         el.bidInput.min = String(minValue);
         if (Number(el.bidInput.value) < minValue) {
           el.bidInput.value = String(minValue);
         }
         el.currentBid.textContent = String(state.bid.current);
         el.turnLabel.textContent = teamName;
+        el.leadingLabel.textContent = leadingText;
       }
 
       function lockAttemptFromBidStop() {
         const winner = state.bid.current === 0 ? 1 - state.bid.turnTeam : 1 - state.bid.stoppedTeam;
         const target = Math.max(1, state.bid.current);
         state.attempt = { team: winner, target };
-        el.attemptTeamText.textContent = `${TEAMS[winner]} حصل على المحاولة.`;
-        el.attemptTargetText.textContent = `الهدف: ${target}`;
+        el.attemptTeamText.textContent = `${TEAMS[winner]} يبدأ التحدي الآن`;
+        el.attemptTargetText.textContent = `الهدف ${target}`;
         setPhase("attemptReady");
         updateHeader();
       }
 
       function startAttemptTimer() {
+        const q = getQuestion();
         state.timerValue = 60;
         el.timerText.textContent = "60";
-        el.timerTarget.textContent = `الهدف: ${state.attempt.target}`;
+        el.timerTarget.textContent = `الهدف ${state.attempt.target}`;
+        el.attemptNowTeam.textContent = `المحاولة الآن: ${TEAMS[state.attempt.team]}`;
+        el.timerQuestionCategory.textContent = `الفئة: ${q.category}`;
+        el.timerQuestionPrompt.textContent = q.prompt;
         setPhase("attempt");
         clearInterval(state.timerId);
         state.timerId = setInterval(() => {
@@ -643,7 +805,7 @@
           if (state.timerValue <= 0) {
             clearInterval(state.timerId);
             state.timerId = null;
-            el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. اختر نتيجة الحكم.`;
+            el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
             setPhase("judge");
           }
         }, 1000);
@@ -668,9 +830,11 @@
         }
 
         const resultLine = success
-          ? `${TEAMS[attemptTeam]} حقق الهدف وحصل على نقطة.`
-          : `${TEAMS[attemptTeam]} لم يحقق الهدف، نقطة للفريق الآخر.`;
-        el.betweenText.textContent = resultLine;
+          ? `✅ نقطة لـ ${TEAMS[pointTeam]} بعد تحقيق الهدف ${state.attempt.target}.`
+          : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${TEAMS[pointTeam]}.`;
+        const progressLine = `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${TOTAL_QUESTIONS}`;
+        const nextLine = state.questionIndex + 1 < TOTAL_QUESTIONS ? "جاهزون للسؤال التالي؟" : "";
+        el.betweenText.textContent = [resultLine, progressLine, nextLine].filter(Boolean).join(" ");
         setPhase("between");
       }
 
@@ -710,6 +874,8 @@
       });
 
       el.stopBidBtn.addEventListener("click", () => {
+        const confirmed = window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟");
+        if (!confirmed) return;
         state.bid.stoppedTeam = state.bid.turnTeam;
         lockAttemptFromBidStop();
       });
