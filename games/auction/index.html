@@ -1036,11 +1036,19 @@
       }
 
       function resetGame() {
-        const source = state.questionBank;
+        const source = Array.isArray(state.questionBank) ? state.questionBank : [];
+        if (!source.length) {
+          setDataState({
+            title: "تعذر بدء اللعبة",
+            message: "تعذر تحميل بنك الأسئلة من خدمة البيانات. حاول مرة أخرى.",
+            canRetry: true,
+          });
+          return;
+        }
         state.questions = shuffle(source).slice(0, TOTAL_QUESTIONS);
         if (state.questions.length < TOTAL_QUESTIONS) {
-          const fallback = [];
-          while (fallback.length < TOTAL_QUESTIONS) fallback.push(...source);
+          const repeats = Math.ceil(TOTAL_QUESTIONS / source.length);
+          const fallback = Array.from({ length: repeats }, () => source).flat();
           state.questions = shuffle(fallback).slice(0, TOTAL_QUESTIONS);
         }
         state.questionIndex = 0;
