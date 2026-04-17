@@ -201,6 +201,31 @@
         color: var(--green-400);
       }
 
+      .card-extra {
+        margin-top: 0.8rem;
+        border-radius: 14px;
+        border: 1px solid rgba(244, 206, 108, 0.35);
+        background: rgba(6, 17, 45, 0.78);
+        padding: 0.8rem 0.9rem;
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .card-extra-label {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--gold-300);
+        font-weight: 700;
+      }
+
+      .card-extra-text {
+        margin: 0;
+        color: #fff7d2;
+        font-size: 1.02rem;
+        font-weight: 700;
+        line-height: 1.7;
+      }
+
       .reveal {
         text-align: center;
         display: grid;
@@ -279,8 +304,18 @@
               aria-label="إجابة الفريق الحالي"
               required
             />
-            <button type="submit" class="btn">إرسال الإجابة</button>
+            <button type="submit" class="btn">اكتب الإجابة</button>
+            <button id="hintBtn" type="button" class="btn secondary">تلميح</button>
+            <button id="showAnswerBtn" type="button" class="btn secondary">إظهار الإجابة</button>
           </form>
+          <div id="hintBox" class="card-extra hidden" role="status" aria-live="polite">
+            <p class="card-extra-label">تلميح</p>
+            <p id="hintText" class="card-extra-text"></p>
+          </div>
+          <div id="showAnswerBox" class="card-extra hidden" role="status" aria-live="polite">
+            <p class="card-extra-label">الإجابة الصحيحة</p>
+            <p id="showAnswerText" class="card-extra-text"></p>
+          </div>
           <p id="turnStatus" class="status" aria-live="polite"></p>
         </div>
 
@@ -319,6 +354,12 @@
         emojiText: document.getElementById("emojiText"),
         answerForm: document.getElementById("answerForm"),
         answerInput: document.getElementById("answerInput"),
+        hintBtn: document.getElementById("hintBtn"),
+        showAnswerBtn: document.getElementById("showAnswerBtn"),
+        hintBox: document.getElementById("hintBox"),
+        hintText: document.getElementById("hintText"),
+        showAnswerBox: document.getElementById("showAnswerBox"),
+        showAnswerText: document.getElementById("showAnswerText"),
         turnStatus: document.getElementById("turnStatus"),
         answerReveal: document.getElementById("answerReveal"),
         revealResult: document.getElementById("revealResult"),
@@ -471,6 +512,10 @@
         elements.timerLabel.textContent = `${state.timerValue} ثانية`;
         elements.turnStatus.textContent = "";
         elements.turnStatus.className = "status";
+        elements.hintBox.classList.add("hidden");
+        elements.hintText.textContent = "";
+        elements.showAnswerBox.classList.add("hidden");
+        elements.showAnswerText.textContent = "";
         elements.answerInput.value = "";
 
         setVisibleScreen("play");
@@ -591,6 +636,23 @@
         }
 
         revealCurrentCard();
+      });
+
+      elements.hintBtn.addEventListener("click", () => {
+        const card = getCurrentCard();
+        if (!card || (state.phase !== "team1" && state.phase !== "team2")) return;
+
+        const hint = normalizeCell(card.hint);
+        elements.hintText.textContent = hint || "لا يوجد تلميح متاح لهذه البطاقة.";
+        elements.hintBox.classList.remove("hidden");
+      });
+
+      elements.showAnswerBtn.addEventListener("click", () => {
+        const card = getCurrentCard();
+        if (!card || (state.phase !== "team1" && state.phase !== "team2")) return;
+
+        elements.showAnswerText.textContent = card.answer;
+        elements.showAnswerBox.classList.remove("hidden");
       });
 
       elements.nextCardBtn.addEventListener("click", () => {
