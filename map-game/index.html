@@ -1795,9 +1795,19 @@
             };
           };
 
+          const FEATURE_NAME_CODE_OVERRIDES = new Map([
+            ["france", "FR"],
+            ["norway", "NO"],
+            ["kosovo", "XK"],
+          ]);
+          const FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES = new Map([
+            ["TWN", "TW"],
+          ]);
+
           const resolveCountryCodeFromFeature = (feature) => {
             const properties = feature.properties || {};
-            const candidateCodes = [
+            const normalizedName = normalizeName(properties.name || "");
+            const rawCandidateCodes = [
               properties.country_code,
               properties.countryCode,
               properties.iso_a2,
@@ -1809,14 +1819,38 @@
               properties.iso_a3,
               properties["ISO3166-1-Alpha-3"],
               properties.id,
-            ]
-              .filter(Boolean)
-              .map((value) => String(value).trim().toUpperCase());
+            ].filter(Boolean);
+
+            const candidateCodes = rawCandidateCodes
+              .flatMap((value) => {
+                const raw = String(value).trim().toUpperCase();
+                if (!raw || raw === "-99") return [];
+                const variants = [raw];
+                if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(raw)) {
+                  variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(raw));
+                }
+                const splitTokens = raw.split(/[^A-Z0-9]+/).filter(Boolean);
+                splitTokens.forEach((token) => {
+                  variants.push(token);
+                  if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(token)) {
+                    variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(token));
+                  }
+                });
+                return variants;
+              })
+              .map((value) => normalizeCountryCode(value))
+              .filter(Boolean);
 
             const directCode = candidateCodes.find((code) => state.questionByCountryCode.has(code));
             if (directCode) return directCode;
 
-            const normalizedName = normalizeName(properties.name || "");
+            if (rawCandidateCodes.some((value) => String(value).trim().toUpperCase() === "-99")) {
+              const overrideCode = FEATURE_NAME_CODE_OVERRIDES.get(normalizedName);
+              if (overrideCode && state.questionByCountryCode.has(overrideCode)) {
+                return overrideCode;
+              }
+            }
+
             return state.countryCodeByNormalizedName.get(normalizedName) || "";
           };
 
