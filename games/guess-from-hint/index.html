@@ -112,6 +112,17 @@
         font-weight: 800;
         cursor: pointer;
         padding: 0.5rem 0.95rem;
+        transition: transform .14s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease, opacity .2s ease;
+      }
+      .btn:not(:disabled):hover {
+        border-color: rgba(255, 226, 150, 0.98);
+        box-shadow: 0 6px 16px rgba(1, 8, 28, 0.42);
+      }
+      .btn:not(:disabled):active {
+        transform: translateY(1px) scale(0.985);
+      }
+      .btn.action-ack {
+        box-shadow: 0 0 0 2px rgba(255, 231, 158, 0.5), 0 0 22px rgba(255, 214, 108, 0.36);
       }
 
       .btn.primary {
@@ -186,6 +197,17 @@
       .team-card.wait-selected h4 {
         color: #ffeeba;
       }
+      .team-card.locked {
+        opacity: 0.86;
+        border-color: rgba(170, 196, 255, 0.45);
+        background: rgba(6, 17, 44, 0.86);
+      }
+      .team-card.guess-active {
+        border-color: rgba(255, 226, 146, 0.95);
+        box-shadow:
+          0 0 0 1px rgba(255, 227, 153, 0.55) inset,
+          0 0 16px rgba(255, 214, 114, 0.33);
+      }
       .team-card h4 { margin: 0; color: #fff2c3; font-size: 1.04rem; }
       .team-card .actions { display: grid; gap: .5rem; }
       .btn.wait-active {
@@ -194,7 +216,62 @@
         color: #12264d;
         box-shadow: 0 0 18px rgba(255, 221, 132, 0.36);
       }
-      .team-note { margin: 0; font-size: .9rem; color: var(--warn); min-height: 1.3rem; }
+      .btn.guess-active {
+        border-color: rgba(255, 231, 161, 0.98);
+        color: #fff6d8;
+        background: linear-gradient(180deg, rgba(32, 62, 142, 0.96), rgba(20, 37, 90, 0.98));
+      }
+
+      .team-status {
+        margin: 0;
+        min-height: 2.1rem;
+        display: flex;
+        align-items: center;
+      }
+      .team-status-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 225, 140, 0.36);
+        background: rgba(8, 20, 52, 0.92);
+        padding: 0.34rem 0.65rem;
+        font-size: .84rem;
+        font-weight: 800;
+        line-height: 1.2;
+        color: #f2f6ff;
+        letter-spacing: 0.01em;
+      }
+      .team-status-chip.pending {
+        color: #fff2c5;
+        border-color: rgba(255, 220, 123, 0.72);
+        background: rgba(57, 39, 4, 0.8);
+      }
+      .team-status-chip.waiting {
+        color: #d5e6ff;
+        border-color: rgba(144, 185, 255, 0.65);
+        background: rgba(16, 42, 92, 0.82);
+      }
+      .team-status-chip.blocked {
+        color: #c8dbff;
+        border-color: rgba(138, 164, 218, 0.6);
+        background: rgba(19, 32, 70, 0.84);
+      }
+      .team-status-chip.bad {
+        color: #ffd6d6;
+        border-color: rgba(255, 136, 136, 0.7);
+        background: rgba(77, 20, 31, 0.82);
+      }
+      .team-status-chip.good {
+        color: #d5ffe8;
+        border-color: rgba(94, 232, 171, 0.68);
+        background: rgba(8, 57, 41, 0.82);
+      }
+      .team-status-chip.active {
+        color: #fff7dd;
+        border-color: rgba(255, 223, 132, 0.88);
+        background: rgba(85, 58, 9, 0.85);
+        box-shadow: 0 0 14px rgba(255, 218, 107, 0.32);
+      }
 
       .status-msg {
         margin-top: .8rem;
@@ -415,6 +492,12 @@
           roomData: null,
           processingActions: false,
         };
+        const uiState = {
+          activeGuessTeamIndex: null,
+          pendingGuessTeams: new Set(),
+          pendingWaitTeams: new Set(),
+          statusPulseTeams: new Set(),
+        };
 
         function setMessage(el, text, tone) {
           if (!text) {
@@ -613,6 +696,42 @@
           return team.blockedHintIndex === state.currentHintIndex;
         }
 
+        function triggerStatusPulse(teamIndex) {
+          uiState.statusPulseTeams.add(teamIndex);
+          window.setTimeout(() => {
+            uiState.statusPulseTeams.delete(teamIndex);
+            if (!roundScreen.classList.contains("hidden")) renderRound();
+          }, 720);
+        }
+
+        function acknowledgeButton(btn) {
+          if (!btn) return;
+          btn.classList.add("action-ack");
+          window.setTimeout(() => btn.classList.remove("action-ack"), 300);
+        }
+
+        function getTeamStatusConfig(team, idx) {
+          if (uiState.activeGuessTeamIndex === idx) {
+            return { text: "يكتب الإجابة الآن", tone: "active" };
+          }
+          if (team.wrongHintIndex === state.currentHintIndex) {
+            return { text: "إجابة غير صحيحة", tone: "bad" };
+          }
+          if (uiState.pendingGuessTeams.has(idx)) {
+            return { text: "تم إرسال التخمين", tone: "pending" };
+          }
+          if (team.waitedHintIndex === state.currentHintIndex) {
+            return { text: "بانتظار التلميح التالي", tone: "waiting" };
+          }
+          if (uiState.pendingWaitTeams.has(idx)) {
+            return { text: "تم اختيار التلميح التالي", tone: "pending" };
+          }
+          if (isBlockedNow(team)) {
+            return { text: "بانتظار حسم الفريق الآخر", tone: "blocked" };
+          }
+          return { text: "جاهز للتخمين", tone: "" };
+        }
+
         function renderRound() {
           const round = state.rounds[state.currentRoundIndex];
           if (!round || !Array.isArray(round.hints) || !state.teams?.length) {
@@ -638,22 +757,22 @@
             .map((team, idx) => {
               const blocked = isBlockedNow(team);
               const waitedNow = team.waitedHintIndex === state.currentHintIndex;
-              const wrongNow = team.wrongHintIndex === state.currentHintIndex;
-              const note = wrongNow
-                ? "إجابة خاطئة في هذا التلميح"
-                : blocked
-                  ? "ممنوع التخمين في هذا التلميح بسبب إجابة خاطئة سابقة"
-                  : waitedNow
-                    ? "تم اختيار التلميح التالي"
-                    : "";
+              const status = getTeamStatusConfig(team, idx);
+              const cardClasses = [
+                "team-card",
+                waitedNow ? "wait-selected" : "",
+                blocked ? "locked" : "",
+                uiState.statusPulseTeams.has(idx) ? "guess-active" : "",
+                uiState.activeGuessTeamIndex === idx ? "guess-active" : "",
+              ].filter(Boolean).join(" ");
               return `
-                <article class="team-card${waitedNow ? " wait-selected" : ""}">
+                <article class="${cardClasses}">
                   <h4>${team.name}</h4>
+                  <p class="team-status"><span class="team-status-chip ${status.tone}">${status.text}</span></p>
                   <div class="actions">
-                    <button class="btn" data-action="guess" data-team="${idx}" ${blocked ? "disabled" : ""}>تخمين</button>
+                    <button class="btn${uiState.activeGuessTeamIndex === idx ? " guess-active" : ""}" data-action="guess" data-team="${idx}" ${blocked ? "disabled" : ""}>تخمين</button>
                     <button class="btn${waitedNow ? " wait-active" : ""}" data-action="wait" data-team="${idx}">انتظار / التلميح التالي</button>
                   </div>
-                  <p class="team-note">${note}</p>
                 </article>
               `;
             })
@@ -673,17 +792,21 @@
 
         function openGuessModal(teamIndex) {
           state.selectedTeamIndex = teamIndex;
+          uiState.activeGuessTeamIndex = teamIndex;
           guessModalTitle.textContent = `اكتب تخمين فريق ${state.teams[teamIndex].name}`;
           guessInput.value = "";
           setMessage(guessError, "");
           guessModal.classList.remove("hidden");
+          renderRound();
           window.setTimeout(() => guessInput.focus(), 50);
         }
 
         function closeGuessModal() {
           guessModal.classList.add("hidden");
           state.selectedTeamIndex = null;
+          uiState.activeGuessTeamIndex = null;
           setMessage(guessError, "");
+          if (!roundScreen.classList.contains("hidden")) renderRound();
         }
 
         function endRoundAsNoAnswer() {
@@ -704,6 +827,9 @@
           if (!shouldAdvanceHint(state.teams, state.currentHintIndex)) return false;
           const previousHintIndex = state.currentHintIndex;
           state.currentHintIndex += 1;
+          uiState.pendingWaitTeams.clear();
+          uiState.pendingGuessTeams.clear();
+          uiState.statusPulseTeams.clear();
           state.teams.forEach((team) => {
             if (team.blockedHintIndex !== null && team.blockedHintIndex < state.currentHintIndex) {
               team.blockedHintIndex = null;
@@ -727,6 +853,8 @@
           const team = state.teams[teamIndex];
           team.wrongHintIndex = state.currentHintIndex;
           team.blockedHintIndex = state.currentHintIndex + 1;
+          uiState.pendingGuessTeams.delete(teamIndex);
+          triggerStatusPulse(teamIndex);
           setMessage(roundMessage, "إجابة خاطئة. لا يمكن لهذا الفريق التخمين في التلميح التالي.", "bad");
         }
 
@@ -755,6 +883,7 @@
           if (correct) {
             const points = POINTS[state.currentHintIndex] || 1;
             state.teams[teamIndex].score += points;
+            uiState.pendingGuessTeams.delete(teamIndex);
             resultTitle.textContent = "إجابة صحيحة";
             resultText.textContent = `الفريق الفائز: ${state.teams[teamIndex].name} — النقاط: ${points} — الإجابة: ${round.answer}`;
             showScreen(resultScreen);
@@ -782,6 +911,8 @@
 
           if (action === "wait") {
             state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
+            uiState.pendingWaitTeams.delete(teamIndex);
+            triggerStatusPulse(teamIndex);
             setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
             progressHintIfAllowed();
           }
@@ -805,6 +936,10 @@
             team.blockedHintIndex = null;
             team.waitedHintIndex = null;
           });
+          uiState.activeGuessTeamIndex = null;
+          uiState.pendingGuessTeams.clear();
+          uiState.pendingWaitTeams.clear();
+          uiState.statusPulseTeams.clear();
           setMessage(roundMessage, "");
           showScreen(roundScreen);
           renderRound();
@@ -845,6 +980,14 @@
           state.currentHintIndex = Number(gameState.currentHintIndex) || 0;
           if (Array.isArray(gameState.teams) && gameState.teams.length >= 2) {
             state.teams = gameState.teams;
+            state.teams.forEach((team, idx) => {
+              if (team.waitedHintIndex === state.currentHintIndex) {
+                uiState.pendingWaitTeams.delete(idx);
+              }
+              if (team.wrongHintIndex === state.currentHintIndex) {
+                uiState.pendingGuessTeams.delete(idx);
+              }
+            });
           }
         }
 
@@ -1189,7 +1332,10 @@
             return;
           }
           const teamIndex = state.selectedTeamIndex;
+          uiState.pendingGuessTeams.add(teamIndex);
+          triggerStatusPulse(teamIndex);
           closeGuessModal();
+          renderRound();
           await submitOnlineAction("submitGuess", { teamIndex, guess });
         }
 
@@ -1197,6 +1343,7 @@
         teamsActions.addEventListener("click", async (event) => {
           const btn = event.target.closest("button[data-action]");
           if (!btn) return;
+          acknowledgeButton(btn);
           const action = btn.getAttribute("data-action");
           const teamIndex = Number(btn.getAttribute("data-team"));
           if (action === "guess") {
@@ -1205,11 +1352,17 @@
           }
           if (action === "wait") {
             if (!onlineState.enabled) {
+              uiState.pendingWaitTeams.delete(teamIndex);
               state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
+              triggerStatusPulse(teamIndex);
               setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
               progressHintIfAllowed();
+              renderRound();
               return;
             }
+            uiState.pendingWaitTeams.add(teamIndex);
+            triggerStatusPulse(teamIndex);
+            renderRound();
             await submitOnlineAction("waitAction", { teamIndex });
           }
         });
