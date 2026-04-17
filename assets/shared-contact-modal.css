@@ -1,0 +1,172 @@
+.tasleya-contact-trigger {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: calc(env(safe-area-inset-left, 0px) + 12px);
+  z-index: 2100;
+  border: 1px solid rgba(255, 225, 140, 0.56);
+  border-radius: 999px;
+  min-height: 42px;
+  padding: 0.5rem 0.9rem;
+  background: linear-gradient(180deg, rgba(18, 36, 82, 0.96), rgba(10, 23, 54, 0.96));
+  color: #ffe39b;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+}
+
+.tasleya-contact-trigger:active {
+  transform: translateY(1px);
+}
+
+.tasleya-contact-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(3, 8, 20, 0.74);
+  z-index: 3200;
+}
+
+.tasleya-contact-modal.hidden {
+  display: none !important;
+}
+
+.tasleya-contact-modal.is-open {
+  animation: tasleyaContactFadeIn 220ms ease-out forwards;
+}
+
+.tasleya-contact-modal.is-closing {
+  animation: tasleyaContactFadeOut 180ms ease-in forwards;
+}
+
+.tasleya-contact-modal__content {
+  width: min(560px, 100%);
+  border-radius: 16px;
+  padding: 1rem;
+  background: rgba(8, 18, 45, 0.97);
+  border: 1px solid rgba(255, 225, 140, 0.35);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.4);
+  color: #eef3ff;
+  text-align: right;
+}
+
+.tasleya-contact-modal__content h2 {
+  margin: 0;
+  color: #ffe39b;
+}
+
+.tasleya-contact-modal__subtitle {
+  margin: 0.35rem 0 0;
+  color: rgba(238, 243, 255, 0.9);
+}
+
+.tasleya-contact-modal__label {
+  display: block;
+  margin-top: 0.55rem;
+  margin-bottom: 0.3rem;
+  color: rgba(238, 243, 255, 0.92);
+}
+
+.tasleya-contact-modal__textarea,
+.tasleya-contact-modal__input {
+  width: 100%;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(5, 11, 30, 0.95);
+  color: #eef3ff;
+  font: inherit;
+  padding: 0.64rem 0.72rem;
+}
+
+.tasleya-contact-modal__textarea {
+  min-height: 124px;
+  resize: vertical;
+}
+
+.tasleya-contact-modal__hint,
+.tasleya-contact-modal__privacy {
+  margin: 0.6rem 0 0;
+  color: rgba(226, 236, 255, 0.82);
+  font-size: 0.93rem;
+}
+
+.tasleya-contact-modal__hint a {
+  color: #ffe39b;
+}
+
+.tasleya-contact-modal__feedback {
+  margin: 0.68rem 0 0;
+  min-height: 1.25rem;
+  font-weight: 700;
+}
+
+.tasleya-contact-modal__feedback.is-error {
+  color: #ffb4b4;
+}
+
+.tasleya-contact-modal__feedback.is-success {
+  color: #8ee8a7;
+}
+
+.tasleya-contact-modal__feedback.is-info {
+  color: #ffe39b;
+}
+
+.tasleya-contact-modal__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.72rem;
+}
+
+.tasleya-contact-modal__actions button {
+  border-radius: 11px;
+  min-height: 42px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tasleya-contact-modal__send {
+  background: linear-gradient(180deg, #f6d778 0%, #dfb44d 100%);
+  color: #301f00;
+}
+
+.tasleya-contact-modal__close {
+  border-color: rgba(255, 225, 140, 0.45) !important;
+  color: #ffe39b;
+  background: rgba(13, 26, 63, 0.72);
+}
+
+@keyframes tasleyaContactFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tasleyaContactFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 720px) {
+  .tasleya-contact-trigger {
+    top: calc(env(safe-area-inset-top, 0px) + 10px);
+    left: calc(env(safe-area-inset-left, 0px) + 10px);
+    min-height: 40px;
+    padding: 0.46rem 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  .tasleya-contact-modal {
+    align-items: start;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 58px);
+  }
+
+  .tasleya-contact-modal__actions {
+    grid-template-columns: 1fr;
+  }
+}

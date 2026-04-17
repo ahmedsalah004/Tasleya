@@ -259,6 +259,7 @@ function cacheElements() {
   instructionsModal: document.getElementById("instructionsModal"),
   closeInstructionsBtn: document.getElementById("closeInstructionsBtn"),
   contactBtn: document.getElementById("contactBtn"),
+  gameContactBtn: document.getElementById("gameContactBtn"),
   contactModal: document.getElementById("contactModal"),
   contactForm: document.getElementById("contactForm"),
   contactMessageInput: document.getElementById("contactMessageInput"),
@@ -5392,6 +5393,7 @@ function initializeApp() {
     if (event.target === el.instructionsModal) closeInstructionsModal();
   }, "instructionsModal");
   bindEvent(el.contactBtn, "click", openContactModal, "contactBtn");
+  bindEvent(el.gameContactBtn, "click", openContactModal, "gameContactBtn");
   bindEvent(el.contactForm, "submit", (event) => {
     event.preventDefault();
     submitContactMessage();

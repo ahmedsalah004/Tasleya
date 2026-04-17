@@ -1092,6 +1092,17 @@ body::after {
   touch-action: manipulation;
 }
 
+.game-contact-btn {
+  position: absolute;
+  inset-block-start: max(env(safe-area-inset-top), 0.75rem);
+  inset-inline-end: max(0.75rem, calc((100vw - min(100vw, var(--layout-max))) / 2 + 0.75rem));
+  z-index: 2;
+  min-height: 0;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
 .game-home-btn {
   position: absolute;
   inset-block-start: max(env(safe-area-inset-top), 0.75rem);
