@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>المزاد | تسلية</title>
+    <meta
+      name="description"
+      content="لعبة المزاد من تسلية: صفحة البداية الرسمية للعبة مع تعريف سريع بالقواعد وتجهيز لأسلوب اللعب القادم."
+    />
+    <style>
+      :root {
+        --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
+        --gold-300: #ffe8a0;
+        --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
+        --text-main: #f5f8ff;
+        --text-muted: rgba(228, 238, 255, 0.84);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Tahoma", "Arial", sans-serif;
+        color: var(--text-main);
+        background:
+          radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
+          radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
+          linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
+        padding: clamp(0.9rem, 3vw, 1.6rem);
+      }
+
+      .shell {
+        width: min(980px, 100%);
+        margin: 0 auto;
+      }
+
+      .top-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        text-decoration: none;
+        color: var(--gold-300);
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        background: rgba(14, 27, 67, 0.38);
+      }
+
+      h1 {
+        margin: 1rem 0 0.35rem;
+        font-size: clamp(2rem, 5vw, 3rem);
+        color: var(--gold-400);
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.85;
+      }
+
+      .panel {
+        margin-top: 1rem;
+        border-radius: 24px;
+        border: 1px solid rgba(244, 206, 108, 0.26);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.88));
+        box-shadow: 0 18px 40px rgba(1, 6, 20, 0.5);
+        padding: clamp(1.1rem, 3.6vw, 1.8rem);
+      }
+
+      .build-note {
+        margin: 0 0 1rem;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 215, 110, 0.48);
+        background: rgba(60, 43, 7, 0.38);
+        color: #fff2c4;
+        padding: 0.85rem 0.95rem;
+        line-height: 1.8;
+        font-weight: 700;
+      }
+
+      .rules-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255, 225, 140, 0.35);
+        background: rgba(6, 19, 51, 0.82);
+        padding: 1rem;
+      }
+
+      .rules-title {
+        margin: 0 0 0.8rem;
+        color: #fff2c3;
+        font-size: 1.08rem;
+      }
+
+      .rules-list {
+        margin: 0;
+        padding: 0 1.1rem 0 0;
+        color: var(--text-muted);
+        line-height: 1.9;
+      }
+
+      .rules-list li + li {
+        margin-top: 0.38rem;
+      }
+
+      .cta-wrap {
+        margin-top: 1rem;
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .primary-btn {
+        min-height: 56px;
+        width: 100%;
+        border-radius: 15px;
+        border: 2px solid rgba(244, 206, 108, 0.86);
+        background: linear-gradient(180deg, #f9d679, #d7a943);
+        color: #12264d;
+        font-family: inherit;
+        font-size: 1.05rem;
+        font-weight: 900;
+        cursor: not-allowed;
+        opacity: 0.92;
+      }
+
+      .cta-note {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .top-nav:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 18px rgba(1, 7, 25, 0.32);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
+      <h1>المزاد</h1>
+      <p class="subtitle">
+        لعبة حماسية تعتمد على الثقة بين المزايد والمجيب داخل كل فريق؛ كل قرار في المزاد يرفع التحدي ويقرّب فريقك من النقطة.
+      </p>
+
+      <section class="panel" aria-label="محتوى لعبة المزاد">
+        <p class="build-note">
+          صفحة <strong>المزاد</strong> أصبحت جاهزة كبداية رسمية داخل تسلية. تجربة اللعب الكاملة قيد التطوير الآن لضمان جولات أسرع وتنظيم أوضح للمزايدات.
+        </p>
+
+        <article class="rules-card" aria-label="قواعد المزاد المختصرة">
+          <h2 class="rules-title">القواعد المختصرة</h2>
+          <ol class="rules-list">
+            <li>كل فريق يختار المجيب.</li>
+            <li>زميله يكون المزايد.</li>
+            <li>يظهر السؤال.</li>
+            <li>يبدأ المزاد على عدد الإجابات التي يمكن ذكرها خلال ٦٠ ثانية.</li>
+            <li>الفريق صاحب أعلى مزايدة يحاول تحقيقها.</li>
+            <li>إذا نجح يحصل على نقطة، وإذا فشل تنتقل النقطة للفريق الآخر.</li>
+          </ol>
+        </article>
+
+        <div class="cta-wrap" aria-label="منطقة بدء اللعب">
+          <button class="primary-btn" type="button" disabled>التشغيل التفاعلي قريبًا</button>
+          <p class="cta-note">هذه المنطقة مهيأة لإطلاق جولات المزاد في المرحلة القادمة دون إضافة عناصر لعب وهمية الآن.</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
