@@ -6,7 +6,7 @@
     <title>المزاد | تسلية</title>
     <meta
       name="description"
-      content="لعبة المزاد من تسلية: صفحة البداية الرسمية للعبة مع تعريف سريع بالقواعد وتجهيز لأسلوب اللعب القادم."
+      content="لعبة المزاد من تسلية: تنافس فريقين على مزايدة الإجابات خلال 60 ثانية في جولات سريعة على نفس الجهاز."
     />
     <style>
       :root {
@@ -18,11 +18,11 @@
         --gold-500: #f4ce6c;
         --text-main: #f5f8ff;
         --text-muted: rgba(228, 238, 255, 0.84);
+        --green-400: #45db8f;
+        --red-400: #ff7d7d;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
@@ -36,10 +36,7 @@
         padding: clamp(0.9rem, 3vw, 1.6rem);
       }
 
-      .shell {
-        width: min(980px, 100%);
-        margin: 0 auto;
-      }
+      .shell { width: min(980px, 100%); margin: 0 auto; }
 
       .top-nav {
         display: inline-flex;
@@ -59,14 +56,9 @@
         color: var(--gold-400);
       }
 
-      .subtitle {
-        margin: 0;
-        color: var(--text-muted);
-        line-height: 1.85;
-      }
+      .subtitle { margin: 0 0 1rem; color: var(--text-muted); line-height: 1.8; }
 
       .panel {
-        margin-top: 1rem;
         border-radius: 24px;
         border: 1px solid rgba(244, 206, 108, 0.26);
         background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.88));
@@ -74,105 +66,606 @@
         padding: clamp(1.1rem, 3.6vw, 1.8rem);
       }
 
-      .build-note {
-        margin: 0 0 1rem;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 215, 110, 0.48);
-        background: rgba(60, 43, 7, 0.38);
-        color: #fff2c4;
-        padding: 0.85rem 0.95rem;
-        line-height: 1.8;
-        font-weight: 700;
-      }
-
-      .rules-card {
-        border-radius: 18px;
-        border: 1px solid rgba(255, 225, 140, 0.35);
-        background: rgba(6, 19, 51, 0.82);
-        padding: 1rem;
-      }
-
-      .rules-title {
-        margin: 0 0 0.8rem;
-        color: #fff2c3;
-        font-size: 1.08rem;
-      }
-
-      .rules-list {
-        margin: 0;
-        padding: 0 1.1rem 0 0;
-        color: var(--text-muted);
-        line-height: 1.9;
-      }
-
-      .rules-list li + li {
-        margin-top: 0.38rem;
-      }
-
-      .cta-wrap {
-        margin-top: 1rem;
+      .status-strip {
         display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 0.7rem;
+        margin-bottom: 1rem;
       }
 
-      .primary-btn {
-        min-height: 56px;
-        width: 100%;
-        border-radius: 15px;
-        border: 2px solid rgba(244, 206, 108, 0.86);
-        background: linear-gradient(180deg, #f9d679, #d7a943);
-        color: #12264d;
+      .status-pill {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.4);
+        background: rgba(3, 12, 35, 0.8);
+        padding: 0.7rem 0.85rem;
+      }
+
+      .status-label { color: var(--text-muted); font-size: 0.84rem; margin: 0; }
+      .status-value { margin: 0.25rem 0 0; font-size: 1.3rem; font-weight: 900; color: #fff2c3; }
+
+      .score-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+        margin-bottom: 1rem;
+      }
+
+      .score-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.45);
+        background: rgba(8, 19, 50, 0.88);
+        padding: 0.9rem;
+      }
+
+      .score-card h3 { margin: 0; color: #fff2c3; font-size: 1rem; }
+      .score-card p { margin: 0.3rem 0 0; font-size: 1.9rem; font-weight: 900; }
+
+      .phase-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255, 225, 140, 0.32);
+        background: rgba(4, 16, 45, 0.84);
+        padding: 1rem;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 220ms ease, transform 220ms ease;
+      }
+
+      .phase-card.visible { opacity: 1; transform: translateY(0); }
+      .hidden { display: none !important; }
+
+      .phase-title {
+        margin: 0 0 0.7rem;
+        color: #fff2c3;
+        font-size: clamp(1.15rem, 2.9vw, 1.35rem);
+      }
+
+      .question-box {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.36);
+        background: rgba(8, 25, 62, 0.88);
+        padding: 0.95rem;
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .question-category { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+      .question-prompt { margin: 0; font-size: 1.18rem; font-weight: 800; line-height: 1.75; }
+
+      .roles-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 0.8rem;
+      }
+
+      .role-team {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.34);
+        background: rgba(8, 25, 62, 0.75);
+        padding: 0.75rem;
+      }
+
+      .role-team h4 { margin: 0 0 0.6rem; color: #fff2c3; }
+
+      .role-options { display: grid; gap: 0.45rem; }
+
+      .role-option {
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.36);
+        background: rgba(11, 24, 59, 0.85);
+        color: var(--text-main);
+        padding: 0.6rem 0.7rem;
+        text-align: right;
+        font-family: inherit;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      .role-option.active {
+        border-color: rgba(83, 230, 160, 0.9);
+        box-shadow: 0 0 0 2px rgba(83, 230, 160, 0.22);
+        background: linear-gradient(180deg, rgba(18, 66, 49, 0.82), rgba(9, 38, 29, 0.78));
+      }
+
+      .role-meta { margin: 0.65rem 0 0; color: var(--text-muted); }
+
+      .bid-board {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.36);
+        background: rgba(8, 25, 62, 0.85);
+        padding: 0.9rem;
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .turn-pill {
+        border-radius: 999px;
+        border: 1px solid rgba(83, 230, 160, 0.7);
+        background: rgba(9, 38, 29, 0.82);
+        padding: 0.55rem 0.85rem;
+        font-weight: 800;
+        width: fit-content;
+      }
+
+      .bid-value { margin: 0; font-size: clamp(1.4rem, 4.5vw, 2rem); font-weight: 900; color: #fff2c3; }
+
+      .bid-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+        align-items: center;
+      }
+
+      .bid-input {
+        width: 130px;
+        min-height: 52px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.6);
+        background: rgba(3, 12, 35, 0.92);
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .action-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.6rem;
+        margin-top: 0.9rem;
+      }
+
+      .btn {
+        min-height: 58px;
+        border-radius: 14px;
+        border: 2px solid transparent;
         font-family: inherit;
         font-size: 1.05rem;
-        font-weight: 900;
-        cursor: not-allowed;
-        opacity: 0.92;
+        font-weight: 800;
+        cursor: pointer;
       }
 
-      .cta-note {
+      .btn-primary {
+        border-color: rgba(244, 206, 108, 0.9);
+        background: linear-gradient(180deg, #f9d679, #d7a943);
+        color: #12264d;
+      }
+
+      .btn-secondary {
+        border-color: rgba(255, 225, 140, 0.42);
+        background: rgba(11, 24, 59, 0.86);
+        color: #fff;
+      }
+
+      .btn-success {
+        border-color: rgba(83, 230, 160, 0.8);
+        background: rgba(9, 60, 41, 0.9);
+        color: #dcffef;
+      }
+
+      .btn-danger {
+        border-color: rgba(255, 125, 125, 0.8);
+        background: rgba(83, 16, 28, 0.9);
+        color: #ffd8d8;
+      }
+
+      .timer {
+        font-size: clamp(2rem, 7vw, 2.8rem);
         margin: 0;
-        color: var(--text-muted);
-        font-size: 0.95rem;
+        font-weight: 900;
+        color: #fff2c3;
       }
 
-      @media (hover: hover) and (pointer: fine) {
-        .top-nav:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 8px 18px rgba(1, 7, 25, 0.32);
-        }
+      .target {
+        margin: 0;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.48);
+        background: rgba(3, 12, 35, 0.82);
+        padding: 0.65rem 0.78rem;
+        font-size: 1.05rem;
+        font-weight: 800;
+      }
+
+      .result-text {
+        margin: 0;
+        border-radius: 12px;
+        border: 1px solid rgba(83, 230, 160, 0.45);
+        background: rgba(9, 38, 29, 0.55);
+        padding: 0.65rem 0.8rem;
+        color: #dcffef;
+      }
+
+      @media (max-width: 640px) {
+        .score-grid { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
     <main class="shell">
-      <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
+      <a class="top-nav" href="/games/">← العودة للألعاب</a>
       <h1>المزاد</h1>
-      <p class="subtitle">
-        لعبة حماسية تعتمد على الثقة بين المزايد والمجيب داخل كل فريق؛ كل قرار في المزاد يرفع التحدي ويقرّب فريقك من النقطة.
-      </p>
+      <p class="subtitle">نسخة قابلة للعب على نفس الجهاز لفريقين، 10 أسئلة في الجولة، وكل سؤال بنقطة واحدة.</p>
 
-      <section class="panel" aria-label="محتوى لعبة المزاد">
-        <p class="build-note">
-          صفحة <strong>المزاد</strong> أصبحت جاهزة كبداية رسمية داخل تسلية. تجربة اللعب الكاملة قيد التطوير الآن لضمان جولات أسرع وتنظيم أوضح للمزايدات.
-        </p>
-
-        <article class="rules-card" aria-label="قواعد المزاد المختصرة">
-          <h2 class="rules-title">القواعد المختصرة</h2>
-          <ol class="rules-list">
-            <li>كل فريق يختار المجيب.</li>
-            <li>زميله يكون المزايد.</li>
-            <li>يظهر السؤال.</li>
-            <li>يبدأ المزاد على عدد الإجابات التي يمكن ذكرها خلال ٦٠ ثانية.</li>
-            <li>الفريق صاحب أعلى مزايدة يحاول تحقيقها.</li>
-            <li>إذا نجح يحصل على نقطة، وإذا فشل تنتقل النقطة للفريق الآخر.</li>
-          </ol>
-        </article>
-
-        <div class="cta-wrap" aria-label="منطقة بدء اللعب">
-          <button class="primary-btn" type="button" disabled>التشغيل التفاعلي قريبًا</button>
-          <p class="cta-note">هذه المنطقة مهيأة لإطلاق جولات المزاد في المرحلة القادمة دون إضافة عناصر لعب وهمية الآن.</p>
+      <section class="panel" aria-live="polite">
+        <div class="status-strip">
+          <article class="status-pill">
+            <p class="status-label">السؤال الحالي</p>
+            <p id="questionCounter" class="status-value">1 / 10</p>
+          </article>
+          <article class="status-pill">
+            <p class="status-label">المزايدة الحالية</p>
+            <p id="currentBid" class="status-value">0</p>
+          </article>
+          <article class="status-pill">
+            <p class="status-label">دور المزاد</p>
+            <p id="turnLabel" class="status-value">-</p>
+          </article>
         </div>
+
+        <div class="score-grid">
+          <article class="score-card"><h3>الفريق الأول</h3><p id="team1Score">0</p></article>
+          <article class="score-card"><h3>الفريق الثاني</h3><p id="team2Score">0</p></article>
+        </div>
+
+        <section id="phaseRole" class="phase-card visible">
+          <h2 class="phase-title">اختر المجيب</h2>
+          <div class="roles-grid">
+            <article class="role-team">
+              <h4>الفريق الأول</h4>
+              <div class="role-options">
+                <button class="role-option" data-team="0" data-player="0" type="button">المجيب: لاعب 1</button>
+                <button class="role-option" data-team="0" data-player="1" type="button">المجيب: لاعب 2</button>
+              </div>
+              <p id="team1Roles" class="role-meta">المجيب: - | المزايد: -</p>
+            </article>
+            <article class="role-team">
+              <h4>الفريق الثاني</h4>
+              <div class="role-options">
+                <button class="role-option" data-team="1" data-player="0" type="button">المجيب: لاعب 1</button>
+                <button class="role-option" data-team="1" data-player="1" type="button">المجيب: لاعب 2</button>
+              </div>
+              <p id="team2Roles" class="role-meta">المجيب: - | المزايد: -</p>
+            </article>
+          </div>
+          <div class="action-row"><button id="revealBtn" class="btn btn-primary" type="button">إظهار السؤال</button></div>
+        </section>
+
+        <section id="phaseReveal" class="phase-card hidden">
+          <h2 class="phase-title">السؤال ظاهر الآن</h2>
+          <div class="question-box">
+            <p id="questionCategory" class="question-category"></p>
+            <p id="questionPrompt" class="question-prompt"></p>
+          </div>
+          <div class="action-row"><button id="startBidBtn" class="btn btn-primary" type="button">يبدأ المزاد</button></div>
+        </section>
+
+        <section id="phaseBidding" class="phase-card hidden">
+          <h2 class="phase-title">يبدأ المزاد</h2>
+          <div class="bid-board">
+            <p id="turnPill" class="turn-pill">مزايدة الفريق الأول</p>
+            <p id="bidInfo" class="bid-value">أعلى مزايدة: 0</p>
+            <div class="bid-controls">
+              <label for="bidInput">المزايدة التالية</label>
+              <input id="bidInput" class="bid-input" type="number" min="1" step="1" value="1" />
+            </div>
+          </div>
+          <div class="action-row">
+            <button id="raiseBidBtn" class="btn btn-primary" type="button">مزايدة الفريق الأول</button>
+            <button id="stopBidBtn" class="btn btn-secondary" type="button">توقف</button>
+          </div>
+        </section>
+
+        <section id="phaseAttemptReady" class="phase-card hidden">
+          <h2 class="phase-title">الاستعداد للمحاولة</h2>
+          <p id="attemptTeamText" class="target"></p>
+          <p id="attemptTargetText" class="target">الهدف: 0</p>
+          <div class="action-row"><button id="startAttemptBtn" class="btn btn-primary" type="button">أجب الآن</button></div>
+        </section>
+
+        <section id="phaseAttempt" class="phase-card hidden">
+          <h2 class="phase-title">أجب الآن</h2>
+          <p class="target" id="timerTarget">الهدف: 0</p>
+          <p class="timer"><span>الوقت المتبقي:</span> <span id="timerText">60</span></p>
+        </section>
+
+        <section id="phaseJudge" class="phase-card hidden">
+          <h2 class="phase-title">اختيار الحكم</h2>
+          <p id="judgeHint" class="target"></p>
+          <div class="action-row">
+            <button id="correctBtn" class="btn btn-success" type="button">إجابة صحيحة</button>
+            <button id="otherPointBtn" class="btn btn-danger" type="button">نقطة للفريق الآخر</button>
+          </div>
+        </section>
+
+        <section id="phaseBetween" class="phase-card hidden">
+          <h2 class="phase-title">تحديث النتيجة</h2>
+          <p id="betweenText" class="result-text"></p>
+          <div class="action-row"><button id="nextQuestionBtn" class="btn btn-primary" type="button">السؤال التالي</button></div>
+        </section>
+
+        <section id="phaseFinal" class="phase-card hidden">
+          <h2 class="phase-title">النتيجة النهائية</h2>
+          <p id="finalText" class="result-text"></p>
+          <div class="action-row">
+            <button id="restartBtn" class="btn btn-primary" type="button">العب مرة أخرى</button>
+            <a class="btn btn-secondary" href="/games/" style="display:grid;place-items:center;text-decoration:none;">العودة للألعاب</a>
+          </div>
+        </section>
       </section>
     </main>
+
+    <script src="/games/auction/data.js"></script>
+    <script>
+      const TOTAL_QUESTIONS = 10;
+      const TEAMS = ["الفريق الأول", "الفريق الثاني"];
+      const PLAYERS = ["لاعب 1", "لاعب 2"];
+
+      const state = {
+        questionIndex: 0,
+        scores: [0, 0],
+        questions: [],
+        phase: "roleSelection",
+        roles: [null, null],
+        bid: { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null },
+        attempt: { team: null, target: 0 },
+        timerValue: 60,
+        timerId: null,
+      };
+
+      const el = {
+        questionCounter: document.getElementById("questionCounter"),
+        currentBid: document.getElementById("currentBid"),
+        turnLabel: document.getElementById("turnLabel"),
+        team1Score: document.getElementById("team1Score"),
+        team2Score: document.getElementById("team2Score"),
+        team1Roles: document.getElementById("team1Roles"),
+        team2Roles: document.getElementById("team2Roles"),
+        roleButtons: Array.from(document.querySelectorAll(".role-option")),
+        revealBtn: document.getElementById("revealBtn"),
+        questionCategory: document.getElementById("questionCategory"),
+        questionPrompt: document.getElementById("questionPrompt"),
+        startBidBtn: document.getElementById("startBidBtn"),
+        turnPill: document.getElementById("turnPill"),
+        bidInfo: document.getElementById("bidInfo"),
+        bidInput: document.getElementById("bidInput"),
+        raiseBidBtn: document.getElementById("raiseBidBtn"),
+        stopBidBtn: document.getElementById("stopBidBtn"),
+        attemptTeamText: document.getElementById("attemptTeamText"),
+        attemptTargetText: document.getElementById("attemptTargetText"),
+        startAttemptBtn: document.getElementById("startAttemptBtn"),
+        timerText: document.getElementById("timerText"),
+        timerTarget: document.getElementById("timerTarget"),
+        judgeHint: document.getElementById("judgeHint"),
+        correctBtn: document.getElementById("correctBtn"),
+        otherPointBtn: document.getElementById("otherPointBtn"),
+        betweenText: document.getElementById("betweenText"),
+        nextQuestionBtn: document.getElementById("nextQuestionBtn"),
+        finalText: document.getElementById("finalText"),
+        restartBtn: document.getElementById("restartBtn"),
+        phaseRole: document.getElementById("phaseRole"),
+        phaseReveal: document.getElementById("phaseReveal"),
+        phaseBidding: document.getElementById("phaseBidding"),
+        phaseAttemptReady: document.getElementById("phaseAttemptReady"),
+        phaseAttempt: document.getElementById("phaseAttempt"),
+        phaseJudge: document.getElementById("phaseJudge"),
+        phaseBetween: document.getElementById("phaseBetween"),
+        phaseFinal: document.getElementById("phaseFinal"),
+      };
+
+      function shuffle(arr) {
+        const clone = [...arr];
+        for (let i = clone.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [clone[i], clone[j]] = [clone[j], clone[i]];
+        }
+        return clone;
+      }
+
+      function getQuestion() {
+        return state.questions[state.questionIndex];
+      }
+
+      function setPhase(name) {
+        state.phase = name;
+        const map = {
+          roleSelection: el.phaseRole,
+          reveal: el.phaseReveal,
+          bidding: el.phaseBidding,
+          attemptReady: el.phaseAttemptReady,
+          attempt: el.phaseAttempt,
+          judge: el.phaseJudge,
+          between: el.phaseBetween,
+          final: el.phaseFinal,
+        };
+
+        Object.values(map).forEach((node) => {
+          node.classList.add("hidden");
+          node.classList.remove("visible");
+        });
+
+        const currentNode = map[name];
+        if (currentNode) {
+          currentNode.classList.remove("hidden");
+          requestAnimationFrame(() => currentNode.classList.add("visible"));
+        }
+      }
+
+      function formatRoles(teamIndex) {
+        const role = state.roles[teamIndex];
+        if (role == null) return "المجيب: - | المزايد: -";
+        const bidder = role === 0 ? 1 : 0;
+        return `المجيب: ${PLAYERS[role]} | المزايد: ${PLAYERS[bidder]}`;
+      }
+
+      function updateHeader() {
+        el.questionCounter.textContent = `${Math.min(state.questionIndex + 1, TOTAL_QUESTIONS)} / ${TOTAL_QUESTIONS}`;
+        el.currentBid.textContent = String(state.bid.current);
+        el.team1Score.textContent = String(state.scores[0]);
+        el.team2Score.textContent = String(state.scores[1]);
+        el.team1Roles.textContent = formatRoles(0);
+        el.team2Roles.textContent = formatRoles(1);
+
+        if (state.phase === "bidding") {
+          el.turnLabel.textContent = state.bid.turnTeam === 0 ? "الفريق الأول" : "الفريق الثاني";
+        } else {
+          el.turnLabel.textContent = "-";
+        }
+      }
+
+      function startRound() {
+        state.roles = [null, null];
+        state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
+        state.attempt = { team: null, target: 0 };
+        el.roleButtons.forEach((btn) => btn.classList.remove("active"));
+        const q = getQuestion();
+        el.questionCategory.textContent = `الفئة: ${q.category}`;
+        el.questionPrompt.textContent = q.prompt;
+        setPhase("roleSelection");
+        updateHeader();
+      }
+
+      function resetGame() {
+        const source = Array.isArray(window.AUCTION_QUESTION_BANK) ? window.AUCTION_QUESTION_BANK : [];
+        state.questions = shuffle(source).slice(0, TOTAL_QUESTIONS);
+        if (state.questions.length < TOTAL_QUESTIONS) {
+          const fallback = [];
+          while (fallback.length < TOTAL_QUESTIONS) {
+            fallback.push(...source);
+          }
+          state.questions = shuffle(fallback).slice(0, TOTAL_QUESTIONS);
+        }
+        state.questionIndex = 0;
+        state.scores = [0, 0];
+        clearInterval(state.timerId);
+        state.timerId = null;
+        startRound();
+      }
+
+      function beginBidding() {
+        state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
+        el.bidInput.value = "1";
+        renderBidding();
+        setPhase("bidding");
+      }
+
+      function renderBidding() {
+        const teamName = state.bid.turnTeam === 0 ? "الفريق الأول" : "الفريق الثاني";
+        const minValue = state.bid.current + 1;
+        el.turnPill.textContent = state.bid.turnTeam === 0 ? "مزايدة الفريق الأول" : "مزايدة الفريق الثاني";
+        el.raiseBidBtn.textContent = state.bid.turnTeam === 0 ? "مزايدة الفريق الأول" : "مزايدة الفريق الثاني";
+        el.bidInfo.textContent = `أعلى مزايدة: ${state.bid.current}`;
+        el.bidInput.min = String(minValue);
+        if (Number(el.bidInput.value) < minValue) {
+          el.bidInput.value = String(minValue);
+        }
+        el.currentBid.textContent = String(state.bid.current);
+        el.turnLabel.textContent = teamName;
+      }
+
+      function lockAttemptFromBidStop() {
+        const winner = state.bid.current === 0 ? 1 - state.bid.turnTeam : 1 - state.bid.stoppedTeam;
+        const target = Math.max(1, state.bid.current);
+        state.attempt = { team: winner, target };
+        el.attemptTeamText.textContent = `${TEAMS[winner]} حصل على المحاولة.`;
+        el.attemptTargetText.textContent = `الهدف: ${target}`;
+        setPhase("attemptReady");
+        updateHeader();
+      }
+
+      function startAttemptTimer() {
+        state.timerValue = 60;
+        el.timerText.textContent = "60";
+        el.timerTarget.textContent = `الهدف: ${state.attempt.target}`;
+        setPhase("attempt");
+        clearInterval(state.timerId);
+        state.timerId = setInterval(() => {
+          state.timerValue -= 1;
+          el.timerText.textContent = String(Math.max(0, state.timerValue));
+          if (state.timerValue <= 0) {
+            clearInterval(state.timerId);
+            state.timerId = null;
+            el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. اختر نتيجة الحكم.`;
+            setPhase("judge");
+          }
+        }, 1000);
+      }
+
+      function applyJudgeResult(success) {
+        const attemptTeam = state.attempt.team;
+        const pointTeam = success ? attemptTeam : 1 - attemptTeam;
+        state.scores[pointTeam] += 1;
+        updateHeader();
+
+        if (state.questionIndex >= TOTAL_QUESTIONS - 1) {
+          const diff = state.scores[0] - state.scores[1];
+          if (diff === 0) {
+            el.finalText.textContent = `تعادل! الفريق الأول ${state.scores[0]} - الفريق الثاني ${state.scores[1]}`;
+          } else {
+            const winnerLabel = diff > 0 ? "الفريق الأول" : "الفريق الثاني";
+            el.finalText.textContent = `${winnerLabel} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
+          }
+          setPhase("final");
+          return;
+        }
+
+        const resultLine = success
+          ? `${TEAMS[attemptTeam]} حقق الهدف وحصل على نقطة.`
+          : `${TEAMS[attemptTeam]} لم يحقق الهدف، نقطة للفريق الآخر.`;
+        el.betweenText.textContent = resultLine;
+        setPhase("between");
+      }
+
+      el.roleButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const team = Number(btn.dataset.team);
+          const player = Number(btn.dataset.player);
+          state.roles[team] = player;
+          el.roleButtons
+            .filter((b) => Number(b.dataset.team) === team)
+            .forEach((b) => b.classList.toggle("active", b === btn));
+          updateHeader();
+        });
+      });
+
+      el.revealBtn.addEventListener("click", () => {
+        if (state.roles.includes(null)) {
+          alert("اختر المجيب لكل فريق أولًا.");
+          return;
+        }
+        setPhase("reveal");
+      });
+
+      el.startBidBtn.addEventListener("click", beginBidding);
+
+      el.raiseBidBtn.addEventListener("click", () => {
+        const minValue = state.bid.current + 1;
+        const value = Number(el.bidInput.value);
+        if (!Number.isInteger(value) || value < minValue) {
+          el.bidInput.value = String(minValue);
+          return;
+        }
+        state.bid.current = value;
+        state.bid.leadingTeam = state.bid.turnTeam;
+        state.bid.turnTeam = 1 - state.bid.turnTeam;
+        renderBidding();
+      });
+
+      el.stopBidBtn.addEventListener("click", () => {
+        state.bid.stoppedTeam = state.bid.turnTeam;
+        lockAttemptFromBidStop();
+      });
+
+      el.startAttemptBtn.addEventListener("click", startAttemptTimer);
+      el.correctBtn.addEventListener("click", () => applyJudgeResult(true));
+      el.otherPointBtn.addEventListener("click", () => applyJudgeResult(false));
+
+      el.nextQuestionBtn.addEventListener("click", () => {
+        state.questionIndex += 1;
+        startRound();
+      });
+
+      el.restartBtn.addEventListener("click", resetGame);
+
+      resetGame();
+    </script>
   </body>
 </html>
