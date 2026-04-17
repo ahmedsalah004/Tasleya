@@ -306,7 +306,7 @@
           <article class="score-card"><h3>الفريق الثاني</h3><p id="team2Score">0</p></article>
         </div>
 
-        <section id="phaseRole" class="phase-card visible">
+        <section id="phaseRole" class="phase-card hidden">
           <h2 class="phase-title">اختر المجيب</h2>
           <div class="roles-grid">
             <article class="role-team">
@@ -390,6 +390,19 @@
             <a class="btn btn-secondary" href="/games/" style="display:grid;place-items:center;text-decoration:none;">العودة للألعاب</a>
           </div>
         </section>
+
+        <section id="phaseLoading" class="phase-card visible">
+          <h2 class="phase-title">تحميل بيانات المزاد</h2>
+          <p class="target">جارٍ تحميل بنك الأسئلة من Google Sheets...</p>
+        </section>
+
+        <section id="phaseDataState" class="phase-card hidden">
+          <h2 id="dataStateTitle" class="phase-title">تعذر بدء اللعبة</h2>
+          <p id="dataStateMessage" class="result-text"></p>
+          <div class="action-row">
+            <button id="retryLoadBtn" class="btn btn-primary" type="button">إعادة المحاولة</button>
+          </div>
+        </section>
       </section>
     </main>
 
@@ -409,6 +422,7 @@
         attempt: { team: null, target: 0 },
         timerValue: 60,
         timerId: null,
+        questionBank: [],
       };
 
       const el = {
@@ -449,6 +463,11 @@
         phaseJudge: document.getElementById("phaseJudge"),
         phaseBetween: document.getElementById("phaseBetween"),
         phaseFinal: document.getElementById("phaseFinal"),
+        phaseLoading: document.getElementById("phaseLoading"),
+        phaseDataState: document.getElementById("phaseDataState"),
+        dataStateTitle: document.getElementById("dataStateTitle"),
+        dataStateMessage: document.getElementById("dataStateMessage"),
+        retryLoadBtn: document.getElementById("retryLoadBtn"),
       };
 
       function shuffle(arr) {
@@ -475,6 +494,8 @@
           judge: el.phaseJudge,
           between: el.phaseBetween,
           final: el.phaseFinal,
+          loading: el.phaseLoading,
+          dataState: el.phaseDataState,
         };
 
         Object.values(map).forEach((node) => {
@@ -524,7 +545,7 @@
       }
 
       function resetGame() {
-        const source = Array.isArray(window.AUCTION_QUESTION_BANK) ? window.AUCTION_QUESTION_BANK : [];
+        const source = state.questionBank;
         state.questions = shuffle(source).slice(0, TOTAL_QUESTIONS);
         if (state.questions.length < TOTAL_QUESTIONS) {
           const fallback = [];
@@ -538,6 +559,45 @@
         clearInterval(state.timerId);
         state.timerId = null;
         startRound();
+      }
+
+      function setDataState({ title, message, canRetry }) {
+        el.dataStateTitle.textContent = title;
+        el.dataStateMessage.textContent = message;
+        el.retryLoadBtn.classList.toggle("hidden", !canRetry);
+        setPhase("dataState");
+      }
+
+      async function initializeQuestions() {
+        setPhase("loading");
+
+        try {
+          const dataSource = window.AuctionQuestionDataSource;
+          if (!dataSource || typeof dataSource.loadAuctionQuestions !== "function") {
+            throw new Error("AUCTION_DATA_SOURCE_MISSING");
+          }
+
+          const loadedQuestions = await dataSource.loadAuctionQuestions();
+          state.questionBank = loadedQuestions;
+
+          if (!state.questionBank.length) {
+            setDataState({
+              title: "لا توجد أسئلة متاحة",
+              message: "تم تحميل الملف، لكن لا توجد صفوف نشطة وصالحة للعب حاليًا.",
+              canRetry: false,
+            });
+            return;
+          }
+
+          resetGame();
+        } catch (error) {
+          console.error("[auction] Failed to load questions from Google Sheets CSV", error);
+          setDataState({
+            title: "تعذر بدء اللعبة",
+            message: "تعذر تحميل بنك الأسئلة من Google Sheets. حاول مرة أخرى.",
+            canRetry: true,
+          });
+        }
       }
 
       function beginBidding() {
@@ -664,8 +724,9 @@
       });
 
       el.restartBtn.addEventListener("click", resetGame);
+      el.retryLoadBtn.addEventListener("click", initializeQuestions);
 
-      resetGame();
+      initializeQuestions();
     </script>
   </body>
 </html>
