@@ -100,6 +100,78 @@
       .score-card h3 { margin: 0; color: #fff2c3; font-size: 1rem; }
       .score-card p { margin: 0.3rem 0 0; font-size: 1.9rem; font-weight: 900; }
 
+      .judge-assist-wrap {
+        margin-bottom: 1rem;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 225, 140, 0.22);
+        background: rgba(5, 15, 39, 0.55);
+        padding: 0.7rem;
+      }
+
+      .judge-assist-toggle {
+        width: 100%;
+        min-height: 46px;
+        border-radius: 12px;
+        border: 1px dashed rgba(255, 225, 140, 0.42);
+        background: rgba(7, 20, 52, 0.64);
+        color: var(--text-muted);
+        font-family: inherit;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-align: right;
+        cursor: pointer;
+        padding: 0.55rem 0.75rem;
+      }
+
+      .judge-assist-toggle:hover {
+        color: #fff2c3;
+        border-color: rgba(255, 225, 140, 0.6);
+      }
+
+      .judge-assist-panel {
+        margin-top: 0.6rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.25);
+        background: rgba(3, 12, 35, 0.72);
+        padding: 0.75rem;
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .judge-assist-heading {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--text-muted);
+      }
+
+      .judge-assist-value {
+        margin: 0;
+        color: #f5f8ff;
+        line-height: 1.7;
+      }
+
+      .judge-assist-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 0.45rem;
+      }
+
+      .judge-assist-list li {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 225, 140, 0.26);
+        background: rgba(8, 25, 62, 0.76);
+        padding: 0.4rem 0.55rem;
+        font-size: 0.94rem;
+      }
+
+      .judge-assist-notes {
+        border-top: 1px solid rgba(255, 225, 140, 0.2);
+        padding-top: 0.55rem;
+      }
+
       .phase-card {
         border-radius: 18px;
         border: 1px solid rgba(255, 225, 140, 0.32);
@@ -396,6 +468,9 @@
         .phase-card { padding: 0.9rem; }
         .status-value { font-size: 1.12rem; }
         .action-row { grid-template-columns: 1fr; }
+        .judge-assist-wrap { padding: 0.6rem; }
+        .judge-assist-toggle { min-height: 50px; font-size: 1rem; }
+        .judge-assist-list { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -429,6 +504,27 @@
           <article class="score-card"><h3>الفريق الأول</h3><p id="team1Score">0</p></article>
           <article class="score-card"><h3>الفريق الثاني</h3><p id="team2Score">0</p></article>
         </div>
+
+        <section class="judge-assist-wrap" aria-label="مرجع الحكم">
+          <button id="judgeAssistToggle" class="judge-assist-toggle" type="button" aria-expanded="false" aria-controls="judgeAssistPanel">
+            إظهار مرجع الحكم
+          </button>
+          <div id="judgeAssistPanel" class="judge-assist-panel hidden">
+            <p class="judge-assist-heading">الفئة</p>
+            <p id="judgeAssistCategory" class="judge-assist-value">-</p>
+
+            <p class="judge-assist-heading">السؤال</p>
+            <p id="judgeAssistPrompt" class="judge-assist-value">-</p>
+
+            <p class="judge-assist-heading">الإجابات المقبولة</p>
+            <ul id="judgeAssistAnswers" class="judge-assist-list"></ul>
+
+            <div class="judge-assist-notes">
+              <p class="judge-assist-heading">ملاحظات الحكم</p>
+              <p id="judgeAssistNotes" class="judge-assist-value">لا توجد ملاحظات إضافية.</p>
+            </div>
+          </div>
+        </section>
 
         <section id="phaseRole" class="phase-card hidden">
           <h2 class="phase-title">اختر المجيب</h2>
@@ -618,7 +714,52 @@
         dataStateTitle: document.getElementById("dataStateTitle"),
         dataStateMessage: document.getElementById("dataStateMessage"),
         retryLoadBtn: document.getElementById("retryLoadBtn"),
+        judgeAssistToggle: document.getElementById("judgeAssistToggle"),
+        judgeAssistPanel: document.getElementById("judgeAssistPanel"),
+        judgeAssistCategory: document.getElementById("judgeAssistCategory"),
+        judgeAssistPrompt: document.getElementById("judgeAssistPrompt"),
+        judgeAssistAnswers: document.getElementById("judgeAssistAnswers"),
+        judgeAssistNotes: document.getElementById("judgeAssistNotes"),
       };
+
+      function getAcceptedAnswers(question) {
+        if (!question || typeof question !== "object") return [];
+        const source = Array.isArray(question.acceptedAnswers)
+          ? question.acceptedAnswers
+          : Array.isArray(question.accepted_answers)
+            ? question.accepted_answers
+            : [];
+        return source.map((item) => String(item ?? "").trim()).filter(Boolean);
+      }
+
+      function setJudgePanelExpanded(expanded) {
+        el.judgeAssistPanel.classList.toggle("hidden", !expanded);
+        el.judgeAssistToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+        el.judgeAssistToggle.textContent = expanded ? "إخفاء مرجع الحكم" : "إظهار مرجع الحكم";
+      }
+
+      function renderJudgeAssistReference(question) {
+        if (!question) return;
+        const acceptedAnswers = getAcceptedAnswers(question);
+        el.judgeAssistCategory.textContent = question.category || "-";
+        el.judgeAssistPrompt.textContent = question.prompt || "-";
+        el.judgeAssistAnswers.innerHTML = "";
+
+        if (!acceptedAnswers.length) {
+          const listItem = document.createElement("li");
+          listItem.textContent = "لا توجد إجابات مقبولة مسجلة.";
+          el.judgeAssistAnswers.appendChild(listItem);
+        } else {
+          acceptedAnswers.forEach((answer) => {
+            const listItem = document.createElement("li");
+            listItem.textContent = answer;
+            el.judgeAssistAnswers.appendChild(listItem);
+          });
+        }
+
+        const notes = String(question.notes || "").trim();
+        el.judgeAssistNotes.textContent = notes || "لا توجد ملاحظات إضافية.";
+      }
 
       function shuffle(arr) {
         const clone = [...arr];
@@ -658,6 +799,9 @@
           currentNode.classList.remove("hidden");
           requestAnimationFrame(() => currentNode.classList.add("visible"));
         }
+
+        const shouldSurfaceJudgePanel = ["attemptReady", "attempt", "judge"].includes(name);
+        setJudgePanelExpanded(shouldSurfaceJudgePanel);
       }
 
       function formatRoles(teamIndex) {
@@ -692,6 +836,7 @@
         const q = getQuestion();
         el.questionCategory.textContent = `الفئة: ${q.category}`;
         el.questionPrompt.textContent = q.prompt;
+        renderJudgeAssistReference(q);
         setPhase("roleSelection");
         updateHeader();
       }
@@ -891,6 +1036,10 @@
 
       el.restartBtn.addEventListener("click", resetGame);
       el.retryLoadBtn.addEventListener("click", initializeQuestions);
+      el.judgeAssistToggle.addEventListener("click", () => {
+        const isExpanded = el.judgeAssistToggle.getAttribute("aria-expanded") === "true";
+        setJudgePanelExpanded(!isExpanded);
+      });
 
       initializeQuestions();
     </script>

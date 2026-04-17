@@ -36,9 +36,12 @@
   function transformApiQuestions(rawQuestions) {
     return rawQuestions
       .map((row) => {
-        const acceptedAnswers = Array.isArray(row && row.accepted_answers)
-          ? row.accepted_answers.map((item) => normalizeCell(item)).filter(Boolean)
-          : [];
+        const acceptedAnswersRaw = Array.isArray(row && row.accepted_answers)
+          ? row.accepted_answers
+          : Array.isArray(row && row.acceptedAnswers)
+            ? row.acceptedAnswers
+            : [];
+        const acceptedAnswers = acceptedAnswersRaw.map((item) => normalizeCell(item)).filter(Boolean);
         const difficultyValue = Number.parseInt(normalizeCell(row && row.difficulty), 10);
 
         return {
