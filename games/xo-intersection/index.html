@@ -740,6 +740,7 @@
         modeBoardOrder: [],
         modeBoardOrderPosition: 0,
         usedBoardIdsInCurrentCycle: [],
+        usedBoardIdsHistory: [],
         selectedBoard: null,
         boardCells: [],
         currentTurnTeamIndex: 0,
@@ -1013,6 +1014,20 @@
         state.usedBoardIdsInCurrentCycle = [];
       }
 
+      function sanitizeUsedBoardHistory(savedHistory) {
+        const availableBoardIds = new Set(state.filteredBoardsForSelectedMode.map((row) => row.board_id).filter(Boolean));
+        if (!availableBoardIds.size) return [];
+        const seen = new Set();
+        const normalizedHistory = Array.isArray(savedHistory) ? savedHistory : [];
+        const sanitized = [];
+        normalizedHistory.forEach((boardId) => {
+          if (typeof boardId !== "string" || !availableBoardIds.has(boardId) || seen.has(boardId)) return;
+          seen.add(boardId);
+          sanitized.push(boardId);
+        });
+        return sanitized;
+      }
+
       function shuffleInPlace(list) {
         for (let i = list.length - 1; i > 0; i -= 1) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -1024,16 +1039,34 @@
         const boards = state.filteredBoardsForSelectedMode;
         if (!boards.length) {
           resetModeSessionState();
+          state.usedBoardIdsHistory = [];
           state.selectedBoard = null;
           return;
         }
-        const freshOrder = boards.map((row) => row.board_id).filter(Boolean);
+        const allBoardIds = boards.map((row) => row.board_id).filter(Boolean);
+        const normalizedHistory = sanitizeUsedBoardHistory(state.usedBoardIdsHistory);
+        const usedSet = new Set(normalizedHistory);
+        let remainingBoardIds = allBoardIds.filter((boardId) => !usedSet.has(boardId));
+        let shouldStartNewCycle = false;
+
+        if (!remainingBoardIds.length) {
+          shouldStartNewCycle = true;
+          state.usedBoardIdsHistory = [];
+          remainingBoardIds = [...allBoardIds];
+        } else {
+          state.usedBoardIdsHistory = normalizedHistory;
+        }
+
+        const freshOrder = [...remainingBoardIds];
         if (freshOrder.length > 1) {
           shuffleInPlace(freshOrder);
         }
         state.modeBoardOrder = freshOrder;
         state.modeBoardOrderPosition = 0;
         state.usedBoardIdsInCurrentCycle = freshOrder.length ? [freshOrder[0]] : [];
+        if (shouldStartNewCycle) {
+          showCycleNotice();
+        }
       }
 
       function updateUsedBoardsForCurrentPosition() {
@@ -1052,6 +1085,9 @@
         const boardId = state.modeBoardOrder[state.modeBoardOrderPosition];
         state.selectedBoard = state.filteredBoardsForSelectedMode.find((row) => row.board_id === boardId) || null;
         updateUsedBoardsForCurrentPosition();
+        if (boardId && !state.usedBoardIdsHistory.includes(boardId)) {
+          state.usedBoardIdsHistory.push(boardId);
+        }
         resetBoardStateOnly();
       }
 
@@ -1090,7 +1126,6 @@
         if (isAtEndOfCycle) {
           buildModeBoardOrder();
           setSelectedBoardBySessionPosition(0);
-          showCycleNotice();
         } else {
           setSelectedBoardBySessionPosition(state.modeBoardOrderPosition + 1);
         }
@@ -1308,6 +1343,7 @@
 
       function sanitizeAndApplyModeSessionFromSaved(savedSession) {
         const availableBoardIds = new Set(state.filteredBoardsForSelectedMode.map((row) => row.board_id));
+        state.usedBoardIdsHistory = sanitizeUsedBoardHistory(savedSession && savedSession.usedBoardIdsHistory);
         const normalizedOrder = Array.isArray(savedSession && savedSession.modeBoardOrder)
           ? savedSession.modeBoardOrder.filter((boardId) => typeof boardId === "string" && availableBoardIds.has(boardId))
           : [];
@@ -1321,7 +1357,7 @@
         });
         const missingIds = state.filteredBoardsForSelectedMode
           .map((row) => row.board_id)
-          .filter((boardId) => !seen.has(boardId));
+          .filter((boardId) => !seen.has(boardId) && !state.usedBoardIdsHistory.includes(boardId));
         const finalOrder = dedupedOrder.concat(missingIds);
         if (!finalOrder.length) {
           buildModeBoardOrder();
@@ -1391,6 +1427,7 @@
           modeBoardOrder: [...state.modeBoardOrder],
           modeBoardOrderPosition: state.modeBoardOrderPosition,
           usedBoardIdsInCurrentCycle: [...state.usedBoardIdsInCurrentCycle],
+          usedBoardIdsHistory: [...state.usedBoardIdsHistory],
           selectedBoardId: normalizeCell(state.selectedBoard && state.selectedBoard.board_id),
           boardCells: toSerializableBoardCells(),
           currentTurnTeamIndex: state.currentTurnTeamIndex === 1 ? 1 : 0,
