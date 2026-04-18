@@ -383,6 +383,7 @@ const state = {
   doubleAnswerAttemptsRemaining: 0,
   questionResolutionLocked: false,
   resolvedQuestionSessionId: "",
+  questionOpenNonce: 0,
 };
 
 const contactState = {
@@ -801,8 +802,7 @@ function updateDoubleAnswerStatus() {
 }
 
 function hasUnresolvedActiveQuestion() {
-  const modalOpen = !el.modal?.classList.contains("hidden");
-  return !!(modalOpen && state.activeTile && !state.activeTile.used && state.activeQuestion);
+  return !!(state.activeTile && !state.activeTile.used && (state.loadingQuestion || state.activeQuestion));
 }
 
 function shouldLockQuestionClose() {
@@ -2522,6 +2522,9 @@ async function openQuestion(tileId, {
   stopAndResetTimer(); clearQuestionMedia();
   const tile = state.boardTiles.find((t) => t.id === tileId);
   if (!tile || tile.used || tile.missing) return;
+  const openNonce = (Number(state.questionOpenNonce) || 0) + 1;
+  state.questionOpenNonce = openNonce;
+  const isStaleOpenNonce = () => openNonce !== state.questionOpenNonce;
   state.questionSessionId = createQuestionSessionId();
   state.activeTile = tile;
   state.loadingQuestion = true;
@@ -2592,6 +2595,7 @@ async function openQuestion(tileId, {
     questionBankCache.nextQuestionByTileId.delete(tile.id);
     questionBankCache.nextQuestionPromiseByTileId.delete(tile.id);
     if (!q) {
+      if (isStaleOpenNonce()) return;
       tile.missing = true;
       console.log("[Tasleya][openQuestion] clearing question state", {
         reason: "question-not-found",
@@ -2607,6 +2611,7 @@ async function openQuestion(tileId, {
       showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
       return;
     }
+    if (isStaleOpenNonce()) return;
     const historyQuestionId = getQuestionHistoryId(q, { category: tile.category, points: tile.points });
     const normalizedApiQuestionId = normalizeCell(q.id);
     tile.questionId = normalizedApiQuestionId || tile.questionId;
@@ -2649,6 +2654,7 @@ async function openQuestion(tileId, {
       zIndex: modalStyleAfterRender.zIndex,
     });
   } catch (error) {
+    if (isStaleOpenNonce()) return;
     if (error?.code === "QUESTION_FETCH_TIMEOUT") {
       state.loadingQuestion = false;
       state.activeQuestion = null;
@@ -2677,6 +2683,7 @@ async function openQuestion(tileId, {
     showError(`تعذّر تحميل السؤال. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
     return;
   }
+  if (isStaleOpenNonce()) return;
   const safeDeadline = Number(deadlineTs);
   const restoreDeadline = Number.isFinite(safeDeadline) ? safeDeadline : null;
   if (state.videoQuestionPending) {
@@ -3698,6 +3705,12 @@ function serializeGameState() {
 
 async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
   if (!game) return;
+  const localActiveTileIdBeforeApply = state.activeTile?.id || null;
+  const localActiveQuestionBeforeApply = state.activeQuestion || null;
+  const localActiveQuestionIdBeforeApply = localActiveQuestionBeforeApply?.id || state.activeTile?.questionId || null;
+  const localQuestionSessionIdBeforeApply = normalizeCell(state.questionSessionId) || "";
+  const localModalOpenBeforeApply = !el.modal?.classList.contains("hidden");
+  const localLoadingQuestionBeforeApply = !!state.loadingQuestion;
   console.log("[Tasleya][sync] applyRemoteGameState run", {
     remoteModalOpen: !!game.modalOpen,
     remoteActiveTileId: game.activeTileId || null,
@@ -3754,17 +3767,6 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     state.revealRequested = state.answerRevealed;
     state.currentChoices = Array.isArray(game.currentChoices) ? game.currentChoices : [];
     state.currentHintText = normalizeCell(game.currentHintText);
-    console.log("[Tasleya][sync] replacing active question from remote baseline", {
-      reason: "remote-state-apply-start",
-      previousActiveQuestionId: state.activeQuestion?.id || null,
-      previousLoadingQuestion: !!state.loadingQuestion,
-    });
-    state.activeQuestion = null;
-    state.loadingQuestion = false;
-    state.questionSessionId = "";
-    state.questionTurnOwnerIndex = null;
-    state.resolvedQuestionSessionId = "";
-
     syncTeamNameInputs();
     updateTeamModeUI();
     updateScoreboard();
@@ -3773,9 +3775,108 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
 
     const activeId = game.activeTileId;
     const shouldOpen = !!game.modalOpen && activeId;
+    const remoteSessionId = normalizeCell(game.questionSessionId) || "";
+    const remoteQuestionId = normalizeCell(game.activeQuestionId);
+    const sameRemoteQuestionSession =
+      shouldOpen
+      && !!remoteSessionId
+      && remoteSessionId === localQuestionSessionIdBeforeApply
+      && activeId === localActiveTileIdBeforeApply
+      && !!localActiveQuestionBeforeApply
+      && !localLoadingQuestionBeforeApply
+      && localModalOpenBeforeApply
+      && (!remoteQuestionId || remoteQuestionId === normalizeCell(localActiveQuestionIdBeforeApply));
     let syncedOpenModal = false;
     let remoteQuestionHydrationFailed = false;
-    if (shouldOpen) {
+    if (sameRemoteQuestionSession) {
+      const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
+      if (tile) {
+        syncedOpenModal = true;
+        state.activeTile = tile;
+        if (normalizeCell(localActiveQuestionBeforeApply?.id)) tile.questionId = localActiveQuestionBeforeApply.id;
+        state.activeQuestion = localActiveQuestionBeforeApply;
+        state.loadingQuestion = false;
+        state.questionSessionId = remoteSessionId;
+        state.questionTurnOwnerIndex = getActiveTeamNumbers().includes(Number(game.questionTurnOwnerIndex))
+          ? Number(game.questionTurnOwnerIndex)
+          : state.currentTeam;
+        state.resolvedQuestionSessionId = normalizeCell(state.resolvedQuestionSessionId);
+        el.answerText.classList.toggle("hidden", !state.answerRevealed);
+        if (state.answerRevealed && state.activeQuestion?.id) {
+          const cachedAnswer = questionBankCache.answersById.get(state.activeQuestion.id);
+          if (cachedAnswer?.correctAnswer) {
+            el.answerText.textContent = `الإجابة: ${cachedAnswer.correctAnswer}`;
+          } else {
+            el.answerText.textContent = "الإجابة: جارٍ التحميل...";
+            try {
+              const answerResponse = await fetchAnswerPayload(state.activeQuestion.id);
+              if (shouldAbortRemoteApply(applyNonce)) return;
+              if (normalizeCell(state.questionSessionId) !== remoteSessionId) return;
+              el.answerText.textContent = `الإجابة: ${answerResponse.correctAnswer || "غير متاحة"}`;
+            } catch (_) {
+              el.answerText.textContent = "الإجابة: غير متاحة";
+            }
+          }
+        }
+        el.choicesList.innerHTML = "";
+        if (state.currentChoices.length) {
+          state.currentChoices.forEach((option) => {
+            const div = document.createElement("div");
+            div.className = "choice-item";
+            div.textContent = option;
+            el.choicesList.appendChild(div);
+          });
+          el.choicesBox.classList.remove("hidden");
+        } else {
+          el.choicesBox.classList.add("hidden");
+        }
+        if (state.currentHintText) {
+          el.hintText.textContent = state.currentHintText;
+          el.hintBox.classList.remove("hidden");
+        } else {
+          el.hintText.textContent = "";
+          el.hintBox.classList.add("hidden");
+        }
+        const remoteTimedOut = !!tile.timedOut;
+        showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
+        updateDoubleAnswerStatus();
+        updateQuestionActionLock();
+        el.modal.classList.remove("hidden");
+        el.modal.classList.add("is-open");
+        if (remoteTimedOut) {
+          stopAndResetTimer();
+          timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+          questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
+          updateTimerUI();
+        } else if (state.videoQuestionPending) {
+          stopAndResetTimer();
+          const remoteDeadline = Number(game.questionDeadlineTs);
+          state.pendingVideoDeadlineTs = Number.isFinite(remoteDeadline)
+            ? remoteDeadline
+            : (game.questionStartedAt ? (Number(game.questionStartedAt) || Date.now()) + QUESTION_TIMEOUT_MS : null);
+        } else {
+          const remoteDeadline = Number(game.questionDeadlineTs);
+          if (Number.isFinite(remoteDeadline)) {
+            startTimer({ deadlineTs: remoteDeadline });
+          } else if (game.questionStartedAt) {
+            const remoteStart = Number(game.questionStartedAt) || Date.now();
+            startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
+          } else {
+            startTimer();
+          }
+        }
+      }
+    } else if (shouldOpen) {
+      console.log("[Tasleya][sync] replacing active question from remote baseline", {
+        reason: "remote-state-apply-start",
+        previousActiveQuestionId: localActiveQuestionIdBeforeApply || null,
+        previousLoadingQuestion: !!localLoadingQuestionBeforeApply,
+      });
+      state.activeQuestion = null;
+      state.loadingQuestion = false;
+      state.questionSessionId = "";
+      state.questionTurnOwnerIndex = null;
+      state.resolvedQuestionSessionId = "";
       const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
       if (tile) {
         try {
