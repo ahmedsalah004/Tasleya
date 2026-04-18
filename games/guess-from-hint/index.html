@@ -373,7 +373,12 @@
       <h1>خمنها من التلميح</h1>
       <p class="subtitle">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر.</p>
 
-      <section id="modeScreen" class="panel stack" aria-label="اختيار طريقة اللعب">
+      <section id="guessHintIntro" class="panel stack" aria-label="مقدمة لعبة خمنها من التلميح">
+        <p class="subtitle" style="margin:0;">لعبة فرق تعتمد على تلميحات متدرجة؛ كلما أجبت أسرع حصلت على نقاط أكثر.</p>
+        <button id="enterModeScreenBtn" class="btn primary">ابدأ الإعداد</button>
+      </section>
+
+      <section id="modeScreen" class="panel stack hidden" aria-label="اختيار طريقة اللعب">
         <p class="subtitle" style="margin:0;">اختر طريقة اللعب المناسبة لكم.</p>
         <div class="mode-actions">
           <button id="singleDeviceModeBtn" class="btn primary">لعب على جهاز واحد</button>
@@ -477,6 +482,11 @@
     <script src="./data.js"></script>
     <script>
       (function () {
+        document.getElementById("enterModeScreenBtn").addEventListener("click", () => {
+          document.getElementById("guessHintIntro").classList.add("hidden");
+          document.getElementById("modeScreen").classList.remove("hidden");
+        });
+
         const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
         const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
         const POINTS = [5, 4, 3, 2, 1];

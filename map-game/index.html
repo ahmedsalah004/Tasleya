@@ -1003,7 +1003,18 @@
     <main class="shell">
       <a class="back-link" href="/games/">← العودة إلى الألعاب</a>
 
-      <section class="setup" id="setupScreen">
+      <section class="setup" id="introScreen" aria-label="مقدمة لعبة خمن الدولة من الخريطة">
+        <h1>خمن الدولة من الخريطة</h1>
+        <p style="color: var(--muted); line-height: 1.9; margin-top: 0.75rem;">
+          لعبة جغرافيا جماعية سريعة. ادخل أسماء الفرق ثم ابدأ الجولة لتخمين الدولة الصحيحة وجمع النقاط.
+        </p>
+        <div class="mode-status" style="display:grid; margin-top: 0.95rem;">
+          <p>واجهة اللعب التفاعلية تظهر بعد الضغط على زر المتابعة.</p>
+        </div>
+        <button class="btn btn-primary" id="enterSetupBtn" type="button">متابعة إلى الإعداد</button>
+      </section>
+
+      <section class="setup" id="setupScreen" style="display:none;">
         <h1>خمن الدولة من الخريطة</h1>
         <div class="field">
           <label for="team1Name">اسم الفريق الأول</label>
@@ -1208,6 +1219,8 @@
       };
 
       const el = {
+        introScreen: document.getElementById("introScreen"),
+        enterSetupBtn: document.getElementById("enterSetupBtn"),
         setupScreen: document.getElementById("setupScreen"),
         gameScreen: document.getElementById("gameScreen"),
         startBtn: document.getElementById("startBtn"),
@@ -2336,6 +2349,11 @@
           return;
         }
         startGame();
+      });
+      el.enterSetupBtn.addEventListener("click", () => {
+        el.introScreen.style.display = "none";
+        el.setupScreen.style.display = "block";
+        el.team1Name.focus();
       });
       el.resumeBtn.addEventListener("click", () => {
         const saved = state.pendingResume;

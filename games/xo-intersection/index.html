@@ -541,7 +541,18 @@
     <main class="shell">
       <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
 
-      <section class="panel screen active" data-screen="setup">
+      <section id="xoIntroScreen" class="panel screen active" data-screen="intro">
+        <div class="panel-head">
+          <h1>XO | خمن الرابط</h1>
+          <p class="subtitle">لعبة تربط التفكير الجماعي بخطة السيطرة على اللوحة.</p>
+          <p class="helper">واجهة الإعداد ولوحة اللعب تظهر بعد الضغط على زر البدء.</p>
+        </div>
+        <div class="howto-actions">
+          <button id="enterXoSetupBtn" class="btn btn-primary" type="button">ابدأ الإعداد</button>
+        </div>
+      </section>
+
+      <section class="panel screen hidden" data-screen="setup">
         <div class="panel-head">
           <h1>XO | خمن الرابط</h1>
           <p class="subtitle">اختر فريقين، ثم العبوا على نفس الجهاز</p>
@@ -719,6 +730,13 @@
     </dialog>
 
     <script>
+      document.getElementById("enterXoSetupBtn").addEventListener("click", () => {
+        document.getElementById("xoIntroScreen").classList.add("hidden");
+        const setupScreen = document.querySelector('[data-screen="setup"]');
+        setupScreen.classList.remove("hidden");
+        setupScreen.classList.add("active");
+      });
+
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
