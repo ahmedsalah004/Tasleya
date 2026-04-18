@@ -708,11 +708,21 @@
         <button id="closeHowToBtn" class="btn btn-secondary" type="button">إغلاق</button>
       </div>
     </dialog>
+    <dialog id="resumeDialog" aria-label="متابعة اللعبة المحفوظة">
+      <h2 style="margin-bottom: 0.4rem">أكمل اللعبة؟</h2>
+      <p class="helper">لديك لعبة محفوظة على هذا الجهاز</p>
+      <p id="resumeLoadingHint" class="helper hidden" style="margin-top: 0.6rem"></p>
+      <div class="buttons-stack" style="margin-top: 0.9rem">
+        <button id="resumeContinueBtn" class="btn btn-primary" type="button">أكمل اللعبة</button>
+        <button id="resumeNewGameBtn" class="btn btn-secondary" type="button">ابدأ لعبة جديدة</button>
+      </div>
+    </dialog>
 
     <script>
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
+      const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
 
       const state = {
         currentScreen: "setup",
@@ -729,6 +739,7 @@
         filteredBoardsForSelectedMode: [],
         modeBoardOrder: [],
         modeBoardOrderPosition: 0,
+        usedBoardIdsInCurrentCycle: [],
         selectedBoard: null,
         boardCells: [],
         currentTurnTeamIndex: 0,
@@ -791,7 +802,11 @@
         backToModeSelectionBtn: document.getElementById("backToModeSelectionBtn"),
         backToHomeBtn: document.getElementById("backToHomeBtn"),
         howToDialog: document.getElementById("howToDialog"),
-        closeHowToBtn: document.getElementById("closeHowToBtn")
+        closeHowToBtn: document.getElementById("closeHowToBtn"),
+        resumeDialog: document.getElementById("resumeDialog"),
+        resumeContinueBtn: document.getElementById("resumeContinueBtn"),
+        resumeNewGameBtn: document.getElementById("resumeNewGameBtn"),
+        resumeLoadingHint: document.getElementById("resumeLoadingHint")
       };
       elements.boardCellButtons = Array.from({ length: 3 }, (_, rowIndex) =>
         Array.from({ length: 3 }, (_, colIndex) => document.getElementById(`cell-${rowIndex}-${colIndex}`))
@@ -802,6 +817,7 @@
         elements.screens.forEach((screen) => {
           screen.classList.toggle("active", screen.getAttribute("data-screen") === name);
         });
+        persistResumeState();
       }
 
       function normalizeCell(value) {
@@ -886,6 +902,16 @@
         return Array.from(modesMap.values());
       }
 
+      function getFilteredBoardsForMode(categoryKey, modeKey) {
+        const uniqueBoardsById = new Map();
+        state.allValidLoadedBoards.forEach((row) => {
+          if (row.category_key === categoryKey && row.mode_key === modeKey && row.board_id && !uniqueBoardsById.has(row.board_id)) {
+            uniqueBoardsById.set(row.board_id, row);
+          }
+        });
+        return Array.from(uniqueBoardsById.values());
+      }
+
       function renderCategories() {
         const categories = getUniqueCategories();
         elements.categoriesWrap.innerHTML = "";
@@ -933,9 +959,7 @@
             state.selectedModeKey = mode.modeKey;
             state.selectedModeNameAr = mode.modeNameAr;
             state.selectedRuleTextAr = mode.ruleTextAr;
-            state.filteredBoardsForSelectedMode = state.allValidLoadedBoards.filter(
-              (row) => row.category_key === state.selectedCategoryKey && row.mode_key === state.selectedModeKey
-            );
+            state.filteredBoardsForSelectedMode = getFilteredBoardsForMode(state.selectedCategoryKey, state.selectedModeKey);
             setScreen("gameplay");
             startSelectedModeGameplay();
           });
@@ -968,6 +992,7 @@
       function resetModeSessionState() {
         state.modeBoardOrder = [];
         state.modeBoardOrderPosition = 0;
+        state.usedBoardIdsInCurrentCycle = [];
       }
 
       function shuffleInPlace(list) {
@@ -984,12 +1009,19 @@
           state.selectedBoard = null;
           return;
         }
-        const freshOrder = boards.map((_, index) => index);
+        const freshOrder = boards.map((row) => row.board_id).filter(Boolean);
         if (freshOrder.length > 1) {
           shuffleInPlace(freshOrder);
         }
         state.modeBoardOrder = freshOrder;
         state.modeBoardOrderPosition = 0;
+        state.usedBoardIdsInCurrentCycle = freshOrder.length ? [freshOrder[0]] : [];
+      }
+
+      function updateUsedBoardsForCurrentPosition() {
+        const cappedPosition = Math.min(state.modeBoardOrderPosition, Math.max(0, state.modeBoardOrder.length - 1));
+        state.modeBoardOrderPosition = cappedPosition;
+        state.usedBoardIdsInCurrentCycle = state.modeBoardOrder.slice(0, cappedPosition + 1);
       }
 
       function setSelectedBoardBySessionPosition(position) {
@@ -998,10 +1030,18 @@
           resetBoardStateOnly();
           return;
         }
-        state.modeBoardOrderPosition = position;
-        const boardIndex = state.modeBoardOrder[state.modeBoardOrderPosition];
-        state.selectedBoard = state.filteredBoardsForSelectedMode[boardIndex];
+        state.modeBoardOrderPosition = Math.max(0, Math.min(position, state.modeBoardOrder.length - 1));
+        const boardId = state.modeBoardOrder[state.modeBoardOrderPosition];
+        state.selectedBoard = state.filteredBoardsForSelectedMode.find((row) => row.board_id === boardId) || null;
+        updateUsedBoardsForCurrentPosition();
         resetBoardStateOnly();
+      }
+
+      function setSelectedBoardById(boardId) {
+        const nextPosition = state.modeBoardOrder.indexOf(boardId);
+        if (nextPosition < 0) return false;
+        setSelectedBoardBySessionPosition(nextPosition);
+        return true;
       }
 
       function hideCycleNotice() {
@@ -1039,6 +1079,7 @@
 
         hideCancelNotice();
         renderGameplay();
+        persistResumeState();
       }
 
       function getWinningLine(cells) {
@@ -1247,7 +1288,42 @@
         renderBoardProgress();
       }
 
-      function startSelectedModeGameplay() {
+      function sanitizeAndApplyModeSessionFromSaved(savedSession) {
+        const availableBoardIds = new Set(state.filteredBoardsForSelectedMode.map((row) => row.board_id));
+        const normalizedOrder = Array.isArray(savedSession && savedSession.modeBoardOrder)
+          ? savedSession.modeBoardOrder.filter((boardId) => typeof boardId === "string" && availableBoardIds.has(boardId))
+          : [];
+        const dedupedOrder = [];
+        const seen = new Set();
+        normalizedOrder.forEach((boardId) => {
+          if (!seen.has(boardId)) {
+            seen.add(boardId);
+            dedupedOrder.push(boardId);
+          }
+        });
+        const missingIds = state.filteredBoardsForSelectedMode
+          .map((row) => row.board_id)
+          .filter((boardId) => !seen.has(boardId));
+        const finalOrder = dedupedOrder.concat(missingIds);
+        if (!finalOrder.length) {
+          buildModeBoardOrder();
+          return;
+        }
+
+        state.modeBoardOrder = finalOrder;
+        const normalizedPosition = Number.isInteger(savedSession && savedSession.modeBoardOrderPosition)
+          ? savedSession.modeBoardOrderPosition
+          : 0;
+        state.modeBoardOrderPosition = Math.max(0, Math.min(normalizedPosition, finalOrder.length - 1));
+
+        const savedCurrentBoardId = normalizeCell(savedSession && savedSession.selectedBoardId);
+        if (savedCurrentBoardId && finalOrder.includes(savedCurrentBoardId)) {
+          state.modeBoardOrderPosition = finalOrder.indexOf(savedCurrentBoardId);
+        }
+        updateUsedBoardsForCurrentPosition();
+      }
+
+      function startSelectedModeGameplay(options = {}) {
         hideCycleNotice();
         clearGameplaySelectionState();
         hideCancelNotice();
@@ -1255,15 +1331,183 @@
         renderGameplay();
         window.setTimeout(() => {
           try {
-            buildModeBoardOrder();
-            setSelectedBoardBySessionPosition(0);
+            if (options.restoreFromSavedSession) {
+              sanitizeAndApplyModeSessionFromSaved(options.savedSession || null);
+            } else {
+              buildModeBoardOrder();
+            }
+            setSelectedBoardBySessionPosition(state.modeBoardOrderPosition || 0);
             state.loadingStatus = "success";
           } catch (error) {
             state.selectedBoard = null;
             state.loadingStatus = "board-error";
           }
           renderGameplay();
+          persistResumeState();
         }, 0);
+      }
+
+      function toSerializableBoardCells() {
+        if (!Array.isArray(state.boardCells) || state.boardCells.length !== 3) {
+          return Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => ""));
+        }
+        return state.boardCells.map((row) =>
+          Array.isArray(row) ? row.map((cell) => (cell === "X" || cell === "O" ? cell : "")) : ["", "", ""]
+        );
+      }
+
+      function saveResumeSnapshot() {
+        const snapshot = {
+          version: 1,
+          savedAt: Date.now(),
+          loadingStatus: state.loadingStatus,
+          currentScreen: state.currentScreen,
+          team1Name: state.team1Name,
+          team2Name: state.team2Name,
+          selectedCategoryKey: state.selectedCategoryKey,
+          selectedCategoryNameAr: state.selectedCategoryNameAr,
+          selectedModeKey: state.selectedModeKey,
+          selectedModeNameAr: state.selectedModeNameAr,
+          selectedRuleTextAr: state.selectedRuleTextAr,
+          filteredModeBoardIds: state.filteredBoardsForSelectedMode.map((row) => row.board_id),
+          modeBoardOrder: [...state.modeBoardOrder],
+          modeBoardOrderPosition: state.modeBoardOrderPosition,
+          usedBoardIdsInCurrentCycle: [...state.usedBoardIdsInCurrentCycle],
+          selectedBoardId: normalizeCell(state.selectedBoard && state.selectedBoard.board_id),
+          boardCells: toSerializableBoardCells(),
+          currentTurnTeamIndex: state.currentTurnTeamIndex === 1 ? 1 : 0,
+          gameStatus: ["playing", "won", "draw"].includes(state.gameStatus) ? state.gameStatus : "playing",
+          winningLineCells: Array.isArray(state.winningLineCells) ? state.winningLineCells : []
+        };
+        localStorage.setItem(XO_INTERSECTION_RESUME_STORAGE_KEY, JSON.stringify(snapshot));
+      }
+
+      function clearResumeSnapshot() {
+        localStorage.removeItem(XO_INTERSECTION_RESUME_STORAGE_KEY);
+      }
+
+      function persistResumeState() {
+        try {
+          saveResumeSnapshot();
+        } catch (error) {
+          // Ignore storage quota/security errors.
+        }
+      }
+
+      function readResumeSnapshot() {
+        const raw = localStorage.getItem(XO_INTERSECTION_RESUME_STORAGE_KEY);
+        if (!raw) return null;
+        try {
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object" || parsed.version !== 1) {
+            clearResumeSnapshot();
+            return null;
+          }
+          if (typeof parsed.currentScreen !== "string") {
+            clearResumeSnapshot();
+            return null;
+          }
+          return parsed;
+        } catch (error) {
+          clearResumeSnapshot();
+          return null;
+        }
+      }
+
+      function applySnapshotWithFallback(snapshot) {
+        if (!snapshot) return false;
+        const categoryKey = normalizeCell(snapshot.selectedCategoryKey);
+        const modeKey = normalizeCell(snapshot.selectedModeKey);
+
+        state.team1Name = normalizeCell(snapshot.team1Name) || "الفريق الأول";
+        state.team2Name = normalizeCell(snapshot.team2Name) || "الفريق الثاني";
+        elements.team1Input.value = state.team1Name;
+        elements.team2Input.value = state.team2Name;
+
+        state.selectedCategoryKey = categoryKey;
+        state.selectedCategoryNameAr = normalizeCell(snapshot.selectedCategoryNameAr);
+        state.selectedModeKey = modeKey;
+        state.selectedModeNameAr = normalizeCell(snapshot.selectedModeNameAr);
+        state.selectedRuleTextAr = normalizeCell(snapshot.selectedRuleTextAr);
+        state.currentScreen = normalizeCell(snapshot.currentScreen) || "setup";
+
+        if (!categoryKey || !modeKey) {
+          setScreen(["setup", "categories"].includes(state.currentScreen) ? state.currentScreen : "setup");
+          return true;
+        }
+
+        state.filteredBoardsForSelectedMode = getFilteredBoardsForMode(categoryKey, modeKey);
+        if (!state.filteredBoardsForSelectedMode.length) {
+          return false;
+        }
+
+        sanitizeAndApplyModeSessionFromSaved(snapshot);
+        const selectedBoardId = normalizeCell(snapshot.selectedBoardId);
+        if (selectedBoardId && !setSelectedBoardById(selectedBoardId)) {
+          setSelectedBoardBySessionPosition(state.modeBoardOrderPosition || 0);
+        }
+
+        state.boardCells = Array.isArray(snapshot.boardCells) && snapshot.boardCells.length === 3
+          ? snapshot.boardCells.map((row) =>
+              Array.isArray(row) ? row.map((cell) => (cell === "X" || cell === "O" ? cell : "")) : ["", "", ""]
+            )
+          : Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => ""));
+        state.currentTurnTeamIndex = snapshot.currentTurnTeamIndex === 1 ? 1 : 0;
+        state.gameStatus = ["playing", "won", "draw"].includes(snapshot.gameStatus) ? snapshot.gameStatus : "playing";
+        state.winningLineCells = Array.isArray(snapshot.winningLineCells)
+          ? snapshot.winningLineCells.filter(
+              (pair) => Array.isArray(pair) && pair.length === 2 && Number.isInteger(pair[0]) && Number.isInteger(pair[1])
+            )
+          : [];
+        state.selectedSquare = null;
+        hideCancelNotice();
+        hideCycleNotice();
+
+        if (["gameplay", "modes", "categories"].includes(state.currentScreen)) {
+          if (state.currentScreen === "gameplay") {
+            setScreen("gameplay");
+            renderGameplay();
+          } else if (state.currentScreen === "modes") {
+            setScreen("modes");
+            renderModes();
+          } else {
+            setScreen("categories");
+            renderCategories();
+          }
+        } else {
+          setScreen("setup");
+        }
+        return true;
+      }
+
+      function openResumeDialog() {
+        if (!elements.resumeDialog.open) {
+          elements.resumeDialog.showModal();
+        }
+      }
+
+      function closeResumeDialog() {
+        if (elements.resumeDialog.open) {
+          elements.resumeDialog.close();
+        }
+      }
+
+      function updateResumeLoadingHint() {
+        if (state.loadingStatus === "loading") {
+          elements.resumeLoadingHint.classList.remove("hidden");
+          elements.resumeLoadingHint.textContent = "جارِ تحميل بيانات اللوحات...";
+          elements.resumeContinueBtn.disabled = true;
+          return;
+        }
+        if (state.loadingStatus === "error") {
+          elements.resumeLoadingHint.classList.remove("hidden");
+          elements.resumeLoadingHint.textContent = "تعذّر تحميل اللوحات، ابدأ لعبة جديدة أو أعد المحاولة.";
+          elements.resumeContinueBtn.disabled = true;
+          return;
+        }
+        elements.resumeLoadingHint.classList.add("hidden");
+        elements.resumeLoadingHint.textContent = "";
+        elements.resumeContinueBtn.disabled = false;
       }
 
       function refreshLoadingUi() {
@@ -1280,6 +1524,7 @@
           elements.loadStatus.classList.add("error");
           elements.loadStatus.textContent = "تعذّر تحميل اللوحات";
         }
+        updateResumeLoadingHint();
       }
 
       async function fetchBoardsData() {
@@ -1299,6 +1544,7 @@
           state.allValidLoadedBoards = validRows;
           state.loadingStatus = "success";
           refreshLoadingUi();
+          persistResumeState();
         } catch (error) {
           state.loadingStatus = "error";
           state.errorStatus = error.message;
@@ -1310,6 +1556,7 @@
       function applyTeamNames() {
         state.team1Name = (elements.team1Input.value || "").trim() || "الفريق الأول";
         state.team2Name = (elements.team2Input.value || "").trim() || "الفريق الثاني";
+        persistResumeState();
       }
 
       function setupEvents() {
@@ -1322,18 +1569,27 @@
           setScreen("categories");
         });
 
+        elements.team1Input.addEventListener("input", () => {
+          applyTeamNames();
+        });
+        elements.team2Input.addEventListener("input", () => {
+          applyTeamNames();
+        });
+
         elements.retryBtn.addEventListener("click", () => {
           state.selectedCategoryKey = "";
           state.selectedModeKey = "";
           state.filteredBoardsForSelectedMode = [];
           state.selectedBoard = null;
           fetchBoardsData();
+          persistResumeState();
         });
 
         elements.backToSetupBtn.addEventListener("click", () => {
           hideCancelNotice();
           hideCycleNotice();
           setScreen("setup");
+          persistResumeState();
         });
 
         elements.backToCategoriesBtn.addEventListener("click", () => {
@@ -1341,6 +1597,7 @@
           state.selectedBoard = null;
           hideCycleNotice();
           setScreen("categories");
+          persistResumeState();
         });
 
         elements.backToModesBtn.addEventListener("click", () => {
@@ -1350,6 +1607,7 @@
           hideCancelNotice();
           hideCycleNotice();
           setScreen("modes");
+          persistResumeState();
         });
 
         elements.emptyStateBackBtn.addEventListener("click", () => {
@@ -1359,6 +1617,7 @@
           hideCancelNotice();
           hideCycleNotice();
           setScreen("modes");
+          persistResumeState();
         });
         elements.gameErrorBackBtn.addEventListener("click", () => {
           state.loadingStatus = "success";
@@ -1368,12 +1627,15 @@
           hideCancelNotice();
           hideCycleNotice();
           setScreen("modes");
+          persistResumeState();
         });
         elements.categoriesEmptyBackBtn.addEventListener("click", () => {
           setScreen("setup");
+          persistResumeState();
         });
         elements.modesEmptyBackBtn.addEventListener("click", () => {
           setScreen("categories");
+          persistResumeState();
         });
 
         elements.nextBoardBtn.addEventListener("click", () => {
@@ -1405,6 +1667,7 @@
           }
           hideCancelNotice();
           renderGameplay();
+          persistResumeState();
         });
 
         elements.cancelCellBtn.addEventListener("click", () => {
@@ -1413,6 +1676,7 @@
           switchTurn();
           showCancelNotice();
           renderGameplay();
+          persistResumeState();
         });
 
         elements.replayBoardBtn.addEventListener("click", () => {
@@ -1420,6 +1684,7 @@
           hideCancelNotice();
           hideCycleNotice();
           renderGameplay();
+          persistResumeState();
         });
 
         elements.resultNextBoardBtn.addEventListener("click", () => {
@@ -1433,6 +1698,7 @@
           hideCancelNotice();
           hideCycleNotice();
           setScreen("modes");
+          persistResumeState();
         });
 
         elements.backToHomeBtn.addEventListener("click", () => {
@@ -1448,6 +1714,7 @@
           hideCancelNotice();
           hideCycleNotice();
           setScreen("setup");
+          clearResumeSnapshot();
         });
 
         elements.howToBtn.addEventListener("click", () => {
@@ -1457,9 +1724,30 @@
         elements.closeHowToBtn.addEventListener("click", () => {
           elements.howToDialog.close();
         });
+
+        elements.resumeContinueBtn.addEventListener("click", () => {
+          if (state.loadingStatus !== "success") return;
+          const savedSnapshot = readResumeSnapshot();
+          if (!savedSnapshot || !applySnapshotWithFallback(savedSnapshot)) {
+            clearResumeSnapshot();
+            setScreen("setup");
+          }
+          closeResumeDialog();
+          persistResumeState();
+        });
+
+        elements.resumeNewGameBtn.addEventListener("click", () => {
+          clearResumeSnapshot();
+          closeResumeDialog();
+          setScreen("setup");
+        });
       }
 
       setupEvents();
+      const existingSnapshot = readResumeSnapshot();
+      if (existingSnapshot) {
+        openResumeDialog();
+      }
       fetchBoardsData();
     </script>
   </body>
