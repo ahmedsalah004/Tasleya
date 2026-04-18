@@ -1855,6 +1855,7 @@
         clearPendingResultReveal();
         hideOverlay();
         stopCurrentAudio();
+        markCurrentQuestionAsUsed();
 
         if (state.questionIndex >= 19) {
           state.phase = "finished";
@@ -1868,7 +1869,6 @@
         state.otherTeamAcceptedActiveAnswer = false;
         state.pendingPick = null;
         state.pendingTeamIndex = null;
-        markCurrentQuestionAsUsed();
         updateHeader();
         updateMapHighlights();
         persistGameState();

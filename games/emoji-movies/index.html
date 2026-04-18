@@ -474,6 +474,35 @@
           .trim();
       }
 
+      function buildCardContentKey(card) {
+        const normalizedAnswer = normalizeArabicAnswer(card && card.answer);
+        const normalizedEmoji = normalizeCell(card && card.emoji);
+        return `${normalizedAnswer}||${normalizedEmoji}`;
+      }
+
+      function dedupePlayableCards(cards) {
+        const validCards = Array.isArray(cards) ? cards.filter((card) => card && card.emoji && card.answer) : [];
+        const seenById = new Set();
+        const seenByContent = new Set();
+        const deduped = [];
+
+        validCards.forEach((card) => {
+          const normalizedId = normalizeCell(card.id);
+          const contentKey = buildCardContentKey(card);
+          if (!contentKey) return;
+
+          if (normalizedId) {
+            if (seenById.has(normalizedId)) return;
+            seenById.add(normalizedId);
+          }
+          if (seenByContent.has(contentKey)) return;
+          seenByContent.add(contentKey);
+          deduped.push(card);
+        });
+
+        return deduped;
+      }
+
       function isCorrectAnswer(submittedAnswer, card) {
         const normalizedSubmitted = normalizeArabicAnswer(submittedAnswer);
         if (!normalizedSubmitted) return false;
@@ -850,7 +879,7 @@
 
       async function init() {
         try {
-          const cards = await loadEmojiMoviesCards();
+          const cards = dedupePlayableCards(await loadEmojiMoviesCards());
           if (!cards.length) {
             throw new Error("لم يتم العثور على بطاقات صالحة في ملف البيانات.");
           }
