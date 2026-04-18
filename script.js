@@ -4,7 +4,7 @@ const POINT_ROWS_COUNT = 5;
 const POINT_LEVELS = [100, 200, 300, 400, 500];
 const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
 const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
-const DEPLOY_VERSION = "1.2.2";
+const DEPLOY_VERSION = "1.2.3";
 const SUPPORTED_TEAM_COUNTS = [1, 2, 3];
 const USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_v1";
 const LEGACY_USED_QUESTIONS_BY_CATEGORY_STORAGE_KEY = "tasleya_used_questions_by_category";
@@ -64,6 +64,7 @@ let appInitialized = false;
 
 const QUESTION_WARNING_MS = 60000;
 const QUESTION_TIMEOUT_MS = 75000;
+const QUESTION_FETCH_TIMEOUT_MS = 12000;
 const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
 const MAP_QUESTION_CATEGORY = "ما هي الدولة بالخريطة";
 const CATEGORY_DISPLAY_GROUPS = [
@@ -586,11 +587,30 @@ function buildApiUrl(path, params = {}) {
   return url;
 }
 async function apiFetchJson(path, { params = {}, method = "GET", body = null } = {}) {
-  const response = await fetch(buildApiUrl(path, params), {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timeoutMs = path === "/question" ? QUESTION_FETCH_TIMEOUT_MS : 0;
+  const timeoutToken = controller && timeoutMs > 0
+    ? setTimeout(() => controller.abort(), timeoutMs)
+    : null;
+  let response;
+  try {
+    response = await fetch(buildApiUrl(path, params), {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller?.signal,
+    });
+  } catch (error) {
+    const aborted = error?.name === "AbortError" || controller?.signal?.aborted;
+    if (aborted && path === "/question") {
+      const timeoutError = new Error("انتهت مهلة تحميل السؤال. حاول مجددًا.");
+      timeoutError.code = "QUESTION_FETCH_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    if (timeoutToken !== null) clearTimeout(timeoutToken);
+  }
 
   let payload = null;
   try {
@@ -791,7 +811,12 @@ function shouldLockQuestionClose() {
 
 function updateCloseButtonLock() {
   if (!el.closeModalBtn) return;
-  if (online.mode !== "online") {
+  const allowLocalEmergencyClose = online.mode === "local"
+    && !state.loadingQuestion
+    && !!state.activeTile
+    && !state.activeQuestion
+    && !el.modal?.classList.contains("hidden");
+  if (online.mode !== "online" && !allowLocalEmergencyClose) {
     el.closeModalBtn.disabled = true;
     el.closeModalBtn.classList.add("hidden");
     return;
@@ -2605,6 +2630,17 @@ async function openQuestion(tileId, {
       zIndex: modalStyleAfterRender.zIndex,
     });
   } catch (error) {
+    if (error?.code === "QUESTION_FETCH_TIMEOUT") {
+      state.loadingQuestion = false;
+      state.activeQuestion = null;
+      el.questionText.textContent = "انتهت مهلة تحميل السؤال. أغلق النافذة وأعد فتح الخانة للمحاولة مجددًا.";
+      el.answerText.textContent = "الإجابة: ...";
+      el.answerText.classList.add("hidden");
+      showQuestionStatus("تعذر تحميل السؤال مؤقتًا.");
+      updateCloseButtonLock();
+      showError(error.message);
+      return;
+    }
     console.log("[Tasleya][openQuestion] clearing question state", {
       reason: "question-fetch-failed",
       error: error?.message || String(error),
@@ -3213,7 +3249,7 @@ function updateCategoryPickerUI() {
   el.categoryModal.classList.toggle("is-readonly", hostOnlyBlocked);
   if (el.categoryModalTitle) el.categoryModalTitle.textContent = getCategoryModalTitleText();
   el.categoryCounter.textContent = `المحدد: ${state.selectedCategories.length} / ${requiredCategories}`;
-  el.startGameBtn.disabled = !hostOnlyBlocked && state.selectedCategories.length !== requiredCategories;
+  el.startGameBtn.disabled = hostOnlyBlocked || state.selectedCategories.length !== requiredCategories;
   el.startGameBtn.textContent = hostOnlyBlocked
     ? "بانتظار منشئ الغرفة"
     : (online.mode === "local" && state.teamCount === 1 ? "ابدأ اللعب الفردي" : "بدء اللعبة");
@@ -3224,7 +3260,7 @@ function updateCategoryPickerUI() {
   const checkedSet = new Set(state.selectedCategories); const reachedMax = checkedSet.size >= requiredCategories;
   el.categoryList.querySelectorAll("input[type='checkbox']").forEach((checkbox) => {
     checkbox.checked = checkedSet.has(checkbox.value);
-    checkbox.disabled = hostOnlyBlocked ? false : !checkbox.checked && reachedMax;
+    checkbox.disabled = hostOnlyBlocked || (!checkbox.checked && reachedMax);
     const row = checkbox.closest(".category-option");
     if (row) {
       row.classList.toggle("is-selected", checkbox.checked);
@@ -3566,15 +3602,15 @@ function openCategoryPicker({ resetSelection = false } = {}) {
   renderCategoryOptions();
   const hostOnlyBlocked = online.mode === "online" && online.role !== "host";
   el.categoryModal.classList.toggle("is-readonly", hostOnlyBlocked);
-  el.randomCategoriesBtn.disabled = false;
+  el.randomCategoriesBtn.disabled = hostOnlyBlocked;
   el.randomCategoriesBtn.setAttribute("aria-disabled", String(hostOnlyBlocked));
   el.startGameBtn.setAttribute("aria-disabled", String(hostOnlyBlocked));
   el.categoryTeam1NameInput.readOnly = hostOnlyBlocked;
   el.categoryTeam2NameInput.readOnly = hostOnlyBlocked || state.teamCount === 1;
   el.categoryTeam3NameInput.readOnly = hostOnlyBlocked || state.teamCount !== 3;
-  el.categoryTeam1NameInput.disabled = false;
-  el.categoryTeam2NameInput.disabled = state.teamCount === 1;
-  el.categoryTeam3NameInput.disabled = state.teamCount !== 3;
+  el.categoryTeam1NameInput.disabled = hostOnlyBlocked;
+  el.categoryTeam2NameInput.disabled = hostOnlyBlocked || state.teamCount === 1;
+  el.categoryTeam3NameInput.disabled = hostOnlyBlocked || state.teamCount !== 3;
   el.categoryModal.classList.remove("hidden");
   requestAnimationFrame(() => { el.categoryModal.classList.remove("is-closing"); el.categoryModal.classList.add("is-open"); });
   updateHostCategorySelectionCTA();
@@ -3673,7 +3709,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
     state.pointLevels = Array.isArray(game.pointLevels) ? [...game.pointLevels] : [...POINT_LEVELS];
     state.boardTiles = Array.isArray(game.boardTiles) ? [...game.boardTiles] : [];
-    state.teamCount = normalizeTeamCount(game.teamCount);
+    state.teamCount = normalizeTeamCount(game.teamCount || online.selectedTeamCount || state.teamCount);
     state.scores = {
       1: Number(game?.scores?.[1] ?? game?.scores?.team1 ?? 0) || 0,
       2: Number(game?.scores?.[2] ?? game?.scores?.team2 ?? 0) || 0,
@@ -3719,6 +3755,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     const activeId = game.activeTileId;
     const shouldOpen = !!game.modalOpen && activeId;
     let syncedOpenModal = false;
+    let remoteQuestionHydrationFailed = false;
     if (shouldOpen) {
       const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
       if (tile) {
@@ -3803,13 +3840,31 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
               }
             }
           }
-        } catch (_) {
+        } catch (error) {
+          remoteQuestionHydrationFailed = true;
+          console.warn("[Tasleya][online] transient active-question hydration failure", {
+            error: error?.message || String(error),
+            remoteActiveTileId: activeId,
+            remoteActiveQuestionId: game.activeQuestionId || null,
+          });
           syncedOpenModal = false;
         }
       }
     }
 
     if (!syncedOpenModal) {
+      const remoteAuthoritativeClose = !game.modalOpen || !game.activeTileId;
+      const localHasActiveQuestion = !!state.activeTile && !state.activeTile.used && (
+        !!state.activeQuestion || !!state.loadingQuestion || !el.modal?.classList.contains("hidden")
+      );
+      if (remoteQuestionHydrationFailed && localHasActiveQuestion && !remoteAuthoritativeClose) {
+        console.log("[Tasleya][sync] preserving local active question after transient hydration failure", {
+          activeTileId: state.activeTile?.id || null,
+          activeQuestionId: state.activeQuestion?.id || null,
+        });
+        updateQuestionActionLock();
+        return;
+      }
       console.log("[Tasleya][sync] remote state cleared active question/modal", {
         remoteModalOpen: !!game.modalOpen,
         remoteActiveTileId: game.activeTileId || null,
@@ -3830,12 +3885,12 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
     }
   }
 }
-function applyRemoteSetupState(game) {
+function applyRemoteSetupState(game, { fallbackTeamCount = null } = {}) {
   if (!game) return;
   online.applyingRemote = true;
   try {
     state.selectedCategories = Array.isArray(game.selectedCategories) ? [...game.selectedCategories] : [];
-    state.teamCount = normalizeTeamCount(game.teamCount);
+    state.teamCount = normalizeTeamCount(game.teamCount || fallbackTeamCount || online.selectedTeamCount || state.teamCount);
     state.teamNames = {
       1: normalizeCell(game?.teamNames?.[1] ?? game?.teamNames?.team1) || "الفريق الأول",
       2: normalizeCell(game?.teamNames?.[2] ?? game?.teamNames?.team2) || "الفريق الثاني",
@@ -4440,7 +4495,9 @@ async function connectToRoom(code, teamSlot) {
       if (!shouldSkipHostLobbyHydration) {
         ensureQuestionBankStateLoaded()
           .then(() => {
-            if (online.mode === "online" && !online.applyingRemote) applyRemoteSetupState(remoteGameState);
+            if (online.mode === "online" && !online.applyingRemote) {
+              applyRemoteSetupState(remoteGameState, { fallbackTeamCount: roomTeamCount });
+            }
           })
           .catch(() => {});
       }
@@ -5468,13 +5525,32 @@ function initializeApp() {
     }
     if (online.mode === "online" && online.role === "host" && online.roomRef) {
       const preservedUsedHistory = normalizeUsedHistoryByCategory(online.usedQuestionsByCategory);
+      const resetTeamCount = normalizeTeamCount(state.teamCount || online.selectedTeamCount);
+      const resetLobbyGameState = {
+        ...serializeGameState(),
+        selectedCategories: [],
+        boardTiles: [],
+        scores: { 1: 0, 2: 0, 3: 0 },
+        teamCount: resetTeamCount,
+        currentTeam: 1,
+        activeTileId: null,
+        activeQuestionId: null,
+        questionSessionId: null,
+        questionTurnOwnerIndex: null,
+        modalOpen: false,
+        answerRevealed: false,
+        currentChoices: [],
+        currentHintText: "",
+        questionStartedAt: null,
+        questionDeadlineTs: null,
+        finished: false,
+        [ROOM_USED_HISTORY_FIELD]: preservedUsedHistory,
+      };
       online.roomRef.update({
-        "meta/maxTeams": normalizeTeamCount(state.teamCount),
+        "meta/maxTeams": resetTeamCount,
         "meta/status": "lobby",
         "public/selectedCategories": [],
-        "public/gameState": {
-          [ROOM_USED_HISTORY_FIELD]: preservedUsedHistory,
-        },
+        "public/gameState": resetLobbyGameState,
         "public/scores": { 1: 0, 2: 0, 3: 0 },
       }).catch(() => {});
     }
