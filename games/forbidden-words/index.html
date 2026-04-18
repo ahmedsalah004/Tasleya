@@ -411,6 +411,68 @@
         font-size: 1.22rem;
       }
 
+      @media (min-width: 1024px) {
+        .shell {
+          width: min(1240px, 100%);
+        }
+
+        h1 {
+          margin-top: 1.3rem;
+          margin-bottom: 0.65rem;
+          font-size: clamp(2.95rem, 3.9vw, 3.7rem);
+        }
+
+        .subtitle {
+          margin-bottom: 1.6rem;
+          max-width: 980px;
+          font-size: 1.24rem;
+          line-height: 1.95;
+        }
+
+        #setup-screen {
+          width: min(980px, 100%);
+          margin-inline: auto;
+          padding: 2.05rem 2.2rem;
+        }
+
+        #setup-screen .setup-stack {
+          gap: 1.3rem;
+        }
+
+        #setup-screen .setup-summary {
+          padding: 1.2rem 1.3rem;
+        }
+
+        #setup-screen .setup-summary-title {
+          margin-bottom: 0.85rem;
+          font-size: 1.18rem;
+        }
+
+        #setup-screen .setup-summary-list {
+          gap: 0.72rem;
+        }
+
+        #setup-screen .setup-summary-list li {
+          padding: 0.78rem 0.98rem;
+          font-size: 1.08rem;
+          line-height: 1.75;
+        }
+
+        #setup-screen .status-text {
+          padding: 0.95rem 1.12rem;
+          font-size: 1.12rem;
+          line-height: 1.75;
+        }
+
+        #setup-screen .start-btn {
+          min-height: 72px;
+          border-radius: 18px;
+          padding: 0.9rem 1.3rem;
+          font-size: 1.3rem;
+          letter-spacing: 0.01em;
+        }
+      }
+
       @media (max-width: 760px) {
         .score-strip,
         .actions,
