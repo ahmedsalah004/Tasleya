@@ -429,6 +429,7 @@ const online = {
   hostStartInFlight: false,
   hostSetupInFlight: false,
   roomStatus: null,
+  hostContinuityNoticeShown: false,
 };
 
 let gameplayPersistDebounceTimer = null;
@@ -1432,7 +1433,6 @@ function ensureStableOnlineClientId() {
 
 function persistLocalProgress() {
   if (online.mode !== "local") {
-    clearLocalProgress();
     return;
   }
   const hasBoard = state.boardTiles.length > 0 && state.selectedCategories.length === getRequiredCategoryCount();
@@ -2403,8 +2403,24 @@ function shouldAbortRemoteApply(applyNonce) {
   return online.mode !== "online" || applyNonce !== online.activeRemoteApplyNonce;
 }
 
+function blockGuestActionWhenHostDisconnected() {
+  const hostDisconnected = online.mode === "online"
+    && !isOnlineHostClient()
+    && normalizeCell(online.roomStatus) === "playing"
+    && !online.connected?.[1];
+  if (!hostDisconnected) return false;
+  online.hostContinuityNoticeShown = true;
+  setOnlineStatus("انقطع اتصال المضيف — اللعبة متوقفة مؤقتًا");
+  setOnlineFeedback("لا يمكن تنفيذ الإجراء الآن لأن المضيف غير متصل. انتظر عودته أو أعد الانضمام.", "info");
+  if (!el.modal.classList.contains("hidden") && state.activeTile) {
+    showQuestionStatus("بانتظار عودة المضيف لتنفيذ الطلب.");
+  }
+  return true;
+}
+
 async function requestHostTilePick(tileId) {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  if (blockGuestActionWhenHostDisconnected()) return false;
   const normalizedTileId = normalizeCell(tileId);
   if (!normalizedTileId) return false;
   try {
@@ -2422,6 +2438,7 @@ async function requestHostTilePick(tileId) {
 
 async function requestHostRevealAnswer() {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  if (blockGuestActionWhenHostDisconnected()) return false;
   try {
     await online.roomRef.child(`players/${online.uid}/pendingRevealAnswer`).set({
       id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -2437,6 +2454,7 @@ async function requestHostRevealAnswer() {
 
 async function requestHostScoreAction({ action, targetTeam = null } = {}) {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  if (blockGuestActionWhenHostDisconnected()) return false;
   const normalizedAction = normalizeCell(action);
   if (!["correct", "wrong", "other"].includes(normalizedAction)) return false;
   const normalizedTargetTeam = Number(targetTeam);
@@ -2460,6 +2478,7 @@ async function requestHostScoreAction({ action, targetTeam = null } = {}) {
 
 async function requestHostLifelineAction({ type } = {}) {
   if (online.mode !== "online" || !online.roomRef || !online.uid) return false;
+  if (blockGuestActionWhenHostDisconnected()) return false;
   const normalizedType = normalizeCell(type);
   if (!["mcq", "hint", "doubleAnswer"].includes(normalizedType)) return false;
   const payload = {
@@ -4381,6 +4400,7 @@ async function connectToRoom(code, teamSlot) {
   online.resolvedTeamSlot = teamSlot;
   online.roomCode = code;
   online.roomRef = roomRefByCode(code);
+  clearLocalProgress();
   saveOnlineSession();
   updateRoomCodeTag();
   el.onlineStatusCard.classList.remove("hidden");
@@ -4422,6 +4442,7 @@ async function connectToRoom(code, teamSlot) {
     const slotOneUid = normalizeCell(slots[1]) || normalizeCell(records[1]?.uid);
     const isHostClient = (hostUid && hostUid === currentUid) || (!hostUid && slotOneUid && slotOneUid === currentUid);
     online.role = isHostClient ? "host" : "guest";
+    const hostConnected = !!connections[1];
 
     if (!resolvedSlot || (slots[resolvedSlot] && slots[resolvedSlot] !== online.uid && normalizeCell(myRecord?.uid) !== online.uid)) {
       handleOnlineRoomUnavailable("تم فقدان مقعدك في الغرفة.");
@@ -4467,6 +4488,24 @@ async function connectToRoom(code, teamSlot) {
     } else {
       setOnlineStatus(`أنت في الفريق ${online.resolvedTeamSlot || online.teamSlot || 1}`);
       if (online.restoringFromSavedSession) openOnlineModal();
+    }
+
+    const guestHostDisconnectedDuringMatch = online.role !== "host"
+      && room?.meta?.status === "playing"
+      && !hostConnected;
+    if (guestHostDisconnectedDuringMatch) {
+      online.hostContinuityNoticeShown = true;
+      setOnlineStatus("انقطع اتصال المضيف — اللعبة متوقفة مؤقتًا");
+      setOnlineFeedback("بانتظار عودة المضيف للغرفة. يمكنك الانتظار أو الرجوع للرئيسية ثم إعادة المحاولة.", "info");
+      if (!el.modal.classList.contains("hidden") && state.activeTile) {
+        showQuestionStatus("اللعبة متوقفة مؤقتًا حتى عودة المضيف.");
+      }
+    } else if (online.hostContinuityNoticeShown) {
+      online.hostContinuityNoticeShown = false;
+      setOnlineFeedback("", "info");
+      if (!el.modal.classList.contains("hidden") && state.activeTile) {
+        showQuestionStatus("");
+      }
     }
     updateHostCategorySelectionCTA();
 
@@ -4617,6 +4656,7 @@ function resetOnlineMode() {
   online.hostStartInFlight = false;
   online.hostSetupInFlight = false;
   online.roomStatus = null;
+  online.hostContinuityNoticeShown = false;
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
@@ -4778,6 +4818,10 @@ function detectPendingLocalResume() {
   updateResumePromptVisibility();
 }
 
+function getInviteRoomCodeFromUrl() {
+  return normalizeCell(new URL(window.location.href).searchParams.get("room") || "").toUpperCase();
+}
+
 async function releaseOnlineSeat({ clearSession = true, removeSeat = false } = {}) {
   if (online.mode !== "online" || !online.roomRef || !online.teamSlot || !online.uid) {
     if (clearSession) clearSavedOnlineSession();
@@ -4829,7 +4873,6 @@ async function returnToHomeScreen() {
 async function enterGame(mode, { bootstrapOnlineGame = true, openOnlineLobby = true } = {}) {
   showGameScreen();
   if (mode === "online") {
-    clearLocalProgress();
     if (bootstrapOnlineGame) {
       setOnlineTeamCount(2);
       resetGameState();
@@ -4930,7 +4973,7 @@ async function chooseLocalTeamCount(teamCount) {
 }
 
 function tryAutoJoinFromUrl() {
-  const room = normalizeCell(new URL(window.location.href).searchParams.get("room") || "").toUpperCase();
+  const room = getInviteRoomCodeFromUrl();
   if (!room) return;
   enterGame("online").then(() => {
     el.onlineJoinPanel.classList.remove("hidden");
@@ -4940,6 +4983,7 @@ function tryAutoJoinFromUrl() {
 }
 
 async function tryRestoreOnlineSession() {
+  if (getInviteRoomCodeFromUrl()) return false;
   const savedSession = loadSavedOnlineSession();
   if (!savedSession) return false;
 
@@ -4948,7 +4992,6 @@ async function tryRestoreOnlineSession() {
   online.sessionRestoreInProgress = true;
   online.restoringFromSavedSession = true;
   resetGameState();
-  clearLocalProgress();
   if (savedSession.playerDisplayName && savedSession.teamSlot) {
     state.teamNames[savedSession.teamSlot] = savedSession.playerDisplayName;
     syncTeamNameInputs();
@@ -5635,11 +5678,16 @@ function initializeApp() {
 
   preloadQuestionBank().catch(() => {});
 
-  tryRestoreOnlineSession().then((restored) => {
-    if (restored) return;
-    if (pendingLocalResumePayload) return;
+  const inviteRoomCode = getInviteRoomCodeFromUrl();
+  if (inviteRoomCode) {
     tryAutoJoinFromUrl();
-  });
+  } else {
+    tryRestoreOnlineSession().then((restored) => {
+      if (restored) return;
+      if (pendingLocalResumePayload) return;
+      tryAutoJoinFromUrl();
+    });
+  }
   registerServiceWorker();
 }
 
