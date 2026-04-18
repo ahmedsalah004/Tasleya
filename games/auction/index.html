@@ -987,6 +987,41 @@
 
       function shuffle(arr) { const clone = [...arr]; for (let i = clone.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [clone[i], clone[j]] = [clone[j], clone[i]]; } return clone; }
       function getQuestion() { return state.questions[state.questionIndex]; }
+      function getLocalQuestionTarget() { return Math.max(0, state.questions.length); }
+      function getOnlineQuestionTarget(gs) {
+        if (!gs || !Array.isArray(gs.questionOrder)) return TOTAL_QUESTIONS;
+        return Math.max(0, gs.questionOrder.length);
+      }
+      function getQuestionUniqueKey(question) {
+        if (!question || typeof question !== "object") return null;
+        const rawId = normalizeText(question.id == null ? "" : String(question.id));
+        if (rawId) return `id:${rawId}`;
+        const category = normalizeText(question.category);
+        const prompt = normalizeText(question.prompt);
+        if (!prompt) return null;
+        return `text:${category}|${prompt}`;
+      }
+      function buildUniqueQuestionPool(source) {
+        const unique = [];
+        const seen = new Set();
+        source.forEach((question) => {
+          const key = getQuestionUniqueKey(question);
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          unique.push(question);
+        });
+        return unique;
+      }
+      function hasDuplicateQuestionEntries(list) {
+        if (!Array.isArray(list)) return true;
+        const seen = new Set();
+        for (const question of list) {
+          const key = getQuestionUniqueKey(question);
+          if (!key || seen.has(key)) return true;
+          seen.add(key);
+        }
+        return false;
+      }
 
       function clearLocalResume() {
         try { localStorage.removeItem(AUCTION_LOCAL_RESUME_KEY); } catch (_) {}
@@ -1023,6 +1058,7 @@
           const parsed = JSON.parse(raw);
           if (!parsed || parsed.version !== AUCTION_LOCAL_RESUME_VERSION || parsed.mode !== "local") return null;
           if (!Array.isArray(parsed.questions) || !parsed.questions.length) return null;
+          if (hasDuplicateQuestionEntries(parsed.questions)) return null;
           return parsed;
         } catch (_) {
           return null;
@@ -1057,7 +1093,10 @@
       }
 
       function updateHeader() {
-        el.questionCounter.textContent = `${Math.min(state.questionIndex + 1, TOTAL_QUESTIONS)} / ${TOTAL_QUESTIONS}`;
+        const target = onlineState.enabled
+          ? getOnlineQuestionTarget(onlineState.roomData?.public?.gameState)
+          : getLocalQuestionTarget();
+        el.questionCounter.textContent = `${Math.min(state.questionIndex + 1, Math.max(1, target))} / ${Math.max(1, target)}`;
         el.currentBid.textContent = String(state.bid.current);
         el.team1Score.textContent = String(state.scores[0]);
         el.team2Score.textContent = String(state.scores[1]);
@@ -1094,6 +1133,14 @@
         state.attempt = { team: null, target: 0, endsAt: null };
         syncRoleButtonActiveState();
         const q = getQuestion();
+        if (!q) {
+          setPhase("final");
+          const diff = state.scores[0] - state.scores[1];
+          el.finalText.textContent = diff === 0 ? `تعادل! ${teamNameAt(0)} ${state.scores[0]} - ${teamNameAt(1)} ${state.scores[1]}` : `${diff > 0 ? teamNameAt(0) : teamNameAt(1)} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
+          clearLocalResume();
+          updateHeader();
+          return;
+        }
         el.questionCategory.textContent = `الفئة: ${q.category}`;
         el.questionPrompt.textContent = q.prompt;
         renderJudgeAssistReference(q);
@@ -1112,11 +1159,15 @@
           });
           return;
         }
-        state.questions = shuffle(source).slice(0, TOTAL_QUESTIONS);
-        if (state.questions.length < TOTAL_QUESTIONS) {
-          const repeats = Math.ceil(TOTAL_QUESTIONS / source.length);
-          const fallback = Array.from({ length: repeats }, () => source).flat();
-          state.questions = shuffle(fallback).slice(0, TOTAL_QUESTIONS);
+        const uniqueSource = buildUniqueQuestionPool(source);
+        state.questions = shuffle(uniqueSource).slice(0, TOTAL_QUESTIONS);
+        if (!state.questions.length) {
+          setDataState({
+            title: "لا توجد أسئلة فريدة كافية",
+            message: "تعذر بدء المباراة لأن بنك الأسئلة لا يحتوي على أسئلة فريدة صالحة حاليًا.",
+            canRetry: false,
+          });
+          return;
         }
         state.questionIndex = 0;
         state.scores = [0, 0];
@@ -1195,14 +1246,15 @@
         const pointTeam = success ? attemptTeam : 1 - attemptTeam;
         state.scores[pointTeam] += 1;
         updateHeader();
-        if (state.questionIndex >= TOTAL_QUESTIONS - 1) {
+        const totalQuestions = getLocalQuestionTarget();
+        if (state.questionIndex >= totalQuestions - 1) {
           const diff = state.scores[0] - state.scores[1];
           el.finalText.textContent = diff === 0 ? `تعادل! ${teamNameAt(0)} ${state.scores[0]} - ${teamNameAt(1)} ${state.scores[1]}` : `${diff > 0 ? teamNameAt(0) : teamNameAt(1)} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
           setPhase("final");
           clearLocalResume();
           return;
         }
-        el.betweenText.textContent = [success ? `✅ نقطة لـ ${teamNameAt(pointTeam)} بعد تحقيق الهدف ${state.attempt.target}.` : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${teamNameAt(pointTeam)}.`, `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${TOTAL_QUESTIONS}`, "جاهزون للسؤال التالي؟"].join(" ");
+        el.betweenText.textContent = [success ? `✅ نقطة لـ ${teamNameAt(pointTeam)} بعد تحقيق الهدف ${state.attempt.target}.` : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${teamNameAt(pointTeam)}.`, `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${Math.max(1, totalQuestions)}`, "جاهزون للسؤال التالي؟"].join(" ");
         setPhase("between");
         saveLocalResume();
       }
@@ -1327,7 +1379,8 @@
         }
         if (action.type === "NEXT_QUESTION" && gs.phase === "result" && action.fromUid === onlineState.session.uid) {
           const qIndex = toInt(gs.questionIndex, 0) + 1;
-          if (qIndex >= TOTAL_QUESTIONS) {
+          const totalQuestions = getOnlineQuestionTarget(gs);
+          if (qIndex >= totalQuestions) {
             next.phase = "finished";
             const s0 = toInt(next.scores?.[0], 0); const s1 = toInt(next.scores?.[1], 0);
             next.winnerText = s0 === s1 ? `تعادل! ${s0} - ${s1}` : `${s0 > s1 ? DEFAULT_TEAMS[0] : DEFAULT_TEAMS[1]} فاز! ${s0} - ${s1}`;
@@ -1537,7 +1590,8 @@
         try {
           const dataSource = window.AuctionQuestionDataSource;
           if (!dataSource || typeof dataSource.loadAuctionQuestions !== "function") throw new Error("AUCTION_DATA_SOURCE_MISSING");
-          state.questionBank = await dataSource.loadAuctionQuestions();
+          const loaded = await dataSource.loadAuctionQuestions();
+          state.questionBank = buildUniqueQuestionPool(Array.isArray(loaded) ? loaded : []);
           if (!state.questionBank.length) {
             setDataState({ title: "لا توجد أسئلة متاحة", message: "تم تحميل الملف، لكن لا توجد صفوف نشطة وصالحة للعب حاليًا.", canRetry: false });
             return;
