@@ -950,6 +950,17 @@
           clearSavedGameState();
           return null;
         }
+        const seenTermIds = new Set();
+        for (const team of normalizedTeams) {
+          for (const card of team.deck) {
+            const termId = getCardPersistentId(card);
+            if (seenTermIds.has(termId)) {
+              clearSavedGameState();
+              return null;
+            }
+            seenTermIds.add(termId);
+          }
+        }
 
         const currentCard = cloneCard(parsed.currentCard);
         const timerStarted = parsed.timerStarted === true;
@@ -1109,29 +1120,7 @@
       function buildDecksOrThrow() {
         const { byDifficulty, shortages } = validateSourcePoolForGame();
         if (shortages.length) {
-          const availableIndexes = cards
-            .map((card, index) => ({ card, index }))
-            .filter(({ card }) => card && Array.isArray(card.forbidden) && card.forbidden.length === 5 && difficultyKey(card.difficulty))
-            .map(({ index }) => index);
-
-          if (!availableIndexes.length) {
-            throw new Error(`لا توجد كلمات كافية لبدء اللعبة.\n${shortages.join("\n")}`);
-          }
-
-          const requiredTotal = TERMS_PER_TEAM * 2;
-          const rotatedPool = shuffle([...availableIndexes]);
-          const pickedIndexes = [];
-
-          while (pickedIndexes.length < requiredTotal) {
-            pickedIndexes.push(rotatedPool[pickedIndexes.length % rotatedPool.length]);
-            if (pickedIndexes.length % rotatedPool.length === 0) {
-              shuffle(rotatedPool);
-            }
-          }
-
-          state.teams[0].deck = shuffle(pickedIndexes.slice(0, TERMS_PER_TEAM)).map((cardIndex) => cards[cardIndex]);
-          state.teams[1].deck = shuffle(pickedIndexes.slice(TERMS_PER_TEAM)).map((cardIndex) => cards[cardIndex]);
-          return;
+          throw new Error(`لا توجد كلمات فريدة كافية لبدء هذه المباراة بدون تكرار.\n${shortages.join("\n")}`);
         }
 
         const usedHistory = readUsedHistory();
