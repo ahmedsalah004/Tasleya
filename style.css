@@ -18,6 +18,16 @@ html {
   padding: clamp(1rem, 3vw, 2rem) 0 clamp(3.5rem, 8vw, 5rem);
 }
 
+#startScreen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
 .home-page-overlay {
   position: fixed;
   inset: 0;
@@ -530,6 +540,45 @@ html {
   border-color: rgba(244, 206, 108, 0.9);
 }
 
+
+
+@media (min-width: 1024px) {
+  #startScreen {
+    background-image:
+      radial-gradient(circle at 16% 22%, rgba(70, 105, 206, 0.22), transparent 44%),
+      radial-gradient(circle at 84% 14%, rgba(255, 202, 98, 0.08), transparent 42%),
+      radial-gradient(circle at 50% 122%, rgba(34, 63, 138, 0.36), transparent 56%),
+      linear-gradient(160deg, #030713 0%, #081230 46%, #050a1c 100%);
+    background-size: cover;
+    background-position: center;
+    background-attachment: scroll;
+  }
+
+  #startScreen::before {
+    opacity: 1;
+    background-image:
+      radial-gradient(circle at 22% 34%, rgba(112, 152, 255, 0.14), transparent 36%),
+      radial-gradient(circle at 78% 28%, rgba(247, 198, 93, 0.1), transparent 34%),
+      radial-gradient(circle at 50% 78%, rgba(25, 44, 96, 0.36), transparent 52%);
+    mix-blend-mode: screen;
+  }
+
+  .home-page-overlay {
+    background:
+      linear-gradient(180deg, rgba(3, 9, 26, 0.62) 0%, rgba(3, 8, 24, 0.74) 52%, rgba(3, 8, 23, 0.86) 100%),
+      radial-gradient(circle at top, rgba(255, 216, 111, 0.08), transparent 60%);
+  }
+
+  .hero-section,
+  .home-sections,
+  .home-footer {
+    width: min(92vw, 1160px);
+  }
+
+  .hero-section {
+    min-height: min(92svh, 760px);
+  }
+}
 
 @media (max-width: 700px) {
   .footer-info-panel .section-body-text,
