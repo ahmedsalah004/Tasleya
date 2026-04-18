@@ -468,6 +468,17 @@
 
       .stack { display: grid; gap: 0.7rem; }
 
+      .team-name-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.7rem;
+      }
+
+      .team-name-field {
+        display: grid;
+        gap: 0.35rem;
+      }
+
       .status-msg {
         margin: 0;
         border-radius: 12px;
@@ -548,6 +559,19 @@
             <button id="singleDeviceModeBtn" class="btn btn-primary" type="button">اللعب على نفس الجهاز</button>
             <button id="onlineModeBtn" class="btn btn-secondary" type="button">لعب على أجهزة مختلفة</button>
           </div>
+          <div id="localStartWrap" class="stack hidden">
+            <div class="team-name-grid">
+              <label class="team-name-field" for="team1NameInput">
+                <span>اسم الفريق الأول</span>
+                <input id="team1NameInput" class="bid-input" type="text" maxlength="24" placeholder="الفريق الأول" />
+              </label>
+              <label class="team-name-field" for="team2NameInput">
+                <span>اسم الفريق الثاني</span>
+                <input id="team2NameInput" class="bid-input" type="text" maxlength="24" placeholder="الفريق الثاني" />
+              </label>
+            </div>
+            <button id="startLocalBtn" class="btn btn-primary" type="button">ابدأ اللعب على نفس الجهاز</button>
+          </div>
           <div id="localResumeWrap" class="stack hidden">
             <p class="status-msg" style="display:block;">يوجد مزاد محلي غير مكتمل.</p>
             <button id="resumeLocalBtn" class="btn btn-primary" type="button">أكمل اللعبة</button>
@@ -607,8 +631,8 @@
         </div>
 
         <div class="score-grid">
-          <article class="score-card"><h3>الفريق الأول</h3><p id="team1Score">0</p></article>
-          <article class="score-card"><h3>الفريق الثاني</h3><p id="team2Score">0</p></article>
+          <article class="score-card"><h3 id="team1ScoreLabel">الفريق الأول</h3><p id="team1Score">0</p></article>
+          <article class="score-card"><h3 id="team2ScoreLabel">الفريق الثاني</h3><p id="team2Score">0</p></article>
         </div>
 
         <section class="judge-assist-wrap" aria-label="مرجع الحكم">
@@ -636,7 +660,7 @@
           <h2 class="phase-title">اختر المجيب</h2>
           <div class="roles-grid">
             <article class="role-team">
-              <h4>الفريق الأول</h4>
+              <h4 id="team1RoleTitle">الفريق الأول</h4>
               <div class="role-options">
                 <button class="role-option" data-team="0" data-player="0" type="button">المجيب: لاعب 1</button>
                 <button class="role-option" data-team="0" data-player="1" type="button">المجيب: لاعب 2</button>
@@ -644,7 +668,7 @@
               <p id="team1Roles" class="role-meta">المجيب: - | المزايد: -</p>
             </article>
             <article class="role-team">
-              <h4>الفريق الثاني</h4>
+              <h4 id="team2RoleTitle">الفريق الثاني</h4>
               <div class="role-options">
                 <button class="role-option" data-team="1" data-player="0" type="button">المجيب: لاعب 1</button>
                 <button class="role-option" data-team="1" data-player="1" type="button">المجيب: لاعب 2</button>
@@ -765,7 +789,7 @@
     <script src="/games/shared/game-rooms.js"></script>
     <script>
       const TOTAL_QUESTIONS = 10;
-      const TEAMS = ["الفريق الأول", "الفريق الثاني"];
+      const DEFAULT_TEAMS = ["الفريق الأول", "الفريق الثاني"];
       const PLAYERS = ["لاعب 1", "لاعب 2"];
       const GAME_KEY = "auction";
       const AUCTION_LOCAL_RESUME_KEY = "tasleya_auction_local_state_v1";
@@ -787,6 +811,7 @@
         timerId: null,
         questionBank: [],
         pendingLocalResume: null,
+        teamNames: [...DEFAULT_TEAMS],
       };
 
       const onlineState = {
@@ -804,6 +829,10 @@
         modeScreen: document.getElementById("modeScreen"),
         singleDeviceModeBtn: document.getElementById("singleDeviceModeBtn"),
         onlineModeBtn: document.getElementById("onlineModeBtn"),
+        localStartWrap: document.getElementById("localStartWrap"),
+        team1NameInput: document.getElementById("team1NameInput"),
+        team2NameInput: document.getElementById("team2NameInput"),
+        startLocalBtn: document.getElementById("startLocalBtn"),
         localResumeWrap: document.getElementById("localResumeWrap"),
         resumeLocalBtn: document.getElementById("resumeLocalBtn"),
         discardLocalBtn: document.getElementById("discardLocalBtn"),
@@ -830,6 +859,10 @@
         leadingLabel: document.getElementById("leadingLabel"),
         team1Score: document.getElementById("team1Score"),
         team2Score: document.getElementById("team2Score"),
+        team1ScoreLabel: document.getElementById("team1ScoreLabel"),
+        team2ScoreLabel: document.getElementById("team2ScoreLabel"),
+        team1RoleTitle: document.getElementById("team1RoleTitle"),
+        team2RoleTitle: document.getElementById("team2RoleTitle"),
         team1Roles: document.getElementById("team1Roles"),
         team2Roles: document.getElementById("team2Roles"),
         roleButtons: Array.from(document.querySelectorAll(".role-option")),
@@ -884,6 +917,8 @@
       };
 
       const normalizeText = (v) => (typeof v === "string" ? v.trim() : "");
+      const normalizeTeamName = (value, teamIndex) => normalizeText(value) || DEFAULT_TEAMS[teamIndex];
+      const teamNameAt = (teamIndex) => state.teamNames[teamIndex] || DEFAULT_TEAMS[teamIndex];
       const now = () => Date.now();
       const isHost = () => onlineState.session?.role === "host";
       const getPlayerList = (roomData) => Object.entries(roomData?.players || {}).map(([uid, p]) => ({ uid, ...p }));
@@ -898,6 +933,24 @@
         if (name === "onlineRoom") el.onlineRoomScreen.classList.remove("hidden");
         if (name === "onlineLobby") el.onlineLobbyScreen.classList.remove("hidden");
         if (name === "game") el.gameScreen.classList.remove("hidden");
+      }
+
+      function applyTeamNamesToUi() {
+        const team1 = teamNameAt(0);
+        const team2 = teamNameAt(1);
+        el.team1ScoreLabel.textContent = team1;
+        el.team2ScoreLabel.textContent = team2;
+        el.team1RoleTitle.textContent = team1;
+        el.team2RoleTitle.textContent = team2;
+      }
+
+      function setTeamNamesForLocal(name1, name2) {
+        state.teamNames = [normalizeTeamName(name1, 0), normalizeTeamName(name2, 1)];
+        if (!onlineState.enabled) {
+          el.team1NameInput.value = state.teamNames[0];
+          el.team2NameInput.value = state.teamNames[1];
+        }
+        applyTeamNamesToUi();
       }
 
       function getAcceptedAnswers(question) {
@@ -953,6 +1006,7 @@
             scores: state.scores,
             questions: state.questions,
             phase: state.phase,
+            teamNames: state.teamNames,
             roles: state.roles,
             bid: state.bid,
             attempt: state.attempt,
@@ -1009,8 +1063,8 @@
         el.team2Score.textContent = String(state.scores[1]);
         el.team1Roles.textContent = formatRoles(0);
         el.team2Roles.textContent = formatRoles(1);
-        el.turnLabel.textContent = state.phase === "bidding" ? TEAMS[state.bid.turnTeam] : "-";
-        el.leadingLabel.textContent = state.bid.leadingTeam == null ? "-" : TEAMS[state.bid.leadingTeam];
+        el.turnLabel.textContent = state.phase === "bidding" ? teamNameAt(state.bid.turnTeam) : "-";
+        el.leadingLabel.textContent = state.bid.leadingTeam == null ? "-" : teamNameAt(state.bid.leadingTeam);
       }
 
       function syncRoleButtonActiveState() {
@@ -1066,9 +1120,9 @@
       }
 
       function renderBidding() {
-        const teamName = TEAMS[state.bid.turnTeam];
+        const teamName = teamNameAt(state.bid.turnTeam);
         const minValue = state.bid.current + 1;
-        const leadingText = state.bid.leadingTeam == null ? "لا يوجد بعد" : TEAMS[state.bid.leadingTeam];
+        const leadingText = state.bid.leadingTeam == null ? "لا يوجد بعد" : teamNameAt(state.bid.leadingTeam);
         el.turnPill.textContent = `دور المزايدة: ${teamName}`;
         el.activeTeamText.textContent = teamName;
         el.leadingTeamText.textContent = leadingText;
@@ -1095,7 +1149,7 @@
         const winner = state.bid.current === 0 ? 1 - state.bid.turnTeam : 1 - state.bid.stoppedTeam;
         const target = Math.max(1, state.bid.current);
         state.attempt = { team: winner, target, endsAt: null };
-        el.attemptTeamText.textContent = `${TEAMS[winner]} يبدأ التحدي الآن`;
+        el.attemptTeamText.textContent = `${teamNameAt(winner)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${target}`;
         setPhase("attemptReady");
         updateHeader();
@@ -1108,7 +1162,7 @@
         state.timerValue = 60;
         el.timerText.textContent = "60";
         el.timerTarget.textContent = `الهدف ${state.attempt.target}`;
-        el.attemptNowTeam.textContent = `المحاولة الآن: ${TEAMS[state.attempt.team]}`;
+        el.attemptNowTeam.textContent = `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerQuestionCategory.textContent = `الفئة: ${q.category}`;
         el.timerQuestionPrompt.textContent = q.prompt;
         setPhase("attempt");
@@ -1121,7 +1175,7 @@
             clearInterval(state.timerId);
             state.timerId = null;
             state.attempt.endsAt = null;
-            el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+            el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
             setPhase("judge");
             saveLocalResume();
           }
@@ -1136,12 +1190,12 @@
         updateHeader();
         if (state.questionIndex >= TOTAL_QUESTIONS - 1) {
           const diff = state.scores[0] - state.scores[1];
-          el.finalText.textContent = diff === 0 ? `تعادل! الفريق الأول ${state.scores[0]} - الفريق الثاني ${state.scores[1]}` : `${diff > 0 ? "الفريق الأول" : "الفريق الثاني"} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
+          el.finalText.textContent = diff === 0 ? `تعادل! ${teamNameAt(0)} ${state.scores[0]} - ${teamNameAt(1)} ${state.scores[1]}` : `${diff > 0 ? teamNameAt(0) : teamNameAt(1)} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
           setPhase("final");
           clearLocalResume();
           return;
         }
-        el.betweenText.textContent = [success ? `✅ نقطة لـ ${TEAMS[pointTeam]} بعد تحقيق الهدف ${state.attempt.target}.` : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${TEAMS[pointTeam]}.`, `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${TOTAL_QUESTIONS}`, "جاهزون للسؤال التالي؟"].join(" ");
+        el.betweenText.textContent = [success ? `✅ نقطة لـ ${teamNameAt(pointTeam)} بعد تحقيق الهدف ${state.attempt.target}.` : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${teamNameAt(pointTeam)}.`, `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${TOTAL_QUESTIONS}`, "جاهزون للسؤال التالي؟"].join(" ");
         setPhase("between");
         saveLocalResume();
       }
@@ -1269,7 +1323,7 @@
           if (qIndex >= TOTAL_QUESTIONS) {
             next.phase = "finished";
             const s0 = toInt(next.scores?.[0], 0); const s1 = toInt(next.scores?.[1], 0);
-            next.winnerText = s0 === s1 ? `تعادل! ${s0} - ${s1}` : `${s0 > s1 ? TEAMS[0] : TEAMS[1]} فاز! ${s0} - ${s1}`;
+            next.winnerText = s0 === s1 ? `تعادل! ${s0} - ${s1}` : `${s0 > s1 ? DEFAULT_TEAMS[0] : DEFAULT_TEAMS[1]} فاز! ${s0} - ${s1}`;
             return next;
           }
           next.questionIndex = qIndex;
@@ -1331,6 +1385,8 @@
 
       function applyOnlineToUI(gs) {
         if (!gs) return;
+        state.teamNames = [...DEFAULT_TEAMS];
+        applyTeamNamesToUi();
         const q = gs.currentQuestion || resolveQuestion(gs) || getQuestion();
         if (q) renderJudgeAssistReference(q);
         state.questionIndex = toInt(gs.questionIndex, 0);
@@ -1348,9 +1404,9 @@
           el.timerQuestionCategory.textContent = `الفئة: ${q.category || "-"}`;
           el.timerQuestionPrompt.textContent = q.prompt || "";
         }
-        el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${TEAMS[state.attempt.team]} يبدأ التحدي الآن`;
+        el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${teamNameAt(state.attempt.team)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
-        el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${TEAMS[state.attempt.team]}`;
+        el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
 
         if (gs.phase === "role_selection") setPhase("roleSelection");
@@ -1395,7 +1451,7 @@
         const gs = roomData?.public?.gameState || {};
         el.playersList.innerHTML = players.map((p) => {
           const teamId = getPlayerTeam(p.uid, gs);
-          const teamText = teamId === 0 || teamId === 1 ? ` — ${TEAMS[teamId]}` : "";
+          const teamText = teamId === 0 || teamId === 1 ? ` — ${DEFAULT_TEAMS[teamId]}` : "";
           return `<li>${p.name || "لاعب"}${p.uid === roomData?.meta?.hostUid ? " (المضيف)" : ""}${teamText}</li>`;
         }).join("");
         const isHostNow = isHost();
@@ -1490,6 +1546,7 @@
       function applyLocalResume(saved) {
         if (!saved) return false;
         state.mode = "local";
+        setTeamNamesForLocal(saved.teamNames?.[0], saved.teamNames?.[1]);
         state.questions = saved.questions;
         state.questionIndex = toInt(saved.questionIndex, 0);
         state.scores = Array.isArray(saved.scores) ? [toInt(saved.scores[0], 0), toInt(saved.scores[1], 0)] : [0, 0];
@@ -1507,9 +1564,9 @@
           el.timerQuestionPrompt.textContent = q.prompt || "";
           renderJudgeAssistReference(q);
         }
-        el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${TEAMS[state.attempt.team]} يبدأ التحدي الآن`;
+        el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${teamNameAt(state.attempt.team)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
-        el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${TEAMS[state.attempt.team]}`;
+        el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
         if (saved.phase === "attempt" && toInt(state.attempt.endsAt, 0) > 0) {
           const remain = Math.max(0, Math.ceil((toInt(state.attempt.endsAt, 0) - now()) / 1000));
@@ -1526,14 +1583,14 @@
                 clearInterval(state.timerId);
                 state.timerId = null;
                 state.attempt.endsAt = null;
-                el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+                el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
                 setPhase("judge");
                 saveLocalResume();
               }
             }, 1000);
           } else {
             state.attempt.endsAt = null;
-            el.judgeHint.textContent = `${TEAMS[state.attempt.team]} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+            el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
           }
         } else if (saved.phase === "roleSelection") setPhase("roleSelection");
         else if (saved.phase === "reveal") setPhase("reveal");
@@ -1577,22 +1634,33 @@
       el.judgeAssistToggle.addEventListener("click", () => setJudgePanelExpanded(el.judgeAssistToggle.getAttribute("aria-expanded") !== "true"));
 
       el.singleDeviceModeBtn.addEventListener("click", () => {
+        el.localResumeWrap.classList.add("hidden");
+        el.localStartWrap.classList.remove("hidden");
+        el.team1NameInput.focus();
+      });
+      el.startLocalBtn.addEventListener("click", () => {
         state.mode = "local";
         onlineState.enabled = false;
+        setTeamNamesForLocal(el.team1NameInput.value, el.team2NameInput.value);
         clearLocalResume();
         el.localResumeWrap.classList.add("hidden");
+        el.localStartWrap.classList.add("hidden");
         showScreen("game");
         resetGame();
       });
       el.onlineModeBtn.addEventListener("click", () => {
         state.mode = "online";
+        state.teamNames = [...DEFAULT_TEAMS];
+        applyTeamNamesToUi();
         clearLocalResume();
         state.pendingLocalResume = null;
         el.localResumeWrap.classList.add("hidden");
+        el.localStartWrap.classList.add("hidden");
         showScreen("onlineRoom");
       });
       el.resumeLocalBtn.addEventListener("click", () => {
         el.localResumeWrap.classList.add("hidden");
+        el.localStartWrap.classList.add("hidden");
         if (!applyLocalResume(state.pendingLocalResume)) {
           clearLocalResume();
         }
@@ -1602,6 +1670,7 @@
         clearLocalResume();
         state.pendingLocalResume = null;
         el.localResumeWrap.classList.add("hidden");
+        el.localStartWrap.classList.remove("hidden");
       });
       el.showJoinRoomBtn.addEventListener("click", () => el.joinRoomPanel.classList.toggle("hidden"));
       el.createRoomBtn.addEventListener("click", createRoomFlow);
@@ -1616,12 +1685,16 @@
         onlineState.enabled = false;
         onlineState.session = null;
         onlineState.roomData = null;
+        state.teamNames = [...DEFAULT_TEAMS];
+        applyTeamNamesToUi();
         if (gameRooms) gameRooms.clearGameRoomSession();
         showScreen("mode");
       });
 
       onlineState.uiClockId = setInterval(updateCountdownUI, 100);
       initializeQuestions().then(async () => {
+        applyTeamNamesToUi();
+        setTeamNamesForLocal(DEFAULT_TEAMS[0], DEFAULT_TEAMS[1]);
         state.pendingLocalResume = readLocalResume();
         if (state.pendingLocalResume) {
           el.localResumeWrap.classList.remove("hidden");
