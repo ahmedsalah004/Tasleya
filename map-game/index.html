@@ -429,6 +429,8 @@
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
+        touch-action: none;
+        overscroll-behavior: contain;
         background:
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
@@ -1120,6 +1122,9 @@
       const SELECTION_CONFIRM_DELAY_MS = 420;
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
+      const MAP_MIN_ZOOM = 1;
+      const MAP_MAX_ZOOM_DESKTOP = 8;
+      const MAP_MAX_ZOOM_MOBILE = 20;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -2284,9 +2289,11 @@
 
           state.mapDiagnostics.smallCountryCodes = [];
 
+          const zoomMax = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches ? MAP_MAX_ZOOM_MOBILE : MAP_MAX_ZOOM_DESKTOP;
+
           const zoomBehavior = d3
             .zoom()
-            .scaleExtent([1, 8])
+            .scaleExtent([MAP_MIN_ZOOM, zoomMax])
             .filter((event) => {
               if (event.type === "dblclick") return false;
               if (state.isRevealingAnswer) return false;
