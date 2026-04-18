@@ -1217,6 +1217,8 @@
       }
 
       function startAttemptTimer() {
+        if (state.phase !== "attemptReady" || state.attempt.team == null || state.attempt.target <= 0) return;
+        if (state.timerId) return;
         const q = getQuestion();
         state.attempt.endsAt = now() + ATTEMPT_WINDOW_MS;
         state.timerValue = 60;
@@ -1244,7 +1246,9 @@
       }
 
       function applyJudgeResult(success) {
+        if (state.phase !== "judge") return;
         const attemptTeam = state.attempt.team;
+        if (attemptTeam !== 0 && attemptTeam !== 1) return;
         const pointTeam = success ? attemptTeam : 1 - attemptTeam;
         state.scores[pointTeam] += 1;
         updateHeader();
@@ -1696,6 +1700,7 @@
           submitOnlineAction("REVEAL_CATEGORY");
           return;
         }
+        if (state.phase !== "roleSelection" || state.round.categoryRevealed) return;
         state.round.categoryRevealed = true;
         state.round.readyForQuestion = { 0: false, 1: false };
         renderRoundPreparationUI();
@@ -1703,7 +1708,7 @@
       });
       el.team1ReadyBtn.addEventListener("click", () => {
         if (onlineState.enabled) { submitOnlineAction("TEAM_READY_FOR_QUESTION"); return; }
-        if (!state.round.categoryRevealed) return;
+        if (state.phase !== "roleSelection" || !state.round.categoryRevealed) return;
         state.round.readyForQuestion[0] = true;
         renderRoundPreparationUI();
         if (bothTeamsReady()) setPhase("reveal");
@@ -1711,25 +1716,45 @@
       });
       el.team2ReadyBtn.addEventListener("click", () => {
         if (onlineState.enabled) { submitOnlineAction("TEAM_READY_FOR_QUESTION"); return; }
-        if (!state.round.categoryRevealed) return;
+        if (state.phase !== "roleSelection" || !state.round.categoryRevealed) return;
         state.round.readyForQuestion[1] = true;
         renderRoundPreparationUI();
         if (bothTeamsReady()) setPhase("reveal");
         saveLocalResume();
       });
-      el.startBidBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("START_BIDDING") : beginBidding());
+      el.startBidBtn.addEventListener("click", () => {
+        if (onlineState.enabled) {
+          submitOnlineAction("START_BIDDING");
+          return;
+        }
+        if (state.phase !== "reveal") return;
+        beginBidding();
+      });
       el.raiseBidBtn.addEventListener("click", () => {
+        if (onlineState.enabled || state.phase !== "bidding") return;
         const minValue = state.bid.current + 1; const value = Number(el.bidInput.value);
         if (!Number.isInteger(value) || value < minValue) { el.bidInput.value = String(minValue); return; }
         state.bid.current = value; state.bid.leadingTeam = state.bid.turnTeam; state.bid.turnTeam = 1 - state.bid.turnTeam; renderBidding();
         saveLocalResume();
       });
       el.bidCountdownBtn.addEventListener("click", () => submitOnlineAction("BID"));
-      el.stopBidBtn.addEventListener("click", () => { if (window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟")) { state.bid.stoppedTeam = state.bid.turnTeam; lockAttemptFromBidStop(); } });
+      el.stopBidBtn.addEventListener("click", () => {
+        if (onlineState.enabled || state.phase !== "bidding") return;
+        if (window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟")) { state.bid.stoppedTeam = state.bid.turnTeam; lockAttemptFromBidStop(); }
+      });
       el.startAttemptBtn.addEventListener("click", () => (onlineState.enabled ? submitOnlineAction("START_ATTEMPT") : startAttemptTimer()));
       el.correctBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_SUCCESS") : applyJudgeResult(true));
       el.otherPointBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_FAIL") : applyJudgeResult(false));
-      el.nextQuestionBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("NEXT_QUESTION") : (state.questionIndex += 1, startRound(), saveLocalResume()));
+      el.nextQuestionBtn.addEventListener("click", () => {
+        if (onlineState.enabled) {
+          submitOnlineAction("NEXT_QUESTION");
+          return;
+        }
+        if (state.phase !== "between") return;
+        state.questionIndex += 1;
+        startRound();
+        saveLocalResume();
+      });
       el.restartBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("RESET_GAME") : resetGame());
 
       el.retryLoadBtn.addEventListener("click", initializeQuestions);
