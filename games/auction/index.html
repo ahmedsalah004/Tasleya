@@ -247,7 +247,39 @@
         gap: 0.45rem;
       }
 
-      .question-category { margin: 0; color: var(--text-muted); font-size: 0.95rem; }
+      .question-category {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+      }
+
+      .current-category {
+        margin: 0;
+        border-radius: 16px;
+        border: 1px solid rgba(244, 206, 108, 0.46);
+        background: linear-gradient(180deg, rgba(24, 45, 102, 0.7), rgba(8, 20, 54, 0.84));
+        box-shadow: 0 10px 28px rgba(2, 8, 25, 0.5);
+        padding: 0.8rem 1rem;
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .current-category-label {
+        color: #ffefbe;
+        font-size: clamp(1rem, 2.3vw, 1.25rem);
+        font-weight: 800;
+        letter-spacing: 0.02em;
+      }
+
+      .current-category-value {
+        color: #fff7db;
+        font-size: clamp(1.55rem, 3.8vw, 2.45rem);
+        font-weight: 900;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+      }
+
+      .current-category--hero { margin-bottom: 0.55rem; }
       .question-prompt { margin: 0; font-size: 1.08rem; font-weight: 800; line-height: 1.72; }
 
       .roles-grid {
@@ -603,6 +635,8 @@
         .judge-assist-list { grid-template-columns: 1fr; }
         .round-flow-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .round-flow-step { font-size: 0.78rem; padding: 0.35rem 0.4rem; }
+        .current-category { padding: 0.7rem 0.8rem; }
+        .current-category-value { font-size: clamp(1.3rem, 6vw, 1.75rem); }
       }
     </style>
       <link rel="stylesheet" href="/assets/shared-contact-modal.css" />
@@ -736,7 +770,7 @@
           <p class="helper-note">رتّبوا داخل كل فريق من سيجيب ومن سيزايد، ثم أكملوا التسلسل.</p>
           <div class="action-row"><button id="revealBtn" class="btn btn-primary btn-focus" type="button">إظهار الفئة</button></div>
           <div id="categoryRevealBox" class="question-box hidden">
-            <p id="categoryOnlyText" class="question-category"></p>
+            <p class="current-category current-category--hero"><span class="current-category-label">الفئة:</span><span id="categoryOnlyText" class="current-category-value">-</span></p>
             <p class="question-prompt">انتظروا حتى يكون الفريقان جاهزين لرؤية السؤال.</p>
           </div>
           <div id="questionReadyRow" class="action-row hidden">
@@ -748,7 +782,7 @@
         <section id="phaseReveal" class="phase-card hidden">
           <h2 class="phase-title">السؤال ظاهر الآن</h2>
           <div class="question-box">
-            <p id="questionCategory" class="question-category"></p>
+            <p class="current-category"><span class="current-category-label">الفئة:</span><span id="questionCategory" class="current-category-value">-</span></p>
             <p id="questionPrompt" class="question-prompt"></p>
           </div>
           <div class="action-row"><button id="startBidBtn" class="btn btn-primary btn-focus" type="button">يبدأ المزاد</button></div>
@@ -800,7 +834,7 @@
             <p id="attemptNowTeam" class="attempt-team-banner"></p>
             <p class="target target-major" id="timerTarget">0</p>
             <div class="question-box">
-              <p id="timerQuestionCategory" class="question-category"></p>
+              <p class="current-category"><span class="current-category-label">الفئة:</span><span id="timerQuestionCategory" class="current-category-value">-</span></p>
               <p id="timerQuestionPrompt" class="question-prompt"></p>
             </div>
             <p class="timer"><span class="timer-label">الوقت المتبقي</span><span id="timerText" class="timer-value">60</span></p>
@@ -1240,7 +1274,7 @@
         el.revealBtn.classList.toggle("hidden", categoryShown);
         el.categoryRevealBox.classList.toggle("hidden", !categoryShown);
         el.questionReadyRow.classList.toggle("hidden", !categoryShown);
-        el.categoryOnlyText.textContent = q?.category ? `الفئة: ${q.category}` : "الفئة: -";
+        el.categoryOnlyText.textContent = q?.category || "-";
         el.team1ReadyBtn.classList.toggle("active", readyMap[0]);
         el.team2ReadyBtn.classList.toggle("active", readyMap[1]);
         setPrimaryFocusButton(
@@ -1286,7 +1320,7 @@
           updateHeader();
           return;
         }
-        el.questionCategory.textContent = `الفئة: ${q.category}`;
+        el.questionCategory.textContent = q.category || "-";
         el.questionPrompt.textContent = q.prompt;
         renderJudgeAssistReference(q);
         renderRoundPreparationUI();
@@ -1374,7 +1408,7 @@
         el.timerText.textContent = "60";
         el.timerTarget.textContent = `الهدف ${state.attempt.target}`;
         el.attemptNowTeam.textContent = `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
-        el.timerQuestionCategory.textContent = `الفئة: ${q.category}`;
+        el.timerQuestionCategory.textContent = q.category || "-";
         el.timerQuestionPrompt.textContent = q.prompt;
         setPhase("attempt");
         clearInterval(state.timerId);
@@ -1631,9 +1665,9 @@
         state.attempt.target = toInt(gs.targetNumber, 0);
         state.attempt.endsAt = toInt(gs.attemptEndsAt, 0);
         if (q) {
-          el.questionCategory.textContent = `الفئة: ${q.category || "-"}`;
+          el.questionCategory.textContent = q.category || "-";
           el.questionPrompt.textContent = q.prompt || "";
-          el.timerQuestionCategory.textContent = `الفئة: ${q.category || "-"}`;
+          el.timerQuestionCategory.textContent = q.category || "-";
           el.timerQuestionPrompt.textContent = q.prompt || "";
         }
         el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${teamNameAt(state.attempt.team)} يبدأ التحدي الآن`;
@@ -1803,9 +1837,9 @@
         showScreen("game");
         const q = getQuestion();
         if (q) {
-          el.questionCategory.textContent = `الفئة: ${q.category || "-"}`;
+          el.questionCategory.textContent = q.category || "-";
           el.questionPrompt.textContent = q.prompt || "";
-          el.timerQuestionCategory.textContent = `الفئة: ${q.category || "-"}`;
+          el.timerQuestionCategory.textContent = q.category || "-";
           el.timerQuestionPrompt.textContent = q.prompt || "";
           renderJudgeAssistReference(q);
         }
