@@ -87,6 +87,15 @@ export default {
         return json({ questions }, 200, request, env);
       }
 
+      if (url.pathname === '/map-game/language-questions' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAP_LANGUAGE_MODE_SHEET_CSV_URL',
+          cacheKeyPrefix: 'map-language-mode-questions',
+        });
+        const questions = buildMapLanguageModeQuestions(rows);
+        return json({ questions }, 200, request, env);
+      }
+
       if (url.pathname === '/guess-from-hint/questions' && request.method === 'GET') {
         const rows = await getSheetRows(request, env, ctx, {
           envVarName: 'GUESS_FROM_HINT_SHEET_CSV_URL',
@@ -316,6 +325,60 @@ function buildMapGameQuestions(rows) {
         points,
         lat,
         lng,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildMapLanguageModeQuestions(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  const requiredHeaders = [
+    'source_id',
+    'audio_url',
+    'target_country_code',
+    'target_country_name_ar',
+    'target_country_name_en',
+    'difficulty',
+    'points',
+    'status',
+  ];
+  const missingHeaders = requiredHeaders.filter((header) => !headerMap.includes(header));
+  if (missingHeaders.length) {
+    throw new Error(`CSV headers are missing required columns: ${missingHeaders.join(', ')}`);
+  }
+
+  return dataRows
+    .map((row, index) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      if (normalizeCell(raw.status).toLowerCase() !== 'approved_v1') return null;
+
+      const countryCode = normalizeCell(raw.target_country_code).toUpperCase();
+      const countryNameAr = normalizeCell(raw.target_country_name_ar);
+      const countryNameEn = normalizeCell(raw.target_country_name_en);
+      const difficulty = normalizeCell(raw.difficulty).toLowerCase();
+      const points = toInteger(raw.points);
+      const audioUrl = normalizeCell(raw.audio_url);
+      const id = firstNonEmpty(raw.source_id, raw.id, `language-row-${index + 1}`);
+      const sourceLanguageAnswer = normalizeCell(raw.source_language_answer);
+
+      if (!countryCode || !countryNameAr || !countryNameEn) return null;
+      if (!audioUrl || !['easy', 'medium', 'hard'].includes(difficulty) || !Number.isFinite(points)) return null;
+
+      return {
+        id,
+        countryCode,
+        countryNameAr,
+        countryNameEn,
+        difficulty,
+        points,
+        audioUrl,
+        sourceLanguageAnswer,
       };
     })
     .filter(Boolean);
