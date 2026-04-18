@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>إكس أو التقاطع | تسلية</title>
+    <meta
+      name="description"
+      content="إكس أو التقاطع: لعبة جماعية على جهاز واحد تعتمد على الاتفاق الشفهي بين اللاعبين."
+    />
+    <style>
+      :root {
+        --navy-900: #050d24;
+        --navy-800: #0c1a45;
+        --navy-700: #11265d;
+        --gold-300: #ffe8a0;
+        --gold-400: #ffd76e;
+        --gold-500: #f4ce6c;
+        --text-main: #f5f8ff;
+        --text-muted: rgba(228, 238, 255, 0.84);
+        --danger-300: #ffb4b4;
+        --danger-500: #ff8080;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Tahoma", "Arial", sans-serif;
+        color: var(--text-main);
+        background:
+          radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
+          radial-gradient(circle at 85% 0%, rgba(64, 116, 255, 0.22), transparent 38%),
+          linear-gradient(180deg, #03091d 0%, var(--navy-900) 48%, #030917 100%);
+        padding: clamp(0.95rem, 3vw, 1.6rem);
+      }
+
+      .shell {
+        width: min(860px, 100%);
+        margin: 0 auto;
+      }
+
+      .top-nav {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        text-decoration: none;
+        color: var(--gold-300);
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        background: rgba(14, 27, 67, 0.38);
+      }
+
+      .panel {
+        margin-top: 1rem;
+        border-radius: 24px;
+        border: 1px solid rgba(244, 206, 108, 0.26);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.66), rgba(7, 17, 44, 0.9));
+        box-shadow: 0 18px 40px rgba(1, 6, 20, 0.5);
+        padding: clamp(1.05rem, 3.8vw, 1.7rem);
+      }
+
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        color: var(--gold-400);
+      }
+
+      h1 {
+        font-size: clamp(1.95rem, 5.2vw, 2.9rem);
+        margin-bottom: 0.45rem;
+      }
+
+      h2 {
+        font-size: clamp(1.55rem, 4.2vw, 2.2rem);
+        margin-bottom: 1rem;
+      }
+
+      .subtitle,
+      .helper,
+      .small-text {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      .helper {
+        margin-top: 0.4rem;
+      }
+
+      .form-stack,
+      .buttons-stack,
+      .cards-grid,
+      .mode-list,
+      .placeholder-info,
+      .howto-list {
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      .form-stack {
+        margin-top: 1rem;
+      }
+
+      .field {
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      label {
+        color: #fff2c3;
+        font-weight: 700;
+      }
+
+      input {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 224, 143, 0.35);
+        background: rgba(6, 20, 55, 0.95);
+        color: var(--text-main);
+        padding: 0.76rem 0.85rem;
+        font: inherit;
+      }
+
+      .btn,
+      .mode-card,
+      .category-card {
+        min-height: 52px;
+        border-radius: 14px;
+        border: 2px solid transparent;
+        font-family: inherit;
+        font-size: 1rem;
+        font-weight: 800;
+      }
+
+      .btn {
+        cursor: pointer;
+        width: 100%;
+      }
+
+      .btn-primary {
+        border-color: rgba(244, 206, 108, 0.88);
+        background: linear-gradient(180deg, #f9d679, #d7a943);
+        color: #12264d;
+      }
+
+      .btn-secondary {
+        border-color: rgba(255, 225, 140, 0.44);
+        background: rgba(11, 24, 59, 0.88);
+        color: #fff2c3;
+      }
+
+      .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+
+      .status {
+        margin-top: 0.75rem;
+        padding: 0.65rem 0.8rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.35);
+        background: rgba(8, 20, 53, 0.78);
+        color: #fff3c8;
+      }
+
+      .status.error {
+        border-color: rgba(255, 128, 128, 0.55);
+        color: var(--danger-300);
+        background: rgba(68, 16, 24, 0.7);
+      }
+
+      .cards-grid,
+      .mode-list {
+        margin-top: 0.75rem;
+      }
+
+      .category-card,
+      .mode-card {
+        width: 100%;
+        text-align: right;
+        cursor: pointer;
+        border: 1px solid rgba(244, 206, 108, 0.32);
+        background: rgba(8, 22, 58, 0.84);
+        color: var(--text-main);
+        padding: 0.85rem;
+      }
+
+      .mode-card-title {
+        margin: 0;
+        color: #fff3c6;
+        font-size: 1.05rem;
+      }
+
+      .mode-card-rule {
+        margin: 0.5rem 0 0;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+
+      .screen-footer {
+        margin-top: 1rem;
+      }
+
+      .placeholder-info {
+        margin-top: 0.4rem;
+      }
+
+      .placeholder-info p {
+        margin: 0;
+        padding: 0.6rem 0.72rem;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 225, 140, 0.28);
+        background: rgba(10, 28, 71, 0.78);
+      }
+
+      dialog {
+        border: 1px solid rgba(244, 206, 108, 0.45);
+        border-radius: 20px;
+        width: min(92vw, 620px);
+        background: linear-gradient(180deg, rgba(17, 38, 93, 0.98), rgba(7, 17, 44, 0.98));
+        color: var(--text-main);
+        padding: 1.1rem;
+      }
+
+      dialog::backdrop {
+        background: rgba(1, 5, 18, 0.75);
+      }
+
+      .howto-list {
+        margin: 0.75rem 0;
+        padding-right: 1.1rem;
+      }
+
+      .howto-list li {
+        line-height: 1.85;
+      }
+
+      .howto-actions {
+        display: flex;
+        justify-content: flex-start;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <a class="top-nav" href="/games/">← العودة إلى الألعاب</a>
+
+      <section class="panel screen active" data-screen="setup">
+        <h1>إكس أو التقاطع</h1>
+        <p class="subtitle">اختر فريقين، ثم العبوا على نفس الجهاز</p>
+        <p class="helper">اتفقوا على صحة الإجابة بينكم، ثم ثبّتوا الخانة</p>
+
+        <div class="form-stack">
+          <div class="field">
+            <label for="team1Input">اسم الفريق الأول</label>
+            <input id="team1Input" type="text" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="team2Input">اسم الفريق الثاني</label>
+            <input id="team2Input" type="text" autocomplete="off" />
+          </div>
+        </div>
+
+        <div id="loadStatus" class="status" aria-live="polite">جاري تحميل بيانات الفئات...</div>
+
+        <div class="buttons-stack" style="margin-top: 0.9rem">
+          <button id="startBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
+          <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
+          <button id="retryBtn" class="btn btn-secondary hidden" type="button">إعادة المحاولة</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="categories">
+        <h2>اختر الفئة</h2>
+        <div id="categoriesWrap" class="cards-grid"></div>
+        <div class="screen-footer">
+          <button id="backToSetupBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="modes">
+        <h2>اختر نمط اللعب</h2>
+        <div id="modesWrap" class="mode-list"></div>
+        <div class="screen-footer">
+          <button id="backToCategoriesBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="placeholder">
+        <h2>قريباً: شاشة اللوحة</h2>
+        <div class="placeholder-info">
+          <p id="selectedCategoryText"></p>
+          <p id="selectedModeText"></p>
+          <p id="selectedRuleText"></p>
+          <p id="boardsCountText"></p>
+        </div>
+        <div class="screen-footer">
+          <button id="backToModesBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="howToDialog" aria-label="طريقة اللعب">
+      <h2 style="margin-bottom: 0.4rem">طريقة اللعب</h2>
+      <ul class="howto-list">
+        <li>اختر اسم كل فريق</li>
+        <li>اختر الفئة ونمط اللعب</li>
+        <li>في كل دور، اختر خانة فارغة</li>
+        <li>اذكر إجابة تناسب عنوان الصف وعنوان العمود</li>
+        <li>اتفقوا بينكم على صحة الإجابة</li>
+        <li>بعد الاتفاق، اضغط تثبيت الخانة</li>
+        <li>إذا لم يتم الاتفاق، تُلغى الخانة وينتقل الدور</li>
+        <li>أول فريق يكوّن 3 خانات متتالية يفوز</li>
+        <li>ملاحظة: التحقق من الإجابات يتم بين اللاعبين خارج اللعبة</li>
+      </ul>
+      <div class="howto-actions">
+        <button id="closeHowToBtn" class="btn btn-secondary" type="button">إغلاق</button>
+      </div>
+    </dialog>
+
+    <script>
+      const CSV_URL =
+        "https://docs.google.com/spreadsheets/d/e/2PACX-1vST0HDmGhMcWq07D68Wj9XK_Kd3gdEFIvE_BdjACc1dNtwFjPGbpvdOJbi4EI7Dj19LYjN6kPxFJrmP/pub?output=csv";
+
+      const REQUIRED_FIELDS = [
+        "board_id",
+        "category_key",
+        "category_name_ar",
+        "mode_key",
+        "mode_name_ar",
+        "rule_text_ar",
+        "column_1",
+        "column_2",
+        "column_3",
+        "row_1",
+        "row_2",
+        "row_3"
+      ];
+
+      const state = {
+        currentScreen: "setup",
+        loadingStatus: "idle",
+        errorStatus: "",
+        team1Name: "",
+        team2Name: "",
+        selectedCategoryKey: "",
+        selectedCategoryNameAr: "",
+        selectedModeKey: "",
+        selectedModeNameAr: "",
+        selectedRuleTextAr: "",
+        allValidLoadedBoards: [],
+        filteredBoardsForSelectedMode: []
+      };
+
+      const elements = {
+        screens: document.querySelectorAll("[data-screen]"),
+        team1Input: document.getElementById("team1Input"),
+        team2Input: document.getElementById("team2Input"),
+        startBtn: document.getElementById("startBtn"),
+        howToBtn: document.getElementById("howToBtn"),
+        loadStatus: document.getElementById("loadStatus"),
+        retryBtn: document.getElementById("retryBtn"),
+        categoriesWrap: document.getElementById("categoriesWrap"),
+        modesWrap: document.getElementById("modesWrap"),
+        backToSetupBtn: document.getElementById("backToSetupBtn"),
+        backToCategoriesBtn: document.getElementById("backToCategoriesBtn"),
+        backToModesBtn: document.getElementById("backToModesBtn"),
+        selectedCategoryText: document.getElementById("selectedCategoryText"),
+        selectedModeText: document.getElementById("selectedModeText"),
+        selectedRuleText: document.getElementById("selectedRuleText"),
+        boardsCountText: document.getElementById("boardsCountText"),
+        howToDialog: document.getElementById("howToDialog"),
+        closeHowToBtn: document.getElementById("closeHowToBtn")
+      };
+
+      function setScreen(name) {
+        state.currentScreen = name;
+        elements.screens.forEach((screen) => {
+          screen.classList.toggle("active", screen.getAttribute("data-screen") === name);
+        });
+      }
+
+      function parseCsvLineSafe(text) {
+        const rows = [];
+        let current = "";
+        let row = [];
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i += 1) {
+          const char = text[i];
+          const nextChar = text[i + 1];
+
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              current += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+
+          if (char === "," && !inQuotes) {
+            row.push(current);
+            current = "";
+            continue;
+          }
+
+          if ((char === "\n" || char === "\r") && !inQuotes) {
+            if (char === "\r" && nextChar === "\n") {
+              i += 1;
+            }
+            row.push(current);
+            rows.push(row);
+            row = [];
+            current = "";
+            continue;
+          }
+
+          current += char;
+        }
+
+        if (current.length > 0 || row.length > 0) {
+          row.push(current);
+          rows.push(row);
+        }
+
+        return rows;
+      }
+
+      function mapCsvRows(rawRows) {
+        if (!rawRows.length) return [];
+        const headers = rawRows[0].map((header) => String(header || "").trim());
+
+        return rawRows.slice(1).map((values) => {
+          const rowObject = {};
+          headers.forEach((header, index) => {
+            rowObject[header] = String(values[index] || "").trim();
+          });
+          return rowObject;
+        });
+      }
+
+      function hasRequiredFields(row) {
+        return REQUIRED_FIELDS.every((field) => row[field]);
+      }
+
+      function toNumberSafe(value) {
+        const numeric = Number(value);
+        return Number.isFinite(numeric) ? numeric : Number.POSITIVE_INFINITY;
+      }
+
+      function isRowActive(row) {
+        return String(row.is_active || "").trim().toLowerCase() === "true";
+      }
+
+      function getUniqueCategories() {
+        const categoriesMap = new Map();
+
+        state.allValidLoadedBoards.forEach((row) => {
+          if (!categoriesMap.has(row.category_key)) {
+            categoriesMap.set(row.category_key, {
+              categoryKey: row.category_key,
+              categoryNameAr: row.category_name_ar
+            });
+          }
+        });
+
+        return Array.from(categoriesMap.values());
+      }
+
+      function getUniqueModesForCategory(categoryKey) {
+        const modesMap = new Map();
+
+        state.allValidLoadedBoards
+          .filter((row) => row.category_key === categoryKey)
+          .forEach((row) => {
+            if (!modesMap.has(row.mode_key)) {
+              modesMap.set(row.mode_key, {
+                modeKey: row.mode_key,
+                modeNameAr: row.mode_name_ar,
+                ruleTextAr: row.rule_text_ar
+              });
+            }
+          });
+
+        return Array.from(modesMap.values());
+      }
+
+      function renderCategories() {
+        const categories = getUniqueCategories();
+        elements.categoriesWrap.innerHTML = "";
+
+        categories.forEach((category) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "category-card";
+          button.textContent = category.categoryNameAr;
+          button.addEventListener("click", () => {
+            state.selectedCategoryKey = category.categoryKey;
+            state.selectedCategoryNameAr = category.categoryNameAr;
+            renderModes();
+            setScreen("modes");
+          });
+          elements.categoriesWrap.appendChild(button);
+        });
+      }
+
+      function renderModes() {
+        const modes = getUniqueModesForCategory(state.selectedCategoryKey);
+        elements.modesWrap.innerHTML = "";
+
+        modes.forEach((mode) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "mode-card";
+          button.innerHTML = `
+            <p class="mode-card-title">${mode.modeNameAr}</p>
+            <p class="mode-card-rule">${mode.ruleTextAr}</p>
+          `;
+          button.addEventListener("click", () => {
+            state.selectedModeKey = mode.modeKey;
+            state.selectedModeNameAr = mode.modeNameAr;
+            state.selectedRuleTextAr = mode.ruleTextAr;
+            state.filteredBoardsForSelectedMode = state.allValidLoadedBoards.filter(
+              (row) => row.category_key === state.selectedCategoryKey && row.mode_key === state.selectedModeKey
+            );
+            renderPlaceholder();
+            setScreen("placeholder");
+          });
+          elements.modesWrap.appendChild(button);
+        });
+      }
+
+      function renderPlaceholder() {
+        elements.selectedCategoryText.textContent = `الفئة المختارة: ${state.selectedCategoryNameAr}`;
+        elements.selectedModeText.textContent = `نمط اللعب المختار: ${state.selectedModeNameAr}`;
+        elements.selectedRuleText.textContent = `وصف النمط: ${state.selectedRuleTextAr}`;
+        elements.boardsCountText.textContent = `عدد اللوحات المتاحة: ${state.filteredBoardsForSelectedMode.length}`;
+      }
+
+      function refreshLoadingUi() {
+        elements.startBtn.disabled = state.loadingStatus !== "success";
+        elements.retryBtn.classList.toggle("hidden", state.loadingStatus !== "error");
+
+        if (state.loadingStatus === "loading") {
+          elements.loadStatus.classList.remove("error");
+          elements.loadStatus.textContent = "جاري تحميل بيانات الفئات...";
+        } else if (state.loadingStatus === "success") {
+          elements.loadStatus.classList.remove("error");
+          elements.loadStatus.textContent = "تم تحميل البيانات بنجاح.";
+        } else if (state.loadingStatus === "error") {
+          elements.loadStatus.classList.add("error");
+          elements.loadStatus.textContent = state.errorStatus || "تعذر تحميل البيانات. حاول مرة أخرى.";
+        }
+      }
+
+      async function fetchBoardsData() {
+        state.loadingStatus = "loading";
+        state.errorStatus = "";
+        refreshLoadingUi();
+
+        try {
+          const response = await fetch(CSV_URL, { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const csvText = await response.text();
+          const parsedRows = parseCsvLineSafe(csvText);
+          const mappedRows = mapCsvRows(parsedRows);
+          const validRows = mappedRows
+            .filter((row) => isRowActive(row) && hasRequiredFields(row))
+            .sort((a, b) => toNumberSafe(a.sort_order) - toNumberSafe(b.sort_order));
+
+          if (!validRows.length) {
+            throw new Error("لم يتم العثور على بيانات صالحة نشطة.");
+          }
+
+          state.allValidLoadedBoards = validRows;
+          state.loadingStatus = "success";
+          refreshLoadingUi();
+        } catch (error) {
+          state.loadingStatus = "error";
+          state.errorStatus = `فشل تحميل البيانات: ${error.message}`;
+          state.allValidLoadedBoards = [];
+          refreshLoadingUi();
+        }
+      }
+
+      function applyTeamNames() {
+        state.team1Name = (elements.team1Input.value || "").trim() || "الفريق الأول";
+        state.team2Name = (elements.team2Input.value || "").trim() || "الفريق الثاني";
+      }
+
+      function setupEvents() {
+        elements.startBtn.addEventListener("click", () => {
+          if (state.loadingStatus !== "success") {
+            return;
+          }
+          applyTeamNames();
+          renderCategories();
+          setScreen("categories");
+        });
+
+        elements.retryBtn.addEventListener("click", () => {
+          fetchBoardsData();
+        });
+
+        elements.backToSetupBtn.addEventListener("click", () => {
+          setScreen("setup");
+        });
+
+        elements.backToCategoriesBtn.addEventListener("click", () => {
+          setScreen("categories");
+        });
+
+        elements.backToModesBtn.addEventListener("click", () => {
+          setScreen("modes");
+        });
+
+        elements.howToBtn.addEventListener("click", () => {
+          elements.howToDialog.showModal();
+        });
+
+        elements.closeHowToBtn.addEventListener("click", () => {
+          elements.howToDialog.close();
+        });
+      }
+
+      setupEvents();
+      fetchBoardsData();
+    </script>
+  </body>
+</html>
