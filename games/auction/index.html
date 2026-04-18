@@ -1640,7 +1640,17 @@
       });
       el.startLocalBtn.addEventListener("click", () => {
         state.mode = "local";
+        if (onlineState.unsubscribeRoom) onlineState.unsubscribeRoom();
+        if (onlineState.unsubscribePresence) onlineState.unsubscribePresence();
+        if (onlineState.hostClockId) clearInterval(onlineState.hostClockId);
         onlineState.enabled = false;
+        onlineState.session = null;
+        onlineState.roomData = null;
+        onlineState.processingActions = false;
+        onlineState.unsubscribeRoom = null;
+        onlineState.unsubscribePresence = null;
+        onlineState.hostClockId = null;
+        if (gameRooms) gameRooms.clearGameRoomSession();
         setTeamNamesForLocal(el.team1NameInput.value, el.team2NameInput.value);
         clearLocalResume();
         el.localResumeWrap.classList.add("hidden");
@@ -1700,6 +1710,7 @@
           el.localResumeWrap.classList.remove("hidden");
           showScreen("mode");
         }
+        if (state.mode === "local") return;
         if (!gameRooms) return;
         const restored = gameRooms.restoreGameRoomSession();
         if (!restored || restored.gameType !== GAME_KEY) return;
