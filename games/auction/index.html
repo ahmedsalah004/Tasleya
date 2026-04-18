@@ -877,6 +877,7 @@
         questionBank: [],
         pendingLocalResume: null,
         teamNames: [...DEFAULT_TEAMS],
+        judgeAssistOpen: false,
       };
 
       const onlineState = {
@@ -1033,6 +1034,7 @@
       }
 
       function setJudgePanelExpanded(expanded) {
+        state.judgeAssistOpen = Boolean(expanded);
         el.judgeAssistPanel.classList.toggle("hidden", !expanded);
         el.judgeAssistToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
         el.judgeAssistToggle.textContent = expanded ? "إخفاء مرجع الحكم" : "إظهار مرجع الحكم";
@@ -1155,7 +1157,7 @@
         Object.values(map).forEach((node) => { node.classList.add("hidden"); node.classList.remove("visible"); });
         const currentNode = map[name];
         if (currentNode) { currentNode.classList.remove("hidden"); requestAnimationFrame(() => currentNode.classList.add("visible")); }
-        setJudgePanelExpanded(["attemptReady", "attempt", "judge"].includes(name));
+        setJudgePanelExpanded(state.judgeAssistOpen);
         if (name === "roleSelection") renderRoundPreparationUI();
         if (name === "attemptReady" || name === "judge") updateJudgeButtons();
         if (name === "reveal") setPrimaryFocusButton(el.startBidBtn, [el.startBidBtn]);
@@ -1271,6 +1273,7 @@
       }
 
       function startRound() {
+        state.judgeAssistOpen = false;
         state.round = { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = { team: null, target: 0, endsAt: null };
@@ -1350,6 +1353,7 @@
       function lockAttemptFromBidStop() {
         const winner = state.bid.current === 0 ? 1 - state.bid.turnTeam : 1 - state.bid.stoppedTeam;
         const target = Math.max(1, state.bid.current);
+        state.judgeAssistOpen = false;
         state.attempt = { team: winner, target, endsAt: null };
         el.attemptTeamText.textContent = `${teamNameAt(winner)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${target}`;
@@ -1364,6 +1368,7 @@
         if (state.phase !== "attemptReady" || state.attempt.team == null || state.attempt.target <= 0) return;
         if (state.timerId) return;
         const q = getQuestion();
+        state.judgeAssistOpen = false;
         state.attempt.endsAt = now() + ATTEMPT_WINDOW_MS;
         state.timerValue = 60;
         el.timerText.textContent = "60";
@@ -1394,6 +1399,7 @@
         if (state.phase !== "judge") return;
         const attemptTeam = state.attempt.team;
         if (attemptTeam !== 0 && attemptTeam !== 1) return;
+        state.judgeAssistOpen = false;
         const pointTeam = success ? attemptTeam : 1 - attemptTeam;
         state.scores[pointTeam] += 1;
         updateHeader();
@@ -1605,6 +1611,9 @@
 
       function applyOnlineToUI(gs) {
         if (!onlineState.enabled || state.mode !== "online" || !gs) return;
+        if (["attempt_ready", "attempt", "result", "role_selection"].includes(gs.phase)) {
+          state.judgeAssistOpen = false;
+        }
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
         const q = gs.currentQuestion || resolveQuestion(gs) || getQuestion();
