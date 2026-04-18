@@ -1262,13 +1262,14 @@
         state.activeTeamIndex = 0;
         state.revealed = false;
         state.remaining = TURN_TIME_SECONDS;
-        state.gameStarted = true;
+        state.gameStarted = false;
         state.gameFinished = false;
         state.timerStarted = false;
         state.termTimeExpired = false;
 
         buildDecksOrThrow();
         updateCurrentCardFromDeck();
+        state.gameStarted = true;
 
         setupScreen.classList.add("hidden");
         resumeScreen.classList.add("hidden");
