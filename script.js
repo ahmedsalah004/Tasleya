@@ -27,6 +27,8 @@ const HOST_ONLY_SETUP_MESSAGE = "الفريق الذي أنشأ الغرفة ه�
 const NEW_GAME_BUTTON_TEXT = "لعبة جديدة";
 const HOST_CATEGORY_CTA_BUTTON_TEXT = "اختيار الفئات";
 const ONLINE_PRESENCE_HEARTBEAT_MS = 15000;
+const ONLINE_PLAYER_FRESHNESS_MS = ONLINE_PRESENCE_HEARTBEAT_MS * 3;
+const ONLINE_PENDING_ACTION_MAX_AGE_MS = 60000;
 const ONLINE_RECONNECT_GRACE_MS = 2 * 60 * 1000;
 const ONLINE_ACTIVE_GAME_STALE_MS = 15 * 60 * 1000;
 const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -431,6 +433,7 @@ const online = {
   hostSetupInFlight: false,
   roomStatus: null,
   hostContinuityNoticeShown: false,
+  hydrationRetryTimer: null,
 };
 
 let gameplayPersistDebounceTimer = null;
@@ -2195,10 +2198,14 @@ function clearQuestionMedia() {
 function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   const normalizedType = normalizeCell(question?.type).toLowerCase();
   const isVideoQuestion = normalizedType === "video";
-  state.videoQuestionPending = isVideoQuestion;
-  state.videoPlaybackCompleted = !isVideoQuestion;
-  state.pendingVideoDeadlineTs = null;
-  el.questionText.textContent = isVideoQuestion ? "شاهد الفيديو مرة واحدة، ثم سيظهر السؤال" : question.question;
+  if (resetLifecycleState) {
+    state.videoQuestionPending = isVideoQuestion;
+    state.videoPlaybackCompleted = !isVideoQuestion;
+    state.pendingVideoDeadlineTs = null;
+  }
+  el.questionText.textContent = (isVideoQuestion && state.videoQuestionPending)
+    ? "شاهد الفيديو مرة واحدة، ثم سيظهر السؤال"
+    : question.question;
   if (resetLifecycleState) {
     el.answerText.textContent = "الإجابة: ...";
     el.answerText.classList.add("hidden");
@@ -2427,6 +2434,9 @@ async function requestHostTilePick(tileId) {
     await online.roomRef.child(`players/${online.uid}/pendingTilePick`).set({
       id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       tileId: normalizedTileId,
+      requestedByUid: online.uid,
+      requestedClientId: ensureStableOnlineClientId(),
+      expectedCurrentTeam: resolveCurrentTurnTeam(),
       requestedAt: getFirebaseTimestampValue(),
     });
     return true;
@@ -2443,6 +2453,8 @@ async function requestHostRevealAnswer() {
     await online.roomRef.child(`players/${online.uid}/pendingRevealAnswer`).set({
       id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       questionSessionId: normalizeCell(state.questionSessionId) || "",
+      requestedByUid: online.uid,
+      requestedClientId: ensureStableOnlineClientId(),
       requestedAt: getFirebaseTimestampValue(),
     });
     return true;
@@ -2462,6 +2474,8 @@ async function requestHostScoreAction({ action, targetTeam = null } = {}) {
     id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     action: normalizedAction,
     questionSessionId: normalizeCell(state.questionSessionId) || "",
+    requestedByUid: online.uid,
+    requestedClientId: ensureStableOnlineClientId(),
     requestedAt: getFirebaseTimestampValue(),
   };
   if (Number.isFinite(normalizedTargetTeam) && normalizedTargetTeam >= 1 && normalizedTargetTeam <= 3) {
@@ -2485,6 +2499,8 @@ async function requestHostLifelineAction({ type } = {}) {
     id: `${online.uid}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     type: normalizedType,
     questionSessionId: normalizeCell(state.questionSessionId) || "",
+    requestedByUid: online.uid,
+    requestedClientId: ensureStableOnlineClientId(),
     requestedAt: getFirebaseTimestampValue(),
   };
   try {
@@ -2701,6 +2717,75 @@ async function openQuestion(tileId, {
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
 }
 
+function resolveVideoLifecyclePhaseFromRemote(game, question = null) {
+  const explicitPhase = normalizeCell(game?.videoLifecyclePhase).toLowerCase();
+  if (explicitPhase === "video_pending" || explicitPhase === "answer_active") return explicitPhase;
+  const questionType = normalizeCell(question?.type).toLowerCase();
+  if (questionType !== "video") return "answer_active";
+  const remoteDeadline = Number(game?.questionDeadlineTs);
+  const remoteStartedAt = Number(game?.questionStartedAt);
+  if (Number.isFinite(remoteDeadline) || Number.isFinite(remoteStartedAt)) return "answer_active";
+  return "video_pending";
+}
+
+function applyRemoteVideoLifecycleState(game, question = null) {
+  const questionType = normalizeCell(question?.type).toLowerCase();
+  if (questionType !== "video") {
+    state.videoQuestionPending = false;
+    state.videoPlaybackCompleted = true;
+    state.pendingVideoDeadlineTs = null;
+    return;
+  }
+  const remotePhase = resolveVideoLifecyclePhaseFromRemote(game, question);
+  if (remotePhase === "answer_active") {
+    state.videoQuestionPending = false;
+    state.videoPlaybackCompleted = true;
+    state.pendingVideoDeadlineTs = null;
+    el.questionText.textContent = question?.question || "";
+    return;
+  }
+  state.videoQuestionPending = true;
+  state.videoPlaybackCompleted = false;
+  const remoteDeadline = Number(game?.questionDeadlineTs);
+  state.pendingVideoDeadlineTs = Number.isFinite(remoteDeadline) ? remoteDeadline : null;
+  el.questionText.textContent = "شاهد الفيديو مرة واحدة، ثم سيظهر السؤال";
+}
+
+function isPendingActionRequestFresh(rawRecord, request, { expectedTeam = null } = {}) {
+  const now = Date.now();
+  const requesterUid = normalizeCell(rawRecord?.uid);
+  const requestUid = normalizeCell(request?.requestedByUid);
+  if (requestUid && requesterUid && requestUid !== requesterUid) return false;
+  const playerClientId = normalizeCell(rawRecord?.clientId);
+  const requestClientId = normalizeCell(request?.requestedClientId);
+  if (requestClientId && playerClientId && requestClientId !== playerClientId) return false;
+  if (!rawRecord?.connected) return false;
+  const freshnessTs = Number(rawRecord?.joinedAt);
+  if (!Number.isFinite(freshnessTs) || (now - freshnessTs) > ONLINE_PLAYER_FRESHNESS_MS) return false;
+  const requestedAt = Number(request?.requestedAt);
+  if (!Number.isFinite(requestedAt) || (now - requestedAt) > ONLINE_PENDING_ACTION_MAX_AGE_MS) return false;
+  const expectedCurrentTeam = Number(request?.expectedCurrentTeam);
+  if (Number.isFinite(expectedCurrentTeam) && Number.isFinite(expectedTeam) && expectedCurrentTeam !== expectedTeam) return false;
+  return true;
+}
+
+function scheduleHydrationRetryAfterTransientFailure() {
+  if (online.hydrationRetryTimer !== null) return;
+  online.hydrationRetryTimer = window.setTimeout(async () => {
+    online.hydrationRetryTimer = null;
+    if (online.mode !== "online" || !online.roomRef || online.applyingRemote) return;
+    try {
+      const snapshot = await online.roomRef.child("public/gameState").once("value");
+      const latest = snapshot?.val();
+      if (!latest) return;
+      const retryNonce = ++online.remoteApplyNonce;
+      await applyRemoteGameState(latest, { applyNonce: retryNonce });
+    } catch (error) {
+      console.warn("[Tasleya][sync] hydration retry failed", error);
+    }
+  }, 1200);
+}
+
 async function processPendingTilePickRequest(room, remoteGameState) {
   if (online.mode !== "online" || !isOnlineHostClient() || !online.roomRef) return;
   if (!remoteGameState || !!remoteGameState.modalOpen) return;
@@ -2710,6 +2795,7 @@ async function processPendingTilePickRequest(room, remoteGameState) {
   const currentTeam = activeTeams.includes(Number(remoteGameState.currentTeam))
     ? Number(remoteGameState.currentTeam)
     : (activeTeams[0] || 1);
+  const staleRequestPaths = [];
 
   let selectedRequest = null;
   Object.entries(players).forEach(([uid, rawRecord]) => {
@@ -2718,9 +2804,22 @@ async function processPendingTilePickRequest(room, remoteGameState) {
     const request = rawRecord?.pendingTilePick;
     const requestedTileId = normalizeCell(request?.tileId);
     const requestId = normalizeCell(request?.id);
-    if (slot !== currentTeam || !requestedTileId || !requestId) return;
+    if (!request || !requestId) return;
+    const requestOwnerUid = normalizeCell(uid);
+    const requestRecord = { ...(rawRecord || {}), uid: requestOwnerUid };
+    const isFresh = isPendingActionRequestFresh(requestRecord, request, { expectedTeam: currentTeam });
+    if (!isFresh) {
+      staleRequestPaths.push(`players/${requestOwnerUid}/pendingTilePick`);
+      return;
+    }
+    if (slot !== currentTeam || !requestedTileId) return;
     selectedRequest = { uid: normalizeCell(uid), slot, requestedTileId, requestId };
   });
+  if (staleRequestPaths.length) {
+    const staleCleanup = {};
+    staleRequestPaths.forEach((path) => { staleCleanup[path] = null; });
+    await online.roomRef.update(staleCleanup).catch(() => {});
+  }
 
   if (!selectedRequest) return;
   if (online.processingTilePickRequestId === selectedRequest.requestId) return;
@@ -2748,6 +2847,7 @@ async function processPendingRevealRequest(room, remoteGameState) {
     ? Number(remoteGameState.currentTeam)
     : (activeTeams[0] || 1);
   const currentSessionId = normalizeCell(state.questionSessionId);
+  const staleRequestPaths = [];
 
   let selectedRequest = null;
   Object.entries(players).forEach(([uid, rawRecord]) => {
@@ -2756,10 +2856,22 @@ async function processPendingRevealRequest(room, remoteGameState) {
     const request = rawRecord?.pendingRevealAnswer;
     const requestId = normalizeCell(request?.id);
     const requestedSessionId = normalizeCell(request?.questionSessionId);
-    if (slot !== currentTeam || !requestId) return;
+    if (!request || !requestId) return;
+    const requestOwnerUid = normalizeCell(uid);
+    const requestRecord = { ...(rawRecord || {}), uid: requestOwnerUid };
+    if (!isPendingActionRequestFresh(requestRecord, request, { expectedTeam: currentTeam })) {
+      staleRequestPaths.push(`players/${requestOwnerUid}/pendingRevealAnswer`);
+      return;
+    }
+    if (slot !== currentTeam) return;
     if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
     selectedRequest = { uid: normalizeCell(uid), requestId };
   });
+  if (staleRequestPaths.length) {
+    const staleCleanup = {};
+    staleRequestPaths.forEach((path) => { staleCleanup[path] = null; });
+    await online.roomRef.update(staleCleanup).catch(() => {});
+  }
 
   if (!selectedRequest) return;
   if (online.processingRevealRequestId === selectedRequest.requestId) return;
@@ -2784,6 +2896,7 @@ async function processPendingScoreRequest(room, remoteGameState) {
     ? Number(remoteGameState.currentTeam)
     : (activeTeams[0] || 1);
   const currentSessionId = normalizeCell(state.questionSessionId);
+  const staleRequestPaths = [];
 
   let selectedRequest = null;
   Object.entries(players).forEach(([uid, rawRecord]) => {
@@ -2794,7 +2907,14 @@ async function processPendingScoreRequest(room, remoteGameState) {
     const requestedAction = normalizeCell(request?.action);
     const requestedSessionId = normalizeCell(request?.questionSessionId);
     const requestedTargetTeam = Number(request?.targetTeam);
-    if (slot !== currentTeam || !requestId || !["correct", "wrong", "other"].includes(requestedAction)) return;
+    if (!request || !requestId) return;
+    const requestOwnerUid = normalizeCell(uid);
+    const requestRecord = { ...(rawRecord || {}), uid: requestOwnerUid };
+    if (!isPendingActionRequestFresh(requestRecord, request, { expectedTeam: currentTeam })) {
+      staleRequestPaths.push(`players/${requestOwnerUid}/pendingScoreAction`);
+      return;
+    }
+    if (slot !== currentTeam || !["correct", "wrong", "other"].includes(requestedAction)) return;
     if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
     selectedRequest = {
       uid: normalizeCell(uid),
@@ -2803,6 +2923,11 @@ async function processPendingScoreRequest(room, remoteGameState) {
       targetTeam: Number.isFinite(requestedTargetTeam) ? requestedTargetTeam : null,
     };
   });
+  if (staleRequestPaths.length) {
+    const staleCleanup = {};
+    staleRequestPaths.forEach((path) => { staleCleanup[path] = null; });
+    await online.roomRef.update(staleCleanup).catch(() => {});
+  }
 
   if (!selectedRequest) return;
   if (online.processingScoreRequestId === selectedRequest.requestId) return;
@@ -2839,6 +2964,7 @@ async function processPendingLifelineRequest(room, remoteGameState) {
     ? Number(remoteGameState.currentTeam)
     : (activeTeams[0] || 1);
   const currentSessionId = normalizeCell(state.questionSessionId);
+  const staleRequestPaths = [];
 
   let selectedRequest = null;
   Object.entries(players).forEach(([uid, rawRecord]) => {
@@ -2848,10 +2974,22 @@ async function processPendingLifelineRequest(room, remoteGameState) {
     const requestId = normalizeCell(request?.id);
     const requestedType = normalizeCell(request?.type);
     const requestedSessionId = normalizeCell(request?.questionSessionId);
-    if (slot !== currentTeam || !requestId || !["mcq", "hint", "doubleAnswer"].includes(requestedType)) return;
+    if (!request || !requestId) return;
+    const requestOwnerUid = normalizeCell(uid);
+    const requestRecord = { ...(rawRecord || {}), uid: requestOwnerUid };
+    if (!isPendingActionRequestFresh(requestRecord, request, { expectedTeam: currentTeam })) {
+      staleRequestPaths.push(`players/${requestOwnerUid}/pendingLifelineAction`);
+      return;
+    }
+    if (slot !== currentTeam || !["mcq", "hint", "doubleAnswer"].includes(requestedType)) return;
     if (currentSessionId && requestedSessionId && requestedSessionId !== currentSessionId) return;
     selectedRequest = { uid: normalizeCell(uid), requestId, type: requestedType };
   });
+  if (staleRequestPaths.length) {
+    const staleCleanup = {};
+    staleRequestPaths.forEach((path) => { staleCleanup[path] = null; });
+    await online.roomRef.update(staleCleanup).catch(() => {});
+  }
 
   if (!selectedRequest) return;
   if (online.processingLifelineRequestId === selectedRequest.requestId) return;
@@ -3696,6 +3834,9 @@ function serializeGameState() {
     currentHintText: state.currentHintText,
     questionStartedAt: state.activeTile && timerStart ? timerStart : null,
     questionDeadlineTs: state.activeTile && questionDeadlineTs ? questionDeadlineTs : null,
+    videoLifecyclePhase: hasActiveLifecycleQuestion
+      ? (state.videoQuestionPending ? "video_pending" : "answer_active")
+      : null,
     finished: state.boardTiles.length > 0 && !hasPlayableTiles(),
     [ROOM_USED_HISTORY_FIELD]: online.mode === "online"
       ? normalizeUsedHistoryByCategory(online.usedQuestionsByCategory)
@@ -3705,6 +3846,10 @@ function serializeGameState() {
 
 async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
   if (!game) return;
+  if (online.hydrationRetryTimer !== null) {
+    clearTimeout(online.hydrationRetryTimer);
+    online.hydrationRetryTimer = null;
+  }
   const localActiveTileIdBeforeApply = state.activeTile?.id || null;
   const localActiveQuestionBeforeApply = state.activeQuestion || null;
   const localActiveQuestionIdBeforeApply = localActiveQuestionBeforeApply?.id || state.activeTile?.questionId || null;
@@ -3838,6 +3983,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
           el.hintBox.classList.add("hidden");
         }
         const remoteTimedOut = !!tile.timedOut;
+        applyRemoteVideoLifecycleState(game, state.activeQuestion);
         showQuestionStatus(remoteTimedOut ? "انتهى الوقت" : "");
         updateDoubleAnswerStatus();
         updateQuestionActionLock();
@@ -3872,11 +4018,6 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
         previousActiveQuestionId: localActiveQuestionIdBeforeApply || null,
         previousLoadingQuestion: !!localLoadingQuestionBeforeApply,
       });
-      state.activeQuestion = null;
-      state.loadingQuestion = false;
-      state.questionSessionId = "";
-      state.questionTurnOwnerIndex = null;
-      state.resolvedQuestionSessionId = "";
       const tile = state.boardTiles.find((t) => t.id === activeId && !t.used);
       if (tile) {
         try {
@@ -3900,6 +4041,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
               : state.currentTeam;
             clearQuestionMedia();
             renderQuestionContent(remoteQuestion, { resetLifecycleState: false });
+            applyRemoteVideoLifecycleState(game, remoteQuestion);
             el.answerText.classList.toggle("hidden", !state.answerRevealed);
             if (state.answerRevealed) {
               const cachedAnswer = questionBankCache.answersById.get(remoteQuestion.id);
@@ -3967,6 +4109,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             remoteActiveTileId: activeId,
             remoteActiveQuestionId: game.activeQuestionId || null,
           });
+          scheduleHydrationRetryAfterTransientFailure();
           syncedOpenModal = false;
         }
       }
@@ -3974,8 +4117,14 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
 
     if (!syncedOpenModal) {
       const remoteAuthoritativeClose = !game.modalOpen || !game.activeTileId;
-      const localHasActiveQuestion = !!state.activeTile && !state.activeTile.used && (
-        !!state.activeQuestion || !!state.loadingQuestion || !el.modal?.classList.contains("hidden")
+      const localHasActiveQuestion = (
+        !!state.activeTile && !state.activeTile.used && (
+          !!state.activeQuestion || !!state.loadingQuestion || !el.modal?.classList.contains("hidden")
+        )
+      ) || (
+        !!localActiveTileIdBeforeApply && !!localModalOpenBeforeApply && (
+          !!localActiveQuestionBeforeApply || !!localLoadingQuestionBeforeApply
+        )
       );
       if (remoteQuestionHydrationFailed && localHasActiveQuestion && !remoteAuthoritativeClose) {
         console.log("[Tasleya][sync] preserving local active question after transient hydration failure", {
@@ -4758,6 +4907,10 @@ function resetOnlineMode() {
   online.hostSetupInFlight = false;
   online.roomStatus = null;
   online.hostContinuityNoticeShown = false;
+  if (online.hydrationRetryTimer !== null) {
+    clearTimeout(online.hydrationRetryTimer);
+    online.hydrationRetryTimer = null;
+  }
   clearSavedOnlineSession();
   el.onlineStatusCard.classList.add("hidden");
   updateRoomCodeTag();
