@@ -95,6 +95,50 @@
         font-size: 1rem;
       }
 
+      .mode-selector {
+        margin-top: 0.95rem;
+        border: 1px solid rgba(247, 214, 117, 0.35);
+        border-radius: 12px;
+        padding: 0.7rem;
+        display: grid;
+        gap: 0.5rem;
+        background: rgba(247, 214, 117, 0.08);
+      }
+
+      .mode-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        color: #fff3cd;
+      }
+
+      .mode-option input {
+        accent-color: #f6d778;
+      }
+
+      .mode-status {
+        margin-top: 0.7rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 160, 160, 0.35);
+        background: rgba(145, 34, 34, 0.2);
+        padding: 0.7rem;
+        display: grid;
+        gap: 0.45rem;
+      }
+
+      .mode-status p {
+        margin: 0;
+        color: #ffd5d5;
+        font-weight: 700;
+      }
+
+      .mode-status-actions {
+        display: flex;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+
       .btn {
         border: none;
         border-radius: 12px;
@@ -277,6 +321,27 @@
         color: rgba(232, 242, 255, 0.8);
         font-weight: 700;
         font-size: 0.95rem;
+      }
+
+      .target-hint.mode-instruction {
+        color: #ffe39d;
+      }
+
+      .audio-controls {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .audio-controls.active {
+        display: flex;
+      }
+
+      .audio-status {
+        color: #ffd3d3;
+        font-size: 0.9rem;
+        font-weight: 700;
       }
 
       .turn-panel {
@@ -861,6 +926,23 @@
           <label for="team2Name">اسم الفريق الثاني</label>
           <input id="team2Name" type="text" maxlength="30" placeholder="الفريق الثاني" />
         </div>
+        <div class="mode-selector">
+          <label class="mode-option">
+            <input type="radio" name="mapGameMode" value="map" id="modeMap" checked />
+            خمن الدولة من الخريطة
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mapGameMode" value="language" id="modeLanguage" />
+            خمن مكان الدولة من اللغة
+          </label>
+        </div>
+        <div class="mode-status hidden" id="modeStatus">
+          <p id="modeStatusText"></p>
+          <div class="mode-status-actions">
+            <button class="btn btn-light" id="retryModeLoadBtn" type="button">إعادة المحاولة</button>
+            <button class="btn btn-primary" id="switchToMapModeBtn" type="button">العودة لوضع الخريطة</button>
+          </div>
+        </div>
         <button class="btn btn-primary" id="startBtn" type="button">ابدأ اللعبة</button>
         <div id="resumePrompt" class="hidden" style="margin-top:12px; display:grid; gap:8px;">
           <p style="margin:0; color:#ffe39b; font-weight:700;">يوجد لعبة خريطة غير مكتملة.</p>
@@ -896,10 +978,14 @@
             </div>
           </div>
           <div class="target-card" aria-live="polite">
-            <div class="target-title">الدولة المطلوبة</div>
+            <div class="target-title" id="targetTitle">الدولة المطلوبة</div>
             <div class="target" id="targetCountry">—</div>
             <div class="target-support-row">
-              <div class="target-hint">اختر هذه الدولة على الخريطة</div>
+              <div class="target-hint" id="targetHintText">اختر هذه الدولة على الخريطة</div>
+              <div class="audio-controls" id="audioControls">
+                <button class="btn btn-light" id="playAudioBtn" type="button">▶ تشغيل الصوت</button>
+                <span class="audio-status hidden" id="audioStatusText"></span>
+              </div>
               <div class="turn-indicator" id="turnIndicator">
                 <span class="turn-label">الدور الآن:</span>
                 <span class="turn-value" id="turnValue">—</span>
@@ -941,6 +1027,9 @@
       const MAP_GAME_USED_STORAGE_VERSION = 1;
       const MAP_GAME_STATE_STORAGE_KEY = "tasleya_map_game_state_v1";
       const MAP_GAME_STATE_STORAGE_VERSION = 1;
+      const MAP_GAME_MODE_MAP = "map";
+      const MAP_GAME_MODE_LANGUAGE = "language";
+      const LANGUAGE_MODE_INSTRUCTION = "استمع إلى اللغة ثم اختر الدولة على الخريطة";
       const ROUND_REQUIREMENTS = [
         { difficulty: "easy", points: 100, count: 4 },
         { difficulty: "medium", points: 300, count: 8 },
@@ -994,7 +1083,6 @@
         pendingTeamIndex: null,
         phase: "active_pick", // active_pick | other_response | ready_reveal | revealed | finished
         mapReady: false,
-        questionsReady: false,
         centroids: new Map(),
         questionByCountryCode: new Map(),
         countryCodeByNormalizedName: new Map(),
@@ -1015,6 +1103,21 @@
         resultRevealTimeoutId: null,
         pendingResume: null,
         initializing: false,
+        selectedMode: MAP_GAME_MODE_MAP,
+        questionPoolByMode: {
+          [MAP_GAME_MODE_MAP]: [],
+          [MAP_GAME_MODE_LANGUAGE]: [],
+        },
+        questionsReadyByMode: {
+          [MAP_GAME_MODE_MAP]: false,
+          [MAP_GAME_MODE_LANGUAGE]: false,
+        },
+        modeLoadErrorByMode: {
+          [MAP_GAME_MODE_MAP]: "",
+          [MAP_GAME_MODE_LANGUAGE]: "",
+        },
+        audioPlayer: null,
+        audioErrorByQuestionId: new Map(),
       };
 
       const el = {
@@ -1047,6 +1150,17 @@
         resumePrompt: document.getElementById("resumePrompt"),
         resumeBtn: document.getElementById("resumeBtn"),
         discardResumeBtn: document.getElementById("discardResumeBtn"),
+        modeMap: document.getElementById("modeMap"),
+        modeLanguage: document.getElementById("modeLanguage"),
+        modeStatus: document.getElementById("modeStatus"),
+        modeStatusText: document.getElementById("modeStatusText"),
+        retryModeLoadBtn: document.getElementById("retryModeLoadBtn"),
+        switchToMapModeBtn: document.getElementById("switchToMapModeBtn"),
+        targetTitle: document.getElementById("targetTitle"),
+        targetHintText: document.getElementById("targetHintText"),
+        audioControls: document.getElementById("audioControls"),
+        playAudioBtn: document.getElementById("playAudioBtn"),
+        audioStatusText: document.getElementById("audioStatusText"),
       };
 
 
@@ -1198,6 +1312,7 @@
           pendingPick: state.pendingPick,
           pendingTeamIndex: state.pendingTeamIndex,
           phase: state.phase,
+          selectedMode: state.selectedMode,
           savedAt: Date.now(),
         };
       }
@@ -1229,6 +1344,10 @@
       function restoreSavedGameState(saved) {
         if (!saved) return false;
         if (!Array.isArray(saved.questions) || !saved.questions.length) return false;
+        state.selectedMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode) ? saved.selectedMode : MAP_GAME_MODE_MAP;
+        el.modeMap.checked = state.selectedMode === MAP_GAME_MODE_MAP;
+        el.modeLanguage.checked = state.selectedMode === MAP_GAME_MODE_LANGUAGE;
+        applyModeUiState();
         state.questions = saved.questions;
         state.questionIndex = Math.max(0, Math.min(saved.questions.length - 1, Number(saved.questionIndex) || 0));
         state.teamNames = Array.isArray(saved.teamNames) ? [String(saved.teamNames[0] || "الفريق الأول"), String(saved.teamNames[1] || "الفريق الثاني")] : ["الفريق الأول", "الفريق الثاني"];
@@ -1247,6 +1366,7 @@
         hideOverlay();
         updateHeader();
         updateMapHighlights();
+        updateAudioUi();
         persistGameState();
         return true;
       }
@@ -1305,6 +1425,122 @@
 
       function getQuestion() {
         return state.questions[state.questionIndex];
+      }
+
+      function isLanguageMode() {
+        return state.selectedMode === MAP_GAME_MODE_LANGUAGE;
+      }
+
+      function stopCurrentAudio() {
+        if (!state.audioPlayer) return;
+        try {
+          state.audioPlayer.pause();
+          state.audioPlayer.currentTime = 0;
+        } catch (_) {}
+      }
+
+      function setAudioStatus(text = "") {
+        const normalized = normalizeCell(text);
+        if (!normalized) {
+          el.audioStatusText.textContent = "";
+          el.audioStatusText.classList.add("hidden");
+          return;
+        }
+        el.audioStatusText.textContent = normalized;
+        el.audioStatusText.classList.remove("hidden");
+      }
+
+      function updateAudioUi() {
+        if (!isLanguageMode()) {
+          stopCurrentAudio();
+          el.audioControls.classList.remove("active");
+          setAudioStatus("");
+          return;
+        }
+        const q = getQuestion();
+        el.audioControls.classList.add("active");
+        const hasError = q && state.audioErrorByQuestionId.has(String(q.id || q.audioUrl || ""));
+        setAudioStatus(hasError ? "تعذر تحميل الصوت. اضغط لإعادة المحاولة." : "");
+      }
+
+      function ensureAudioPlayer() {
+        if (!state.audioPlayer) {
+          state.audioPlayer = new Audio();
+          state.audioPlayer.preload = "none";
+          state.audioPlayer.addEventListener("ended", () => {
+            if (!isLanguageMode()) return;
+            el.playAudioBtn.textContent = "↻ إعادة تشغيل الصوت";
+          });
+          state.audioPlayer.addEventListener("error", () => {
+            const q = getQuestion();
+            if (!q) return;
+            const key = String(q.id || q.audioUrl || "");
+            if (key) state.audioErrorByQuestionId.set(key, true);
+            setAudioStatus("تعذر تحميل الصوت. اضغط لإعادة المحاولة.");
+          });
+        }
+        return state.audioPlayer;
+      }
+
+      async function playCurrentAudio() {
+        const q = getQuestion();
+        if (!q || !isLanguageMode()) return;
+        const audioUrl = normalizeCell(q.audioUrl);
+        if (!audioUrl) {
+          setAudioStatus("ملف الصوت غير متوفر لهذا السؤال.");
+          return;
+        }
+        const player = ensureAudioPlayer();
+        stopCurrentAudio();
+        const key = String(q.id || q.audioUrl || "");
+        state.audioErrorByQuestionId.delete(key);
+        setAudioStatus("");
+        try {
+          if (player.src !== audioUrl) {
+            player.src = audioUrl;
+          }
+          player.currentTime = 0;
+          await player.play();
+          el.playAudioBtn.textContent = "↻ إعادة تشغيل الصوت";
+        } catch (error) {
+          state.audioErrorByQuestionId.set(key, true);
+          setAudioStatus("تعذر تشغيل الصوت. حاول مرة أخرى.");
+          console.error(error);
+        }
+      }
+
+      function showModeLoadMessage(message) {
+        const text = normalizeCell(message);
+        if (!text) {
+          el.modeStatus.classList.add("hidden");
+          el.modeStatusText.textContent = "";
+          return;
+        }
+        el.modeStatusText.textContent = text;
+        el.modeStatus.classList.remove("hidden");
+      }
+
+      function applyModeUiState() {
+        if (isLanguageMode()) {
+          el.targetTitle.textContent = "تعليمات السؤال";
+          el.targetCountry.textContent = "—";
+          el.targetHintText.textContent = LANGUAGE_MODE_INSTRUCTION;
+          el.targetHintText.classList.add("mode-instruction");
+        } else {
+          el.targetTitle.textContent = "الدولة المطلوبة";
+          el.targetHintText.textContent = "اختر هذه الدولة على الخريطة";
+          el.targetHintText.classList.remove("mode-instruction");
+        }
+      }
+
+      function setSelectedMode(mode, { syncInput = true } = {}) {
+        const nextMode = mode === MAP_GAME_MODE_LANGUAGE ? MAP_GAME_MODE_LANGUAGE : MAP_GAME_MODE_MAP;
+        state.selectedMode = nextMode;
+        if (syncInput) {
+          el.modeMap.checked = nextMode === MAP_GAME_MODE_MAP;
+          el.modeLanguage.checked = nextMode === MAP_GAME_MODE_LANGUAGE;
+        }
+        applyModeUiState();
       }
 
       function currentPoints() {
@@ -1421,7 +1657,9 @@
         el.questionNumberMeta.textContent = `${state.questionIndex + 1} من 20`;
         el.questionDifficultyMeta.textContent = DIFFICULTY_AR[q.difficulty];
         el.questionPointsMeta.textContent = `${q.points}`;
-        el.targetCountry.textContent = q.countryNameAr;
+        el.targetCountry.textContent = isLanguageMode() ? "—" : q.countryNameAr;
+        applyModeUiState();
+        updateAudioUi();
         const currentTurnIdx = state.phase === "other_response" ? otherIdx : activeIdx;
         const shouldShowTurnHighlight = ["active_pick", "other_response"].includes(state.phase);
         el.team1Card.classList.toggle("active", shouldShowTurnHighlight && currentTurnIdx === 0);
@@ -1616,6 +1854,7 @@
       function goNextQuestion() {
         clearPendingResultReveal();
         hideOverlay();
+        stopCurrentAudio();
 
         if (state.questionIndex >= 19) {
           state.phase = "finished";
@@ -1636,6 +1875,7 @@
       }
 
       function finishGame() {
+        stopCurrentAudio();
         clearSavedGameState();
         clearPendingResultReveal();
         const [s1, s2] = state.scores;
@@ -1652,6 +1892,7 @@
               kind: "btn-primary",
               onClick: () => {
                 hideOverlay();
+                stopCurrentAudio();
                 state.started = false;
                 clearSavedGameState();
                 el.gameScreen.classList.remove("active");
@@ -1970,14 +2211,16 @@
       }
 
       function startGame() {
-        if (!state.mapReady || !state.questionsReady) return;
+        if (!state.mapReady || !state.questionsReadyByMode[state.selectedMode]) return;
         clearPendingResultReveal();
         clearSavedGameState();
+        stopCurrentAudio();
 
         state.teamNames = [el.team1Name.value.trim() || "الفريق الأول", el.team2Name.value.trim() || "الفريق الثاني"];
         state.scores = [0, 0];
         state.questionIndex = 0;
         try {
+          state.questionPool = state.questionPoolByMode[state.selectedMode];
           state.questions = buildQuestions();
         } catch (error) {
           showOverlay("خطأ", CSV_LOAD_ERROR_AR, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
@@ -1996,22 +2239,32 @@
         el.gameScreen.classList.add("active");
         updateHeader();
         updateMapHighlights();
+        updateAudioUi();
         persistGameState();
       }
 
       el.startBtn.addEventListener("click", () => {
-        if (!state.mapReady || !state.questionsReady) {
+        if (!state.mapReady || !state.questionsReadyByMode[state.selectedMode]) {
           initializeMapGame({ forceRetry: true });
           return;
         }
         startGame();
       });
       el.resumeBtn.addEventListener("click", () => {
+        const saved = state.pendingResume;
         el.resumePrompt.classList.add("hidden");
-        if (!restoreSavedGameState(state.pendingResume)) {
-          clearSavedGameState();
-        }
-        state.pendingResume = null;
+        if (!saved) return;
+        const resumeMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode)
+          ? saved.selectedMode
+          : MAP_GAME_MODE_MAP;
+        setSelectedMode(resumeMode);
+        ensureQuestionsForMode(resumeMode).then((ready) => {
+          if (!ready || !restoreSavedGameState(saved)) {
+            clearSavedGameState();
+            showModeLoadMessage("تعذر استعادة اللعبة المحفوظة لهذا الوضع. يمكنك بدء لعبة جديدة.");
+          }
+          state.pendingResume = null;
+        });
       });
       el.discardResumeBtn.addEventListener("click", () => {
         clearSavedGameState();
@@ -2019,11 +2272,42 @@
         el.resumePrompt.classList.add("hidden");
       });
       el.acceptActiveAnswerBtn.addEventListener("click", acceptActiveAnswer);
-      window.addEventListener("beforeunload", clearPendingResultReveal);
+      el.playAudioBtn.addEventListener("click", () => {
+        playCurrentAudio();
+      });
+      el.modeMap.addEventListener("change", () => {
+        if (!el.modeMap.checked) return;
+        setSelectedMode(MAP_GAME_MODE_MAP, { syncInput: false });
+        showModeLoadMessage("");
+        el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
+      });
+      el.modeLanguage.addEventListener("change", () => {
+        if (!el.modeLanguage.checked) return;
+        setSelectedMode(MAP_GAME_MODE_LANGUAGE, { syncInput: false });
+        ensureQuestionsForMode(MAP_GAME_MODE_LANGUAGE);
+      });
+      el.retryModeLoadBtn.addEventListener("click", () => {
+        const mode = state.selectedMode;
+        ensureQuestionsForMode(mode, { forceReload: true });
+      });
+      el.switchToMapModeBtn.addEventListener("click", () => {
+        setSelectedMode(MAP_GAME_MODE_MAP);
+        showModeLoadMessage("");
+        el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[MAP_GAME_MODE_MAP];
+      });
+      window.addEventListener("beforeunload", () => {
+        clearPendingResultReveal();
+        stopCurrentAudio();
+      });
 
-      async function loadQuestionsFromApi() {
+      async function loadQuestionsFromApi(mode, { forceReload = false } = {}) {
+        const modeKey = mode === MAP_GAME_MODE_LANGUAGE ? MAP_GAME_MODE_LANGUAGE : MAP_GAME_MODE_MAP;
+        if (!forceReload && state.questionsReadyByMode[modeKey] && state.questionPoolByMode[modeKey].length) {
+          return true;
+        }
         try {
-          const payload = await apiFetchJson("/map-game/questions");
+          const endpoint = modeKey === MAP_GAME_MODE_LANGUAGE ? "/map-game/language-questions" : "/map-game/questions";
+          const payload = await apiFetchJson(endpoint);
           const questions = Array.isArray(payload?.questions)
             ? payload.questions.map((question) => ({
                 ...question,
@@ -2031,20 +2315,49 @@
                 questionKey: buildQuestionKey(question),
               })).filter((question) => question.countryCode)
             : [];
-          if (!questions.length) throw new Error("No valid map-game rows in API response");
+          if (!questions.length) {
+            throw new Error(modeKey === MAP_GAME_MODE_LANGUAGE ? "بيانات وضع اللغة غير متوفرة حالياً." : "No valid map-game rows in API response");
+          }
 
-          state.questionPool = questions;
-          state.questionByCountryCode = new Map(questions.map((item) => [item.countryCode, item]));
-          state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
-          state.centroids = new Map(questions.map((item) => [item.countryCode, [item.lng, item.lat]]));
-          state.questionsReady = true;
+          state.questionPoolByMode[modeKey] = questions;
+          state.questionsReadyByMode[modeKey] = true;
+          state.modeLoadErrorByMode[modeKey] = "";
+          if (modeKey === state.selectedMode) {
+            state.questionPool = questions;
+            state.questionByCountryCode = new Map(questions.map((item) => [item.countryCode, item]));
+            state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
+            state.centroids = new Map(questions.map((item) => [item.countryCode, [item.lng, item.lat]]));
+            showModeLoadMessage("");
+          }
           return true;
         } catch (error) {
           console.error(error);
-          state.questionsReady = false;
-          showOverlay("خطأ", CSV_LOAD_ERROR_AR, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          state.questionsReadyByMode[modeKey] = false;
+          state.modeLoadErrorByMode[modeKey] = error instanceof Error ? error.message : CSV_LOAD_ERROR_AR;
+          if (modeKey === state.selectedMode) {
+            showModeLoadMessage(modeKey === MAP_GAME_MODE_LANGUAGE
+              ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
+              : CSV_LOAD_ERROR_AR);
+          }
           return false;
         }
+      }
+
+      async function ensureQuestionsForMode(mode, { forceReload = false } = {}) {
+        const ok = await loadQuestionsFromApi(mode, { forceReload });
+        if (ok) {
+          if (mode === state.selectedMode) {
+            state.questionPool = state.questionPoolByMode[mode];
+            state.questionByCountryCode = new Map(state.questionPool.map((item) => [item.countryCode, item]));
+            state.countryCodeByNormalizedName = new Map(state.questionPool.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
+            state.centroids = new Map(state.questionPool.map((item) => [item.countryCode, [item.lng, item.lat]]));
+            showModeLoadMessage("");
+          }
+          el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
+          return true;
+        }
+        el.startBtn.disabled = false;
+        return false;
       }
 
       async function initializeMapGame({ forceRetry = false } = {}) {
@@ -2058,11 +2371,11 @@
             el.mapLoading.className = "map-loading";
             el.mapLoading.textContent = "جاري تحميل الخريطة...";
           }
-          const questionsLoaded = await loadQuestionsFromApi();
-          if (questionsLoaded) {
+          const questionsLoaded = await ensureQuestionsForMode(MAP_GAME_MODE_MAP, { forceReload: forceRetry });
+          if (questionsLoaded && !state.mapReady) {
             await loadMap();
           }
-          if (state.mapReady && state.questionsReady) {
+          if (state.mapReady && state.questionsReadyByMode[state.selectedMode]) {
             state.pendingResume = readSavedGameState();
             if (state.pendingResume) {
               el.resumePrompt.classList.remove("hidden");
