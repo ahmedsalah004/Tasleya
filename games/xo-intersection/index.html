@@ -211,6 +211,13 @@
         line-height: 1.7;
       }
 
+      .mode-card-count {
+        margin: 0.45rem 0 0;
+        color: #fff3c9;
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
       .screen-footer {
         margin-top: 1rem;
       }
@@ -237,6 +244,13 @@
         background: rgba(10, 28, 71, 0.78);
         color: #fff7dc;
         line-height: 1.5;
+      }
+
+      .board-progress {
+        margin: 0;
+        color: #fff0bf;
+        font-weight: 800;
+        font-size: 0.93rem;
       }
 
       .turn-banner {
@@ -426,6 +440,16 @@
         width: auto;
       }
 
+      .cycle-notice {
+        margin-top: 0.55rem;
+        padding: 0.45rem 0.65rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 225, 140, 0.28);
+        background: rgba(10, 28, 71, 0.5);
+        color: #fff6d7;
+        font-size: 0.88rem;
+      }
+
       @media (max-width: 640px) {
         .board-grid {
           border-spacing: 0.38rem;
@@ -536,8 +560,12 @@
             </button>
             <button id="nextBoardBtn" class="btn btn-tertiary" type="button">لوحة جديدة</button>
           </div>
-          <p id="selectedModeMetaText" class="game-meta"></p>
+          <div>
+            <p id="selectedModeMetaText" class="game-meta"></p>
+            <p id="boardProgressText" class="board-progress"></p>
+          </div>
         </div>
+        <div id="cycleNotice" class="cycle-notice hidden" aria-live="polite">تم بدء دورة جديدة من اللوحات</div>
 
         <div id="turnBanner" class="turn-banner">
           <h3 id="turnTeamText"></h3>
@@ -597,6 +625,7 @@
         <div id="resultPanel" class="result-panel hidden">
           <h3 id="resultTitleText"></h3>
           <p id="resultSubtitleText"></p>
+          <p id="resultBoardProgressText" class="board-progress" style="margin-top: 0.5rem"></p>
           <div class="result-actions">
             <button id="replayBoardBtn" class="btn btn-primary" type="button">إعادة نفس اللوحة</button>
             <button id="resultNextBoardBtn" class="btn btn-secondary" type="button">لوحة جديدة</button>
@@ -657,7 +686,8 @@
         selectedRuleTextAr: "",
         allValidLoadedBoards: [],
         filteredBoardsForSelectedMode: [],
-        selectedBoardIndex: 0,
+        modeBoardOrder: [],
+        modeBoardOrderPosition: 0,
         selectedBoard: null,
         boardCells: [],
         currentTurnTeamIndex: 0,
@@ -681,6 +711,8 @@
         backToModesBtn: document.getElementById("backToModesBtn"),
         nextBoardBtn: document.getElementById("nextBoardBtn"),
         selectedModeMetaText: document.getElementById("selectedModeMetaText"),
+        boardProgressText: document.getElementById("boardProgressText"),
+        cycleNotice: document.getElementById("cycleNotice"),
         turnBanner: document.getElementById("turnBanner"),
         turnTeamText: document.getElementById("turnTeamText"),
         turnSymbolText: document.getElementById("turnSymbolText"),
@@ -702,6 +734,7 @@
         resultPanel: document.getElementById("resultPanel"),
         resultTitleText: document.getElementById("resultTitleText"),
         resultSubtitleText: document.getElementById("resultSubtitleText"),
+        resultBoardProgressText: document.getElementById("resultBoardProgressText"),
         replayBoardBtn: document.getElementById("replayBoardBtn"),
         resultNextBoardBtn: document.getElementById("resultNextBoardBtn"),
         backToModeSelectionBtn: document.getElementById("backToModeSelectionBtn"),
@@ -854,9 +887,13 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "mode-card";
+          const boardsCount = state.allValidLoadedBoards.filter(
+            (row) => row.category_key === state.selectedCategoryKey && row.mode_key === mode.modeKey
+          ).length;
           button.innerHTML = `
             <p class="mode-card-title">${mode.modeNameAr}</p>
             <p class="mode-card-rule">${mode.ruleTextAr}</p>
+            <p class="mode-card-count">${boardsCount} لوحة</p>
           `;
           button.addEventListener("click", () => {
             state.selectedModeKey = mode.modeKey;
@@ -865,7 +902,6 @@
             state.filteredBoardsForSelectedMode = state.allValidLoadedBoards.filter(
               (row) => row.category_key === state.selectedCategoryKey && row.mode_key === state.selectedModeKey
             );
-            state.selectedBoardIndex = 0;
             startSelectedModeGameplay();
             setScreen("gameplay");
           });
@@ -895,23 +931,78 @@
         state.gameStatus = "playing";
       }
 
-      function setBoardByIndex(index) {
+      function resetModeSessionState() {
+        state.modeBoardOrder = [];
+        state.modeBoardOrderPosition = 0;
+      }
+
+      function shuffleInPlace(list) {
+        for (let i = list.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [list[i], list[j]] = [list[j], list[i]];
+        }
+      }
+
+      function buildModeBoardOrder() {
         const boards = state.filteredBoardsForSelectedMode;
         if (!boards.length) {
-          state.selectedBoardIndex = 0;
+          resetModeSessionState();
+          state.selectedBoard = null;
+          return;
+        }
+        const freshOrder = boards.map((_, index) => index);
+        if (freshOrder.length > 1) {
+          shuffleInPlace(freshOrder);
+        }
+        state.modeBoardOrder = freshOrder;
+        state.modeBoardOrderPosition = 0;
+      }
+
+      function setSelectedBoardBySessionPosition(position) {
+        if (!state.modeBoardOrder.length) {
           state.selectedBoard = null;
           resetBoardStateOnly();
           return;
         }
-        const normalizedIndex = ((index % boards.length) + boards.length) % boards.length;
-        state.selectedBoardIndex = normalizedIndex;
-        state.selectedBoard = boards[normalizedIndex];
+        state.modeBoardOrderPosition = position;
+        const boardIndex = state.modeBoardOrder[state.modeBoardOrderPosition];
+        state.selectedBoard = state.filteredBoardsForSelectedMode[boardIndex];
         resetBoardStateOnly();
       }
 
+      function hideCycleNotice() {
+        elements.cycleNotice.classList.add("hidden");
+      }
+
+      function showCycleNotice() {
+        elements.cycleNotice.classList.remove("hidden");
+        window.clearTimeout(showCycleNotice.hideTimeoutId);
+        showCycleNotice.hideTimeoutId = window.setTimeout(() => {
+          hideCycleNotice();
+        }, 1800);
+      }
+
       function gotoNextBoard() {
-        if (!state.filteredBoardsForSelectedMode.length) return;
-        setBoardByIndex(state.selectedBoardIndex + 1);
+        const totalBoards = state.filteredBoardsForSelectedMode.length;
+        if (!totalBoards) return;
+
+        hideCycleNotice();
+        if (totalBoards === 1) {
+          setSelectedBoardBySessionPosition(0);
+          hideCancelNotice();
+          renderGameplay();
+          return;
+        }
+
+        const isAtEndOfCycle = state.modeBoardOrderPosition >= state.modeBoardOrder.length - 1;
+        if (isAtEndOfCycle) {
+          buildModeBoardOrder();
+          setSelectedBoardBySessionPosition(0);
+          showCycleNotice();
+        } else {
+          setSelectedBoardBySessionPosition(state.modeBoardOrderPosition + 1);
+        }
+
         hideCancelNotice();
         renderGameplay();
       }
@@ -1074,6 +1165,20 @@
         elements.resultPanel.classList.add("hidden");
       }
 
+      function renderBoardProgress() {
+        const totalBoards = state.filteredBoardsForSelectedMode.length;
+        if (!totalBoards || !state.selectedBoard) {
+          elements.boardProgressText.textContent = "";
+          elements.resultBoardProgressText.textContent = "";
+          return;
+        }
+
+        const currentBoard = state.modeBoardOrderPosition + 1;
+        const progressText = `اللوحة ${currentBoard} من ${totalBoards}`;
+        elements.boardProgressText.textContent = progressText;
+        elements.resultBoardProgressText.textContent = progressText;
+      }
+
       function renderGameplay() {
         const hasBoard = Boolean(state.selectedBoard);
         const hasBoardsForMode = state.filteredBoardsForSelectedMode.length > 0;
@@ -1089,6 +1194,7 @@
           elements.selectionPanel.classList.add("hidden");
           elements.resultPanel.classList.add("hidden");
           elements.nextBoardBtn.disabled = true;
+          renderBoardProgress();
           return;
         }
 
@@ -1097,10 +1203,13 @@
         renderBoardCells();
         renderSelectionPanel();
         renderResultPanel();
+        renderBoardProgress();
       }
 
       function startSelectedModeGameplay() {
-        setBoardByIndex(0);
+        hideCycleNotice();
+        buildModeBoardOrder();
+        setSelectedBoardBySessionPosition(0);
         hideCancelNotice();
         renderGameplay();
       }
@@ -1178,18 +1287,27 @@
         });
 
         elements.backToCategoriesBtn.addEventListener("click", () => {
+          resetModeSessionState();
+          state.selectedBoard = null;
+          hideCycleNotice();
           setScreen("categories");
         });
 
         elements.backToModesBtn.addEventListener("click", () => {
+          resetModeSessionState();
+          state.selectedBoard = null;
           clearGameplaySelectionState();
           hideCancelNotice();
+          hideCycleNotice();
           setScreen("modes");
         });
 
         elements.emptyStateBackBtn.addEventListener("click", () => {
+          resetModeSessionState();
+          state.selectedBoard = null;
           clearGameplaySelectionState();
           hideCancelNotice();
+          hideCycleNotice();
           setScreen("modes");
         });
 
@@ -1235,6 +1353,7 @@
         elements.replayBoardBtn.addEventListener("click", () => {
           resetBoardStateOnly();
           hideCancelNotice();
+          hideCycleNotice();
           renderGameplay();
         });
 
@@ -1244,9 +1363,10 @@
 
         elements.backToModeSelectionBtn.addEventListener("click", () => {
           state.selectedBoard = null;
-          state.selectedBoardIndex = 0;
+          resetModeSessionState();
           clearGameplaySelectionState();
           hideCancelNotice();
+          hideCycleNotice();
           setScreen("modes");
         });
 
@@ -1257,10 +1377,11 @@
           state.selectedModeNameAr = "";
           state.selectedRuleTextAr = "";
           state.filteredBoardsForSelectedMode = [];
-          state.selectedBoardIndex = 0;
           state.selectedBoard = null;
+          resetModeSessionState();
           resetBoardStateOnly();
           hideCancelNotice();
+          hideCycleNotice();
           setScreen("setup");
         });
 
