@@ -516,7 +516,21 @@
         لعبة لفريقين فقط: كل فريق يحصل على 10 مصطلحات (2 من كل مستوى صعوبة 1–5)، وتنتقل الأدوار بالتناوب مصطلحًا بمصطلح.
       </p>
 
-      <section id="setup-screen" class="panel" aria-label="إعداد اللعبة">
+      <section id="intro-screen" class="panel" aria-label="مقدمة لعبة ممنوع تقولها">
+        <div class="setup-stack">
+          <div class="setup-summary" aria-label="فكرة اللعبة">
+            <p class="setup-summary-title">كيف تعمل اللعبة؟</p>
+            <ul class="setup-summary-list">
+              <li>شرح كلمة الهدف بدون استخدام الكلمات الممنوعة</li>
+              <li>30 ثانية لكل دور</li>
+              <li>الفريق الأعلى نقاطًا يفوز</li>
+            </ul>
+          </div>
+          <button id="enterForbiddenSetupBtn" class="start-btn" type="button">ابدأ الإعداد</button>
+        </div>
+      </section>
+
+      <section id="setup-screen" class="panel hidden" aria-label="إعداد اللعبة">
         <div class="setup-stack">
           <div class="setup-summary" aria-label="ملخص قواعد الجولة">
             <p class="setup-summary-title">ملخص سريع</p>
@@ -605,6 +619,11 @@
     </main>
 
     <script>
+      document.getElementById("enterForbiddenSetupBtn").addEventListener("click", () => {
+        document.getElementById("intro-screen").classList.add("hidden");
+        document.getElementById("setup-screen").classList.remove("hidden");
+      });
+
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 

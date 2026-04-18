@@ -57,8 +57,8 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest" />
     <!-- Deployment version token: keep all homepage shell assets on the same v to avoid stale mix. -->
-    <link rel="stylesheet" href="style.css?v=1.2.3" />
-    <link rel="stylesheet" href="mobile.css?v=1.2.3" media="screen and (max-width: 700px)" />
+    <link rel="stylesheet" href="style.css?v=1.2.4" />
+    <link rel="stylesheet" href="mobile.css?v=1.2.4" media="screen and (max-width: 700px)" />
   </head>
   <body>
     <div id="startScreen">
@@ -68,11 +68,11 @@
         <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
         <div class="start-actions">
           <div class="play-flow-shell" aria-live="polite" aria-atomic="true">
-            <div id="resumeGamePrompt" class="resume-game-prompt hidden" role="group" aria-label="استئناف اللعبة السابقة">
-              <p class="resume-game-prompt-text">يوجد لعبة غير مكتملة.</p>
+            <div id="resumeGamePrompt" class="resume-game-prompt hidden" role="group" aria-label="متابعة">
+              <p class="resume-game-prompt-text"></p>
               <div class="resume-game-actions">
-                <button id="resumeGameBtn" type="button">أكمل اللعبة</button>
-                <button id="discardResumeGameBtn" type="button">العودة للرئيسية</button>
+                <button id="resumeGameBtn" type="button"></button>
+                <button id="discardResumeGameBtn" type="button"></button>
               </div>
             </div>
             <div id="homepagePrimaryStep" class="home-flow-step">
@@ -278,12 +278,12 @@
 
           <details class="instructions-section">
             <summary>النقاط</summary>
-            <p>كل سؤال له قيمة نقاط مختلفة.<br />الأسئلة الأصعب تعطي نقاطًا أكثر.<br />اللاعب أو الفريق الذي يجمع أكبر عدد من النقاط يفوز في نهاية اللعبة.</p>
+            <p>كل سؤال له قيمة نقاط مختلفة.<br />الأسئلة الأصعب تعطي نقاطًا أكثر.<br />اللاعب أو الفريق الذي يجمع أكبر عدد من النقاط يتصدر الجولة.</p>
           </details>
 
           <details class="instructions-section">
             <summary>نظام الأدوار</summary>
-            <p>عند اللعب بأكثر من فريق، يتم التناوب بين الفرق.<br />وعند اللعب بفريق واحد، يتحكم اللاعب نفسه في جميع الأسئلة.<br />لا يمكن اختيار الإجابة الصحيحة أو الخاطئة قبل الضغط على "إظهار الإجابة".<br />بعد الضغط على "إظهار الإجابة" تبقى البطاقة ظاهرة حتى يتم اختيار النتيجة المناسبة.</p>
+            <p>عند اللعب بأكثر من فريق، يتم التناوب بين الفرق.<br />وعند اللعب بفريق واحد، يتحكم اللاعب نفسه في جميع الأسئلة.<br />يعرض النظام خطوات التفاعل بشكل متسلسل وواضح أثناء كل سؤال.</p>
           </details>
 
           <details class="instructions-section">
@@ -294,7 +294,7 @@
           <details class="instructions-section">
             <summary>أنماط اللعب</summary>
             <p>لعب على جهاز واحد:<br />هذا الوضع مخصص عندما يلعب جميع اللاعبين على نفس الجهاز.<br />يمكن اختيار فريق واحد للعب الفردي، أو أكثر من فريق للعب الجماعي.<br />عند اختيار فريق واحد، يبدأ اللعب بعد اختيار 3 فئات فقط.<br />وعند اختيار أكثر من فريق، يبدأ اللعب بعد اختيار 6 فئات.</p>
-            <p>لعب على أجهزة مختلفة:<br />الشخص الذي ينشئ الجلسة هو المسؤول عن اختيار الفئات.<br />بقية اللاعبين ينضمون إلى الجلسة وينتظرون بدء اللعب.<br />فقط الفريق الذي عليه الدور يمكنه التحكم في السؤال أثناء دوره.</p>
+            <p>لعب على أجهزة مختلفة:<br />يمكن بدء جلسة مشتركة ثم دعوة بقية اللاعبين للمشاركة.<br />تتبع كل مجموعة دورها بالتسلسل نفسه لضمان عدالة الجولة.</p>
           </details>
         </div>
 
@@ -375,246 +375,42 @@
       </div>
     </div>
 
-    <div id="gameScreen" style="display: none;">
-      <button id="gameContactBtn" class="ghost-btn game-contact-btn" type="button">تواصل معنا</button>
-      <button id="backToHomeBtn" class="ghost-btn game-home-btn" type="button">العودة للرئيسية</button>
-      <div class="bg-animated" aria-hidden="true">
-        <div class="bg-particles"></div>
-      </div>
+    <div id="runtimeShellMount" data-shell="homepage-game-runtime"></div>
 
-      <div class="app">
-        <aside class="sidebar" aria-label="لوحة النقاط">
-          <h1>تسلية</h1>
+    <!-- deploy-version: 1.2.4 -->
+    <script>
+      (async function bootstrapHomepageRuntime() {
+        const mount = document.getElementById("runtimeShellMount");
+        if (!mount) return;
 
-        <div id="errorBanner" class="error-banner hidden" role="alert"></div>
+        try {
+          const response = await fetch('/assets/home-runtime-shell.html?v=1.2.4', { cache: 'no-store' });
+          if (!response.ok) throw new Error('runtime shell fetch failed');
+          mount.innerHTML = await response.text();
 
-        <div class="team-card" id="team1Card">
-          <label for="team1NameInput" class="team-name-label">اسم الفريق 1</label>
-          <input id="team1NameInput" class="team-name-input" type="text" value="الفريق الأول" maxlength="30" />
-          <p class="score" id="team1Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الأول">
-            <button id="team1PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team1MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-          </div>
-        </div>
+          const scriptUrls = [
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js',
+            '/firebase-config.js?v=1.2.4',
+            '/game-config.js?v=1.2.4',
+            '/script.js?v=1.2.4'
+          ];
 
-        <div class="team-card" id="team2Card">
-          <label for="team2NameInput" class="team-name-label">اسم الفريق 2</label>
-          <input id="team2NameInput" class="team-name-input" type="text" value="الفريق الثاني" maxlength="30" />
-          <p class="score" id="team2Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثاني">
-            <button id="team2PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team2MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-          </div>
-        </div>
-
-        <div class="team-card hidden" id="team3Card">
-          <label for="team3NameInput" class="team-name-label">اسم الفريق 3</label>
-          <input id="team3NameInput" class="team-name-input" type="text" value="الفريق الثالث" maxlength="30" />
-          <p class="score" id="team3Score">0</p>
-          <div class="score-adjustments" aria-label="تعديل نقاط الفريق الثالث">
-            <button id="team3PlusBtn" class="secondary-btn adjust-btn" type="button">+100</button>
-            <button id="team3MinusBtn" class="danger-btn adjust-btn" type="button">-100</button>
-          </div>
-        </div>
-
-        <div class="status-card">
-          <p>الدور الحالي:</p>
-          <p id="currentTurn">الفريق الأول</p>
-        </div>
-
-        <div id="onlineStatusCard" class="status-card hidden">
-          <p>حالة الأونلاين:</p>
-          <p id="onlineStatusText">غير متصل</p>
-          <p id="onlineRoomCodeText" class="online-room-code"></p>
-        </div>
-
-        <button id="soundToggleBtn" class="secondary-btn sound-toggle-btn" type="button" aria-pressed="false">🔊 الصوت: يعمل</button>
-        <button id="newGameBtn" class="primary-btn" type="button">لعبة جديدة</button>
-        <p id="hostCategoryCtaHint" class="host-category-cta-hint hidden">اضغط هنا</p>
-      </aside>
-
-      <main>
-        <section class="board-wrap" aria-label="لوحة سين جيم">
-          <div id="board" class="board" aria-live="polite"></div>
-        </section>
-      </main>
-    </div>
-
-    <div id="questionModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="questionText">
-      <div class="modal-content">
-        <button id="closeModalBtn" class="ghost-btn" type="button">إغلاق</button>
-        <div id="questionTimer" class="question-timer" aria-live="polite">00:00</div>
-        <button id="lateOtherTeamPrompt" class="late-other-team-prompt hidden" type="button">فرصة لإجابة الفريق الآخر</button>
-        <p id="questionStatus" class="question-status hidden" aria-live="assertive"></p>
-        <h2 id="questionText">السؤال</h2>
-        <div id="questionMedia" class="question-media" aria-live="polite"></div>
-        <p id="answerText" class="answer hidden"></p>
-        <p id="doubleAnswerStatus" class="double-answer-status hidden" aria-live="polite"></p>
-
-        <div id="choicesBox" class="choices-box hidden">
-          <h3>اختيارات المساعدة</h3>
-          <div id="choicesList" class="choices-list"></div>
-        </div>
-
-        <div id="hintBox" class="hint-box hidden" aria-live="polite">
-          <h3>تلميح</h3>
-          <p id="hintText" class="hint-text"></p>
-        </div>
-
-        <div class="modal-actions">
-          <button id="lifelineBtn" class="secondary-btn" type="button">مساعدة (اختيارات)</button>
-          <button id="hintLifelineBtn" class="secondary-btn" type="button">تلميح</button>
-          <button id="doubleAnswerLifelineBtn" class="secondary-btn" type="button">جاوب جوابين</button>
-          <button id="revealBtn" class="secondary-btn" type="button">إظهار الإجابة</button>
-          <button id="correctBtn" class="success-btn" type="button">إجابة صحيحة</button>
-          <button id="wrongBtn" class="danger-btn" type="button">إجابة خاطئة</button>
-          <button id="otherTeamBtn" class="danger-btn" type="button">إجابة للفريق الآخر</button>
-        </div>
-        <div id="otherTeamSelector" class="other-team-selector hidden" dir="rtl" aria-live="polite">
-          <h3 id="otherTeamSelectorTitle">أي فريق سيجيب؟</h3>
-          <div id="otherTeamChoices" class="modal-actions other-team-options" role="group" aria-labelledby="otherTeamSelectorTitle"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="categoryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="categoryModalTitle">
-      <div class="modal-content category-modal-content">
-        <h2 id="categoryModalTitle">اختر 6 فئات لبدء اللعبة</h2>
-        <div class="category-team-inputs" aria-label="أسماء الفرق">
-          <label for="categoryTeam1NameInput" id="categoryTeam1NameLabel" class="team-name-label">اسم الفريق الأول</label>
-          <input
-            id="categoryTeam1NameInput"
-            class="team-name-input"
-            type="text"
-            maxlength="30"
-            placeholder="الفريق الأول"
-          />
-
-          <label for="categoryTeam2NameInput" id="categoryTeam2NameLabel" class="team-name-label">اسم الفريق الثاني</label>
-          <input
-            id="categoryTeam2NameInput"
-            class="team-name-input"
-            type="text"
-            maxlength="30"
-            placeholder="الفريق الثاني"
-          />
-
-          <label for="categoryTeam3NameInput" id="categoryTeam3NameLabel" class="team-name-label hidden">اسم الفريق الثالث</label>
-          <input
-            id="categoryTeam3NameInput"
-            class="team-name-input hidden"
-            type="text"
-            maxlength="30"
-            placeholder="الفريق الثالث"
-          />
-        </div>
-        <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
-        <p id="categoryHostOnlyNote" class="category-host-note hidden" role="note">فقط منشئ الغرفة يمكنه بدء اللعبة</p>
-        <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
-
-        <div class="modal-actions">
-          <button id="startGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
-          <button id="randomCategoriesBtn" class="secondary-btn" type="button">اختيار عشوائي (6)</button>
-          <button id="cancelCategoryBtn" class="ghost-btn" type="button">إلغاء</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="podiumModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="podiumTitle">
-      <div class="modal-content podium-content">
-        <h2 id="podiumTitle">نهاية اللعبة</h2>
-        <p id="podiumSubtitle" class="podium-subtitle"></p>
-        <div id="podiumBoard" class="podium-board"></div>
-        <section id="resultShareSection" class="result-share-section" aria-label="مشاركة النتيجة">
-          <div id="resultShareSummary" class="result-share-summary" aria-live="polite"></div>
-          <div class="result-share-actions">
-            <button id="shareResultBtn" class="primary-btn" type="button">شارك النتيجة</button>
-            <button id="shareWhatsappBtn" class="secondary-btn" type="button">واتساب</button>
-            <button id="copyResultBtn" class="ghost-btn" type="button">نسخ النص</button>
-          </div>
-          <p id="resultShareFeedback" class="result-share-feedback hidden" role="status" aria-live="polite"></p>
-        </section>
-        <button id="podiumNewGameBtn" class="primary-btn" type="button">لعبة جديدة</button>
-      </div>
-    </div>
-
-    <div id="onlineModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="onlineModalTitle">
-      <div class="modal-content category-modal-content online-modal-content">
-        <div class="online-team-count" aria-label="عدد الفرق">
-          <h2 id="onlineModalTitle" class="online-team-count-label">عدد الفرق في اللعبة الأونلاين</h2>
-          <div class="online-team-count-actions">
-            <button id="onlineTwoTeamsBtn" class="primary-btn" type="button" aria-pressed="true">فريقان</button>
-            <button id="onlineThreeTeamsBtn" class="secondary-btn" type="button" aria-pressed="false">3 فرق</button>
-          </div>
-        </div>
-
-        <p class="online-mode-title">وضع أونلاين</p>
-        <div class="online-mode-actions">
-          <button id="createRoomBtn" class="primary-btn" type="button">إنشاء غرفة</button>
-          <button id="joinRoomBtn" class="secondary-btn" type="button">الانضمام إلى غرفة</button>
-        </div>
-        <p id="onlineFeedback" class="online-feedback hidden" role="alert"></p>
-
-        <div id="onlineCreatePanel" class="online-panel hidden">
-          <p>تم إنشاء الغرفة. شارك الكود أو الرابط مع بقية الفرق.</p>
-          <div class="online-code-box" aria-live="polite">
-            <p id="createdRoomCode" class="online-room-code"></p>
-            <button id="copyCodeBtn" class="secondary-btn" type="button">نسخ الكود</button>
-          </div>
-          <input id="joinLinkInput" class="team-name-input" type="text" readonly />
-          <div class="modal-actions">
-            <button id="copyLinkBtn" class="secondary-btn" type="button">نسخ الرابط</button>
-            <button id="startOnlineGameBtn" class="success-btn" type="button" disabled>بدء اللعبة</button>
-          </div>
-          <p id="waitingStatus" class="waiting-status">بانتظار انضمام بقية الفرق...</p>
-        </div>
-
-        <div id="onlineJoinPanel" class="online-panel hidden">
-          <label for="roomCodeInput" class="team-name-label">كود الغرفة</label>
-          <input id="roomCodeInput" class="team-name-input" type="text" maxlength="6" placeholder="مثال: A1B2C3" />
-          <button id="confirmJoinBtn" class="primary-btn" type="button">انضمام</button>
-        </div>
-
-        <div class="modal-actions">
-          <button id="cancelOnlineBtn" class="ghost-btn" type="button">إلغاء</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="localTeamsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="localTeamsModalTitle">
-      <div class="modal-content local-teams-modal-content">
-        <h2 id="localTeamsModalTitle">كم عدد الفرق؟</h2>
-        <div class="local-team-count-actions">
-          <button id="localTwoTeamsBtn" class="primary-btn" type="button">فريقان</button>
-          <button id="localThreeTeamsBtn" class="secondary-btn" type="button">3 فرق</button>
-        </div>
-        <div class="modal-actions">
-          <button id="cancelLocalTeamsBtn" class="ghost-btn" type="button">إلغاء</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="groupModeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="groupModeModalTitle">
-      <div class="modal-content local-teams-modal-content">
-        <h2 id="groupModeModalTitle">اختر طريقة اللعب الجماعي</h2>
-        <div class="local-team-count-actions">
-          <button id="groupOneDeviceBtn" class="primary-btn" type="button">لعب على جهاز واحد</button>
-          <button id="groupMultiDeviceBtn" class="secondary-btn" type="button">لعب على أجهزة مختلفة</button>
-        </div>
-        <div class="modal-actions">
-          <button id="cancelGroupModeBtn" class="ghost-btn" type="button">إلغاء</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- deploy-version: 1.2.3 -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js"></script>
-    <script src="firebase-config.js?v=1.2.3"></script>
-    <script src="game-config.js?v=1.2.3"></script>
-    <script src="script.js?v=1.2.3"></script>
+          for (const src of scriptUrls) {
+            await new Promise((resolve, reject) => {
+              const s = document.createElement('script');
+              s.src = src;
+              s.onload = resolve;
+              s.onerror = reject;
+              document.body.appendChild(s);
+            });
+          }
+        } catch (error) {
+          console.error('Failed to bootstrap homepage runtime shell', error);
+        }
+      })();
+    </script>
   </body>
 </html>

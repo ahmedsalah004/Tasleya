@@ -759,7 +759,13 @@
       <h1>المزاد</h1>
       <p class="subtitle">نسخة لفريقين تدعم اللعب على نفس الجهاز أو عبر أجهزة مختلفة أونلاين، 10 أسئلة في الجولة، وكل سؤال بنقطة واحدة.</p>
 
-      <section class="panel" aria-live="polite">
+      <section id="auctionIntro" class="panel stack" aria-label="مقدمة لعبة المزاد">
+        <p class="helper-note">في لعبة المزاد تتناوب الفرق على المزايدة ثم محاولة الإجابة خلال وقت الجولة.</p>
+        <p class="helper-note">واجهة الغرف واللعب المباشر تظهر بعد الضغط على زر البدء.</p>
+        <button id="enterAuctionSetupBtn" class="btn btn-primary btn-focus" type="button">ابدأ الإعداد</button>
+      </section>
+
+      <section id="auctionRuntime" class="panel hidden" aria-live="polite">
         <section id="modeScreen" class="stack">
           <div class="mode-grid">
             <button id="singleDeviceModeBtn" class="btn btn-primary" type="button">اللعب على نفس الجهاز</button>
@@ -1000,6 +1006,11 @@
     <script src="/firebase-config.js"></script>
     <script src="/games/shared/game-rooms.js"></script>
     <script>
+      document.getElementById("enterAuctionSetupBtn").addEventListener("click", () => {
+        document.getElementById("auctionIntro").classList.add("hidden");
+        document.getElementById("auctionRuntime").classList.remove("hidden");
+      });
+
       const TOTAL_QUESTIONS = 10;
       const DEFAULT_TEAMS = ["الفريق الأول", "الفريق الثاني"];
       const GAME_KEY = "auction";

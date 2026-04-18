@@ -347,7 +347,12 @@
       <h1>خمن العمل من الإيموجي</h1>
       <p class="subtitle">تظهر لك رموز إيموجي تمثل اسم فيلم أو مسلسل أو كرتون. لكل فريق ٦٠ ثانية للتخمين، والفريق الذي يكتب الإجابة الصحيحة يحصل على النقاط.</p>
 
-      <section class="panel">
+      <section id="emojiIntro" class="panel">
+        <p class="card-extra-text">اختبر سرعة الربط بين الإيموجي واسم العمل. تبدأ واجهة اللعب بعد الضغط على الزر التالي.</p>
+        <button id="enterEmojiGameBtn" type="button" class="btn">ابدأ الإعداد</button>
+      </section>
+
+      <section id="emojiRuntime" class="panel hidden">
         <ul class="score-strip" aria-label="نتائج الفرق">
           <li class="score-item" id="team1ScoreCard">
             <span class="team-name">الفريق 1</span>
@@ -418,6 +423,11 @@
     </main>
 
     <script>
+      document.getElementById("enterEmojiGameBtn").addEventListener("click", () => {
+        document.getElementById("emojiIntro").classList.add("hidden");
+        document.getElementById("emojiRuntime").classList.remove("hidden");
+      });
+
       const TURN_SECONDS = 60;
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const EMOJI_MOVIES_STORAGE_KEY = "tasleya_emoji_movies_state_v1";
