@@ -223,6 +223,12 @@
         gap: 0.75rem;
       }
 
+      .game-top-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
       .game-meta {
         margin: 0;
         padding: 0.55rem 0.75rem;
@@ -230,36 +236,46 @@
         border: 1px solid rgba(255, 225, 140, 0.28);
         background: rgba(10, 28, 71, 0.78);
         color: #fff7dc;
+        line-height: 1.5;
       }
 
       .turn-banner {
         margin-top: 0.9rem;
         margin: 0;
-        border-radius: 12px;
-        border: 1px solid rgba(244, 206, 108, 0.36);
-        background: rgba(10, 28, 71, 0.92);
-        padding: 0.75rem;
+        border-radius: 15px;
+        border: 1px solid rgba(244, 206, 108, 0.5);
+        background: linear-gradient(180deg, rgba(14, 34, 84, 0.95), rgba(8, 22, 58, 0.95));
+        padding: 0.9rem;
+        display: grid;
+        gap: 0.35rem;
       }
 
       .turn-banner h3 {
-        margin: 0 0 0.45rem;
+        margin: 0;
         color: #fff3c9;
+        font-size: clamp(1.15rem, 4vw, 1.45rem);
+        line-height: 1.55;
       }
 
       .turn-banner p {
         margin: 0;
-        color: var(--text-muted);
+        color: #d6e8ff;
+        font-weight: 800;
+        font-size: clamp(0.95rem, 3.3vw, 1.08rem);
       }
 
       .board-wrap {
         margin-top: 1rem;
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
       }
 
       .board-grid {
-        width: 100%;
+        width: min(100%, 820px);
         border-collapse: separate;
         border-spacing: 0.5rem;
-        table-layout: fixed;
+        table-layout: auto;
       }
 
       .board-grid th {
@@ -267,14 +283,16 @@
         font-size: clamp(0.8rem, 2.8vw, 1rem);
         font-weight: 800;
         text-align: center;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
       }
 
       .board-grid .corner-cell {
-        width: 23%;
+        width: 30%;
       }
 
       .board-grid .col-label {
-        width: 25.66%;
+        width: 23.33%;
         padding: 0.5rem 0.35rem;
       }
 
@@ -301,6 +319,10 @@
         font-family: inherit;
         font-size: clamp(1.5rem, 6vw, 2.3rem);
         font-weight: 800;
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease,
+          background-color 120ms ease;
       }
 
       .cell-btn:not(:disabled):hover {
@@ -313,7 +335,8 @@
 
       .cell-btn.claimed-x,
       .cell-btn.claimed-o {
-        background: rgba(14, 30, 70, 0.95);
+        background: rgba(14, 30, 70, 0.98);
+        border-color: rgba(255, 225, 140, 0.62);
       }
 
       .cell-btn.claimed-x {
@@ -326,12 +349,16 @@
 
       .cell-btn.selected {
         border-color: #ffe299;
-        box-shadow: 0 0 0 3px rgba(255, 226, 153, 0.22);
+        background: rgba(30, 53, 110, 0.9);
+        box-shadow:
+          0 0 0 3px rgba(255, 226, 153, 0.26),
+          inset 0 0 0 1px rgba(255, 238, 194, 0.35);
       }
 
       .cell-btn.winning-cell {
         border-color: #7fffb1;
-        box-shadow: 0 0 0 3px rgba(127, 255, 177, 0.2);
+        background: rgba(18, 63, 46, 0.88);
+        box-shadow: 0 0 0 3px rgba(127, 255, 177, 0.28);
       }
 
       .selection-panel,
@@ -340,14 +367,14 @@
         margin-top: 1rem;
         border-radius: 16px;
         border: 1px solid rgba(255, 225, 140, 0.3);
-        background: rgba(8, 22, 58, 0.84);
-        padding: 0.85rem;
+        background: rgba(8, 22, 58, 0.9);
+        padding: 1rem;
       }
 
       .selection-panel h3,
       .result-panel h3,
       .empty-state h3 {
-        margin: 0 0 0.55rem;
+        margin: 0 0 0.7rem;
         color: #ffe8a0;
       }
 
@@ -362,8 +389,66 @@
       .selection-actions,
       .result-actions {
         display: grid;
-        gap: 0.55rem;
-        margin-top: 0.75rem;
+        gap: 0.6rem;
+        margin-top: 0.95rem;
+      }
+
+      .selection-panel h3 {
+        font-size: clamp(1.02rem, 3.4vw, 1.2rem);
+      }
+
+      .selection-note {
+        margin-top: 0.65rem !important;
+      }
+
+      .result-panel {
+        border-color: rgba(255, 225, 140, 0.45);
+        background: linear-gradient(180deg, rgba(12, 31, 78, 0.95), rgba(8, 21, 54, 0.95));
+      }
+
+      .result-panel h3 {
+        font-size: clamp(1.2rem, 4.8vw, 1.7rem);
+      }
+
+      .result-panel p {
+        color: #ebf3ff;
+      }
+
+      .btn-tertiary {
+        border: 1px solid rgba(255, 225, 140, 0.3);
+        background: rgba(7, 20, 50, 0.72);
+        color: #e6f1ff;
+        font-size: 0.92rem;
+        font-weight: 700;
+        min-height: 42px;
+        border-radius: 12px;
+        padding: 0.35rem 0.8rem;
+        width: auto;
+      }
+
+      @media (max-width: 640px) {
+        .board-grid {
+          border-spacing: 0.38rem;
+        }
+
+        .board-grid .corner-cell {
+          width: 36%;
+        }
+
+        .board-grid .col-label {
+          width: 21.33%;
+        }
+
+        .board-grid .row-label,
+        .board-grid .col-label {
+          padding: 0.5rem 0.35rem;
+          font-size: 0.82rem;
+        }
+
+        .game-top-actions {
+          width: 100%;
+          justify-content: space-between;
+        }
       }
 
       dialog {
@@ -445,9 +530,12 @@
 
       <section class="panel screen" data-screen="gameplay">
         <div class="game-top">
-          <button id="backToModesBtn" class="btn btn-secondary" type="button" style="width: auto; padding: 0 1rem">
-            رجوع
-          </button>
+          <div class="game-top-actions">
+            <button id="backToModesBtn" class="btn btn-secondary" type="button" style="width: auto; padding: 0 1rem">
+              رجوع
+            </button>
+            <button id="nextBoardBtn" class="btn btn-tertiary" type="button">لوحة جديدة</button>
+          </div>
           <p id="selectedModeMetaText" class="game-meta"></p>
         </div>
 
@@ -497,7 +585,7 @@
         <div id="selectionPanel" class="selection-panel hidden">
           <h3 id="selectionTitleText"></h3>
           <p id="selectionRuleText"></p>
-          <p style="margin-top: 0.4rem">قل الإجابة بصوتٍ واضح، ثم ثبّت الخانة بعد الاتفاق</p>
+          <p class="selection-note">قل الإجابة بصوتٍ واضح، ثم ثبّت الخانة بعد الاتفاق</p>
           <div class="selection-actions">
             <button id="confirmCellBtn" class="btn btn-primary" type="button">تثبيت الخانة</button>
             <button id="cancelCellBtn" class="btn btn-secondary" type="button">إلغاء</button>
@@ -511,6 +599,7 @@
           <p id="resultSubtitleText"></p>
           <div class="result-actions">
             <button id="replayBoardBtn" class="btn btn-primary" type="button">إعادة نفس اللوحة</button>
+            <button id="resultNextBoardBtn" class="btn btn-secondary" type="button">لوحة جديدة</button>
             <button id="backToModeSelectionBtn" class="btn btn-secondary" type="button">العودة لاختيار النمط</button>
             <button id="backToHomeBtn" class="btn btn-secondary" type="button">العودة للرئيسية</button>
           </div>
@@ -568,6 +657,7 @@
         selectedRuleTextAr: "",
         allValidLoadedBoards: [],
         filteredBoardsForSelectedMode: [],
+        selectedBoardIndex: 0,
         selectedBoard: null,
         boardCells: [],
         currentTurnTeamIndex: 0,
@@ -589,6 +679,7 @@
         backToSetupBtn: document.getElementById("backToSetupBtn"),
         backToCategoriesBtn: document.getElementById("backToCategoriesBtn"),
         backToModesBtn: document.getElementById("backToModesBtn"),
+        nextBoardBtn: document.getElementById("nextBoardBtn"),
         selectedModeMetaText: document.getElementById("selectedModeMetaText"),
         turnBanner: document.getElementById("turnBanner"),
         turnTeamText: document.getElementById("turnTeamText"),
@@ -612,6 +703,7 @@
         resultTitleText: document.getElementById("resultTitleText"),
         resultSubtitleText: document.getElementById("resultSubtitleText"),
         replayBoardBtn: document.getElementById("replayBoardBtn"),
+        resultNextBoardBtn: document.getElementById("resultNextBoardBtn"),
         backToModeSelectionBtn: document.getElementById("backToModeSelectionBtn"),
         backToHomeBtn: document.getElementById("backToHomeBtn"),
         howToDialog: document.getElementById("howToDialog"),
@@ -773,6 +865,7 @@
             state.filteredBoardsForSelectedMode = state.allValidLoadedBoards.filter(
               (row) => row.category_key === state.selectedCategoryKey && row.mode_key === state.selectedModeKey
             );
+            state.selectedBoardIndex = 0;
             startSelectedModeGameplay();
             setScreen("gameplay");
           });
@@ -794,6 +887,33 @@
         state.selectedSquare = null;
         state.gameStatus = "playing";
         state.winningLineCells = [];
+      }
+
+      function clearGameplaySelectionState() {
+        state.selectedSquare = null;
+        state.winningLineCells = [];
+        state.gameStatus = "playing";
+      }
+
+      function setBoardByIndex(index) {
+        const boards = state.filteredBoardsForSelectedMode;
+        if (!boards.length) {
+          state.selectedBoardIndex = 0;
+          state.selectedBoard = null;
+          resetBoardStateOnly();
+          return;
+        }
+        const normalizedIndex = ((index % boards.length) + boards.length) % boards.length;
+        state.selectedBoardIndex = normalizedIndex;
+        state.selectedBoard = boards[normalizedIndex];
+        resetBoardStateOnly();
+      }
+
+      function gotoNextBoard() {
+        if (!state.filteredBoardsForSelectedMode.length) return;
+        setBoardByIndex(state.selectedBoardIndex + 1);
+        hideCancelNotice();
+        renderGameplay();
       }
 
       function getWinningLine(cells) {
@@ -872,7 +992,7 @@
         const teamName = getTeamNameByIndex(state.currentTurnTeamIndex);
         const symbol = getSymbolByTeamIndex(state.currentTurnTeamIndex);
         elements.turnTeamText.textContent = `الدور الآن: ${teamName}`;
-        elements.turnSymbolText.textContent = `علامتك: ${symbol}`;
+        elements.turnSymbolText.textContent = `الرمز الحالي: ${symbol} · ${teamName}`;
       }
 
       function renderBoardLabels() {
@@ -891,6 +1011,7 @@
 
       function onCellSelect(row, col) {
         if (state.gameStatus !== "playing") return;
+        if (state.selectedSquare) return;
         if (state.boardCells[row][col]) return;
         state.selectedSquare = { row, col };
         hideCancelNotice();
@@ -906,7 +1027,8 @@
               state.selectedSquare.row === rowIndex &&
               state.selectedSquare.col === colIndex;
             const isClaimed = Boolean(value);
-            const isDisabled = state.gameStatus !== "playing" || isClaimed;
+            const hasOpenSelection = Boolean(state.selectedSquare);
+            const isDisabled = state.gameStatus !== "playing" || isClaimed || (hasOpenSelection && !isSelected);
 
             button.textContent = value;
             button.disabled = isDisabled;
@@ -955,15 +1077,18 @@
       function renderGameplay() {
         const hasBoard = Boolean(state.selectedBoard);
         const hasBoardsForMode = state.filteredBoardsForSelectedMode.length > 0;
+        const boardActionsDisabled = !hasBoard || state.gameStatus !== "playing";
 
         elements.selectedModeMetaText.textContent = `${state.selectedCategoryNameAr} — ${state.selectedModeNameAr}`;
         elements.emptyStateWrap.classList.toggle("hidden", hasBoard || !hasBoardsForMode);
         elements.boardWrap.classList.toggle("hidden", !hasBoard);
         elements.turnBanner.classList.toggle("hidden", !hasBoard);
+        elements.nextBoardBtn.disabled = boardActionsDisabled;
 
         if (!hasBoard) {
           elements.selectionPanel.classList.add("hidden");
           elements.resultPanel.classList.add("hidden");
+          elements.nextBoardBtn.disabled = true;
           return;
         }
 
@@ -975,8 +1100,7 @@
       }
 
       function startSelectedModeGameplay() {
-        state.selectedBoard = state.filteredBoardsForSelectedMode[0] || null;
-        resetBoardStateOnly();
+        setBoardByIndex(0);
         hideCancelNotice();
         renderGameplay();
       }
@@ -1058,11 +1182,20 @@
         });
 
         elements.backToModesBtn.addEventListener("click", () => {
+          clearGameplaySelectionState();
+          hideCancelNotice();
           setScreen("modes");
         });
 
         elements.emptyStateBackBtn.addEventListener("click", () => {
+          clearGameplaySelectionState();
+          hideCancelNotice();
           setScreen("modes");
+        });
+
+        elements.nextBoardBtn.addEventListener("click", () => {
+          if (state.gameStatus !== "playing") return;
+          gotoNextBoard();
         });
 
         elements.boardCellButtons.forEach((rowButtons, rowIndex) => {
@@ -1105,11 +1238,14 @@
           renderGameplay();
         });
 
+        elements.resultNextBoardBtn.addEventListener("click", () => {
+          gotoNextBoard();
+        });
+
         elements.backToModeSelectionBtn.addEventListener("click", () => {
           state.selectedBoard = null;
-          state.selectedSquare = null;
-          state.gameStatus = "playing";
-          state.winningLineCells = [];
+          state.selectedBoardIndex = 0;
+          clearGameplaySelectionState();
           hideCancelNotice();
           setScreen("modes");
         });
@@ -1121,6 +1257,7 @@
           state.selectedModeNameAr = "";
           state.selectedRuleTextAr = "";
           state.filteredBoardsForSelectedMode = [];
+          state.selectedBoardIndex = 0;
           state.selectedBoard = null;
           resetBoardStateOnly();
           hideCancelNotice();
