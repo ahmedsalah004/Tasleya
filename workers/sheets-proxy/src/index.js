@@ -123,6 +123,15 @@ export default {
         return json({ questions }, 200, request, env);
       }
 
+      if (url.pathname === '/xo-intersection/boards' && request.method === 'GET') {
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'XO_INTERSECTION_SHEET_CSV_URL',
+          cacheKeyPrefix: 'xo-intersection-boards',
+        });
+        const boards = buildXoIntersectionBoards(rows);
+        return json({ boards }, 200, request, env);
+      }
+
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
     } catch (err) {
       console.error('[sheets-proxy] Request failed', err);
@@ -468,6 +477,60 @@ function buildMazadQuestions(rows) {
       };
     })
     .filter(Boolean);
+}
+
+function buildXoIntersectionBoards(rows) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+  const requiredFields = [
+    'board_id',
+    'category_key',
+    'category_name_ar',
+    'mode_key',
+    'mode_name_ar',
+    'rule_text_ar',
+    'column_1',
+    'column_2',
+    'column_3',
+    'row_1',
+    'row_2',
+    'row_3',
+  ];
+
+  return dataRows
+    .map((row) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      if (!isTruthyCell(raw.is_active)) return null;
+      const hasAllRequiredFields = requiredFields.every((field) => normalizeCell(raw[field]));
+      if (!hasAllRequiredFields) return null;
+
+      return {
+        board_id: normalizeCell(raw.board_id),
+        category_key: normalizeCell(raw.category_key),
+        category_name_ar: normalizeCell(raw.category_name_ar),
+        mode_key: normalizeCell(raw.mode_key),
+        mode_name_ar: normalizeCell(raw.mode_name_ar),
+        rule_text_ar: normalizeCell(raw.rule_text_ar),
+        column_1: normalizeCell(raw.column_1),
+        column_2: normalizeCell(raw.column_2),
+        column_3: normalizeCell(raw.column_3),
+        row_1: normalizeCell(raw.row_1),
+        row_2: normalizeCell(raw.row_2),
+        row_3: normalizeCell(raw.row_3),
+        is_active: normalizeCell(raw.is_active),
+        sort_order: toInteger(raw.sort_order),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const aSort = Number.isFinite(a.sort_order) ? a.sort_order : Number.POSITIVE_INFINITY;
+      const bSort = Number.isFinite(b.sort_order) ? b.sort_order : Number.POSITIVE_INFINITY;
+      return aSort - bSort;
+    });
 }
 
 function sanitizeQuestion(question, allQuestions) {

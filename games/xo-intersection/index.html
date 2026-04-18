@@ -655,23 +655,9 @@
     </dialog>
 
     <script>
-      const CSV_URL =
-        "https://docs.google.com/spreadsheets/d/e/2PACX-1vST0HDmGhMcWq07D68Wj9XK_Kd3gdEFIvE_BdjACc1dNtwFjPGbpvdOJbi4EI7Dj19LYjN6kPxFJrmP/pub?output=csv";
-
-      const REQUIRED_FIELDS = [
-        "board_id",
-        "category_key",
-        "category_name_ar",
-        "mode_key",
-        "mode_name_ar",
-        "rule_text_ar",
-        "column_1",
-        "column_2",
-        "column_3",
-        "row_1",
-        "row_2",
-        "row_3"
-      ];
+      const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
+      const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
+      const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
 
       const state = {
         currentScreen: "setup",
@@ -753,78 +739,53 @@
         });
       }
 
-      function parseCsvLineSafe(text) {
-        const rows = [];
-        let current = "";
-        let row = [];
-        let inQuotes = false;
-
-        for (let i = 0; i < text.length; i += 1) {
-          const char = text[i];
-          const nextChar = text[i + 1];
-
-          if (char === '"') {
-            if (inQuotes && nextChar === '"') {
-              current += '"';
-              i += 1;
-            } else {
-              inQuotes = !inQuotes;
-            }
-            continue;
-          }
-
-          if (char === "," && !inQuotes) {
-            row.push(current);
-            current = "";
-            continue;
-          }
-
-          if ((char === "\n" || char === "\r") && !inQuotes) {
-            if (char === "\r" && nextChar === "\n") {
-              i += 1;
-            }
-            row.push(current);
-            rows.push(row);
-            row = [];
-            current = "";
-            continue;
-          }
-
-          current += char;
-        }
-
-        if (current.length > 0 || row.length > 0) {
-          row.push(current);
-          rows.push(row);
-        }
-
-        return rows;
+      function normalizeCell(value) {
+        return String(value || "").trim();
       }
 
-      function mapCsvRows(rawRows) {
-        if (!rawRows.length) return [];
-        const headers = rawRows[0].map((header) => String(header || "").trim());
+      function getConfiguredApiBaseUrl() {
+        const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
+        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
+          return DEFAULT_WORKER_API_BASE_URL;
+        }
+        return configuredBaseUrl.replace(/\/+$/, "");
+      }
 
-        return rawRows.slice(1).map((values) => {
-          const rowObject = {};
-          headers.forEach((header, index) => {
-            rowObject[header] = String(values[index] || "").trim();
-          });
-          return rowObject;
+      function buildApiUrl(path) {
+        return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+      }
+
+      async function apiFetchJson(path) {
+        const response = await fetch(buildApiUrl(path), {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          cache: "no-store"
         });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          const message = normalizeCell(payload && payload.error) || "تعذر تحميل بيانات اللعبة.";
+          throw new Error(message);
+        }
+        return payload;
       }
 
-      function hasRequiredFields(row) {
-        return REQUIRED_FIELDS.every((field) => row[field]);
-      }
-
-      function toNumberSafe(value) {
-        const numeric = Number(value);
-        return Number.isFinite(numeric) ? numeric : Number.POSITIVE_INFINITY;
-      }
-
-      function isRowActive(row) {
-        return String(row.is_active || "").trim().toLowerCase() === "true";
+      function normalizeBoardRow(raw) {
+        return {
+          board_id: normalizeCell(raw && raw.board_id),
+          category_key: normalizeCell(raw && raw.category_key),
+          category_name_ar: normalizeCell(raw && raw.category_name_ar),
+          mode_key: normalizeCell(raw && raw.mode_key),
+          mode_name_ar: normalizeCell(raw && raw.mode_name_ar),
+          rule_text_ar: normalizeCell(raw && raw.rule_text_ar),
+          column_1: normalizeCell(raw && raw.column_1),
+          column_2: normalizeCell(raw && raw.column_2),
+          column_3: normalizeCell(raw && raw.column_3),
+          row_1: normalizeCell(raw && raw.row_1),
+          row_2: normalizeCell(raw && raw.row_2),
+          row_3: normalizeCell(raw && raw.row_3),
+          is_active: normalizeCell(raw && raw.is_active),
+          sort_order: Number.isFinite(raw && raw.sort_order) ? raw.sort_order : null
+        };
       }
 
       function getUniqueCategories() {
@@ -1236,17 +1197,9 @@
         refreshLoadingUi();
 
         try {
-          const response = await fetch(CSV_URL, { cache: "no-store" });
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
-
-          const csvText = await response.text();
-          const parsedRows = parseCsvLineSafe(csvText);
-          const mappedRows = mapCsvRows(parsedRows);
-          const validRows = mappedRows
-            .filter((row) => isRowActive(row) && hasRequiredFields(row))
-            .sort((a, b) => toNumberSafe(a.sort_order) - toNumberSafe(b.sort_order));
+          const payload = await apiFetchJson(XO_INTERSECTION_BOARDS_PATH);
+          const boards = Array.isArray(payload && payload.boards) ? payload.boards : [];
+          const validRows = boards.map((row) => normalizeBoardRow(row)).filter((row) => row.board_id);
 
           if (!validRows.length) {
             throw new Error("لم يتم العثور على بيانات صالحة نشطة.");
