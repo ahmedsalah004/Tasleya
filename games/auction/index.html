@@ -1021,6 +1021,12 @@
         });
       }
 
+      function hasValidRoleSelections() {
+        return Array.isArray(state.roles)
+          && state.roles.length === 2
+          && state.roles.every((role) => role === 0 || role === 1);
+      }
+
       function startRound() {
         state.roles = [null, null];
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
@@ -1543,13 +1549,15 @@
 
       el.roleButtons.forEach((btn) => btn.addEventListener("click", async () => {
         const team = Number(btn.dataset.team); const player = Number(btn.dataset.player);
+        if (!Number.isInteger(team) || !Number.isInteger(player) || team < 0 || team > 1 || player < 0 || player > 1) return;
         if (onlineState.enabled) { await submitOnlineAction("SELECT_ANSWERER", { teamId: team, playerIndex: player }); return; }
         state.roles[team] = player;
-        el.roleButtons.filter((b) => Number(b.dataset.team) === team).forEach((b) => b.classList.toggle("active", b === btn));
+        syncRoleButtonActiveState();
         updateHeader();
+        saveLocalResume();
       }));
 
-      el.revealBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("REVEAL_QUESTION") : (state.roles.includes(null) ? alert("اختر المجيب لكل فريق أولًا.") : setPhase("reveal")));
+      el.revealBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("REVEAL_QUESTION") : (!hasValidRoleSelections() ? alert("اختر المجيب لكل فريق أولًا.") : setPhase("reveal")));
       el.startBidBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("START_BIDDING") : beginBidding());
       el.raiseBidBtn.addEventListener("click", () => {
         const minValue = state.bid.current + 1; const value = Number(el.bidInput.value);
