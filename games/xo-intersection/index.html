@@ -745,7 +745,8 @@
         currentTurnTeamIndex: 0,
         selectedSquare: null,
         gameStatus: "playing",
-        winningLineCells: []
+        winningLineCells: [],
+        isAwaitingResumeChoice: false
       };
 
       const elements = {
@@ -869,6 +870,25 @@
         };
       }
 
+      function isBoardRowPlayable(row) {
+        if (!row || typeof row !== "object") return false;
+        const requiredFields = [
+          "board_id",
+          "category_key",
+          "category_name_ar",
+          "mode_key",
+          "mode_name_ar",
+          "rule_text_ar",
+          "column_1",
+          "column_2",
+          "column_3",
+          "row_1",
+          "row_2",
+          "row_3"
+        ];
+        return requiredFields.every((field) => normalizeCell(row[field]));
+      }
+
       function getUniqueCategories() {
         const categoriesMap = new Map();
 
@@ -947,9 +967,7 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "mode-card";
-          const boardsCount = state.allValidLoadedBoards.filter(
-            (row) => row.category_key === state.selectedCategoryKey && row.mode_key === mode.modeKey
-          ).length;
+          const boardsCount = getFilteredBoardsForMode(state.selectedCategoryKey, mode.modeKey).length;
           button.innerHTML = `
             <p class="mode-card-title">${mode.modeNameAr}</p>
             <p class="mode-card-rule">${mode.ruleTextAr}</p>
@@ -1387,6 +1405,7 @@
       }
 
       function persistResumeState() {
+        if (state.isAwaitingResumeChoice) return;
         try {
           saveResumeSnapshot();
         } catch (error) {
@@ -1412,6 +1431,14 @@
           clearResumeSnapshot();
           return null;
         }
+      }
+
+      function shouldOfferResumePrompt(snapshot) {
+        if (!snapshot || typeof snapshot !== "object") return false;
+        const hasCategoryOrMode = Boolean(normalizeCell(snapshot.selectedCategoryKey) || normalizeCell(snapshot.selectedModeKey));
+        const gameplayScreens = new Set(["categories", "modes", "gameplay"]);
+        const savedScreen = normalizeCell(snapshot.currentScreen);
+        return hasCategoryOrMode || gameplayScreens.has(savedScreen);
       }
 
       function applySnapshotWithFallback(snapshot) {
@@ -1459,6 +1486,27 @@
               (pair) => Array.isArray(pair) && pair.length === 2 && Number.isInteger(pair[0]) && Number.isInteger(pair[1])
             )
           : [];
+        const recomputedWinningLine = getWinningLine(state.boardCells);
+        const hasBoardWinner = Boolean(recomputedWinningLine);
+        const hasBoardDraw = isBoardFull(state.boardCells) && !hasBoardWinner;
+        if (state.gameStatus === "won") {
+          if (!hasBoardWinner) {
+            state.gameStatus = "playing";
+            state.winningLineCells = [];
+          } else {
+            state.winningLineCells = recomputedWinningLine;
+          }
+        } else if (state.gameStatus === "draw") {
+          if (!hasBoardDraw) {
+            state.gameStatus = "playing";
+          }
+          state.winningLineCells = [];
+        } else if (hasBoardWinner) {
+          state.gameStatus = "won";
+          state.winningLineCells = recomputedWinningLine;
+        } else {
+          state.winningLineCells = [];
+        }
         state.selectedSquare = null;
         hideCancelNotice();
         hideCycleNotice();
@@ -1535,7 +1583,7 @@
         try {
           const payload = await apiFetchJson(XO_INTERSECTION_BOARDS_PATH);
           const boards = Array.isArray(payload && payload.boards) ? payload.boards : [];
-          const validRows = boards.map((row) => normalizeBoardRow(row)).filter((row) => row.board_id);
+          const validRows = boards.map((row) => normalizeBoardRow(row)).filter((row) => isBoardRowPlayable(row));
 
           if (!validRows.length) {
             throw new Error("لم يتم العثور على بيانات صالحة نشطة.");
@@ -1727,6 +1775,7 @@
 
         elements.resumeContinueBtn.addEventListener("click", () => {
           if (state.loadingStatus !== "success") return;
+          state.isAwaitingResumeChoice = false;
           const savedSnapshot = readResumeSnapshot();
           if (!savedSnapshot || !applySnapshotWithFallback(savedSnapshot)) {
             clearResumeSnapshot();
@@ -1737,6 +1786,7 @@
         });
 
         elements.resumeNewGameBtn.addEventListener("click", () => {
+          state.isAwaitingResumeChoice = false;
           clearResumeSnapshot();
           closeResumeDialog();
           setScreen("setup");
@@ -1745,7 +1795,8 @@
 
       setupEvents();
       const existingSnapshot = readResumeSnapshot();
-      if (existingSnapshot) {
+      if (existingSnapshot && shouldOfferResumePrompt(existingSnapshot)) {
+        state.isAwaitingResumeChoice = true;
         openResumeDialog();
       }
       fetchBoardsData();
