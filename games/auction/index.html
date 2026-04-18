@@ -1444,7 +1444,7 @@
       }
 
       function applyOnlineToUI(gs) {
-        if (!gs) return;
+        if (!onlineState.enabled || state.mode !== "online" || !gs) return;
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
         const q = gs.currentQuestion || resolveQuestion(gs) || getQuestion();
@@ -1525,6 +1525,7 @@
         if (onlineState.unsubscribePresence) onlineState.unsubscribePresence();
 
         onlineState.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, async (roomData) => {
+          if (!onlineState.enabled || state.mode !== "online") return;
           onlineState.roomData = roomData || null;
           if (!roomData) return;
           if (roomData?.meta?.gameKey !== GAME_KEY) {
@@ -1550,6 +1551,7 @@
 
       async function createRoomFlow() {
         try {
+          state.mode = "online";
           const hostName = normalizeText(el.playerNameInput.value) || "Host";
           const session = await gameRooms.createGameRoom({ gameType: GAME_KEY, hostName, maxTeams: 2 });
           onlineState.enabled = true;
@@ -1565,6 +1567,7 @@
 
       async function joinRoomFlow() {
         try {
+          state.mode = "online";
           const code = normalizeText(el.roomCodeInput.value).toUpperCase();
           const playerName = normalizeText(el.playerNameInput.value) || "Player";
           const session = await gameRooms.joinGameRoom({ roomCode: code, playerName });
@@ -1756,6 +1759,7 @@
         if (onlineState.unsubscribeRoom) onlineState.unsubscribeRoom();
         if (onlineState.unsubscribePresence) onlineState.unsubscribePresence();
         if (onlineState.hostClockId) clearInterval(onlineState.hostClockId);
+        state.mode = null;
         onlineState.enabled = false;
         onlineState.session = null;
         onlineState.roomData = null;
@@ -1778,6 +1782,7 @@
         if (!gameRooms) return;
         const restored = gameRooms.restoreGameRoomSession();
         if (!restored || restored.gameType !== GAME_KEY) return;
+        state.mode = "online";
         onlineState.enabled = true;
         onlineState.session = restored;
         await startRoomListeners(restored);
