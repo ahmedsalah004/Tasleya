@@ -657,26 +657,17 @@
         </section>
 
         <section id="phaseRole" class="phase-card hidden">
-          <h2 class="phase-title">اختر المجيب</h2>
-          <div class="roles-grid">
-            <article class="role-team">
-              <h4 id="team1RoleTitle">الفريق الأول</h4>
-              <div class="role-options">
-                <button class="role-option" data-team="0" data-player="0" type="button">المجيب: لاعب 1</button>
-                <button class="role-option" data-team="0" data-player="1" type="button">المجيب: لاعب 2</button>
-              </div>
-              <p id="team1Roles" class="role-meta">المجيب: - | المزايد: -</p>
-            </article>
-            <article class="role-team">
-              <h4 id="team2RoleTitle">الفريق الثاني</h4>
-              <div class="role-options">
-                <button class="role-option" data-team="1" data-player="0" type="button">المجيب: لاعب 1</button>
-                <button class="role-option" data-team="1" data-player="1" type="button">المجيب: لاعب 2</button>
-              </div>
-              <p id="team2Roles" class="role-meta">المجيب: - | المزايد: -</p>
-            </article>
+          <h2 class="phase-title">بداية الجولة</h2>
+          <p class="helper-note">رتّبوا داخل كل فريق من سيجيب ومن سيزايد، ثم أكملوا التسلسل.</p>
+          <div class="action-row"><button id="revealBtn" class="btn btn-primary" type="button">إظهار الفئة</button></div>
+          <div id="categoryRevealBox" class="question-box hidden">
+            <p id="categoryOnlyText" class="question-category"></p>
+            <p class="question-prompt">انتظروا حتى يكون الفريقان جاهزين لرؤية السؤال.</p>
           </div>
-          <div class="action-row"><button id="revealBtn" class="btn btn-primary" type="button">إظهار السؤال</button></div>
+          <div id="questionReadyRow" class="action-row hidden">
+            <button id="team1ReadyBtn" class="btn btn-secondary" type="button">الفريق الأول جاهز لرؤية السؤال</button>
+            <button id="team2ReadyBtn" class="btn btn-secondary" type="button">الفريق الثاني جاهز لرؤية السؤال</button>
+          </div>
         </section>
 
         <section id="phaseReveal" class="phase-card hidden">
@@ -725,7 +716,7 @@
           <h2 class="phase-title">الاستعداد للمحاولة</h2>
           <p id="attemptTeamText" class="attempt-team-banner"></p>
           <p id="attemptTargetText" class="target target-major">0</p>
-          <div class="action-row"><button id="startAttemptBtn" class="btn btn-primary" type="button">أجب الآن</button></div>
+          <div class="action-row"><button id="startAttemptBtn" class="btn btn-primary" type="button">ابدأ الآن</button></div>
         </section>
 
         <section id="phaseAttempt" class="phase-card hidden">
@@ -745,8 +736,8 @@
           <h2 class="phase-title">انتهى الوقت — قرار الحكم</h2>
           <p id="judgeHint" class="target"></p>
           <div class="action-row judge-actions">
-            <button id="correctBtn" class="btn btn-success" type="button">إجابة صحيحة</button>
-            <button id="otherPointBtn" class="btn btn-danger" type="button">نقطة للفريق الآخر</button>
+            <button id="correctBtn" class="btn btn-success" type="button">إجابة صحيحة للفريق المستجيب</button>
+            <button id="otherPointBtn" class="btn btn-danger" type="button">النقطة للفريق الآخر</button>
           </div>
         </section>
 
@@ -790,7 +781,6 @@
     <script>
       const TOTAL_QUESTIONS = 10;
       const DEFAULT_TEAMS = ["الفريق الأول", "الفريق الثاني"];
-      const PLAYERS = ["لاعب 1", "لاعب 2"];
       const GAME_KEY = "auction";
       const AUCTION_LOCAL_RESUME_KEY = "tasleya_auction_local_state_v1";
       const AUCTION_LOCAL_RESUME_VERSION = 1;
@@ -804,7 +794,7 @@
         scores: [0, 0],
         questions: [],
         phase: "roleSelection",
-        roles: [null, null],
+        round: { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } },
         bid: { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null },
         attempt: { team: null, target: 0, endsAt: null },
         timerValue: 60,
@@ -861,12 +851,12 @@
         team2Score: document.getElementById("team2Score"),
         team1ScoreLabel: document.getElementById("team1ScoreLabel"),
         team2ScoreLabel: document.getElementById("team2ScoreLabel"),
-        team1RoleTitle: document.getElementById("team1RoleTitle"),
-        team2RoleTitle: document.getElementById("team2RoleTitle"),
-        team1Roles: document.getElementById("team1Roles"),
-        team2Roles: document.getElementById("team2Roles"),
-        roleButtons: Array.from(document.querySelectorAll(".role-option")),
         revealBtn: document.getElementById("revealBtn"),
+        categoryRevealBox: document.getElementById("categoryRevealBox"),
+        categoryOnlyText: document.getElementById("categoryOnlyText"),
+        questionReadyRow: document.getElementById("questionReadyRow"),
+        team1ReadyBtn: document.getElementById("team1ReadyBtn"),
+        team2ReadyBtn: document.getElementById("team2ReadyBtn"),
         questionCategory: document.getElementById("questionCategory"),
         questionPrompt: document.getElementById("questionPrompt"),
         startBidBtn: document.getElementById("startBidBtn"),
@@ -940,8 +930,8 @@
         const team2 = teamNameAt(1);
         el.team1ScoreLabel.textContent = team1;
         el.team2ScoreLabel.textContent = team2;
-        el.team1RoleTitle.textContent = team1;
-        el.team2RoleTitle.textContent = team2;
+        if (el.team1ReadyBtn) el.team1ReadyBtn.textContent = `${team1} جاهز لرؤية السؤال`;
+        if (el.team2ReadyBtn) el.team2ReadyBtn.textContent = `${team2} جاهز لرؤية السؤال`;
       }
 
       function setTeamNamesForLocal(name1, name2) {
@@ -1042,7 +1032,7 @@
             questions: state.questions,
             phase: state.phase,
             teamNames: state.teamNames,
-            roles: state.roles,
+            round: state.round,
             bid: state.bid,
             attempt: state.attempt,
             timerValue: state.timerValue,
@@ -1083,13 +1073,8 @@
         const currentNode = map[name];
         if (currentNode) { currentNode.classList.remove("hidden"); requestAnimationFrame(() => currentNode.classList.add("visible")); }
         setJudgePanelExpanded(["attemptReady", "attempt", "judge"].includes(name));
-      }
-
-      function formatRoles(teamIndex) {
-        const role = normalizeRoleSelection(state.roles[teamIndex]);
-        if (role == null) return "المجيب: - | المزايد: -";
-        const bidder = role === 0 ? 1 : 0;
-        return `المجيب: ${PLAYERS[role]} | المزايد: ${PLAYERS[bidder]}`;
+        if (name === "roleSelection") renderRoundPreparationUI();
+        if (name === "attemptReady" || name === "judge") updateJudgeButtons();
       }
 
       function updateHeader() {
@@ -1100,38 +1085,53 @@
         el.currentBid.textContent = String(state.bid.current);
         el.team1Score.textContent = String(state.scores[0]);
         el.team2Score.textContent = String(state.scores[1]);
-        el.team1Roles.textContent = formatRoles(0);
-        el.team2Roles.textContent = formatRoles(1);
         el.turnLabel.textContent = state.phase === "bidding" ? teamNameAt(state.bid.turnTeam) : "-";
         el.leadingLabel.textContent = state.bid.leadingTeam == null ? "-" : teamNameAt(state.bid.leadingTeam);
       }
 
-      function syncRoleButtonActiveState() {
-        el.roleButtons.forEach((btn) => {
-          const team = Number(btn.dataset.team);
-          const player = Number(btn.dataset.player);
-          const selected = normalizeRoleSelection(state.roles[team]);
-          btn.classList.toggle("active", selected === player);
-        });
+      function normalizeReadyMap(source) {
+        return {
+          0: Boolean(source?.[0]),
+          1: Boolean(source?.[1]),
+        };
       }
 
-      function normalizeRoleSelection(value) {
-        if (value === 0 || value === "0") return 0;
-        if (value === 1 || value === "1") return 1;
-        return null;
+      function bothTeamsReady() {
+        return Boolean(state.round?.readyForQuestion?.[0]) && Boolean(state.round?.readyForQuestion?.[1]);
       }
 
-      function hasValidRoleSelections() {
-        return Array.isArray(state.roles)
-          && state.roles.length === 2
-          && state.roles.every((role) => normalizeRoleSelection(role) != null);
+      function renderRoundPreparationUI() {
+        const q = getQuestion();
+        const categoryShown = Boolean(state.round?.categoryRevealed);
+        const readyMap = normalizeReadyMap(state.round?.readyForQuestion);
+        if (!onlineState.enabled) {
+          el.revealBtn.disabled = categoryShown;
+          el.team1ReadyBtn.disabled = !categoryShown || readyMap[0];
+          el.team2ReadyBtn.disabled = !categoryShown || readyMap[1];
+        }
+        el.revealBtn.classList.toggle("hidden", categoryShown);
+        el.categoryRevealBox.classList.toggle("hidden", !categoryShown);
+        el.questionReadyRow.classList.toggle("hidden", !categoryShown);
+        el.categoryOnlyText.textContent = q?.category ? `الفئة: ${q.category}` : "الفئة: -";
+        el.team1ReadyBtn.classList.toggle("active", readyMap[0]);
+        el.team2ReadyBtn.classList.toggle("active", readyMap[1]);
+      }
+
+      function updateJudgeButtons() {
+        const attemptTeam = state.attempt.team;
+        if (attemptTeam !== 0 && attemptTeam !== 1) {
+          el.correctBtn.textContent = "إجابة صحيحة للفريق المستجيب";
+          el.otherPointBtn.textContent = "النقطة للفريق الآخر";
+          return;
+        }
+        el.correctBtn.textContent = `إجابة صحيحة لـ ${teamNameAt(attemptTeam)}`;
+        el.otherPointBtn.textContent = `النقطة لـ ${teamNameAt(1 - attemptTeam)}`;
       }
 
       function startRound() {
-        state.roles = [null, null];
+        state.round = { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = { team: null, target: 0, endsAt: null };
-        syncRoleButtonActiveState();
         const q = getQuestion();
         if (!q) {
           setPhase("final");
@@ -1144,6 +1144,7 @@
         el.questionCategory.textContent = `الفئة: ${q.category}`;
         el.questionPrompt.textContent = q.prompt;
         renderJudgeAssistReference(q);
+        renderRoundPreparationUI();
         setPhase("roleSelection");
         updateHeader();
         saveLocalResume();
@@ -1209,6 +1210,7 @@
         state.attempt = { team: winner, target, endsAt: null };
         el.attemptTeamText.textContent = `${teamNameAt(winner)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${target}`;
+        updateJudgeButtons();
         setPhase("attemptReady");
         updateHeader();
         saveLocalResume();
@@ -1264,7 +1266,8 @@
           phase: "lobby",
           questionIndex: 0,
           scores: { 0: 0, 1: 0 },
-          selectedAnswerers: { 0: null, 1: null },
+          categoryRevealed: false,
+          questionReadiness: { 0: false, 1: false },
           currentQuestion: null,
           currentBid: 0,
           leadingTeam: null,
@@ -1326,20 +1329,22 @@
           next.phase = "role_selection";
           return next;
         }
-        if (action.type === "SELECT_ANSWERER" && gs.phase === "role_selection") {
-          const teamId = toInt(action.payload?.teamId, -1);
-          const playerIndex = toInt(action.payload?.playerIndex, -1);
-          if (teamId === actorTeam && (playerIndex === 0 || playerIndex === 1)) {
-            next.selectedAnswerers = { ...(next.selectedAnswerers || {}), [teamId]: playerIndex };
-          }
+        if (action.type === "REVEAL_CATEGORY" && gs.phase === "role_selection" && action.fromUid === onlineState.session.uid) {
+          next.categoryRevealed = true;
+          next.questionReadiness = { 0: false, 1: false };
           return next;
         }
-        if (action.type === "REVEAL_QUESTION" && gs.phase === "role_selection" && action.fromUid === onlineState.session.uid) {
-          if (next.selectedAnswerers?.[0] == null || next.selectedAnswerers?.[1] == null) return next;
-          const q = resolveQuestion(next);
-          if (!q) return next;
-          next.currentQuestion = q;
-          next.phase = "question_reveal";
+        if (action.type === "TEAM_READY_FOR_QUESTION" && gs.phase === "role_selection") {
+          if (!next.categoryRevealed || (actorTeam !== 0 && actorTeam !== 1)) return next;
+          const readiness = normalizeReadyMap(next.questionReadiness);
+          readiness[actorTeam] = true;
+          next.questionReadiness = readiness;
+          if (readiness[0] && readiness[1]) {
+            const q = resolveQuestion(next);
+            if (!q) return next;
+            next.currentQuestion = q;
+            next.phase = "question_reveal";
+          }
           return next;
         }
         if (action.type === "START_BIDDING" && gs.phase === "question_reveal" && action.fromUid === onlineState.session.uid) {
@@ -1358,6 +1363,11 @@
           next.leadingTeam = actorTeam;
           next.activeBidderTeam = 1 - actorTeam;
           next.bidWindowEndsAt = n + BID_WINDOW_MS;
+          return next;
+        }
+        if (action.type === "START_ATTEMPT" && gs.phase === "attempt_ready" && action.fromUid === onlineState.session.uid) {
+          next.phase = "attempt";
+          next.attemptEndsAt = n + ATTEMPT_WINDOW_MS;
           return next;
         }
         if (action.type === "JUDGE_SUCCESS" && gs.phase === "judging" && action.fromUid === onlineState.session.uid) {
@@ -1388,7 +1398,8 @@
           }
           next.questionIndex = qIndex;
           next.phase = "role_selection";
-          next.selectedAnswerers = { 0: null, 1: null };
+          next.categoryRevealed = false;
+          next.questionReadiness = { 0: false, 1: false };
           next.currentQuestion = null;
           next.currentBid = 0;
           next.leadingTeam = null;
@@ -1435,7 +1446,7 @@
           if (hasPendingActions) return;
           const leader = toInt(gs.leadingTeam, -1);
           const attemptTeam = leader === 0 || leader === 1 ? leader : 1 - toInt(gs.activeBidderTeam, 0);
-          await patchHostGameState({ ...gs, phase: "attempt", attemptingTeam: attemptTeam, targetNumber: Math.max(1, toInt(gs.currentBid, 0)), attemptEndsAt: t + ATTEMPT_WINDOW_MS, bidWindowEndsAt: null });
+          await patchHostGameState({ ...gs, phase: "attempt_ready", attemptingTeam: attemptTeam, targetNumber: Math.max(1, toInt(gs.currentBid, 0)), attemptEndsAt: null, bidWindowEndsAt: null });
           return;
         }
         if (gs.phase === "attempt" && toInt(gs.attemptEndsAt, 0) > 0 && t >= toInt(gs.attemptEndsAt, 0)) {
@@ -1451,7 +1462,10 @@
         if (q) renderJudgeAssistReference(q);
         state.questionIndex = toInt(gs.questionIndex, 0);
         state.scores = [toInt(gs.scores?.[0], 0), toInt(gs.scores?.[1], 0)];
-        state.roles = [gs.selectedAnswerers?.[0] ?? null, gs.selectedAnswerers?.[1] ?? null];
+        state.round = {
+          categoryRevealed: Boolean(gs.categoryRevealed),
+          readyForQuestion: normalizeReadyMap(gs.questionReadiness),
+        };
         state.bid.current = toInt(gs.currentBid, 0);
         state.bid.turnTeam = toInt(gs.activeBidderTeam, 0);
         state.bid.leadingTeam = gs.leadingTeam == null ? null : toInt(gs.leadingTeam, 0);
@@ -1469,9 +1483,11 @@
         el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
 
+        renderRoundPreparationUI();
         if (gs.phase === "role_selection") setPhase("roleSelection");
         else if (gs.phase === "question_reveal") setPhase("reveal");
         else if (gs.phase === "bidding") setPhase("bidding");
+        else if (gs.phase === "attempt_ready") setPhase("attemptReady");
         else if (gs.phase === "attempt") setPhase("attempt");
         else if (gs.phase === "judging") setPhase("judge");
         else if (gs.phase === "result") { setPhase("between"); el.betweenText.textContent = `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]}`; }
@@ -1482,11 +1498,17 @@
 
         const myTeam = getPlayerTeam(onlineState.session?.uid, gs);
         const canBid = gs.phase === "bidding" && myTeam === toInt(gs.activeBidderTeam, -1);
+        const canRevealCategory = gs.phase === "role_selection" && isHost() && !gs.categoryRevealed;
+        const canMarkReady = gs.phase === "role_selection" && Boolean(gs.categoryRevealed) && (myTeam === 0 || myTeam === 1);
+        el.revealBtn.disabled = !canRevealCategory;
+        el.team1ReadyBtn.disabled = !canMarkReady || myTeam !== 0 || Boolean(gs.questionReadiness?.[0]);
+        el.team2ReadyBtn.disabled = !canMarkReady || myTeam !== 1 || Boolean(gs.questionReadiness?.[1]);
         el.countdownWrap.classList.toggle("hidden", gs.phase !== "bidding");
         el.raiseBidBtn.classList.toggle("hidden", true);
         el.stopBidBtn.classList.toggle("hidden", true);
         el.bidInput.parentElement.classList.add("hidden");
         el.bidCountdownBtn.disabled = !canBid;
+        el.startAttemptBtn.disabled = !(gs.phase === "attempt_ready" && isHost());
       }
 
       function updateCountdownUI() {
@@ -1614,13 +1636,12 @@
         state.questions = saved.questions;
         state.questionIndex = toInt(saved.questionIndex, 0);
         state.scores = Array.isArray(saved.scores) ? [toInt(saved.scores[0], 0), toInt(saved.scores[1], 0)] : [0, 0];
-        state.roles = Array.isArray(saved.roles)
-          ? [normalizeRoleSelection(saved.roles[0]), normalizeRoleSelection(saved.roles[1])]
-          : [null, null];
+        state.round = saved.round && typeof saved.round === "object"
+          ? { categoryRevealed: Boolean(saved.round.categoryRevealed), readyForQuestion: normalizeReadyMap(saved.round.readyForQuestion) }
+          : { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
         state.bid = saved.bid && typeof saved.bid === "object" ? saved.bid : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = saved.attempt && typeof saved.attempt === "object" ? saved.attempt : { team: null, target: 0, endsAt: null };
         state.timerValue = toInt(saved.timerValue, 60);
-        syncRoleButtonActiveState();
         showScreen("game");
         const q = getQuestion();
         if (q) {
@@ -1658,7 +1679,7 @@
             state.attempt.endsAt = null;
             el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
           }
-        } else if (saved.phase === "roleSelection") setPhase("roleSelection");
+        } else if (saved.phase === "roleSelection") { renderRoundPreparationUI(); setPhase("roleSelection"); }
         else if (saved.phase === "reveal") setPhase("reveal");
         else if (saved.phase === "bidding") { setPhase("bidding"); renderBidding(); }
         else if (saved.phase === "attemptReady") setPhase("attemptReady");
@@ -1670,18 +1691,32 @@
         return true;
       }
 
-      el.roleButtons.forEach((btn) => btn.addEventListener("click", async () => {
-        const team = Number(btn.dataset.team); const player = Number(btn.dataset.player);
-        if (!Number.isInteger(team) || !Number.isInteger(player) || team < 0 || team > 1 || player < 0 || player > 1) return;
-        if (onlineState.enabled) { await submitOnlineAction("SELECT_ANSWERER", { teamId: team, playerIndex: player }); return; }
-        if (!Array.isArray(state.roles) || state.roles.length !== 2) state.roles = [null, null];
-        state.roles[team] = normalizeRoleSelection(player);
-        syncRoleButtonActiveState();
-        updateHeader();
+      el.revealBtn.addEventListener("click", () => {
+        if (onlineState.enabled) {
+          submitOnlineAction("REVEAL_CATEGORY");
+          return;
+        }
+        state.round.categoryRevealed = true;
+        state.round.readyForQuestion = { 0: false, 1: false };
+        renderRoundPreparationUI();
         saveLocalResume();
-      }));
-
-      el.revealBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("REVEAL_QUESTION") : (!hasValidRoleSelections() ? alert("اختر المجيب لكل فريق أولًا.") : setPhase("reveal")));
+      });
+      el.team1ReadyBtn.addEventListener("click", () => {
+        if (onlineState.enabled) { submitOnlineAction("TEAM_READY_FOR_QUESTION"); return; }
+        if (!state.round.categoryRevealed) return;
+        state.round.readyForQuestion[0] = true;
+        renderRoundPreparationUI();
+        if (bothTeamsReady()) setPhase("reveal");
+        saveLocalResume();
+      });
+      el.team2ReadyBtn.addEventListener("click", () => {
+        if (onlineState.enabled) { submitOnlineAction("TEAM_READY_FOR_QUESTION"); return; }
+        if (!state.round.categoryRevealed) return;
+        state.round.readyForQuestion[1] = true;
+        renderRoundPreparationUI();
+        if (bothTeamsReady()) setPhase("reveal");
+        saveLocalResume();
+      });
       el.startBidBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("START_BIDDING") : beginBidding());
       el.raiseBidBtn.addEventListener("click", () => {
         const minValue = state.bid.current + 1; const value = Number(el.bidInput.value);
@@ -1691,7 +1726,7 @@
       });
       el.bidCountdownBtn.addEventListener("click", () => submitOnlineAction("BID"));
       el.stopBidBtn.addEventListener("click", () => { if (window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟")) { state.bid.stoppedTeam = state.bid.turnTeam; lockAttemptFromBidStop(); } });
-      el.startAttemptBtn.addEventListener("click", () => (onlineState.enabled ? null : startAttemptTimer()));
+      el.startAttemptBtn.addEventListener("click", () => (onlineState.enabled ? submitOnlineAction("START_ATTEMPT") : startAttemptTimer()));
       el.correctBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_SUCCESS") : applyJudgeResult(true));
       el.otherPointBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_FAIL") : applyJudgeResult(false));
       el.nextQuestionBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("NEXT_QUESTION") : (state.questionIndex += 1, startRound(), saveLocalResume()));
