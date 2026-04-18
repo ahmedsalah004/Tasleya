@@ -572,11 +572,80 @@ html {
   .hero-section,
   .home-sections,
   .home-footer {
-    width: min(92vw, 1160px);
+    width: min(92vw, 1240px);
   }
 
   .hero-section {
-    min-height: min(92svh, 760px);
+    min-height: min(88svh, 780px);
+    padding: clamp(5.8rem, 11vh, 8.4rem) 0 clamp(1rem, 2.8vh, 1.8rem);
+  }
+
+  .start-screen-title {
+    max-width: min(90vw, 860px);
+    font-size: clamp(5.2rem, 8.2vw, 7.6rem);
+    letter-spacing: 0.08em;
+  }
+
+  .hero-subtitle {
+    margin: 0.85rem 0 1.85rem;
+    font-size: clamp(1.28rem, 1.75vw, 1.66rem);
+    letter-spacing: 0.05em;
+  }
+
+  .start-actions {
+    width: min(90vw, 620px);
+    gap: 1.16rem;
+  }
+
+  .home-flow-step {
+    gap: 0.9rem;
+  }
+
+  .home-secondary-actions {
+    gap: 0.72rem;
+    margin-top: 0.5rem;
+  }
+
+  #startScreen #startLocalBtn,
+  #startScreen #startOnlineBtn,
+  #startScreen #gamesHubBtn,
+  #startScreen #homeGroupOneDeviceBtn,
+  #startScreen #homeGroupMultiDeviceBtn,
+  #startScreen #homeGroupDeviceBackBtn,
+  #startScreen #homeGroupTwoTeamsBtn,
+  #startScreen #homeGroupThreeTeamsBtn,
+  #startScreen #homeGroupTeamsBackBtn,
+  #startScreen #resumeGameBtn,
+  #startScreen #discardResumeGameBtn,
+  #startScreen #instructionsBtn,
+  #startScreen #contactBtn,
+  #startScreen #installGuideBtn {
+    min-width: 420px;
+    max-width: 620px;
+    min-height: 66px;
+    padding: 14px 30px;
+    font-size: clamp(1.42rem, 1.62vw, 1.76rem);
+    border-radius: 16px;
+  }
+
+  .scroll-hint {
+    margin-top: 1.3rem;
+    font-size: clamp(1rem, 1.15vw, 1.16rem);
+  }
+
+  #startScreen .home-sections {
+    margin-top: clamp(0.2rem, 0.9vh, 0.58rem);
+    gap: clamp(0.92rem, 1.3vw, 1.18rem);
+  }
+}
+
+@media (min-width: 1440px) {
+  .hero-section {
+    min-height: min(84svh, 760px);
+  }
+
+  .start-screen-title {
+    font-size: clamp(5.8rem, 7.1vw, 8.2rem);
   }
 }
 
