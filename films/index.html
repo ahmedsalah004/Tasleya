@@ -275,6 +275,87 @@
         text-align: center;
       }
 
+
+      @media (min-width: 1024px) {
+        body {
+          padding: clamp(1rem, 2.2vw, 1.8rem);
+        }
+
+        .shell {
+          width: min(1220px, 100%);
+        }
+
+        .top-nav {
+          gap: 0.6rem;
+          padding: 0.62rem 1.2rem;
+          font-size: 1.08rem;
+        }
+
+        #introScreen,
+        #setupScreen {
+          margin-top: 1.4rem;
+        }
+
+        #introScreen .hero,
+        #setupScreen .panel {
+          max-width: 980px;
+          margin-inline: auto;
+          padding: 2.6rem 3rem;
+          border-radius: 28px;
+        }
+
+        #introScreen h1 {
+          font-size: 4.4rem;
+          line-height: 1.1;
+          margin-bottom: 1.1rem;
+        }
+
+        #introScreen .subtitle {
+          max-width: 52ch;
+          font-size: 1.38rem;
+          line-height: 2;
+        }
+
+        #introScreen .intro-cta {
+          margin-top: 1.8rem;
+        }
+
+        #setupScreen h2 {
+          text-align: center;
+          color: var(--gold-400);
+          font-size: 2.45rem;
+          margin-bottom: 0.4rem;
+        }
+
+        #setupScreen .setup-grid {
+          margin-top: 1.4rem;
+          gap: 1.2rem;
+        }
+
+        #setupScreen label {
+          gap: 0.55rem;
+          font-size: 1.28rem;
+        }
+
+        #setupScreen input {
+          min-height: 62px;
+          padding: 0.92rem 1rem;
+          font-size: 1.18rem;
+          border-radius: 14px;
+        }
+
+        #introScreen .btn-primary,
+        #setupScreen .btn-primary {
+          width: auto;
+          min-width: 320px;
+          min-height: 64px;
+          padding: 1rem 2.4rem;
+          border-radius: 16px;
+          font-size: 1.26rem;
+          justify-self: center;
+        }
+      }
+
       @media (max-width: 640px) {
         .status-bar {
           grid-template-columns: 1fr;
