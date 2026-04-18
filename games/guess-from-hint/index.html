@@ -899,6 +899,14 @@
           if (!roundScreen.classList.contains("hidden")) renderRound();
         }
 
+        function resetGuessInteractionState() {
+          guessModal.classList.add("hidden");
+          state.selectedTeamIndex = null;
+          uiState.activeGuessTeamIndex = null;
+          uiState.pendingGuessTeams.clear();
+          setMessage(guessError, "");
+        }
+
         function endRoundAsNoAnswer() {
           const round = state.rounds[state.currentRoundIndex];
           resultTitle.textContent = "انتهت التلميحات";
@@ -1169,6 +1177,7 @@
 
         function calculateAfterWait(gameState, teamIndex) {
           const nextState = structuredClone(gameState);
+          if (nextState.phase !== "round") return nextState;
           if (!Number.isInteger(teamIndex) || !nextState.teams?.[teamIndex]) return nextState;
           nextState.teams[teamIndex].waitedHintIndex = nextState.currentHintIndex;
           const previousHintIndex = nextState.currentHintIndex;
@@ -1196,6 +1205,7 @@
 
         function calculateAfterGuess(gameState, teamIndex, guess) {
           const nextState = structuredClone(gameState);
+          if (nextState.phase !== "round") return nextState;
           if (!Number.isInteger(teamIndex) || !nextState.teams?.[teamIndex]) return nextState;
           const round = nextState.rounds[nextState.currentRoundIndex];
           if (!round) return nextState;
@@ -1275,6 +1285,11 @@
                 await gameRooms.markGameRoomActionProcessed(onlineState.session.roomCode, action.actionId, { skipped: true });
                 continue;
               }
+              if (withMeta.phase !== "round" && action.type !== "nextRoundRequest") {
+                workingState = withMeta;
+                await gameRooms.markGameRoomActionProcessed(onlineState.session.roomCode, action.actionId, { skipped: true });
+                continue;
+              }
               let nextState = withMeta;
               if (action.type === "submitGuess") {
                 nextState = calculateAfterGuess(nextState, Number(action.payload?.teamIndex), action.payload?.guess || "");
@@ -1312,6 +1327,7 @@
             renderLobby(roomData);
             const gs = roomData.public?.gameState;
             if (gs?.phase === "lobby") {
+              resetGuessInteractionState();
               showScreen(onlineLobbyScreen);
             } else if (gs) {
               syncStateFromGameState(gs);
@@ -1319,10 +1335,12 @@
                 showScreen(roundScreen);
                 renderRound();
               } else if (gs.phase === "result") {
+                resetGuessInteractionState();
                 resultTitle.textContent = gs.roundResult?.title || "نتيجة الجولة";
                 resultText.textContent = gs.roundResult?.text || "";
                 showScreen(resultScreen);
               } else if (gs.phase === "final") {
+                resetGuessInteractionState();
                 finalText.textContent = gs.finalResult || "";
                 showScreen(finalScreen);
               }
