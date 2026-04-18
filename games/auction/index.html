@@ -1050,7 +1050,7 @@
       }
 
       function formatRoles(teamIndex) {
-        const role = state.roles[teamIndex];
+        const role = normalizeRoleSelection(state.roles[teamIndex]);
         if (role == null) return "المجيب: - | المزايد: -";
         const bidder = role === 0 ? 1 : 0;
         return `المجيب: ${PLAYERS[role]} | المزايد: ${PLAYERS[bidder]}`;
@@ -1071,14 +1071,21 @@
         el.roleButtons.forEach((btn) => {
           const team = Number(btn.dataset.team);
           const player = Number(btn.dataset.player);
-          btn.classList.toggle("active", state.roles[team] === player);
+          const selected = normalizeRoleSelection(state.roles[team]);
+          btn.classList.toggle("active", selected === player);
         });
+      }
+
+      function normalizeRoleSelection(value) {
+        if (value === 0 || value === "0") return 0;
+        if (value === 1 || value === "1") return 1;
+        return null;
       }
 
       function hasValidRoleSelections() {
         return Array.isArray(state.roles)
           && state.roles.length === 2
-          && state.roles.every((role) => role === 0 || role === 1);
+          && state.roles.every((role) => normalizeRoleSelection(role) != null);
       }
 
       function startRound() {
@@ -1550,7 +1557,9 @@
         state.questions = saved.questions;
         state.questionIndex = toInt(saved.questionIndex, 0);
         state.scores = Array.isArray(saved.scores) ? [toInt(saved.scores[0], 0), toInt(saved.scores[1], 0)] : [0, 0];
-        state.roles = Array.isArray(saved.roles) ? [saved.roles[0] ?? null, saved.roles[1] ?? null] : [null, null];
+        state.roles = Array.isArray(saved.roles)
+          ? [normalizeRoleSelection(saved.roles[0]), normalizeRoleSelection(saved.roles[1])]
+          : [null, null];
         state.bid = saved.bid && typeof saved.bid === "object" ? saved.bid : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = saved.attempt && typeof saved.attempt === "object" ? saved.attempt : { team: null, target: 0, endsAt: null };
         state.timerValue = toInt(saved.timerValue, 60);
@@ -1608,7 +1617,8 @@
         const team = Number(btn.dataset.team); const player = Number(btn.dataset.player);
         if (!Number.isInteger(team) || !Number.isInteger(player) || team < 0 || team > 1 || player < 0 || player > 1) return;
         if (onlineState.enabled) { await submitOnlineAction("SELECT_ANSWERER", { teamId: team, playerIndex: player }); return; }
-        state.roles[team] = player;
+        if (!Array.isArray(state.roles) || state.roles.length !== 2) state.roles = [null, null];
+        state.roles[team] = normalizeRoleSelection(player);
         syncRoleButtonActiveState();
         updateHeader();
         saveLocalResume();
