@@ -69,6 +69,53 @@
         box-shadow: 0 20px 45px rgba(0, 0, 0, 0.38);
       }
 
+      .content-intro {
+        width: min(860px, 100%);
+        display: grid;
+        gap: 0.95rem;
+        margin-bottom: 0.2rem;
+      }
+
+      .content-intro h1 {
+        margin: 0;
+        color: var(--accent);
+        text-align: center;
+      }
+
+      .content-intro p {
+        margin: 0;
+        line-height: 1.9;
+        color: var(--muted);
+      }
+
+      .intro-card {
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 14px;
+        padding: 0.82rem;
+        background: rgba(4, 13, 36, 0.56);
+      }
+
+      .intro-card h2 {
+        margin: 0 0 0.45rem;
+        color: #ffe8ab;
+        font-size: 1.06rem;
+      }
+
+      .intro-list {
+        margin: 0;
+        padding: 0 1.1rem 0 0;
+        display: grid;
+        gap: 0.35rem;
+        color: var(--muted);
+        line-height: 1.8;
+      }
+
+      .example-round {
+        border-inline-start: 3px solid rgba(247, 214, 117, 0.55);
+        padding-inline-start: 0.72rem;
+        margin-top: 0.25rem;
+      }
+
       .setup h1 {
         margin: 0;
         color: var(--accent);
@@ -731,6 +778,19 @@
           letter-spacing: 0.01em;
         }
 
+        .content-intro h1 {
+          font-size: clamp(1.95rem, 2.4vw, 2.35rem);
+        }
+
+        .intro-card {
+          border-radius: 16px;
+          padding: 1rem 1.05rem;
+        }
+
+        .intro-card h2 {
+          font-size: 1.18rem;
+        }
+
         .field {
           margin-top: 1.2rem;
           gap: 0.55rem;
@@ -1005,13 +1065,61 @@
     <main class="shell">
       <a class="back-link" href="/games/">← العودة إلى الألعاب</a>
 
-      <section class="setup" id="introScreen" aria-label="مقدمة لعبة خمن الدولة من الخريطة">
+      <section class="setup content-intro" id="introScreen" aria-label="مقدمة لعبة خمن الدولة من الخريطة">
         <h1>خمن الدولة من الخريطة</h1>
-        <p style="color: var(--muted); line-height: 1.9; margin-top: 0.75rem;">
-          لعبة جغرافيا جماعية سريعة. ادخل أسماء الفرق ثم ابدأ الجولة لتخمين الدولة الصحيحة وجمع النقاط.
-        </p>
-        <div class="mode-status" style="display:grid; margin-top: 0.95rem;">
-          <p>واجهة اللعب التفاعلية تظهر بعد الضغط على زر المتابعة.</p>
+        <div class="intro-card">
+          <h2>ما هي لعبة خمن الدولة من الخريطة؟</h2>
+          <p>
+            هذه لعبة جغرافيا تنافسية بين فريقين. في كل سؤال تظهر دولة مطلوبة (أو يظهر تلميح اللغة عند تفعيل وضع اللغة)،
+            ويكون الهدف اختيار مكان الدولة الصحيح على خريطة العالم التفاعلية بأسرع قرار وأدق تخمين.
+          </p>
+        </div>
+        <div class="intro-card">
+          <h2>أنماط اللعب المتاحة</h2>
+          <ul class="intro-list">
+            <li><strong>خمن الدولة من الخريطة:</strong> يظهر اسم الدولة، وعلى الفريق تحديد موقعها على الخريطة.</li>
+            <li><strong>خمن مكان الدولة من اللغة:</strong> إذا كان وضع اللغة متاحًا على هذا المسار، يتم الاستماع للصوت ثم اختيار الدولة المناسبة على الخريطة.</li>
+          </ul>
+        </div>
+        <div class="intro-card">
+          <h2>كيف تتناوب الفرق؟</h2>
+          <p>
+            الأدوار تسير بالتبادل بين الفريقين عبر الأسئلة. يبدأ فريق بالسؤال الحالي ثم يحصل الفريق الآخر على فرصة رد:
+            إما اختيار دولة بديلة أو اعتماد إجابة الفريق النشط إذا كانت صحيحة.
+          </p>
+        </div>
+        <div class="intro-card">
+          <h2>طريقة احتساب النقاط</h2>
+          <ul class="intro-list">
+            <li>الإجابة الصحيحة تمنح نقاط السؤال كاملة حسب الصعوبة.</li>
+            <li>إذا لم يجب أي فريق إجابة صحيحة، يتم احتساب <strong>الأقرب</strong> إلى الدولة الصحيحة ويأخذ نصف النقاط.</li>
+            <li>عند تعادل القرب لا تُمنح نقاط إضافية في هذا السؤال.</li>
+          </ul>
+        </div>
+        <div class="intro-card">
+          <h2>ليش اللعبة ممتعة وتنافسية؟</h2>
+          <p>
+            لأنها تجمع سرعة البديهة مع المعرفة الجغرافية: كل اختيار يؤثر مباشرة على النتيجة، وفرصة الرد من الفريق الآخر
+            تخلق ضغطًا وحماسًا حتى آخر سؤال.
+          </p>
+        </div>
+        <div class="intro-card">
+          <h2>مثال جولة قصيرة</h2>
+          <p class="example-round">
+            سؤال: «البرازيل» (300 نقطة). فريق 1 يختار دولة خاطئة في أمريكا الجنوبية، فريق 2 يختار دولة أقرب لكنه ليس الصحيح.
+            إذا لم يصب أي فريق الإجابة الدقيقة، يحصل الفريق الأقرب على نصف النقاط (150).
+          </p>
+        </div>
+        <div class="intro-card">
+          <h2>FAQ سريعة + نصائح</h2>
+          <ul class="intro-list">
+            <li><strong>كم عدد الأسئلة؟</strong> الجولة الكاملة 20 سؤالًا.</li>
+            <li><strong>أفضل طريقة للفوز؟</strong> ركز على القارات أولًا ثم حدود الدول القريبة لتقليل مسافة الخطأ.</li>
+            <li><strong>نصيحة سريعة:</strong> لا تتسرع في التأكيد قبل مراجعة شكل الدولة وموقعها النسبي.</li>
+          </ul>
+        </div>
+        <div class="mode-status" style="display:grid;">
+          <p>بعد قراءة الشرح، انتقل إلى الإعداد لإدخال أسماء الفرق واختيار نمط الجولة.</p>
         </div>
         <button class="btn btn-primary" id="enterSetupBtn" type="button">متابعة إلى الإعداد</button>
       </section>
