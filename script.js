@@ -243,6 +243,7 @@ function cacheElements() {
   backToHomeBtn: document.getElementById("backToHomeBtn"),
   startLocalBtn: document.getElementById("startLocalBtn"),
   startOnlineBtn: document.getElementById("startOnlineBtn"),
+  gamesHubBtn: document.getElementById("gamesHubBtn"),
   homepagePrimaryStep: document.getElementById("homepagePrimaryStep"),
   homepageGroupDeviceStep: document.getElementById("homepageGroupDeviceStep"),
   homepageGroupTeamsStep: document.getElementById("homepageGroupTeamsStep"),
@@ -5759,6 +5760,10 @@ function initializeApp() {
     openHomepageGroupTeamsStep("multi-device");
   }, "homeGroupMultiDeviceBtn");
   bindEvent(el.homeGroupDeviceBackBtn, "click", resetHomepageFlowToPrimaryStep, "homeGroupDeviceBackBtn");
+  bindEvent(el.gamesHubBtn, "click", (event) => {
+    event.preventDefault();
+    openGamesPromoPopup();
+  }, "gamesHubBtn");
   bindEvent(el.homeGroupTwoTeamsBtn, "click", async () => {
     if (pendingHomepageGroupMode === "single-device") {
       logAnalyticsEvent("local_game_started", { mode: "single_device_group", teams: 2 });
