@@ -443,6 +443,7 @@ let gameplayPageScrollLocked = false;
 let activeQuestionImageViewport = null;
 let pendingHomepageGroupMode = null;
 let pendingLocalResumePayload = null;
+let pendingOnlineResumeSession = null;
 
 const soundState = {
   muted: false,
@@ -5054,21 +5055,47 @@ function resetHomepageFlowToPrimaryStep() {
 }
 
 function updateResumePromptVisibility() {
-  const shouldShow = !!pendingLocalResumePayload && el.startScreen?.style.display !== "none";
+  const hasPendingLocalResume = !!pendingLocalResumePayload;
+  const hasPendingOnlineResume = !hasPendingLocalResume && !!pendingOnlineResumeSession;
+  const shouldShow = (hasPendingLocalResume || hasPendingOnlineResume) && el.startScreen?.style.display !== "none";
+
   if (el.resumeGamePrompt) {
     el.resumeGamePrompt.classList.toggle("hidden", !shouldShow);
   }
+  if (!shouldShow) return;
+
+  const resumePromptText = el.resumeGamePrompt?.querySelector(".resume-game-prompt-text");
+  if (hasPendingLocalResume) {
+    if (resumePromptText) resumePromptText.textContent = "لديك لعبة محفوظة";
+    if (el.resumeGameBtn) el.resumeGameBtn.textContent = "استئناف اللعبة";
+    if (el.discardResumeGameBtn) el.discardResumeGameBtn.textContent = "بدء لعبة جديدة";
+    return;
+  }
+
+  if (resumePromptText) resumePromptText.textContent = "لديك جلسة جماعية قابلة للاستئناف";
+  if (el.resumeGameBtn) el.resumeGameBtn.textContent = "استئناف اللعب الجماعي";
+  if (el.discardResumeGameBtn) el.discardResumeGameBtn.textContent = "تجاهل";
+}
+
+function detectPendingOnlineResumeSession() {
+  if (new URL(window.location.href).searchParams.get("room")) {
+    pendingOnlineResumeSession = null;
+    return;
+  }
+  pendingOnlineResumeSession = loadSavedOnlineSession();
 }
 
 function detectPendingLocalResume() {
   if (new URL(window.location.href).searchParams.get("room")) {
     pendingLocalResumePayload = null;
+    detectPendingOnlineResumeSession();
     updateResumePromptVisibility();
     return;
   }
   const saved = loadSavedLocalProgress();
   pendingLocalResumePayload = isSavedLocalProgressResumable(saved) ? saved : null;
   if (!pendingLocalResumePayload) clearLocalProgress();
+  detectPendingOnlineResumeSession();
   updateResumePromptVisibility();
 }
 
@@ -5670,21 +5697,38 @@ function initializeApp() {
     logAnalyticsEvent("local_game_started", { mode: "solo" });
     startSoloFromHomepage();
   }, "startLocalBtn");
-  bindEvent(el.resumeGameBtn, "click", () => {
-    if (!pendingLocalResumePayload) return;
-    const resumed = applySavedLocalProgress(pendingLocalResumePayload);
-    if (resumed) {
+  bindEvent(el.resumeGameBtn, "click", async () => {
+    if (pendingLocalResumePayload) {
+      const resumed = applySavedLocalProgress(pendingLocalResumePayload);
+      if (resumed) {
+        pendingLocalResumePayload = null;
+        updateResumePromptVisibility();
+        return;
+      }
+      clearLocalProgress();
       pendingLocalResumePayload = null;
       updateResumePromptVisibility();
       return;
     }
-    clearLocalProgress();
-    pendingLocalResumePayload = null;
+
+    if (!pendingOnlineResumeSession) return;
+    const restored = await tryRestoreOnlineSession();
+    if (restored) {
+      pendingOnlineResumeSession = null;
+      updateResumePromptVisibility();
+      return;
+    }
+    pendingOnlineResumeSession = null;
     updateResumePromptVisibility();
   }, "resumeGameBtn");
   bindEvent(el.discardResumeGameBtn, "click", () => {
-    clearLocalProgress();
-    pendingLocalResumePayload = null;
+    if (pendingLocalResumePayload) {
+      clearLocalProgress();
+      pendingLocalResumePayload = null;
+    } else if (pendingOnlineResumeSession) {
+      clearSavedOnlineSession();
+      pendingOnlineResumeSession = null;
+    }
     updateResumePromptVisibility();
     resetHomepageFlowToPrimaryStep();
     showStartScreen();
@@ -5957,12 +6001,6 @@ function initializeApp() {
   const inviteRoomCode = getInviteRoomCodeFromUrl();
   if (inviteRoomCode) {
     tryAutoJoinFromUrl();
-  } else {
-    tryRestoreOnlineSession().then((restored) => {
-      if (restored) return;
-      if (pendingLocalResumePayload) return;
-      tryAutoJoinFromUrl();
-    });
   }
   registerServiceWorker();
 }
