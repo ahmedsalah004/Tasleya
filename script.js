@@ -2753,6 +2753,43 @@ function applyRemoteVideoLifecycleState(game, question = null) {
   el.questionText.textContent = "شاهد الفيديو مرة واحدة، ثم سيظهر السؤال";
 }
 
+function resolveRemoteQuestionDeadline(game) {
+  const remoteDeadline = Number(game?.questionDeadlineTs);
+  if (Number.isFinite(remoteDeadline)) return remoteDeadline;
+  const remoteStartedAt = Number(game?.questionStartedAt);
+  if (Number.isFinite(remoteStartedAt)) return remoteStartedAt + QUESTION_TIMEOUT_MS;
+  const remoteRemainingMs = Number(game?.timerRemainingMs);
+  if (Number.isFinite(remoteRemainingMs)) {
+    const boundedRemainingMs = Math.min(QUESTION_TIMEOUT_MS, Math.max(0, remoteRemainingMs));
+    return Date.now() + boundedRemainingMs;
+  }
+  return null;
+}
+
+function applyRemoteQuestionTimerState(game, { remoteTimedOut = false } = {}) {
+  if (remoteTimedOut) {
+    stopAndResetTimer();
+    timerStart = Date.now() - QUESTION_TIMEOUT_MS;
+    questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
+    updateTimerUI();
+    return;
+  }
+  if (state.videoQuestionPending) {
+    stopAndResetTimer();
+    state.pendingVideoDeadlineTs = resolveRemoteQuestionDeadline(game);
+    return;
+  }
+  const resolvedDeadline = resolveRemoteQuestionDeadline(game);
+  if (Number.isFinite(resolvedDeadline)) {
+    startTimer({ deadlineTs: resolvedDeadline });
+    return;
+  }
+  // Avoid restarting a fresh timer during remote resume when authoritative timing
+  // data has not been hydrated yet.
+  stopAndResetTimer();
+  scheduleHydrationRetryAfterTransientFailure();
+}
+
 function isPendingActionRequestFresh(rawRecord, request, { expectedTeam = null } = {}) {
   const now = Date.now();
   const requesterUid = normalizeCell(rawRecord?.uid);
@@ -3991,28 +4028,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
         updateQuestionActionLock();
         el.modal.classList.remove("hidden");
         el.modal.classList.add("is-open");
-        if (remoteTimedOut) {
-          stopAndResetTimer();
-          timerStart = Date.now() - QUESTION_TIMEOUT_MS;
-          questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
-          updateTimerUI();
-        } else if (state.videoQuestionPending) {
-          stopAndResetTimer();
-          const remoteDeadline = Number(game.questionDeadlineTs);
-          state.pendingVideoDeadlineTs = Number.isFinite(remoteDeadline)
-            ? remoteDeadline
-            : (game.questionStartedAt ? (Number(game.questionStartedAt) || Date.now()) + QUESTION_TIMEOUT_MS : null);
-        } else {
-          const remoteDeadline = Number(game.questionDeadlineTs);
-          if (Number.isFinite(remoteDeadline)) {
-            startTimer({ deadlineTs: remoteDeadline });
-          } else if (game.questionStartedAt) {
-            const remoteStart = Number(game.questionStartedAt) || Date.now();
-            startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
-          } else {
-            startTimer();
-          }
-        }
+        applyRemoteQuestionTimerState(game, { remoteTimedOut });
       }
     } else if (shouldOpen) {
       console.log("[Tasleya][sync] replacing active question from remote baseline", {
@@ -4081,28 +4097,7 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
             el.modal.classList.remove("hidden");
             el.modal.classList.add("is-open");
 
-            if (remoteTimedOut) {
-              stopAndResetTimer();
-              timerStart = Date.now() - QUESTION_TIMEOUT_MS;
-              questionDeadlineTs = timerStart + QUESTION_TIMEOUT_MS;
-              updateTimerUI();
-            } else if (state.videoQuestionPending) {
-              stopAndResetTimer();
-              const remoteDeadline = Number(game.questionDeadlineTs);
-              state.pendingVideoDeadlineTs = Number.isFinite(remoteDeadline)
-                ? remoteDeadline
-                : (game.questionStartedAt ? (Number(game.questionStartedAt) || Date.now()) + QUESTION_TIMEOUT_MS : null);
-            } else {
-              const remoteDeadline = Number(game.questionDeadlineTs);
-              if (Number.isFinite(remoteDeadline)) {
-                startTimer({ deadlineTs: remoteDeadline });
-              } else if (game.questionStartedAt) {
-                const remoteStart = Number(game.questionStartedAt) || Date.now();
-                startTimer({ deadlineTs: remoteStart + QUESTION_TIMEOUT_MS });
-              } else {
-                startTimer();
-              }
-            }
+            applyRemoteQuestionTimerState(game, { remoteTimedOut });
           }
         } catch (error) {
           remoteQuestionHydrationFailed = true;
