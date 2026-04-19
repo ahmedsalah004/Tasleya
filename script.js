@@ -5906,8 +5906,8 @@ function initializeApp() {
   updateInstallGuideVisibility();
   updateOnlineTeamCountControls();
   updateInstallGuideContent();
-  maybeOpenGamesPromoPopup();
-  maybeOpenInstructionsForFirstVisit();
+  // Keep homepage first paint content-first for clean/default visits.
+  // Promo and instructions remain available via intentional user actions.
   const displayModeMedia = window.matchMedia("(display-mode: standalone)");
   if (typeof displayModeMedia.addEventListener === "function") {
     displayModeMedia.addEventListener("change", updateInstallGuideVisibility);
