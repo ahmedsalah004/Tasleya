@@ -62,6 +62,64 @@
         max-width: 60ch;
       }
 
+      .content-stack {
+        display: grid;
+        gap: 1rem;
+        margin: 0 0 1.6rem;
+      }
+
+      .content-card {
+        padding: 1rem 1.1rem;
+        border-radius: 16px;
+        border: 1px solid rgba(244, 206, 108, 0.2);
+        background: linear-gradient(180deg, rgba(14, 30, 73, 0.55), rgba(8, 19, 47, 0.7));
+      }
+
+      .content-card h2 {
+        margin: 0 0 0.55rem;
+        font-size: 1.1rem;
+        color: #ffe8ac;
+      }
+
+      .content-card p {
+        margin: 0;
+        line-height: 1.8;
+        color: var(--text-muted);
+      }
+
+      .content-card ul {
+        margin: 0;
+        padding: 0 1rem 0 0;
+        color: var(--text-muted);
+        line-height: 1.9;
+      }
+
+      .content-card li + li {
+        margin-top: 0.2rem;
+      }
+
+      .faq-list {
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .faq-list details {
+        border: 1px solid rgba(244, 206, 108, 0.2);
+        border-radius: 12px;
+        padding: 0.58rem 0.72rem;
+        background: rgba(8, 18, 46, 0.42);
+      }
+
+      .faq-list summary {
+        cursor: pointer;
+        color: #ffeec0;
+        font-weight: 700;
+      }
+
+      .faq-list p {
+        margin-top: 0.5rem;
+      }
+
       .games-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
@@ -158,6 +216,61 @@
       <a class="top-nav" href="/">← العودة للرئيسية</a>
       <h1>اختر لعبة من تسلية</h1>
       <p class="subtitle">من هنا تقدر تختار بين ألعاب تسلية الحالية والقادمة قريبًا.</p>
+
+      <section class="content-stack" aria-label="دليل ألعاب تسلية">
+        <article class="content-card">
+          <h2>نبذة سريعة عن ألعاب تسلية</h2>
+          <p>تسلية تجمع ألعابًا عربية اجتماعية تعتمد على التفاعل بين الأصدقاء أو العائلة، مع تنوّع واضح بين المعرفة، السرعة، التمثيل، والربط الذهني. الفكرة ليست فقط الفوز بالنقاط، بل خلق جلسة ممتعة فيها تحدي، ضحك، وتعاون بين أفراد الفريق.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>ما أنواع الألعاب المتوفرة؟</h2>
+          <ul>
+            <li><strong>ألعاب معلومات ومعرفة:</strong> مثل تسلية الأصلية وخمن الدولة من الخريطة.</li>
+            <li><strong>ألعاب تلميح ووصف:</strong> مثل ممنوع تقولها وخمنها من التلميح.</li>
+            <li><strong>ألعاب تمثيل وتخمين:</strong> مثل أفلام وخمن العمل من الإيموجي.</li>
+            <li><strong>ألعاب تفكير استراتيجي:</strong> مثل المزاد وXO | خمن الرابط.</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>لمن تناسب هذه الألعاب؟</h2>
+          <p>المجموعة مناسبة للجلسات العائلية، لقاءات الأصدقاء، الأنشطة المدرسية الخفيفة، وحتى المنافسات السريعة في المقاهي أو الاستراحات. ستجد ألعابًا مناسبة للمبتدئين وأخرى تحتاج فريقًا يحب التحدي والتركيز، لذلك يمكن لكل مجموعة اختيار إيقاعها بسهولة.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>كيف تختار اللعبة المناسبة بسرعة؟</h2>
+          <ul>
+            <li>إذا كنتم تحبون الأسئلة: ابدأوا بـ <strong>تسلية الأصلية</strong> أو <strong>خمن الدولة من الخريطة</strong>.</li>
+            <li>إذا أردتم جولة ضحك سريعة: اختاروا <strong>أفلام</strong> أو <strong>خمن العمل من الإيموجي</strong>.</li>
+            <li>إذا تفضّلون التحدي الجماعي: جرّبوا <strong>ممنوع تقولها</strong> أو <strong>المزاد</strong>.</li>
+            <li>إذا تحبون التحليل والربط: توجهوا إلى <strong>XO | خمن الرابط</strong>.</li>
+          </ul>
+        </article>
+
+        <article class="content-card">
+          <h2>ما الذي يميز كل لعبة عن الأخرى؟</h2>
+          <p>الاختلاف الرئيسي هو <strong>نوع المهارة</strong>: بعضها يقيس سرعة البديهة، بعضها يختبر المخزون المعرفي، وبعضها يعتمد على التواصل الذكي داخل الفريق. كذلك تختلف مدة الجولة وطريقة احتساب النقاط، وهذا يسمح لكم بتبديل الأجواء من لعبة لأخرى بدون تكرار.</p>
+        </article>
+
+        <article class="content-card">
+          <h2>أسئلة سريعة ونصائح قبل البدء</h2>
+          <div class="faq-list">
+            <details>
+              <summary>ما أفضل لعبة للّعب لأول مرة؟</summary>
+              <p>ابدأوا بلعبة قواعدها مباشرة مثل خمن العمل من الإيموجي أو أفلام، ثم انتقلوا للألعاب الأكثر تنافسية.</p>
+            </details>
+            <details>
+              <summary>كيف نخلي الجلسة أكثر متعة؟</summary>
+              <p>حدّدوا عدد جولات واضح، وبدّلوا قائد الفريق كل جولة، واتفقوا على وقت راحة قصير بين الألعاب.</p>
+            </details>
+            <details>
+              <summary>هل الأفضل اختيار لعبة واحدة أم التنويع؟</summary>
+              <p>التنويع أفضل غالبًا: لعبة معرفة ثم لعبة تمثيل أو تلميح، حتى تناسب الجلسة أذواق مختلفة.</p>
+            </details>
+          </div>
+        </article>
+      </section>
 
       <section class="games-grid" aria-label="ألعاب تسلية">
         <article class="game-card">
