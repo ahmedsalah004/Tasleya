@@ -5286,8 +5286,9 @@ function closeGamesPromoPopup() {
 
 function maybeOpenGamesPromoPopup() {
   if (!el.startScreen || !el.gamesPromoPopup) return;
-  if (el.startScreen.style.display === "none") return;
+  if (shouldSuppressHomepageOverlay()) return;
   window.setTimeout(() => {
+    if (shouldSuppressHomepageOverlay()) return;
     openGamesPromoPopup();
   }, 250);
 }
@@ -5325,6 +5326,7 @@ function closeInstructionsModal() {
 }
 
 function maybeOpenInstructionsForFirstVisit() {
+  if (shouldSuppressHomepageOverlay()) return;
   try {
     if (localStorage.getItem(INSTRUCTIONS_SEEN_STORAGE_KEY)) return;
   } catch (_) {
@@ -5335,6 +5337,26 @@ function maybeOpenInstructionsForFirstVisit() {
 
 function isStandaloneMode() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function hasSavedOnlineSessionToRestore() {
+  return !!loadSavedOnlineSession();
+}
+
+function isOnlineLiveGameplayVisible() {
+  const hasActiveQuestionModal = !!(el.modal && !el.modal.classList.contains("hidden") && state.activeTile);
+  const hasCategoryPickerVisible = !!(el.categoryModal && !el.categoryModal.classList.contains("hidden"));
+  return hasActiveQuestionModal || hasCategoryPickerVisible || (online.mode === "online" && normalizeCell(online.roomStatus) === "playing");
+}
+
+function shouldSuppressHomepageOverlay() {
+  const hasInviteRoom = !!getInviteRoomCodeFromUrl();
+  return hasInviteRoom
+    || online.sessionRestoreInProgress
+    || online.restoringFromSavedSession
+    || hasSavedOnlineSessionToRestore()
+    || isOnlineLiveGameplayVisible()
+    || (online.mode === "online" && !el.onlineModal?.classList.contains("hidden"));
 }
 
 function isIPhoneSafariBrowser() {
