@@ -144,6 +144,45 @@
         gap: 0.7rem;
       }
 
+      .intro-content {
+        margin-top: 1.1rem;
+        display: grid;
+        gap: 0.9rem;
+        text-align: right;
+      }
+
+      .content-block {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 214, 109, 0.24);
+        background: rgba(7, 18, 49, 0.58);
+        padding: 0.9rem 1rem;
+      }
+
+      .content-block h2 {
+        color: var(--gold-300);
+        font-size: 1.06rem;
+        margin-bottom: 0.45rem;
+      }
+
+      .content-block p,
+      .content-block li {
+        color: var(--text-muted);
+        line-height: 1.85;
+        font-size: 0.97rem;
+      }
+
+      .content-block ul {
+        margin: 0;
+        padding-inline-start: 1.1rem;
+        display: grid;
+        gap: 0.25rem;
+      }
+
+      .example-round {
+        margin-top: 0.55rem;
+        color: var(--gold-200);
+      }
+
       .panel {
         padding: clamp(1rem, 3vw, 1.4rem);
       }
@@ -320,6 +359,27 @@
           margin-top: 1.8rem;
         }
 
+        #introScreen .intro-content {
+          margin-top: 1.8rem;
+          gap: 1.2rem;
+        }
+
+        #introScreen .content-block {
+          padding: 1.2rem 1.3rem;
+          border-radius: 18px;
+        }
+
+        #introScreen .content-block h2 {
+          font-size: 1.38rem;
+          margin-bottom: 0.55rem;
+        }
+
+        #introScreen .content-block p,
+        #introScreen .content-block li {
+          font-size: 1.14rem;
+          line-height: 2;
+        }
+
         #setupScreen h2 {
           text-align: center;
           color: var(--gold-400);
@@ -384,7 +444,53 @@
         <div class="hero">
           <h1>أفلام</h1>
           <p class="subtitle">مثّل اسم الفيلم من غير كلام وخلي فريقك يخمنه قبل انتهاء الوقت.</p>
-          <p class="subtitle" style="margin-top: 0.7rem;">قبل بدء اللعب: جهز فريقين، ثم اكتب أسماء الفرق في شاشة الإعداد، وبعدها تبدأ جولات التمثيل بالنقاط.</p>
+          <div class="intro-content" aria-label="شرح لعبة الأفلام">
+            <article class="content-block">
+              <h2>ما هي لعبة الأفلام؟</h2>
+              <p>
+                لعبة الأفلام هي لعبة جماعية سريعة تعتمد على التمثيل والإيماءات. في كل جولة يحاول لاعب من الفريق الحالي تمثيل اسم فيلم
+                بدون كلام، بينما يحاول فريقه معرفة الاسم قبل انتهاء المؤقت.
+              </p>
+            </article>
+
+            <article class="content-block">
+              <h2>كيف تمشي الجولة؟</h2>
+              <ul>
+                <li>يظهر اسم فيلم للممثل فقط، ثم يبدأ التمثيل فور تشغيل الجولة.</li>
+                <li>الفريق صاحب الدور يحاول التخمين خلال الوقت المحدد.</li>
+                <li>بعد نهاية الوقت تظهر نتيجة الجولة وإمكانية احتساب النقاط حسب ما حدث.</li>
+              </ul>
+            </article>
+
+            <article class="content-block">
+              <h2>الأدوار، الوقت، والنقاط</h2>
+              <ul>
+                <li>اللعب يكون بالتناوب بين فريقين، وكل فريق يأخذ دوره في الجولات.</li>
+                <li>لكل جولة مؤقت واضح على الشاشة، والسرعة في التخمين مهمة.</li>
+                <li>تُضاف النقاط للفريق الذي يجيب الإجابة الصحيحة وفق نتيجة الجولة المعروضة.</li>
+              </ul>
+            </article>
+
+            <article class="content-block">
+              <h2>ليش اللعبة ممتعة في اللمّات؟</h2>
+              <p>
+                لأنها تجمع بين الضحك، الحماس، وردّات الفعل السريعة. حتى الأشخاص اللي ما يلعبون مباشرة يندمجون بالمشاهدة والتشجيع، وهذا يخلي
+                الجلسة تفاعلية وخفيفة.
+              </p>
+              <p class="example-round">
+                مثال سريع: ممثل من الفريق الأول يحاول تمثيل فيلم أكشن بحركات مطاردة، فريقه يخمّن قبل نهاية الوقت بثواني ويحصد نقاط الجولة.
+              </p>
+            </article>
+
+            <article class="content-block">
+              <h2>أسئلة سريعة ونصائح</h2>
+              <ul>
+                <li><strong>هل ينفع للأطفال والكبار؟</strong> نعم، اللعبة مناسبة للبيت والرحلات ولمّات الأصدقاء.</li>
+                <li><strong>أفضل طريقة للفوز؟</strong> اختصر الإشارات وركّز على فكرة الفيلم الأساسية بدل التفاصيل الكثيرة.</li>
+                <li><strong>نصيحة تنظيمية:</strong> بدّلوا الممثل كل جولة حتى يشارك أكبر عدد ممكن من اللاعبين.</li>
+              </ul>
+            </article>
+          </div>
           <div class="intro-cta">
             <button id="introStartBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
           </div>
