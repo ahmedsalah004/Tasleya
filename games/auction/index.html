@@ -598,6 +598,43 @@
 
       .stack { display: grid; gap: 0.7rem; }
 
+      .intro-guide {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.22);
+        background: rgba(4, 14, 40, 0.62);
+        padding: clamp(0.8rem, 2.2vw, 1rem);
+      }
+
+      .intro-guide h2 {
+        margin: 0 0 0.55rem;
+        color: #fff2c3;
+        font-size: 1.08rem;
+      }
+
+      .intro-guide p {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.85;
+      }
+
+      .intro-guide-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 0.42rem;
+      }
+
+      .intro-guide-list li {
+        border-radius: 10px;
+        border: 1px solid rgba(255, 225, 140, 0.2);
+        background: rgba(8, 20, 54, 0.64);
+        padding: 0.5rem 0.62rem;
+        color: var(--text-muted);
+      }
+
+      .intro-guide-list strong { color: #fff2c3; }
+
       .team-name-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -760,8 +797,45 @@
       <p class="subtitle">نسخة لفريقين تدعم اللعب على نفس الجهاز أو عبر أجهزة مختلفة أونلاين، 10 أسئلة في الجولة، وكل سؤال بنقطة واحدة.</p>
 
       <section id="auctionIntro" class="panel stack" aria-label="مقدمة لعبة المزاد">
-        <p class="helper-note">في لعبة المزاد تتناوب الفرق على المزايدة ثم محاولة الإجابة خلال وقت الجولة.</p>
-        <p class="helper-note">واجهة الغرف واللعب المباشر تظهر بعد الضغط على زر البدء.</p>
+        <section class="intro-guide" aria-label="ما هي لعبة المزاد">
+          <h2>ما هي لعبة المزاد؟</h2>
+          <p>لعبة المزاد في تسلية هي تحدّي معرفي بين فريقين: الفريقان يقرآن السؤال نفسه، ثم يدخلان مزادًا سريعًا على من يستطيع حلّه بعدد نقاط أقل التزامًا. الفكرة ليست مجرد معرفة الإجابة، بل تقدير مدى الثقة قبل الالتزام بالنقاط.</p>
+        </section>
+        <section class="intro-guide" aria-label="شكل الجولة الأساسية">
+          <h2>شكل الجولة الأساسية</h2>
+          <ul class="intro-guide-list">
+            <li><strong>1) إظهار الفئة:</strong> تظهر فئة السؤال أولًا حتى يجهّز كل فريق من سيزايد ومن سيجيب.</li>
+            <li><strong>2) الجاهزية:</strong> بعد جاهزية الطرفين يظهر السؤال وتبدأ المزايدة.</li>
+            <li><strong>3) المزايدة:</strong> الفرق ترفع أو تمر بالتناوب، وآخر مزايدة معتمدة تحدد الفريق الذي سيحاول الحل.</li>
+            <li><strong>4) المحاولة:</strong> الفريق الفائز بالمزاد يبدأ محاولة الإجابة ضمن مؤقت الجولة.</li>
+            <li><strong>5) التحكيم وتحديث النقاط:</strong> الحكم يثبّت النتيجة، ثم تنتقل اللعبة للسؤال التالي.</li>
+          </ul>
+        </section>
+        <section class="intro-guide" aria-label="كيف تعمل المزايدة والنقاط">
+          <h2>كيف تعمل المزايدة والنقاط؟</h2>
+          <p>المزايدة تعني التزامًا بالنقاط: كلما زادت المزايدة زاد الضغط على الفريق الذي اختار التحدي. عند النجاح يكسب الفريق وفق نتيجة الجولة، وعند الإخفاق تذهب النتيجة لصالح الفريق الآخر حسب قرار التحكيم داخل اللعبة. لذلك المزايدة العالية قد تمنح أفضلية كبيرة، لكنها تحمل مخاطرة أعلى إذا كانت الثقة غير كافية.</p>
+        </section>
+        <section class="intro-guide" aria-label="نفس الجهاز أم أونلاين">
+          <h2>نفس الجهاز أم أونلاين؟</h2>
+          <ul class="intro-guide-list">
+            <li><strong>اللعب على نفس الجهاز:</strong> الفريقان يتناوبان على شاشة واحدة محليًا.</li>
+            <li><strong>اللعب على أجهزة مختلفة:</strong> تُنشأ غرفة بكود ويشارك اللاعبون من أجهزتهم في لوبي واحد قبل البدء.</li>
+          </ul>
+        </section>
+        <section class="intro-guide" aria-label="مثال جولة قصيرة">
+          <h2>مثال جولة قصيرة</h2>
+          <p>ظهرت فئة «عواصم». بعد ظهور السؤال، بدأ الفريق الأول بمزايدة 3، ورد الفريق الثاني بـ 4. قرر الفريق الأول التمرير، فأصبحت المحاولة للفريق الثاني مع التزامه بالمزايدة الحالية. إذا نجح في الإجابة الصحيحة تُسجَّل النتيجة لصالحه، وإذا أخفق تنتقل النتيجة للطرف الآخر حسب حكم الجولة.</p>
+        </section>
+        <section class="intro-guide" aria-label="أسئلة سريعة ونصائح">
+          <h2>أسئلة سريعة ونصائح</h2>
+          <ul class="intro-guide-list">
+            <li><strong>هل أحتاج أبدأ اللعبة لفهمها؟</strong> لا، هذا الدليل يوضح الفكرة قبل أي تفاعل.</li>
+            <li><strong>متى أزايد؟</strong> زايد عندما يكون لدى فريقك ثقة حقيقية بنطاق السؤال.</li>
+            <li><strong>متى أمرّر؟</strong> مرّر إذا شعرت أن المزايدة أصبحت أعلى من قدرة الفريق الحالية.</li>
+            <li><strong>نصيحة سريعة:</strong> اتفقوا داخل الفريق على إشارة واضحة بين المزايد والمجيب قبل كل سؤال.</li>
+          </ul>
+        </section>
+        <p class="helper-note">واجهة الإعداد والبدء موجودة أدناه كما هي للعب الفعلي المحلي أو الأونلاين.</p>
         <button id="enterAuctionSetupBtn" class="btn btn-primary btn-focus" type="button">ابدأ الإعداد</button>
       </section>
 
