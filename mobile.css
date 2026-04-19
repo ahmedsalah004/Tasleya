@@ -104,13 +104,22 @@ main,
 }
 
 @media (max-width: 700px) {
-  .game-home-btn {
+  .game-contact-btn {
     inset-block-start: calc(max(env(safe-area-inset-top), 0px) + 0.35rem);
-    inset-inline-start: 0.4rem;
-    padding: 0.34rem 0.62rem;
+    left: 0.4rem;
+    padding: 0.38rem 0.72rem;
     margin: 0;
     max-width: calc(100vw - 0.8rem);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+  }
+
+  .game-home-btn {
+    width: 100%;
+    max-width: 100%;
+    min-height: 46px;
+    padding: 0.66rem 0.92rem;
+    margin: 0;
+    font-size: 0.9rem;
   }
 }
 
