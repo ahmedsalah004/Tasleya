@@ -581,7 +581,7 @@
         <div class="panel-head">
           <h1>XO | خمن الرابط</h1>
           <p class="subtitle">لعبة تربط التفكير الجماعي بخطة السيطرة على اللوحة.</p>
-          <p class="helper">ابدأ بقراءة الشرح السريع، ثم انتقل إلى الإعداد عند الجاهزية.</p>
+          <p class="helper">هذه الصفحة تقدم شرحًا كاملًا قبل اللعب؛ واجهة الإعداد والتشغيل تظهر فقط بعد ضغط زر البدء.</p>
         </div>
         <div class="intro-article" aria-label="شرح لعبة تقاطع XO">
           <article class="intro-block">
@@ -641,7 +641,10 @@
         </div>
       </section>
 
-      <section class="panel screen hidden" data-screen="setup">
+      <div id="xoRuntimeHost"></div>
+
+      <template id="xoRuntimeTemplate">
+<section class="panel screen hidden" data-screen="setup">
         <div class="panel-head">
           <h1>XO | خمن الرابط</h1>
           <p class="subtitle">اختر فريقين، ثم العبوا على نفس الجهاز</p>
@@ -789,7 +792,6 @@
           </div>
         </div>
       </section>
-    </main>
 
     <dialog id="howToDialog" aria-label="طريقة اللعب">
       <h2 style="margin-bottom: 0.4rem">طريقة اللعب</h2>
@@ -817,14 +819,34 @@
         <button id="resumeNewGameBtn" class="btn btn-secondary" type="button">ابدأ لعبة جديدة</button>
       </div>
     </dialog>
+      </template>
+    </main>
 
     <script>
+      const xoIntroScreen = document.getElementById("xoIntroScreen");
+      const xoRuntimeHost = document.getElementById("xoRuntimeHost");
+      const xoRuntimeTemplate = document.getElementById("xoRuntimeTemplate");
+      let xoRuntimeMounted = false;
+      let xoAppInitialized = false;
+
+      function mountXoRuntime() {
+        if (xoRuntimeMounted) return;
+        xoRuntimeHost.appendChild(xoRuntimeTemplate.content.cloneNode(true));
+        xoRuntimeMounted = true;
+      }
+
       document.getElementById("enterXoSetupBtn").addEventListener("click", () => {
-        document.getElementById("xoIntroScreen").classList.add("hidden");
+        mountXoRuntime();
+        xoIntroScreen.classList.add("hidden");
         const setupScreen = document.querySelector('[data-screen="setup"]');
         setupScreen.classList.remove("hidden");
         setupScreen.classList.add("active");
+        initXoIntersectionApp();
       });
+
+      function initXoIntersectionApp() {
+        if (xoAppInitialized) return;
+        xoAppInitialized = true;
 
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
@@ -1944,6 +1966,7 @@
         openResumeDialog();
       }
       fetchBoardsData();
+      }
     </script>
   </body>
 </html>
