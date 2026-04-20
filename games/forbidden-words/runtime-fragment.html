@@ -1,0 +1,86 @@
+      <section id="setup-screen" class="panel hidden" aria-label="إعداد اللعبة">
+        <div class="setup-stack">
+          <div class="setup-summary" aria-label="ملخص قواعد الجولة">
+            <p class="setup-summary-title">ملخص سريع</p>
+            <ul class="setup-summary-list">
+              <li>10 مصطلحات لكل فريق</li>
+              <li>30 ثانية لكل مصطلح</li>
+              <li>النقاط حسب مستوى الصعوبة</li>
+            </ul>
+          </div>
+          <p id="cards-status" class="status-text" aria-live="polite"></p>
+          <button id="start-game" class="start-btn" type="button">ابدأ اللعبة</button>
+        </div>
+      </section>
+
+      <section id="resume-screen" class="panel hidden" aria-label="استئناف لعبة ممنوع تقولها">
+        <div class="resume-wrap">
+          <h2 class="resume-title">لديك لعبة غير مكتملة في ممنوع تقولها</h2>
+          <p class="resume-subtitle">هل تريد إكمالها أم بدء لعبة جديدة؟</p>
+          <button id="resume-game" class="primary-btn" type="button">أكمل اللعبة</button>
+          <button id="new-game" class="ghost-btn" type="button">ابدأ لعبة جديدة</button>
+        </div>
+      </section>
+
+      <section id="turn-screen" class="panel hidden" aria-label="دور الفريق">
+        <div class="score-wrap">
+          <p class="score-title">النتيجة</p>
+          <ul id="score-strip" class="score-strip"></ul>
+        </div>
+
+        <div class="turn-meta">
+          <div class="meta-item">
+            <p class="meta-label">الفريق النشط</p>
+            <p id="active-team-meta" class="meta-value"></p>
+          </div>
+          <div class="meta-item">
+            <p class="meta-label">رقم المصطلح</p>
+            <p id="term-meta" class="meta-value"></p>
+          </div>
+          <div class="meta-item">
+            <p class="meta-label">الصعوبة / النقاط</p>
+            <p id="difficulty-meta" class="meta-value"></p>
+          </div>
+        </div>
+
+        <article class="card" aria-live="polite">
+          <div id="pre-reveal-panel">
+            <p class="reveal-title">استعد للدور</p>
+            <p id="pre-reveal-text" class="reveal-text"></p>
+            <button id="btn-reveal" class="primary-btn" type="button">إظهار الكلمة</button>
+          </div>
+
+          <div id="revealed-panel" class="hidden">
+            <div class="word-stage">
+              <p class="reveal-title">الكلمة</p>
+              <p id="main-word" class="main-word"></p>
+            </div>
+            <p class="forbidden-title">ممنوع تقول:</p>
+            <ul id="forbidden-list" class="forbidden-list"></ul>
+            <div class="timer-actions">
+              <div id="timer" class="timer-box"><span class="timer-label">الوقت المتبقي</span><span>00:30</span></div>
+              <div class="actions">
+                <button id="btn-correct" class="result-btn correct" type="button">إجابة صحيحة</button>
+                <button id="btn-wrong" class="result-btn wrong" type="button">إجابة خاطئة</button>
+                <button id="btn-other-team" class="result-btn other" type="button">إجابة للفريق الآخر</button>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section id="final-screen" class="panel hidden" aria-label="النتائج النهائية">
+        <h2 class="summary-title">النتائج النهائية</h2>
+        <p class="summary-title">الفائز</p>
+        <p id="winner-line" class="winner-line"></p>
+
+        <div class="score-wrap">
+          <p class="score-title">النقاط النهائية</p>
+          <ul id="final-board" class="score-strip"></ul>
+        </div>
+
+        <button id="play-again" class="start-btn" type="button">العب مرة أخرى</button>
+        <a class="ghost-btn" href="/games/" style="display: grid; place-items: center; text-decoration: none; margin-top: 0.7rem"
+          >العودة للألعاب</a
+        >
+      </section>
