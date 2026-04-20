@@ -1,0 +1,94 @@
+      <section id="modeScreen" class="panel stack hidden" aria-label="اختيار طريقة اللعب">
+        <p class="subtitle" style="margin:0;">اختر طريقة اللعب المناسبة لكم.</p>
+        <div class="mode-actions">
+          <button id="singleDeviceModeBtn" class="btn primary">لعب على جهاز واحد</button>
+          <button id="onlineModeBtn" class="btn">لعب على أجهزة مختلفة</button>
+        </div>
+        <div id="localResumeBox" class="resume-box hidden">
+          <p class="subtitle" style="margin:0;">يوجد لعبة محلية غير مكتملة.</p>
+          <button id="resumeLocalBtn" class="btn primary">أكمل اللعبة</button>
+          <button id="discardLocalBtn" class="btn">ابدأ لعبة جديدة</button>
+        </div>
+      </section>
+
+      <section id="onlineRoomScreen" class="panel stack hidden" aria-label="غرف اللعب أونلاين">
+        <div class="stack">
+          <label for="playerNameInput">اسم اللاعب</label>
+          <input id="playerNameInput" type="text" maxlength="40" placeholder="اكتب اسمك" />
+        </div>
+        <div class="mode-actions">
+          <button id="createRoomBtn" class="btn primary">إنشاء غرفة</button>
+          <button id="showJoinRoomBtn" class="btn">الانضمام إلى غرفة</button>
+        </div>
+        <div id="joinRoomPanel" class="stack hidden">
+          <label for="roomCodeInput">كود الغرفة</label>
+          <input id="roomCodeInput" type="text" maxlength="12" placeholder="مثال: A1B2C3" />
+          <button id="joinRoomBtn" class="btn">انضمام</button>
+        </div>
+        <button id="backToModeBtn" class="btn">رجوع</button>
+        <p id="onlineRoomMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="onlineLobbyScreen" class="panel stack hidden" aria-label="لوبي الغرفة">
+        <p>كود الغرفة</p>
+        <p id="roomCodeLabel" class="room-code"></p>
+        <ul id="playersList" class="players-list"></ul>
+        <button id="startOnlineBtn" class="btn primary hidden">بدء اللعبة</button>
+        <p id="onlineLobbyMessage" class="status-msg" role="status" aria-live="polite">في انتظار انضمام اللاعب الآخر</p>
+        <button id="leaveRoomBtn" class="btn">مغادرة الغرفة</button>
+      </section>
+
+      <section id="setupScreen" class="panel stack hidden" aria-label="إعداد اللعبة">
+        <div class="stack">
+          <label for="teamOneInput">اسم الفريق الأول</label>
+          <input id="teamOneInput" type="text" maxlength="40" placeholder="الفريق الأول" />
+        </div>
+        <div class="stack">
+          <label for="teamTwoInput">اسم الفريق الثاني</label>
+          <input id="teamTwoInput" type="text" maxlength="40" placeholder="الفريق الثاني" />
+        </div>
+        <button id="startBtn" class="btn primary">ابدأ اللعبة</button>
+        <p id="setupMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+        <p id="fallbackNotice" class="fallback-note hidden">تم استخدام بيانات احتياطية مؤقتًا.</p>
+      </section>
+
+      <section id="roundScreen" class="panel hidden" aria-label="الجولة الحالية">
+        <div class="score-grid" id="scoreGrid"></div>
+        <div class="meta">
+          <div class="pill" id="roundMeta"></div>
+          <div class="pill" id="categoryMeta"></div>
+          <div class="pill" id="hintMeta"></div>
+          <div class="pill" id="pointsMeta"></div>
+        </div>
+        <div class="hint-box">
+          <p class="hint-label">نص التلميح</p>
+          <p class="hint-text" id="hintText"></p>
+        </div>
+        <div id="teamsActions" class="teams-actions"></div>
+        <p id="roundMessage" class="status-msg hidden" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="resultScreen" class="panel hidden result-panel" aria-label="نتيجة الجولة">
+        <h2 id="resultTitle" class="result-title"></h2>
+        <p id="resultText" class="result-text"></p>
+        <button id="nextRoundBtn" class="btn primary">الجولة التالية</button>
+      </section>
+
+      <section id="finalScreen" class="panel hidden result-panel" aria-label="النتيجة النهائية">
+        <h2 class="result-title">انتهت اللعبة</h2>
+        <p id="finalText" class="result-text"></p>
+        <button id="playAgainBtn" class="btn primary">العب مرة أخرى</button>
+        <a class="btn" href="/games/" style="text-decoration:none;display:inline-grid;place-items:center;">العودة لصفحة الألعاب</a>
+      </section>
+
+    <div id="guessModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="guessModalTitle">
+      <div class="modal-card">
+        <h3 id="guessModalTitle" class="modal-title"></h3>
+        <input id="guessInput" type="text" placeholder="اكتب التخمين هنا" maxlength="100" />
+        <p id="guessError" class="status-msg bad hidden"></p>
+        <div class="modal-actions">
+          <button id="checkGuessBtn" class="btn primary">تحقق من الإجابة</button>
+          <button id="cancelGuessBtn" class="btn">إلغاء</button>
+        </div>
+      </div>
+    </div>

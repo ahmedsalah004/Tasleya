@@ -1,0 +1,94 @@
+      <section class="setup" id="setupScreen" style="display:none;">
+        <h1>خمن الدولة من الخريطة</h1>
+        <div class="field">
+          <label for="team1Name">اسم الفريق الأول</label>
+          <input id="team1Name" type="text" maxlength="30" placeholder="الفريق الأول" />
+        </div>
+        <div class="field">
+          <label for="team2Name">اسم الفريق الثاني</label>
+          <input id="team2Name" type="text" maxlength="30" placeholder="الفريق الثاني" />
+        </div>
+        <div class="mode-selector">
+          <label class="mode-option">
+            <input type="radio" name="mapGameMode" value="map" id="modeMap" checked />
+            خمن الدولة من الخريطة
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mapGameMode" value="language" id="modeLanguage" />
+            خمن مكان الدولة من اللغة
+          </label>
+        </div>
+        <div class="mode-status hidden" id="modeStatus">
+          <p id="modeStatusText"></p>
+          <div class="mode-status-actions">
+            <button class="btn btn-light" id="retryModeLoadBtn" type="button">إعادة المحاولة</button>
+            <button class="btn btn-primary" id="switchToMapModeBtn" type="button">العودة لوضع الخريطة</button>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="startBtn" type="button">ابدأ اللعبة</button>
+        <div id="resumePrompt" class="hidden" style="margin-top:12px; display:grid; gap:8px;">
+          <p style="margin:0; color:#ffe39b; font-weight:700;">يوجد لعبة خريطة غير مكتملة.</p>
+          <button class="btn btn-primary" id="resumeBtn" type="button">أكمل اللعبة</button>
+          <button class="btn btn-light" id="discardResumeBtn" type="button">ابدأ لعبة جديدة</button>
+        </div>
+      </section>
+
+      <section class="game" id="gameScreen" aria-live="polite">
+        <header class="scoreboard">
+          <div class="score-grid">
+            <div class="team-pill team-1" id="team1Card">
+              <span class="team-name" id="team1Label">الفريق الأول</span>
+              <span class="team-score"><span id="team1Score">0</span> نقطة</span>
+            </div>
+            <div class="team-pill team-2" id="team2Card">
+              <span class="team-name" id="team2Label">الفريق الثاني</span>
+              <span class="team-score"><span id="team2Score">0</span> نقطة</span>
+            </div>
+          </div>
+          <div class="question-meta-row" id="questionMeta">
+            <div class="meta-pill">
+              <span class="meta-label">السؤال</span>
+              <span class="meta-value" id="questionNumberMeta">1 من 20</span>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">الصعوبة</span>
+              <span class="meta-value" id="questionDifficultyMeta">سهل</span>
+            </div>
+            <div class="meta-pill">
+              <span class="meta-label">النقاط</span>
+              <span class="meta-value" id="questionPointsMeta">100</span>
+            </div>
+          </div>
+          <div class="target-card" aria-live="polite">
+            <div class="target-title" id="targetTitle">الدولة المطلوبة</div>
+            <div class="target" id="targetCountry">—</div>
+            <div class="target-support-row">
+              <div class="target-hint" id="targetHintText">اختر هذه الدولة على الخريطة</div>
+              <div class="audio-controls" id="audioControls">
+                <button class="btn btn-light" id="playAudioBtn" type="button">▶ تشغيل الصوت</button>
+                <span class="audio-status hidden" id="audioStatusText"></span>
+              </div>
+              <div class="turn-indicator" id="turnIndicator">
+                <span class="turn-label">الدور الآن:</span>
+                <span class="turn-value" id="turnValue">—</span>
+              </div>
+            </div>
+          </div>
+          <div class="turn-panel">
+            <div class="turn-instruction" id="turnInstruction">—</div>
+            <button class="btn btn-light accept-answer-btn" id="acceptActiveAnswerBtn" type="button"></button>
+          </div>
+        </header>
+
+        <section class="map-stage" id="mapStage">
+          <div class="loading" id="mapLoading">جاري تحميل الخريطة...</div>
+
+          <div class="overlay" id="overlay">
+            <div class="popup">
+              <h2 id="overlayTitle"></h2>
+              <p id="overlayText"></p>
+              <div class="popup-actions" id="overlayActions"></div>
+            </div>
+          </div>
+        </section>
+      </section>
