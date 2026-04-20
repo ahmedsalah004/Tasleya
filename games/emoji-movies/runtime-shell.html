@@ -1,0 +1,68 @@
+<section id="emojiRuntime" class="panel">
+        <ul class="score-strip" aria-label="نتائج الفرق">
+          <li class="score-item" id="team1ScoreCard">
+            <span class="team-name">الفريق 1</span>
+            <span class="team-score" id="team1Score">0</span>
+          </li>
+          <li class="score-item" id="team2ScoreCard">
+            <span class="team-name">الفريق 2</span>
+            <span class="team-score" id="team2Score">0</span>
+          </li>
+        </ul>
+
+        <div id="loadingScreen" class="loading">جاري تحميل بطاقات الإيموجي...</div>
+        <div id="errorScreen" class="error-box hidden"></div>
+        <div id="resumePrompt" class="card-extra hidden">
+          <p class="card-extra-label">لعبة سابقة</p>
+          <p class="card-extra-text">يوجد لعبة غير مكتملة. هل تريد إكمالها؟</p>
+          <button id="resumeBtn" type="button" class="btn">أكمل اللعبة</button>
+          <button id="discardResumeBtn" type="button" class="btn secondary">ابدأ لعبة جديدة</button>
+        </div>
+
+        <div id="playScreen" class="hidden">
+          <h2 class="turn-title" id="turnTitle"></h2>
+          <div class="timer" id="timerLabel">60 ثانية</div>
+
+          <div class="emoji-card" aria-live="polite">
+            <div class="emoji-value" id="emojiText">🎬</div>
+          </div>
+
+          <form id="answerForm" class="answer-form" autocomplete="off">
+            <input
+              id="answerInput"
+              class="answer-input"
+              type="text"
+              placeholder="اكتب اسم الفيلم أو المسلسل أو الكرتون"
+              aria-label="إجابة الفريق الحالي"
+              required
+            />
+            <button type="submit" class="btn">اكتب الإجابة</button>
+            <button id="hintBtn" type="button" class="btn secondary">تلميح</button>
+            <button id="showAnswerBtn" type="button" class="btn secondary">إظهار الإجابة</button>
+            <button id="skipTurnBtn" type="button" class="btn secondary hidden">السؤال التالي</button>
+          </form>
+          <div id="hintBox" class="card-extra hidden" role="status" aria-live="polite">
+            <p class="card-extra-label">تلميح</p>
+            <p id="hintText" class="card-extra-text"></p>
+          </div>
+          <div id="showAnswerBox" class="card-extra hidden" role="status" aria-live="polite">
+            <p class="card-extra-label">الإجابة الصحيحة</p>
+            <p id="showAnswerText" class="card-extra-text"></p>
+          </div>
+          <p id="turnStatus" class="status" aria-live="polite"></p>
+        </div>
+
+        <div id="revealScreen" class="reveal hidden">
+          <p class="answer-text" id="answerReveal"></p>
+          <p class="result-message" id="revealResult"></p>
+          <button id="nextCardBtn" class="btn">السؤال التالي</button>
+        </div>
+
+        <div id="finalScreen" class="final hidden">
+          <h2 class="turn-title">النتيجة النهائية</h2>
+          <p class="answer-text" id="finalScoreLine"></p>
+          <p class="result-message" id="winnerLine"></p>
+          <button id="restartBtn" class="btn">العب مرة أخرى</button>
+          <a class="btn secondary" href="/games/" style="text-decoration:none;display:flex;align-items:center;justify-content:center;">العودة للألعاب</a>
+        </div>
+      </section>
