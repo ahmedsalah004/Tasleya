@@ -1127,6 +1127,115 @@
       <div id="mapGameRuntimeHost"></div>
     </main>
 
+    <script>
+      (function () {
+        const LOADING_LABEL = "جاري تحميل البيانات...";
+        const RETRY_LABEL = "إعادة المحاولة";
+        const FALLBACK_ERROR = "تعذر تهيئة اللعبة الآن. يمكنك إعادة المحاولة.";
+        const MAP_LOADING_ID = "mapLoading";
+        const MAP_STAGE_ID = "mapStage";
+        const START_BUTTON_ID = "startBtn";
+        const MODE_STATUS_ID = "modeStatus";
+        const MODE_STATUS_TEXT_ID = "modeStatusText";
+        const ENTER_SETUP_BUTTON_ID = "enterSetupBtn";
+        const SETUP_SCREEN_ID = "setupScreen";
+        const RUNTIME_HOST_ID = "mapGameRuntimeHost";
+        let recoveryTimerId = null;
+
+        function getStartButton() {
+          return document.getElementById(START_BUTTON_ID);
+        }
+
+        function getModeStatusElements() {
+          return {
+            wrap: document.getElementById(MODE_STATUS_ID),
+            text: document.getElementById(MODE_STATUS_TEXT_ID),
+          };
+        }
+
+        function showInitError(message) {
+          const { wrap, text } = getModeStatusElements();
+          if (!wrap || !text) return;
+          text.textContent = message || FALLBACK_ERROR;
+          wrap.classList.remove("hidden");
+        }
+
+        function recoverLoadingState(message) {
+          const startBtn = getStartButton();
+          if (startBtn) {
+            startBtn.disabled = false;
+            startBtn.textContent = RETRY_LABEL;
+          }
+          showInitError(message || FALLBACK_ERROR);
+        }
+
+        function ensureMapLoadingNode() {
+          const mapStage = document.getElementById(MAP_STAGE_ID);
+          if (!mapStage) return false;
+          let loader = document.getElementById(MAP_LOADING_ID);
+          if (!loader) {
+            loader = document.createElement("div");
+            loader.id = MAP_LOADING_ID;
+            loader.className = "map-loading";
+            loader.textContent = "جاري تحميل الخريطة...";
+            mapStage.prepend(loader);
+          }
+          return true;
+        }
+
+        function armLoadingWatchdog() {
+          if (recoveryTimerId) window.clearTimeout(recoveryTimerId);
+          recoveryTimerId = window.setTimeout(() => {
+            const startBtn = getStartButton();
+            if (!startBtn) return;
+            if (startBtn.disabled && startBtn.textContent.trim() === LOADING_LABEL) {
+              recoverLoadingState("تعذر إكمال تهيئة الخريطة. حاول مرة أخرى.");
+            }
+          }, 15000);
+        }
+
+        function hardenRuntimeDom() {
+          ensureMapLoadingNode();
+          const startBtn = getStartButton();
+          if (!startBtn || startBtn.dataset.runtimeHardened === "true") return;
+          startBtn.dataset.runtimeHardened = "true";
+          startBtn.addEventListener("click", () => {
+            armLoadingWatchdog();
+          });
+        }
+
+        window.addEventListener(
+          "error",
+          () => {
+            recoverLoadingState();
+          },
+          true
+        );
+
+        window.addEventListener("unhandledrejection", () => {
+          recoverLoadingState();
+        });
+
+        const runtimeHost = document.getElementById(RUNTIME_HOST_ID);
+        if (runtimeHost) {
+          const observer = new MutationObserver(() => {
+            if (document.getElementById(SETUP_SCREEN_ID)) {
+              hardenRuntimeDom();
+            }
+          });
+          observer.observe(runtimeHost, { childList: true, subtree: true });
+        }
+
+        const enterSetupBtn = document.getElementById(ENTER_SETUP_BUTTON_ID);
+        if (enterSetupBtn) {
+          enterSetupBtn.addEventListener("click", () => {
+            window.setTimeout(() => {
+              hardenRuntimeDom();
+            }, 0);
+          });
+        }
+      })();
+    </script>
     <script src="/map-game/runtime-loader.js"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
