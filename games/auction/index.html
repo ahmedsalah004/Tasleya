@@ -835,11 +835,14 @@
             <li><strong>نصيحة سريعة:</strong> اتفقوا داخل الفريق على إشارة واضحة بين المزايد والمجيب قبل كل سؤال.</li>
           </ul>
         </section>
-        <p class="helper-note">واجهة الإعداد والبدء موجودة أدناه كما هي للعب الفعلي المحلي أو الأونلاين.</p>
+        <p class="helper-note">اقرأ الدليل أولًا ثم ابدأ الإعداد عند الجاهزية لعرض واجهة اللعب الكاملة.</p>
         <button id="enterAuctionSetupBtn" class="btn btn-primary btn-focus" type="button">ابدأ الإعداد</button>
       </section>
 
-      <section id="auctionRuntime" class="panel hidden" aria-live="polite">
+      <div id="auctionRuntimeHost"></div>
+
+      <template id="auctionRuntimeTemplate">
+<section id="auctionRuntime" class="panel hidden" aria-live="polite">
         <section id="modeScreen" class="stack">
           <div class="mode-grid">
             <button id="singleDeviceModeBtn" class="btn btn-primary" type="button">اللعب على نفس الجهاز</button>
@@ -1071,6 +1074,7 @@
         </section>
       </section>
       </section>
+      </template>
     </main>
 
     <script src="/games/auction/data.js"></script>
@@ -1080,10 +1084,28 @@
     <script src="/firebase-config.js"></script>
     <script src="/games/shared/game-rooms.js"></script>
     <script>
+      const auctionIntro = document.getElementById("auctionIntro");
+      const auctionRuntimeHost = document.getElementById("auctionRuntimeHost");
+      const auctionRuntimeTemplate = document.getElementById("auctionRuntimeTemplate");
+      let auctionRuntimeMounted = false;
+      let auctionAppInitialized = false;
+
+      function mountAuctionRuntime() {
+        if (auctionRuntimeMounted) return;
+        auctionRuntimeHost.appendChild(auctionRuntimeTemplate.content.cloneNode(true));
+        auctionRuntimeMounted = true;
+      }
+
       document.getElementById("enterAuctionSetupBtn").addEventListener("click", () => {
-        document.getElementById("auctionIntro").classList.add("hidden");
+        mountAuctionRuntime();
+        auctionIntro.classList.add("hidden");
         document.getElementById("auctionRuntime").classList.remove("hidden");
+        initAuctionApp();
       });
+
+      function initAuctionApp() {
+        if (auctionAppInitialized) return;
+        auctionAppInitialized = true;
 
       const TOTAL_QUESTIONS = 10;
       const DEFAULT_TEAMS = ["الفريق الأول", "الفريق الثاني"];
@@ -2232,6 +2254,7 @@
         onlineState.session = restored;
         await startRoomListeners(restored);
       });
+      }
     </script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
