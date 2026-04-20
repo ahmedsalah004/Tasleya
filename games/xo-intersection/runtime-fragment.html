@@ -1,0 +1,175 @@
+<section class="panel screen hidden" data-screen="setup">
+        <div class="panel-head">
+          <h1>XO | خمن الرابط</h1>
+          <p class="subtitle">اختر فريقين، ثم العبوا على نفس الجهاز</p>
+          <p class="helper">اتفقوا على صحة الإجابة بينكم، ثم ثبّتوا الخانة</p>
+        </div>
+
+        <div class="form-stack">
+          <div class="field">
+            <label for="team1Input">اسم الفريق الأول</label>
+            <input id="team1Input" type="text" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="team2Input">اسم الفريق الثاني</label>
+            <input id="team2Input" type="text" autocomplete="off" />
+          </div>
+        </div>
+
+        <div id="loadStatus" class="status" aria-live="polite">جارِ تحميل اللوحات...</div>
+
+        <div class="buttons-stack" style="margin-top: 0.9rem">
+          <button id="startBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
+          <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
+          <button id="retryBtn" class="btn btn-secondary hidden" type="button">إعادة المحاولة</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="categories">
+        <h2>اختر الفئة</h2>
+        <p class="selection-helper">اختر الفئة التي تريد اللعب بها</p>
+        <div id="categoriesWrap" class="cards-grid"></div>
+        <div id="categoriesEmptyState" class="state-centered hidden">
+          <div class="empty-state">
+            <h3 class="state-title">لا توجد فئات متاحة</h3>
+            <button id="categoriesEmptyBackBtn" class="btn btn-secondary" type="button">رجوع</button>
+          </div>
+        </div>
+        <div class="screen-footer" id="categoriesFooter">
+          <button id="backToSetupBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="modes">
+        <h2>اختر نمط اللعب</h2>
+        <p class="selection-helper">اختر نمط الربط المناسب</p>
+        <div id="modesWrap" class="mode-list"></div>
+        <div id="modesEmptyState" class="state-centered hidden">
+          <div class="empty-state">
+            <h3 class="state-title">لا توجد أنماط متاحة</h3>
+            <button id="modesEmptyBackBtn" class="btn btn-secondary" type="button">رجوع</button>
+          </div>
+        </div>
+        <div class="screen-footer" id="modesFooter">
+          <button id="backToCategoriesBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+
+      <section class="panel screen" data-screen="gameplay">
+        <div class="game-top">
+          <div class="game-top-actions">
+            <button id="backToModesBtn" class="btn btn-secondary" type="button" style="width: auto; padding: 0 1rem">
+              رجوع
+            </button>
+            <button id="nextBoardBtn" class="btn btn-tertiary" type="button">لوحة جديدة</button>
+          </div>
+          <div>
+            <p id="selectedModeMetaText" class="game-meta"></p>
+            <p id="boardProgressText" class="board-progress"></p>
+          </div>
+        </div>
+        <div id="cycleNotice" class="cycle-notice hidden" aria-live="polite">تم بدء دورة جديدة من اللوحات</div>
+
+        <div id="turnBanner" class="turn-banner">
+          <h3 id="turnTeamText"></h3>
+          <p id="turnSymbolText"></p>
+        </div>
+
+        <div id="gameStateWrap" class="state-centered hidden">
+          <div id="gameLoadingState" class="empty-state hidden">
+            <h3 class="state-title">جارِ تجهيز اللوحة...</h3>
+          </div>
+          <div id="gameErrorState" class="empty-state hidden">
+            <h3 class="state-title">تعذّر تجهيز اللوحة</h3>
+            <button id="gameErrorBackBtn" class="btn btn-secondary" type="button">رجوع</button>
+          </div>
+          <div id="emptyStateWrap" class="empty-state hidden">
+            <h3 class="state-title">لا توجد لوحات متاحة</h3>
+            <button id="emptyStateBackBtn" class="btn btn-secondary" type="button">رجوع</button>
+          </div>
+        </div>
+
+        <div id="boardWrap" class="board-wrap hidden">
+          <table class="board-grid" aria-label="لوحة التقاطع">
+            <thead>
+              <tr>
+                <th class="corner-cell"></th>
+                <th id="colLabel1" class="col-label"></th>
+                <th id="colLabel2" class="col-label"></th>
+                <th id="colLabel3" class="col-label"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th id="rowLabel1" class="row-label"></th>
+                <td><button id="cell-0-0" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-0-1" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-0-2" class="cell-btn" type="button"></button></td>
+              </tr>
+              <tr>
+                <th id="rowLabel2" class="row-label"></th>
+                <td><button id="cell-1-0" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-1-1" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-1-2" class="cell-btn" type="button"></button></td>
+              </tr>
+              <tr>
+                <th id="rowLabel3" class="row-label"></th>
+                <td><button id="cell-2-0" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-2-1" class="cell-btn" type="button"></button></td>
+                <td><button id="cell-2-2" class="cell-btn" type="button"></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="selectionPanel" class="selection-panel hidden">
+          <h3 id="selectionTitleText"></h3>
+          <p id="selectionRuleText"></p>
+          <p class="selection-note">قل الإجابة بصوتٍ واضح، ثم ثبّت الخانة بعد الاتفاق</p>
+          <div class="selection-actions">
+            <button id="confirmCellBtn" class="btn btn-primary" type="button">تثبيت الخانة</button>
+            <button id="cancelCellBtn" class="btn btn-secondary" type="button">إلغاء</button>
+          </div>
+        </div>
+
+        <div id="cancelNotice" class="status hidden" style="margin-top: 0.75rem">لم يتم تثبيت الخانة</div>
+
+        <div id="resultPanel" class="result-panel hidden">
+          <h3 id="resultTitleText"></h3>
+          <p id="resultSubtitleText"></p>
+          <p id="resultBoardProgressText" class="board-progress" style="margin-top: 0.5rem"></p>
+          <div class="result-actions">
+            <button id="replayBoardBtn" class="btn btn-primary" type="button">إعادة نفس اللوحة</button>
+            <button id="resultNextBoardBtn" class="btn btn-secondary" type="button">لوحة جديدة</button>
+            <button id="backToModeSelectionBtn" class="btn btn-secondary" type="button">العودة لاختيار النمط</button>
+            <button id="backToHomeBtn" class="btn btn-secondary" type="button">العودة للرئيسية</button>
+          </div>
+        </div>
+      </section>
+
+    <dialog id="howToDialog" aria-label="طريقة اللعب">
+      <h2 style="margin-bottom: 0.4rem">طريقة اللعب</h2>
+      <ul class="howto-list">
+        <li>اختر اسم كل فريق</li>
+        <li>اختر الفئة ونمط اللعب</li>
+        <li>في كل دور، اختر خانة فارغة</li>
+        <li>اذكر إجابة تناسب عنوان الصف وعنوان العمود</li>
+        <li>اتفقوا بينكم على صحة الإجابة</li>
+        <li>بعد الاتفاق، اضغط تثبيت الخانة</li>
+        <li>إذا لم يتم الاتفاق، تُلغى الخانة وينتقل الدور</li>
+        <li>أول فريق يكوّن 3 خانات متتالية يفوز</li>
+        <li>ملاحظة: التحقق من الإجابات يتم بين اللاعبين خارج اللعبة</li>
+      </ul>
+      <div class="howto-actions">
+        <button id="closeHowToBtn" class="btn btn-secondary" type="button">إغلاق</button>
+      </div>
+    </dialog>
+    <dialog id="resumeDialog" aria-label="متابعة اللعبة المحفوظة">
+      <h2 style="margin-bottom: 0.4rem">أكمل اللعبة؟</h2>
+      <p class="helper">لديك لعبة محفوظة على هذا الجهاز</p>
+      <p id="resumeLoadingHint" class="helper hidden" style="margin-top: 0.6rem"></p>
+      <div class="buttons-stack" style="margin-top: 0.9rem">
+        <button id="resumeContinueBtn" class="btn btn-primary" type="button">أكمل اللعبة</button>
+        <button id="resumeNewGameBtn" class="btn btn-secondary" type="button">ابدأ لعبة جديدة</button>
+      </div>
+    </dialog>
