@@ -48,67 +48,38 @@
       }
 
       .subtitle {
-        margin: 0 0 1.5rem;
+        margin: 0;
         color: var(--text-muted);
-        max-width: 60ch;
+        max-width: 62ch;
+        line-height: 1.75;
       }
 
-      .content-stack {
-        display: grid;
-        gap: 1rem;
-        margin: 0 0 1.6rem;
+      .games-hero {
+        margin-bottom: 1.4rem;
       }
 
-      .content-card {
-        padding: 1rem 1.1rem;
-        border-radius: 16px;
-        border: 1px solid rgba(244, 206, 108, 0.2);
-        background: linear-gradient(180deg, rgba(14, 30, 73, 0.55), rgba(8, 19, 47, 0.7));
+      .quick-picks {
+        margin: 1rem 0 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
       }
 
-      .content-card h2 {
-        margin: 0 0 0.55rem;
-        font-size: 1.1rem;
+      .quick-picks li {
+        border: 1px solid rgba(244, 206, 108, 0.35);
+        border-radius: 999px;
+        padding: 0.33rem 0.75rem;
+        background: rgba(10, 22, 56, 0.56);
+        color: #ffedbb;
+        font-size: 0.86rem;
+      }
+
+      .section-title {
+        margin: 0 0 0.8rem;
+        font-size: clamp(1.15rem, 3vw, 1.35rem);
         color: #ffe8ac;
-      }
-
-      .content-card p {
-        margin: 0;
-        line-height: 1.8;
-        color: var(--text-muted);
-      }
-
-      .content-card ul {
-        margin: 0;
-        padding: 0 1rem 0 0;
-        color: var(--text-muted);
-        line-height: 1.9;
-      }
-
-      .content-card li + li {
-        margin-top: 0.2rem;
-      }
-
-      .faq-list {
-        display: grid;
-        gap: 0.55rem;
-      }
-
-      .faq-list details {
-        border: 1px solid rgba(244, 206, 108, 0.2);
-        border-radius: 12px;
-        padding: 0.58rem 0.72rem;
-        background: rgba(8, 18, 46, 0.42);
-      }
-
-      .faq-list summary {
-        cursor: pointer;
-        color: #ffeec0;
-        font-weight: 700;
-      }
-
-      .faq-list p {
-        margin-top: 0.5rem;
       }
 
       .games-grid {
@@ -153,24 +124,40 @@
 
       .card-title {
         margin: 0;
-        font-size: 1.22rem;
+        font-size: 1.18rem;
         color: #fff1bf;
       }
 
       .badge {
         padding: 0.2rem 0.52rem;
         border-radius: 999px;
-        font-size: 0.78rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: #ffe8ac;
         background: rgba(255, 184, 0, 0.18);
         border: 1px solid rgba(255, 208, 105, 0.38);
       }
 
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+      }
+
+      .meta-pill {
+        border-radius: 8px;
+        border: 1px solid rgba(192, 214, 255, 0.22);
+        background: rgba(5, 16, 42, 0.7);
+        color: rgba(228, 238, 255, 0.9);
+        font-size: 0.75rem;
+        padding: 0.2rem 0.45rem;
+      }
+
       .card-desc {
         margin: 0;
         color: var(--text-muted);
-        line-height: 1.75;
+        line-height: 1.7;
+        font-size: 0.95rem;
       }
 
       .game-btn {
@@ -193,6 +180,62 @@
         opacity: 0.62;
       }
 
+      .guide-wrap {
+        margin-top: 1.35rem;
+        display: grid;
+        gap: 0.85rem;
+      }
+
+      .guide-card {
+        padding: 0.9rem 1rem;
+        border-radius: 16px;
+        border: 1px solid rgba(244, 206, 108, 0.2);
+        background: linear-gradient(180deg, rgba(14, 30, 73, 0.45), rgba(8, 19, 47, 0.62));
+      }
+
+      .guide-card h3 {
+        margin: 0 0 0.45rem;
+        color: #ffe8ac;
+        font-size: 1rem;
+      }
+
+      .guide-card p,
+      .guide-card ul {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.8;
+      }
+
+      .guide-card ul {
+        padding: 0 1rem 0 0;
+      }
+
+      .guide-card li + li {
+        margin-top: 0.2rem;
+      }
+
+      .faq-list {
+        display: grid;
+        gap: 0.55rem;
+      }
+
+      .faq-list details {
+        border: 1px solid rgba(244, 206, 108, 0.2);
+        border-radius: 12px;
+        padding: 0.58rem 0.72rem;
+        background: rgba(8, 18, 46, 0.42);
+      }
+
+      .faq-list summary {
+        cursor: pointer;
+        color: #ffeec0;
+        font-weight: 700;
+      }
+
+      .faq-list p {
+        margin-top: 0.5rem;
+      }
+
       @media (hover: hover) and (pointer: fine) {
         .game-btn:hover:not([aria-disabled="true"]) {
           transform: translateY(-1px);
@@ -200,159 +243,193 @@
         }
       }
     </style>
-      <link rel="stylesheet" href="/assets/site-header.css?v=1.0.0" />
+    <link rel="stylesheet" href="/assets/site-header.css?v=1.0.0" />
   </head>
   <body>
     <main class="games-shell">
-      <h1>اختر لعبة من تسلية</h1>
-      <p class="subtitle">من هنا تقدر تختار بين ألعاب تسلية الحالية والقادمة قريبًا.</p>
+      <section class="games-hero" aria-label="اختيار لعبة تسلية">
+        <h1>اختر لعبة من تسلية</h1>
+        <p class="subtitle">ادخل مباشرة على اللعبة المناسبة لجلسة اليوم. كل بطاقة تعطيك نوع اللعب، مستوى التحدي، والأجواء المتوقعة لتختار بسرعة بدون قراءة طويلة.</p>
+        <ul class="quick-picks" aria-label="اختيارات سريعة">
+          <li>للجلسة الأولى: ابدأ بأفلام أو الإيموجي</li>
+          <li>للأسئلة والمعرفة: تسلية الأصلية + الخريطة</li>
+          <li>للتحدي الجماعي: ممنوع تقولها + المزاد</li>
+          <li>للتحليل والتركيز: XO | خمن الرابط</li>
+        </ul>
+      </section>
 
-      <section class="content-stack" aria-label="دليل ألعاب تسلية">
-        <article class="content-card">
-          <h2>نبذة سريعة عن ألعاب تسلية</h2>
-          <p>تسلية تجمع ألعابًا عربية اجتماعية تعتمد على التفاعل بين الأصدقاء أو العائلة، مع تنوّع واضح بين المعرفة، السرعة، التمثيل، والربط الذهني. الفكرة ليست فقط الفوز بالنقاط، بل خلق جلسة ممتعة فيها تحدي، ضحك، وتعاون بين أفراد الفريق.</p>
-        </article>
+      <section aria-labelledby="games-grid-title">
+        <h2 id="games-grid-title" class="section-title">مكتبة الألعاب</h2>
+        <div class="games-grid" aria-label="ألعاب تسلية">
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/favicon.svg" alt="شعار تسلية" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">تسلية الأصلية</h3>
+              <span class="badge">مناسبة للبداية</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: معلومات</span>
+              <span class="meta-pill">الصعوبة: متدرجة</span>
+              <span class="meta-pill">الأجواء: تنافسية</span>
+            </div>
+            <p class="card-desc">أسئلة عربية جماعية أو فردية بأكثر من ٦٠ فئة. اختيار ممتاز إذا تبغون لعبة مرنة تجمع تنوع الفئات مع تحدي واضح.</p>
+            <a class="game-btn" href="/">ابدأ اللعب الآن</a>
+          </article>
 
-        <article class="content-card">
-          <h2>ما أنواع الألعاب المتوفرة؟</h2>
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/map-game-icon.png" alt="أيقونة خمن الدولة من الخريطة" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">خمن الدولة من الخريطة</h3>
+              <span class="badge">للمعرفة البصرية</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: جغرافيا</span>
+              <span class="meta-pill">الصعوبة: متوسطة</span>
+              <span class="meta-pill">الأجواء: تركيز سريع</span>
+            </div>
+            <p class="card-desc">تظهر دولة مطلوبة، وتتنافس الفرق على اختيار موقعها الصحيح على الخريطة. مناسبة لجولات سريعة تجمع المعرفة والدقة.</p>
+            <a class="game-btn" href="/map-game/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/films-game-icon.png" alt="أيقونة لعبة الأفلام" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">أفلام</h3>
+              <span class="badge">سريعة وممتعة</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: تمثيل</span>
+              <span class="meta-pill">الصعوبة: سهلة</span>
+              <span class="meta-pill">الأجواء: ضحك وتفاعل</span>
+            </div>
+            <p class="card-desc">مثّل اسم الفيلم بدون كلام خلال ٩٠ ثانية. خيار ممتاز لكسر الجليد خصوصًا مع لاعبين جدد.</p>
+            <a class="game-btn" href="/films/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/forbidden-words-game-icon.png" alt="أيقونة لعبة ممنوع تقولها" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">ممنوع تقولها</h3>
+              <span class="badge">تحدي جماعي</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: تلميح ووصف</span>
+              <span class="meta-pill">الصعوبة: متوسطة</span>
+              <span class="meta-pill">الأجواء: حماس سريع</span>
+            </div>
+            <p class="card-desc">اشرح الكلمة لفريقك بدون استخدام الكلمات الممنوعة قبل انتهاء الوقت. مناسبة لمن يحب ضغط الوقت والتواصل الذكي.</p>
+            <a class="game-btn" href="/games/forbidden-words/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/Hint-game-icon.png" alt="أيقونة خمنها من التلميح" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">خمنها من التلميح</h3>
+              <span class="badge">تفكير تدريجي</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: تلميحات</span>
+              <span class="meta-pill">الصعوبة: متدرجة</span>
+              <span class="meta-pill">الأجواء: هادئة-تنافسية</span>
+            </div>
+            <p class="card-desc">خمّن الإجابة من ٥ تلميحات عبر فئات متنوعة. كلما توقعت أبكر أخذت نقاط أعلى.</p>
+            <a class="game-btn" href="/games/guess-from-hint/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/Emoji-game-icon.png" alt="أيقونة خمن العمل من الإيموجي" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">خمن العمل من الإيموجي</h3>
+              <span class="badge">مناسبة للبداية</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: تخمين بصري</span>
+              <span class="meta-pill">الصعوبة: سهلة</span>
+              <span class="meta-pill">الأجواء: مرحة</span>
+            </div>
+            <p class="card-desc">رموز إيموجي تمثل فيلم أو مسلسل أو كرتون، ولكل فريق ٦٠ ثانية للتخمين. سهلة وسريعة للمجموعات المختلطة.</p>
+            <a class="game-btn" href="/games/emoji-movies/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/Mazad-game-icon.png" alt="أيقونة لعبة المزاد" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">المزاد</h3>
+              <span class="badge">تنافس عالي</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: مزايدة</span>
+              <span class="meta-pill">الصعوبة: أعلى</span>
+              <span class="meta-pill">الأجواء: ضغط وحماس</span>
+            </div>
+            <p class="card-desc">تختارون لاعب يجيب ولاعب يزايد، ثم يبدأ التحدي على عدد الإجابات الصحيحة خلال ٦٠ ثانية.</p>
+            <a class="game-btn" href="/games/auction/">ابدأ اللعب الآن</a>
+          </article>
+
+          <article class="game-card">
+            <div class="icon-wrap">
+              <img src="/assets/icons/XO-game-icon.png" alt="أيقونة لعبة XO | خمن الرابط" />
+            </div>
+            <div class="card-head">
+              <h3 class="card-title">XO | خمن الرابط</h3>
+              <span class="badge">للمحترفين</span>
+            </div>
+            <div class="meta-row" aria-label="بيانات سريعة">
+              <span class="meta-pill">النوع: ربط وتحليل</span>
+              <span class="meta-pill">الصعوبة: عالية</span>
+              <span class="meta-pill">الأجواء: تفكير عميق</span>
+            </div>
+            <p class="card-desc">كل خانة تحتاج معرفة الرابط بين الصف والعمود. مناسبة للمجموعات التي تحب التفكير والتحليل تحت المنافسة.</p>
+            <a class="game-btn" href="/games/xo-intersection/">ابدأ اللعب الآن</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="guide-wrap" aria-label="دليل سريع قبل اللعب">
+        <article class="guide-card">
+          <h3>كيف تختار اللعبة المناسبة بسرعة؟</h3>
           <ul>
-            <li><strong>ألعاب معلومات ومعرفة:</strong> مثل تسلية الأصلية وخمن الدولة من الخريطة.</li>
-            <li><strong>ألعاب تلميح ووصف:</strong> مثل ممنوع تقولها وخمنها من التلميح.</li>
-            <li><strong>ألعاب تمثيل وتخمين:</strong> مثل أفلام وخمن العمل من الإيموجي.</li>
-            <li><strong>ألعاب تفكير استراتيجي:</strong> مثل المزاد وXO | خمن الرابط.</li>
+            <li><strong>لجلسة أول مرة:</strong> ابدأوا بـ أفلام أو خمن العمل من الإيموجي.</li>
+            <li><strong>لجلسة معرفة:</strong> اختاروا تسلية الأصلية أو خمن الدولة من الخريطة.</li>
+            <li><strong>لجلسة تنافسية:</strong> جرّبوا ممنوع تقولها أو المزاد.</li>
+            <li><strong>للتحدي الذهني:</strong> توجهوا إلى XO | خمن الرابط.</li>
           </ul>
         </article>
 
-        <article class="content-card">
-          <h2>لمن تناسب هذه الألعاب؟</h2>
-          <p>المجموعة مناسبة للجلسات العائلية، لقاءات الأصدقاء، الأنشطة المدرسية الخفيفة، وحتى المنافسات السريعة في المقاهي أو الاستراحات. ستجد ألعابًا مناسبة للمبتدئين وأخرى تحتاج فريقًا يحب التحدي والتركيز، لذلك يمكن لكل مجموعة اختيار إيقاعها بسهولة.</p>
+        <article class="guide-card">
+          <h3>نبذة سريعة عن ألعاب تسلية</h3>
+          <p>تسلية تجمع ألعابًا عربية اجتماعية تعتمد على التفاعل بين الأصدقاء أو العائلة، مع تنوع بين المعرفة، السرعة، التمثيل، والربط الذهني. الهدف هو جلسة ممتعة مع تحدي واضح وتبديل جو اللعب بسهولة من لعبة لأخرى.</p>
         </article>
 
-        <article class="content-card">
-          <h2>كيف تختار اللعبة المناسبة بسرعة؟</h2>
-          <ul>
-            <li>إذا كنتم تحبون الأسئلة: ابدأوا بـ <strong>تسلية الأصلية</strong> أو <strong>خمن الدولة من الخريطة</strong>.</li>
-            <li>إذا أردتم جولة ضحك سريعة: اختاروا <strong>أفلام</strong> أو <strong>خمن العمل من الإيموجي</strong>.</li>
-            <li>إذا تفضّلون التحدي الجماعي: جرّبوا <strong>ممنوع تقولها</strong> أو <strong>المزاد</strong>.</li>
-            <li>إذا تحبون التحليل والربط: توجهوا إلى <strong>XO | خمن الرابط</strong>.</li>
-          </ul>
-        </article>
-
-        <article class="content-card">
-          <h2>ما الذي يميز كل لعبة عن الأخرى؟</h2>
-          <p>الاختلاف الرئيسي هو <strong>نوع المهارة</strong>: بعضها يقيس سرعة البديهة، بعضها يختبر المخزون المعرفي، وبعضها يعتمد على التواصل الذكي داخل الفريق. كذلك تختلف مدة الجولة وطريقة احتساب النقاط، وهذا يسمح لكم بتبديل الأجواء من لعبة لأخرى بدون تكرار.</p>
-        </article>
-
-        <article class="content-card">
-          <h2>أسئلة سريعة ونصائح قبل البدء</h2>
+        <article class="guide-card">
+          <h3>أسئلة سريعة قبل البدء</h3>
           <div class="faq-list">
             <details>
-              <summary>ما أفضل لعبة للّعب لأول مرة؟</summary>
-              <p>ابدأوا بلعبة قواعدها مباشرة مثل خمن العمل من الإيموجي أو أفلام، ثم انتقلوا للألعاب الأكثر تنافسية.</p>
+              <summary>نلعب لعبة واحدة أو أكثر من لعبة؟</summary>
+              <p>التنويع غالبًا أفضل: لعبة معرفة ثم لعبة تفاعل أو تلميح، حتى تناسب الجلسة أذواق مختلفة.</p>
             </details>
             <details>
               <summary>كيف نخلي الجلسة أكثر متعة؟</summary>
-              <p>حدّدوا عدد جولات واضح، وبدّلوا قائد الفريق كل جولة، واتفقوا على وقت راحة قصير بين الألعاب.</p>
-            </details>
-            <details>
-              <summary>هل الأفضل اختيار لعبة واحدة أم التنويع؟</summary>
-              <p>التنويع أفضل غالبًا: لعبة معرفة ثم لعبة تمثيل أو تلميح، حتى تناسب الجلسة أذواق مختلفة.</p>
+              <p>حددوا عدد الجولات من البداية، وبدّلوا قائد الفريق كل جولة، وخذوا استراحة قصيرة بين الألعاب.</p>
             </details>
           </div>
         </article>
-      </section>
-
-      <section class="games-grid" aria-label="ألعاب تسلية">
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/favicon.svg" alt="شعار تسلية" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">تسلية الأصلية</h2>
-          </div>
-          <p class="card-desc">لعبة أسئلة عربية جماعية أو فردية تضم أكثر من ٦٠ فئة. اختر الفئات، ارفع مستوى التحدي، واجمع النقاط عبر أسئلة متنوعة في الثقافة، الرياضة، الجغرافيا، التاريخ، العلوم الإسلامية والمزيد.</p>
-          <a class="game-btn" href="/">ابدأ تسلية الأصلية</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/map-game-icon.png" alt="أيقونة خمن الدولة من الخريطة" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">خمن الدولة من الخريطة</h2>
-          </div>
-          <p class="card-desc">يظهر اسم الدولة، وعليك تحديدها على الخريطة. إذا اختار الفريق الدولة الصحيحة يأخذ جميع النقاط. وإذا أخطأ ونجح الفريق الآخر في اختيارها، يأخذ جميع النقاط. وإذا أجاب الفريقان إجابة خاطئة، يحصل الفريق الذي اختار الدولة الأقرب على نصف النقاط.</p>
-          <a class="game-btn" href="/map-game/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/films-game-icon.png" alt="أيقونة لعبة الأفلام" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">أفلام</h2>
-            </div>
-          <p class="card-desc">مثّل اسم الفيلم بدون كلام خلال ٩٠ ثانية. عند انتهاء الوقت، يمكن للفريق الآخر تخمين اسم الفيلم.</p>
-          <a class="game-btn" href="/films/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/forbidden-words-game-icon.png" alt="أيقونة لعبة ممنوع تقولها" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">ممنوع تقولها</h2>
-          </div>
-          <p class="card-desc">اشرح الكلمة لفريقك بدون استخدام الكلمات الممنوعة قبل انتهاء الوقت. كل إجابة صحيحة تزيد نقاط فريقك.</p>
-          <a class="game-btn" href="/games/forbidden-words/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/Hint-game-icon.png" alt="أيقونة خمنها من التلميح" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">خمنها من التلميح</h2>
-          </div>
-          <p class="card-desc">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر، لكن الإجابة الخاطئة تمنع فريقك من التخمين في التلميح التالي.</p>
-          <a class="game-btn" href="/games/guess-from-hint/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/Emoji-game-icon.png" alt="أيقونة خمن العمل من الإيموجي" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">خمن العمل من الإيموجي</h2>
-          </div>
-          <p class="card-desc">تظهر لك رموز إيموجي تمثل اسم فيلم أو مسلسل أو كرتون. لكل فريق ٦٠ ثانية للتخمين، والفريق الذي يكتب الإجابة الصحيحة يحصل على النقاط.</p>
-          <a class="game-btn" href="/games/emoji-movies/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/Mazad-game-icon.png" alt="أيقونة لعبة المزاد" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">المزاد</h2>
-          </div>
-          <p class="card-desc">تظهر فئة معينة، ويختار كل فريق لاعب يجيب ولاعب يزايد. ثم يظهر السؤال، ويبدأ المزاد على عدد الإجابات الصحيحة التي يمكن ذكرها خلال ٦٠ ثانية. صاحب أعلى مزايدة يحاول تحقيقها؛ إذا نجح يحصل على نقطة، وإذا فشل تنتقل النقطة إلى الفريق الآخر.</p>
-          <a class="game-btn" href="/games/auction/">ابدأ اللعبة</a>
-        </article>
-
-        <article class="game-card">
-          <div class="icon-wrap">
-            <img src="/assets/icons/XO-game-icon.png" alt="أيقونة لعبة XO | خمن الرابط" />
-          </div>
-          <div class="card-head">
-            <h2 class="card-title">XO | خمن الرابط</h2>
-          </div>
-          <p class="card-desc">من الكرة إلى الأفلام وغيرها، كل فئة تقدّم لوحة مختلفة، ولا يمكنك أخذ الخانة إلا إذا عرفت الرابط بين الصف والعمود.</p>
-          <a class="game-btn" href="/games/xo-intersection/">ابدأ اللعب</a>
-        </article>
-
       </section>
     </main>
-      <script src="/assets/site-header.js?v=1.0.0" defer></script>
+    <script src="/assets/site-header.js?v=1.0.0" defer></script>
   </body>
 </html>
