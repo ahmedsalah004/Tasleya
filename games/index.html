@@ -41,18 +41,6 @@
         margin: 0 auto;
       }
 
-      .top-nav {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.45rem;
-        text-decoration: none;
-        color: var(--gold-300);
-        border: 1px solid rgba(244, 206, 108, 0.45);
-        border-radius: 999px;
-        padding: 0.45rem 0.85rem;
-        background: rgba(14, 27, 67, 0.38);
-      }
-
       h1 {
         margin: 1rem 0 0.6rem;
         font-size: clamp(1.8rem, 4.6vw, 2.9rem);
@@ -206,17 +194,16 @@
       }
 
       @media (hover: hover) and (pointer: fine) {
-        .game-btn:hover:not([aria-disabled="true"]),
-        .top-nav:hover {
+        .game-btn:hover:not([aria-disabled="true"]) {
           transform: translateY(-1px);
           box-shadow: 0 8px 18px rgba(1, 7, 25, 0.32);
         }
       }
     </style>
+      <link rel="stylesheet" href="/assets/site-header.css?v=1.0.0" />
   </head>
   <body>
     <main class="games-shell">
-      <a class="top-nav" href="/">← العودة للرئيسية</a>
       <h1>اختر لعبة من تسلية</h1>
       <p class="subtitle">من هنا تقدر تختار بين ألعاب تسلية الحالية والقادمة قريبًا.</p>
 
@@ -366,5 +353,6 @@
 
       </section>
     </main>
+      <script src="/assets/site-header.js?v=1.0.0" defer></script>
   </body>
 </html>
