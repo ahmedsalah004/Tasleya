@@ -104,9 +104,13 @@ main,
 }
 
 @media (max-width: 700px) {
+  #gameScreen {
+    padding-top: 2.45rem;
+  }
+
   .game-contact-btn {
     inset-block-start: calc(max(env(safe-area-inset-top), 0px) + 0.35rem);
-    left: 0.4rem;
+    right: 0.4rem;
     padding: 0.38rem 0.72rem;
     margin: 0;
     max-width: calc(100vw - 0.8rem);
