@@ -36,7 +36,7 @@
       <a class="site-header__brand" href="/" aria-label="الانتقال إلى الصفحة الرئيسية">
         <span class="site-header__logo site-header__logo--glyph" aria-hidden="true">ت</span>
         <img
-          class="site-header__logo site-header__logo--mobile-image"
+          class="site-header__logo site-header__logo--brand-image"
           src="/assets/tasleya logo ready.webp"
           alt=""
           aria-hidden="true"
