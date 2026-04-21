@@ -789,6 +789,57 @@ html {
 }
 
 @media (max-width: 700px) {
+  #startScreen {
+    padding-top: 0.48rem;
+  }
+
+  #startScreen:not(.info-page-shell) {
+    padding-bottom: clamp(2.6rem, 8vw, 3.6rem);
+  }
+
+  #startScreen:not(.info-page-shell) .hero-section {
+    min-height: min(90svh, 730px);
+    justify-content: flex-start;
+    padding-top: clamp(4.15rem, 11.5vh, 5.3rem);
+    padding-bottom: clamp(1rem, 3.2vh, 1.85rem);
+  }
+
+  #startScreen:not(.info-page-shell) .start-screen-title {
+    margin-top: 0.15rem;
+  }
+
+  #startScreen:not(.info-page-shell) .hero-subtitle {
+    margin: 0.44rem 0 1.05rem;
+  }
+
+  #startScreen:not(.info-page-shell) .hero-lead {
+    margin-bottom: 0.62rem;
+  }
+
+  #startScreen:not(.info-page-shell) .hero-value-points {
+    margin-bottom: 0.7rem;
+  }
+
+  #startScreen:not(.info-page-shell) .start-actions {
+    gap: 0.55rem;
+  }
+
+  #startScreen:not(.info-page-shell) .scroll-hint {
+    margin-top: 0.72rem;
+  }
+
+  #startScreen:not(.info-page-shell) .home-sections {
+    margin-top: 0.3rem;
+  }
+
+  #startScreen.info-page-shell {
+    padding-top: 0.52rem;
+  }
+
+  .info-page-shell {
+    gap: 0.62rem;
+  }
+
   .footer-info-panel .section-body-text,
   .footer-info-panel .section-body-note {
     max-inline-size: 100%;

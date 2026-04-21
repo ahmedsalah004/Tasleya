@@ -247,7 +247,7 @@ main,
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 10px;
   padding-top: 0;
 }
 
@@ -276,7 +276,7 @@ main,
 .home-secondary-actions {
   display: grid;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 2px;
   margin-inline: auto;
 }
 
@@ -291,14 +291,14 @@ main,
 
 .hero-lead {
   width: min(92vw, 560px);
-  margin-bottom: 0.8rem;
+  margin-bottom: 0.62rem;
   font-size: 0.94rem;
   line-height: 1.66;
 }
 
 .hero-value-points {
   gap: 0.42rem;
-  margin-bottom: 0.88rem;
+  margin-bottom: 0.68rem;
 }
 
 .hero-pill {
@@ -315,7 +315,7 @@ main,
 @media (max-width: 700px) and (max-height: 780px) and (orientation: portrait) {
   .hero-section {
     min-height: auto;
-    padding-top: clamp(5.2rem, 14vh, 6.8rem);
+    padding-top: clamp(4.1rem, 11.5vh, 5.25rem);
   }
 }
 
