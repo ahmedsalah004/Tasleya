@@ -58,9 +58,9 @@
     <link rel="manifest" href="/site.webmanifest" />
     <!-- Deployment version token: keep all homepage shell assets on the same v to avoid stale mix. -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1226641775451871" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="style.css?v=1.2.5" />
-    <link rel="stylesheet" href="mobile.css?v=1.2.5" media="screen and (max-width: 700px)" />
-      <link rel="stylesheet" href="/assets/site-header.css?v=1.0.0" />
+    <link rel="stylesheet" href="style.css?v=1.2.6" />
+    <link rel="stylesheet" href="mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
+      <link rel="stylesheet" href="/assets/site-header.css?v=1.2.6" />
   </head>
   <body>
     <div id="startScreen">
@@ -406,14 +406,14 @@
 
     <div id="runtimeShellMount" data-shell="homepage-game-runtime"></div>
 
-    <!-- deploy-version: 1.2.4 -->
+    <!-- deploy-version: 1.2.6 -->
     <script>
       (async function bootstrapHomepageRuntime() {
         const mount = document.getElementById("runtimeShellMount");
         if (!mount) return;
 
         try {
-          const response = await fetch('/assets/home-runtime-shell.html?v=1.2.4', { cache: 'no-store' });
+          const response = await fetch('/assets/home-runtime-shell.html?v=1.2.6', { cache: 'no-store' });
           if (!response.ok) throw new Error('runtime shell fetch failed');
           mount.innerHTML = await response.text();
 
@@ -422,9 +422,9 @@
             'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
             'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
             'https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js',
-            '/firebase-config.js?v=1.2.4',
-            '/game-config.js?v=1.2.4',
-            '/script.js?v=1.2.4'
+            '/firebase-config.js?v=1.2.6',
+            '/game-config.js?v=1.2.6',
+            '/script.js?v=1.2.6'
           ];
 
           for (const src of scriptUrls) {
@@ -441,6 +441,6 @@
         }
       })();
     </script>
-      <script src="/assets/site-header.js?v=1.0.0" defer></script>
+      <script src="/assets/site-header.js?v=1.2.6" defer></script>
   </body>
 </html>
