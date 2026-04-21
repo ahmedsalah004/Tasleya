@@ -66,7 +66,13 @@
       <div class="home-page-overlay" aria-hidden="true"></div>
       <section class="hero-section" aria-label="واجهة البدء">
         <h1 class="start-screen-title">تسلية</h1>
-        <p class="hero-subtitle">لعبة أسئلة عربية فردية وجماعية</p>
+        <p class="hero-subtitle">منصة تحديات وأسئلة عربية ترفع حماس الجلسة خلال دقائق</p>
+        <p class="hero-lead">ابدأ الآن بجولة سريعة في المتصفح، وخلّ الجلسة تتحول من دردشة عادية إلى منافسة ممتعة بنظام واضح وفئات متنوعة.</p>
+        <div class="hero-value-points" aria-label="مزايا سريعة">
+          <span class="hero-pill">جاهزة للجوال والكمبيوتر</span>
+          <span class="hero-pill">فردي أو جماعي</span>
+          <span class="hero-pill">محتوى عربي أولًا</span>
+        </div>
         <div class="start-actions">
           <div class="play-flow-shell" aria-live="polite" aria-atomic="true">
             <div id="resumeGamePrompt" class="resume-game-prompt hidden" role="group" aria-label="متابعة">
@@ -77,10 +83,10 @@
               </div>
             </div>
             <div id="homepagePrimaryStep" class="home-flow-step">
-              <button id="startLocalBtn" type="button">العب بمفردك</button>
-              <button id="startOnlineBtn" type="button">لعب جماعي</button>
+              <button id="startLocalBtn" class="cta-primary" type="button">ابدأ اللعب الآن</button>
+              <button id="startOnlineBtn" class="cta-secondary" type="button">ابدأ جلسة جماعية</button>
               <a id="gamesHubBtn" href="/games/" aria-haspopup="dialog" aria-controls="gamesPromoPopup">
-                <span class="games-hub-btn__title">ألعاب أخرى</span>
+                <span class="games-hub-btn__title">استكشف ألعابًا أخرى</span>
               </a>
             </div>
             <div id="homepageGroupDeviceStep" class="home-flow-step hidden">
@@ -94,43 +100,52 @@
               <button id="homeGroupTeamsBackBtn" class="flow-back-button" type="button">رجوع</button>
             </div>
           </div>
-          <div class="home-secondary-actions">
-            <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
-            <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
-            <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
-          </div>
         </div>
         <p class="scroll-hint">↓ اكتشف المزيد</p>
       </section>
 
       <main class="home-sections" aria-label="محتوى الصفحة الرئيسية">
-        <section class="home-panel seo-text intro-section">
-          <h2>كيف تعمل تسلية؟</h2>
-          <p>تختار الفئات، تبدأ الجولة، وتتابع النقاط حتى النهاية. يمكنك اللعب بمفردك أو مع مجموعة، على جهاز واحد أو على أجهزة مختلفة حسب الجلسة.</p>
+        <section class="home-panel intro-section" aria-labelledby="heroIntroTitle">
+          <h2 id="heroIntroTitle">ما هي تسلية؟</h2>
+          <p class="section-body-text">تسلية لعبة تحديات وأسئلة عربية مصممة للّمة، العائلة، والأصدقاء. تختار الفئات، تبدأ الجولة فورًا، وتتنافسون على النقاط حتى النهاية.</p>
+          <div class="card-grid mode-grid compact-cards">
+            <article class="mode-card">
+              <h3>بدء فوري بدون تعقيد</h3>
+              <p>لا تحتاج تحميل ولا إعداد طويل. اضغط «ابدأ اللعب الآن» وادخل الجولة مباشرة.</p>
+            </article>
+            <article class="mode-card">
+              <h3>تجربة تنافسية ممتعة</h3>
+              <p>نظام أدوار واضح ونقاط يحافظ على الحماس من أول سؤال إلى آخر تحدّي.</p>
+            </article>
+            <article class="mode-card">
+              <h3>مرونة حسب الجلسة</h3>
+              <p>العب بمفردك أو ابدأ جلسة جماعية على جهاز واحد أو أجهزة مختلفة.</p>
+            </article>
+          </div>
         </section>
 
         <section class="home-panel" aria-labelledby="howToPlayTitle">
-          <h2 id="howToPlayTitle">كيف تلعب؟</h2>
-          <p class="section-body-text">بعد الضغط على «ابدأ»، تختار نمط اللعب ثم الفئات، وتبدأ الجولة مباشرة.</p>
-          <p class="section-body-note">تحتاج شرحًا مفصلًا؟ <a href="/how-to-play/" class="inline-email-link">راجع دليل اللعب الكامل</a> خطوة بخطوة.</p>
+          <h2 id="howToPlayTitle">الطريق الأسرع للعب</h2>
+          <p class="section-body-text">هدف الصفحة بسيط: تبدأ اللعب بسرعة. اختر النمط المناسب وابدأ التحدي خلال أقل من دقيقة.</p>
           <div class="card-grid mode-grid">
             <article class="mode-card">
-              <h3>1) اللعب الفردي (Solo)</h3>
-              <p>مناسب لتجربة سريعة أو تدريب شخصي بدون إعداد فرق.</p>
+              <h3>1) ابدأ اللعب الآن</h3>
+              <p>أفضل خيار لأول تجربة: جولة فردية فورية بدون إعداد.</p>
             </article>
             <article class="mode-card">
-              <h3>2) اللعب الجماعي</h3>
-              <p>اختره عندما تكونون أكثر من لاعب، ثم حدّد: جهاز واحد أو أجهزة مختلفة.</p>
+              <h3>2) جلسة جماعية</h3>
+              <p>عند وجود أكثر من لاعب، اختر نمط الجماعي وحدد طريقة اتصال الفريق.</p>
             </article>
             <article class="mode-card">
-              <h3>3) جهاز واحد أم أجهزة مختلفة؟</h3>
-              <p>جهاز واحد للجلسات المباشرة، وأجهزة مختلفة عندما ينضم كل فريق من جهازه.</p>
+              <h3>3) اختر الفئات</h3>
+              <p>وازن بين فئات عامة وفئات متخصصة لتحصل على جولة ممتعة للجميع.</p>
             </article>
             <article class="mode-card">
-              <h3>4) اختيار الفئات ببساطة</h3>
-              <p>ابدأ بفئة عامة، ثم أضف فئة متخصصة إذا أردت رفع مستوى التحدي.</p>
+              <h3>4) انطلق ونافس</h3>
+              <p>تابع النقاط لحظة بلحظة حتى حسم الجولة.</p>
             </article>
           </div>
+          <p class="section-body-note">تحتاج شرحًا مفصلًا؟ <a href="/how-to-play/" class="inline-email-link">راجع دليل اللعب الكامل</a> خطوة بخطوة.</p>
         </section>
 
         <section class="home-panel" aria-labelledby="whyTasleyaTitle">
@@ -152,6 +167,16 @@
               <h3>مرونة في طريقة اللعب</h3>
               <p>تدعم اللعب على جهاز واحد أو أجهزة متعددة حسب طبيعة الجلسة.</p>
             </article>
+          </div>
+        </section>
+
+        <section class="home-panel" aria-labelledby="helpActionsTitle">
+          <h2 id="helpActionsTitle">روابط مساعدة سريعة</h2>
+          <p class="section-body-text">إذا رغبت في معرفة التفاصيل قبل اللعب، ستجدها هنا بدون تشتيت الشاشة الأولى.</p>
+          <div class="home-secondary-actions">
+            <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
+            <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
+            <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
           </div>
         </section>
 

@@ -195,12 +195,12 @@ main,
 #instructionsBtn,
 #contactBtn,
 #installGuideBtn {
-  width: 70%;
-  max-width: 70%;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  padding: 5px 12px;
-  font-size: clamp(0.82rem, 3.1vw, 0.9rem);
-  min-height: 34px;
+  padding: 9px 12px;
+  font-size: clamp(0.9rem, 3.1vw, 0.98rem);
+  min-height: 44px;
 }
 
 #startLocalBtn:hover,
@@ -279,6 +279,7 @@ main,
   display: grid;
   gap: 8px;
   margin-top: 4px;
+  margin-inline: auto;
 }
 
 .hero-quick-intro {
@@ -288,6 +289,23 @@ main,
 
 .hero-quick-intro p {
   font-size: 0.9rem;
+}
+
+.hero-lead {
+  width: min(92vw, 560px);
+  margin-bottom: 0.8rem;
+  font-size: 0.94rem;
+  line-height: 1.66;
+}
+
+.hero-value-points {
+  gap: 0.42rem;
+  margin-bottom: 0.88rem;
+}
+
+.hero-pill {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.62rem;
 }
 
 #homeGroupDeviceBackBtn,
