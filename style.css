@@ -654,6 +654,14 @@ html {
     border-radius: 16px;
   }
 
+  #startScreen #homepagePrimaryStep #gamesHubBtn {
+    width: 100%;
+    min-width: 420px;
+    max-width: 620px;
+    justify-self: stretch;
+    align-self: stretch;
+  }
+
   .scroll-hint {
     margin-top: 1.3rem;
     font-size: clamp(1rem, 1.15vw, 1.16rem);
