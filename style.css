@@ -213,11 +213,11 @@ html {
   }
 
   #homepagePrimaryStep #gamesHubBtn:hover {
-    background: linear-gradient(160deg, rgba(26, 40, 88, 0.98) 0%, rgba(12, 23, 58, 0.99) 100%);
+    background: linear-gradient(160deg, rgba(33, 51, 104, 0.98) 0%, rgba(16, 29, 68, 0.99) 100%);
     box-shadow:
       0 12px 28px rgba(1, 7, 25, 0.48),
-      0 0 0 1px rgba(244, 206, 108, 0.26) inset,
-      0 0 24px rgba(244, 206, 108, 0.2);
+      0 0 0 1px rgba(188, 211, 255, 0.3) inset,
+      0 0 18px rgba(159, 185, 243, 0.18);
   }
 }
 
@@ -246,54 +246,20 @@ html {
 
 #homepagePrimaryStep #gamesHubBtn {
   margin-top: 0.62rem;
-  min-height: 72px;
-  border-radius: 18px;
-  border-color: rgba(244, 206, 108, 0.58);
-  background: linear-gradient(160deg, rgba(22, 35, 77, 0.96) 0%, rgba(11, 20, 49, 0.98) 100%);
+  min-height: 60px;
+  border-color: rgba(189, 209, 255, 0.42);
+  background: linear-gradient(160deg, rgba(26, 41, 88, 0.96) 0%, rgba(13, 24, 56, 0.98) 100%);
   box-shadow:
-    0 12px 26px rgba(1, 6, 22, 0.42),
-    0 0 0 1px rgba(244, 206, 108, 0.18) inset,
-    0 0 22px rgba(244, 206, 108, 0.14);
-  padding: 14px 18px;
-  gap: 0.76rem;
-  justify-content: flex-start;
-  text-align: right;
-  white-space: normal;
-}
-
-.games-hub-btn__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 2.15rem;
-  block-size: 2.15rem;
-  border-radius: 10px;
-  border: 1px solid rgba(244, 206, 108, 0.42);
-  background: rgba(244, 206, 108, 0.08);
-  font-size: 1.2rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.games-hub-btn__content {
-  display: grid;
-  gap: 0.18rem;
-  min-width: 0;
+    0 10px 24px rgba(1, 7, 25, 0.42),
+    0 0 0 1px rgba(170, 198, 255, 0.24) inset,
+    0 1px 0 rgba(214, 229, 255, 0.2) inset;
 }
 
 .games-hub-btn__title {
-  font-size: clamp(1rem, 2vw, 1.12rem);
-  color: rgba(255, 236, 179, 0.98);
-  letter-spacing: 0.02em;
+  font-size: clamp(1rem, 2vw, 1.1rem);
+  color: rgba(236, 245, 255, 0.98);
+  letter-spacing: 0.01em;
   font-weight: 800;
-}
-
-.games-hub-btn__subtitle {
-  font-size: clamp(0.76rem, 1.2vw, 0.86rem);
-  line-height: 1.45;
-  color: rgba(233, 241, 255, 0.88);
-  font-weight: 600;
-  letter-spacing: 0;
 }
 
 .resume-game-prompt {
@@ -867,26 +833,16 @@ html {
   }
 
   #homepagePrimaryStep #gamesHubBtn {
-    min-width: 320px;
-    max-width: 420px;
-    width: min(100%, 420px);
-    min-height: 68px;
+    min-width: 340px;
+    max-width: 460px;
+    width: 100%;
+    min-height: 56px;
     margin-top: 0.7rem;
-    padding: 0.72rem 1rem;
-  }
-
-  #homepagePrimaryStep .games-hub-btn__icon {
-    inline-size: 2.1rem;
-    block-size: 2.1rem;
-    font-size: 1.14rem;
+    padding: 12px 26px;
   }
 
   #homepagePrimaryStep .games-hub-btn__title {
-    font-size: clamp(1rem, 1.38vw, 1.18rem);
-  }
-
-  #homepagePrimaryStep .games-hub-btn__subtitle {
-    font-size: clamp(0.76rem, 0.96vw, 0.84rem);
+    font-size: clamp(1.1rem, 1.7vw, 1.42rem);
   }
 }
 
