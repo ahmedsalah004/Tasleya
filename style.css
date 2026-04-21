@@ -1320,7 +1320,7 @@ body::after {
 
 #gameScreen {
   position: relative;
-  padding-top: 3.2rem;
+  padding-top: clamp(0.65rem, 1.2vw, 1rem);
   overflow-x: hidden;
   overflow-y: visible;
   overscroll-behavior-x: none;
@@ -1329,11 +1329,20 @@ body::after {
   touch-action: manipulation;
 }
 
-.game-contact-btn {
-  position: absolute;
-  inset-block-start: max(env(safe-area-inset-top), 0.75rem);
-  right: max(0.75rem, calc((100vw - min(100vw, var(--layout-max))) / 2 + 0.75rem));
+.game-utility-bar {
+  position: relative;
   z-index: 6;
+  max-width: min(1440px, calc(100vw - 40px));
+  margin-inline: auto;
+  padding-inline: clamp(0.55rem, 0.9vw, 0.85rem);
+  margin-bottom: clamp(0.45rem, 0.8vw, 0.7rem);
+  display: flex;
+  justify-content: flex-start;
+}
+
+.game-contact-btn {
+  position: relative;
+  inset: auto;
   min-height: 40px;
   padding: 0.52rem 0.95rem;
   font-size: 0.88rem;
@@ -2567,6 +2576,11 @@ body.image-question-active {
 }
 
 @media (min-width: 1200px) {
+  #gameScreen .game-utility-bar {
+    max-width: min(1440px, calc(100vw - 40px));
+    padding-inline: clamp(0.55rem, 0.9vw, 0.85rem);
+  }
+
   #gameScreen .app {
     max-width: min(1440px, calc(100vw - 40px));
     grid-template-columns: minmax(320px, 370px) minmax(0, 1fr);
