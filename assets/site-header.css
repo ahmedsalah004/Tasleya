@@ -182,20 +182,17 @@
     align-items: center;
     justify-content: center;
     min-height: 41px;
-    min-width: 76px;
-    padding: 0.36rem 0.74rem;
+    min-width: 66px;
+    padding: 0.34rem 0.62rem;
     border-radius: 999px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 700;
   }
 
   .site-header__panel {
-    position: absolute;
-    inset-inline-start: 50%;
-    top: calc(100% + 0.32rem);
-    transform: translateX(-50%);
+    position: static;
     width: min(1120px, calc(100% - 1rem));
-    margin-top: 0;
+    margin-top: 0.32rem;
     border-radius: 12px;
     padding: 0.52rem;
     box-shadow: 0 12px 26px rgba(1, 7, 24, 0.42);
