@@ -654,6 +654,18 @@ html {
     border-radius: 16px;
   }
 
+  #startScreen #startLocalBtn,
+  #startScreen #startOnlineBtn,
+  #startScreen #gamesHubBtn,
+  #startScreen #instructionsBtn,
+  #startScreen #contactBtn,
+  #startScreen #homepagePrimaryStep #gamesHubBtn .games-hub-btn__title {
+    font-size: clamp(1.42rem, 1.62vw, 1.76rem);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 1px;
+  }
+
   #startScreen #homepagePrimaryStep #gamesHubBtn {
     width: 100%;
     min-width: 420px;
