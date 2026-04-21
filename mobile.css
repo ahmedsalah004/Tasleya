@@ -15,7 +15,6 @@ body {
 button,
 #startLocalBtn,
 #startOnlineBtn,
-#gamesHubBtn,
 #homeGroupOneDeviceBtn,
 #homeGroupMultiDeviceBtn,
 #homeGroupDeviceBackBtn,
@@ -138,7 +137,6 @@ main,
 
 #startLocalBtn,
 #startOnlineBtn,
-#gamesHubBtn,
 #homeGroupOneDeviceBtn,
 #homeGroupMultiDeviceBtn,
 #homeGroupDeviceBackBtn,
@@ -165,9 +163,39 @@ main,
   translate: none !important;
 }
 
+#gamesHubBtn {
+  margin-top: 6px;
+  min-height: 72px;
+  padding: 11px 14px;
+  border-radius: 16px;
+  border-color: rgba(244, 206, 108, 0.54);
+  background: linear-gradient(160deg, rgba(22, 35, 77, 0.95) 0%, rgba(11, 20, 49, 0.98) 100%);
+  box-shadow:
+    0 10px 22px rgba(1, 7, 24, 0.42),
+    0 0 0 1px rgba(244, 206, 108, 0.16) inset;
+  justify-content: flex-start;
+  text-align: right;
+  white-space: normal;
+  gap: 0.66rem;
+}
+
+#gamesHubBtn .games-hub-btn__icon {
+  inline-size: 2rem;
+  block-size: 2rem;
+  font-size: 1.05rem;
+}
+
+#gamesHubBtn .games-hub-btn__title {
+  font-size: 1rem;
+}
+
+#gamesHubBtn .games-hub-btn__subtitle {
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 #startLocalBtn,
 #startOnlineBtn,
-#gamesHubBtn,
 #homeGroupOneDeviceBtn,
 #homeGroupMultiDeviceBtn,
 #homeGroupDeviceBackBtn,
