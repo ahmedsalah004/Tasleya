@@ -34,7 +34,16 @@
   header.innerHTML = `
     <div class="site-header__inner">
       <a class="site-header__brand" href="/" aria-label="الانتقال إلى الصفحة الرئيسية">
-        <span class="site-header__logo" aria-hidden="true">ت</span>
+        <span class="site-header__logo site-header__logo--glyph" aria-hidden="true">ت</span>
+        <img
+          class="site-header__logo site-header__logo--mobile-image"
+          src="/assets/tasleya logo ready.webp"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          decoding="async"
+          fetchpriority="high"
+        />
         <span class="site-header__brand-text">تسلية</span>
       </a>
       <nav class="site-header__nav" aria-label="روابط رئيسية">
