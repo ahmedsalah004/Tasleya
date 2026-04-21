@@ -1202,6 +1202,7 @@ body::after {
 
 #gameScreen {
   position: relative;
+  padding-top: 3.2rem;
   overflow-x: hidden;
   overflow-y: visible;
   overscroll-behavior-x: none;
@@ -1213,8 +1214,8 @@ body::after {
 .game-contact-btn {
   position: absolute;
   inset-block-start: max(env(safe-area-inset-top), 0.75rem);
-  left: max(0.75rem, calc((100vw - min(100vw, var(--layout-max))) / 2 + 0.75rem));
-  z-index: 2;
+  right: max(0.75rem, calc((100vw - min(100vw, var(--layout-max))) / 2 + 0.75rem));
+  z-index: 6;
   min-height: 40px;
   padding: 0.52rem 0.95rem;
   font-size: 0.88rem;
