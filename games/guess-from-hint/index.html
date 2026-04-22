@@ -37,6 +37,25 @@
 
       .shell { width: min(980px, 100%); margin: 0 auto; }
       .hidden { display: none !important; }
+      .gameplay-view {
+        display: grid;
+        gap: 0.9rem;
+      }
+      .gameplay-toolbar {
+        display: flex;
+        justify-content: flex-start;
+      }
+      .back-to-intro {
+        border: 1px solid rgba(244, 206, 108, 0.42);
+        border-radius: 999px;
+        background: rgba(10, 20, 52, 0.65);
+        color: var(--gold-300);
+        font-family: inherit;
+        font-size: 0.93rem;
+        font-weight: 700;
+        padding: 0.45rem 0.85rem;
+        cursor: pointer;
+      }
       .mode-actions {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -395,71 +414,78 @@
   <body>
     <main class="shell">
       <a class="top-nav" href="/games/">← العودة للألعاب</a>
-      <h1>خمنها من التلميح</h1>
-      <p class="subtitle">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر.</p>
+      <div id="guessHintContentView">
+        <h1>خمنها من التلميح</h1>
+        <p class="subtitle">خمن الإجابة من ٥ تلميحات وفي فئات متنوعة. كلما خمّنت مبكرًا حصلت على نقاط أكثر.</p>
 
-      <section class="panel stack" aria-label="شرح لعبة خمنها من التلميح">
-        <article class="content-grid">
-          <div class="content-block stack">
-            <h2>ما هي لعبة خمنها من التلميح؟</h2>
-            <p>لعبة جماعية سريعة تعتمد على الذكاء وسرعة البديهة: كل جولة لها إجابة واحدة، وتظهر لكم تلميحات متدرجة حتى تصلوا للحل الصحيح.</p>
-          </div>
+        <section class="panel stack" aria-label="شرح لعبة خمنها من التلميح">
+          <article class="content-grid">
+            <div class="content-block stack">
+              <h2>ما هي لعبة خمنها من التلميح؟</h2>
+              <p>لعبة جماعية سريعة تعتمد على الذكاء وسرعة البديهة: كل جولة لها إجابة واحدة، وتظهر لكم تلميحات متدرجة حتى تصلوا للحل الصحيح.</p>
+            </div>
 
-          <div class="content-block stack">
-            <h2>كيف يعمل نظام التلميحات الخمسة؟</h2>
-            <ul class="content-list">
-              <li>في كل جولة يبدأ اللعب بالتلميح الأول، ثم يتدرج إلى التلميح الثاني والثالث والرابع والخامس عند الحاجة.</li>
-              <li>كل تلميح جديد يجعل الإجابة أوضح، لذلك فرصة التخمين تصبح أسهل مع الوقت.</li>
-              <li>القيمة الأعلى تكون للتخمين المبكر قبل ظهور تلميحات إضافية.</li>
-            </ul>
-          </div>
+            <div class="content-block stack">
+              <h2>كيف يعمل نظام التلميحات الخمسة؟</h2>
+              <ul class="content-list">
+                <li>في كل جولة يبدأ اللعب بالتلميح الأول، ثم يتدرج إلى التلميح الثاني والثالث والرابع والخامس عند الحاجة.</li>
+                <li>كل تلميح جديد يجعل الإجابة أوضح، لذلك فرصة التخمين تصبح أسهل مع الوقت.</li>
+                <li>القيمة الأعلى تكون للتخمين المبكر قبل ظهور تلميحات إضافية.</li>
+              </ul>
+            </div>
 
-          <div class="content-block stack">
-            <h2>كيف تتناوب الأدوار بين الفريقين؟</h2>
-            <p>في كل تلميح يختار كل فريق إن كان جاهزًا للتخمين أو يريد الانتظار لتلميح لاحق. ثم تُحسم المحاولة بناءً على قرارات الفريقين داخل نفس الجولة.</p>
-          </div>
+            <div class="content-block stack">
+              <h2>كيف تتناوب الأدوار بين الفريقين؟</h2>
+              <p>في كل تلميح يختار كل فريق إن كان جاهزًا للتخمين أو يريد الانتظار لتلميح لاحق. ثم تُحسم المحاولة بناءً على قرارات الفريقين داخل نفس الجولة.</p>
+            </div>
 
-          <div class="content-block stack">
-            <h2>كيف يتم احتساب النقاط؟ ولماذا الإجابة المبكرة أهم؟</h2>
-            <ul class="content-list">
-              <li>النقاط تنخفض تدريجيًا مع كل تلميح جديد؛ لذلك التخمين من التلميح الأول يمنح أعلى رصيد.</li>
-              <li>كلما تأخر الفريق حتى تلميحات متقدمة، تقل النقاط المحتملة لتلك الجولة.</li>
-              <li>الفريق الذي يجمع نقاطًا أكثر عبر الجولات هو الفائز في النهاية.</li>
-            </ul>
-          </div>
+            <div class="content-block stack">
+              <h2>كيف يتم احتساب النقاط؟ ولماذا الإجابة المبكرة أهم؟</h2>
+              <ul class="content-list">
+                <li>النقاط تنخفض تدريجيًا مع كل تلميح جديد؛ لذلك التخمين من التلميح الأول يمنح أعلى رصيد.</li>
+                <li>كلما تأخر الفريق حتى تلميحات متقدمة، تقل النقاط المحتملة لتلك الجولة.</li>
+                <li>الفريق الذي يجمع نقاطًا أكثر عبر الجولات هو الفائز في النهاية.</li>
+              </ul>
+            </div>
 
-          <div class="content-block stack">
-            <h2>ماذا يحدث عند الإجابة الخاطئة؟</h2>
-            <p>عند التخمين الخطأ يخسر الفريق فرصته في متابعة نفس الجولة، بينما يستمر الفريق الآخر وفق حالة الجولة الحالية حتى حسم النتيجة.</p>
-          </div>
+            <div class="content-block stack">
+              <h2>ماذا يحدث عند الإجابة الخاطئة؟</h2>
+              <p>عند التخمين الخطأ يخسر الفريق فرصته في متابعة نفس الجولة، بينما يستمر الفريق الآخر وفق حالة الجولة الحالية حتى حسم النتيجة.</p>
+            </div>
 
-          <div class="content-block stack">
-            <h2>لماذا اللعبة ممتعة وتنافسية؟</h2>
-            <p>لأنها تجمع بين المعرفة، قراءة الخصم، وإدارة المخاطرة: هل تخمّن الآن لتحصد نقاطًا أعلى، أم تنتظر تلميحًا أوضح مع نقاط أقل؟ هذا القرار يصنع الإثارة في كل جولة.</p>
-          </div>
+            <div class="content-block stack">
+              <h2>لماذا اللعبة ممتعة وتنافسية؟</h2>
+              <p>لأنها تجمع بين المعرفة، قراءة الخصم، وإدارة المخاطرة: هل تخمّن الآن لتحصد نقاطًا أعلى، أم تنتظر تلميحًا أوضح مع نقاط أقل؟ هذا القرار يصنع الإثارة في كل جولة.</p>
+            </div>
 
-          <div class="content-block stack">
-            <h2>مثال سريع على جولة</h2>
-            <p>ظهر التلميح الأول: «عاصمة أوروبية مشهورة بالفن». الفريق الأول يخمّن مبكرًا ويجيب إجابة صحيحة فيحصل على نقاط أعلى. في جولة أخرى، قد ينتظر فريق حتى التلميح الرابع ليضمن الإجابة لكنه يكسب نقاطًا أقل.</p>
-          </div>
+            <div class="content-block stack">
+              <h2>مثال سريع على جولة</h2>
+              <p>ظهر التلميح الأول: «عاصمة أوروبية مشهورة بالفن». الفريق الأول يخمّن مبكرًا ويجيب إجابة صحيحة فيحصل على نقاط أعلى. في جولة أخرى، قد ينتظر فريق حتى التلميح الرابع ليضمن الإجابة لكنه يكسب نقاطًا أقل.</p>
+            </div>
 
-          <div class="content-block stack">
-            <h2>أسئلة سريعة ونصائح</h2>
-            <ul class="content-list">
-              <li><strong>هل يمكن اللعب محليًا أو أونلاين؟</strong> نعم، متاح اللعب على جهاز واحد أو عبر غرف اللعب.</li>
-              <li><strong>كيف أزيد فرص فريقي؟</strong> اتفقوا على أسلوب واضح: من يقرر التخمين ومتى تنتظرون.</li>
-              <li><strong>متى أختار الانتظار؟</strong> عندما تكونون غير واثقين من الإجابة وتريدون تقليل احتمال الخطأ.</li>
-            </ul>
-          </div>
-        </article>
+            <div class="content-block stack">
+              <h2>أسئلة سريعة ونصائح</h2>
+              <ul class="content-list">
+                <li><strong>هل يمكن اللعب محليًا أو أونلاين؟</strong> نعم، متاح اللعب على جهاز واحد أو عبر غرف اللعب.</li>
+                <li><strong>كيف أزيد فرص فريقي؟</strong> اتفقوا على أسلوب واضح: من يقرر التخمين ومتى تنتظرون.</li>
+                <li><strong>متى أختار الانتظار؟</strong> عندما تكونون غير واثقين من الإجابة وتريدون تقليل احتمال الخطأ.</li>
+              </ul>
+            </div>
+          </article>
+        </section>
+
+        <section id="guessHintIntro" class="panel stack" aria-label="مقدمة لعبة خمنها من التلميح">
+          <p class="subtitle" style="margin:0;">لعبة فرق تعتمد على تلميحات متدرجة؛ كلما أجبت أسرع حصلت على نقاط أكثر.</p>
+          <button id="enterModeScreenBtn" class="btn primary">ابدأ الإعداد</button>
+        </section>
+      </div>
+
+      <section id="guessHintGameplayView" class="gameplay-view hidden" aria-label="وضع اللعب">
+        <div class="gameplay-toolbar">
+          <button id="backToGuessHintIntroBtn" type="button" class="back-to-intro">العودة للوصف</button>
+        </div>
+        <div id="guessHintRuntimeHost"></div>
       </section>
-
-      <section id="guessHintIntro" class="panel stack" aria-label="مقدمة لعبة خمنها من التلميح">
-        <p class="subtitle" style="margin:0;">لعبة فرق تعتمد على تلميحات متدرجة؛ كلما أجبت أسرع حصلت على نقاط أكثر.</p>
-        <button id="enterModeScreenBtn" class="btn primary">ابدأ الإعداد</button>
-      </section>
-
-      <div id="guessHintRuntimeHost"></div>
     </main>
 
     <script src="/games/guess-from-hint/runtime-loader.js"></script>
