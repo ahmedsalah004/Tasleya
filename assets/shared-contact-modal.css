@@ -173,8 +173,8 @@
 
 @media (min-width: 1024px) {
   .tasleya-contact-trigger {
-    min-height: 46px;
-    padding: 0.58rem 1.04rem;
-    font-size: 0.98rem;
+    min-height: 54px;
+    padding: 0.72rem 1.22rem;
+    font-size: 1.05rem;
   }
 }
