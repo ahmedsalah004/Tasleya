@@ -356,9 +356,63 @@
             attempt: state.attempt,
             attemptProgress: state.attemptProgress,
             timerValue: state.timerValue,
+            judgeHint: normalizeText(el.judgeHint.textContent),
+            betweenText: normalizeText(el.betweenText.textContent),
             savedAt: Date.now(),
           }));
         } catch (_) {}
+      }
+
+      function parseResumePhase(value) {
+        const allowed = new Set(["roleSelection", "reveal", "bidding", "attemptReady", "attempt", "judge", "between"]);
+        return allowed.has(value) ? value : null;
+      }
+
+      function sanitizeLocalResume(parsed) {
+        if (!parsed || typeof parsed !== "object") return null;
+        const phase = parseResumePhase(parsed.phase);
+        if (!phase) return null;
+        const questions = Array.isArray(parsed.questions) ? parsed.questions : [];
+        if (!questions.length || hasDuplicateQuestionEntries(questions)) return null;
+        const maxQuestionIndex = Math.max(0, questions.length - 1);
+        const questionIndex = Math.max(0, Math.min(toInt(parsed.questionIndex, 0), maxQuestionIndex));
+        const scoresRaw = Array.isArray(parsed.scores) ? parsed.scores : [0, 0];
+        const scores = [Math.max(0, toInt(scoresRaw[0], 0)), Math.max(0, toInt(scoresRaw[1], 0))];
+        const round = parsed.round && typeof parsed.round === "object"
+          ? { categoryRevealed: Boolean(parsed.round.categoryRevealed), readyForQuestion: normalizeReadyMap(parsed.round.readyForQuestion) }
+          : { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
+        const bid = parsed.bid && typeof parsed.bid === "object"
+          ? {
+            current: Math.max(0, toInt(parsed.bid.current, 0)),
+            turnTeam: toInt(parsed.bid.turnTeam, 0) === 1 ? 1 : 0,
+            leadingTeam: parsed.bid.leadingTeam === 0 || parsed.bid.leadingTeam === 1 ? toInt(parsed.bid.leadingTeam, 0) : null,
+            stoppedTeam: parsed.bid.stoppedTeam === 0 || parsed.bid.stoppedTeam === 1 ? toInt(parsed.bid.stoppedTeam, 0) : null,
+          }
+          : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
+        const attempt = parsed.attempt && typeof parsed.attempt === "object"
+          ? {
+            team: parsed.attempt.team === 0 || parsed.attempt.team === 1 ? toInt(parsed.attempt.team, 0) : null,
+            target: Math.max(0, toInt(parsed.attempt.target, 0)),
+            endsAt: toInt(parsed.attempt.endsAt, 0) > 0 ? toInt(parsed.attempt.endsAt, 0) : null,
+          }
+          : { team: null, target: 0, endsAt: null };
+
+        if (phase === "reveal" && !(round.categoryRevealed && round.readyForQuestion[0] && round.readyForQuestion[1])) return null;
+        if (phase === "bidding" && !round.categoryRevealed) return null;
+        if (["attemptReady", "attempt", "judge", "between"].includes(phase) && (attempt.team !== 0 && attempt.team !== 1)) return null;
+        if (["attemptReady", "attempt", "judge", "between"].includes(phase) && attempt.target < 1) return null;
+        if (phase === "attempt" && !attempt.endsAt) return null;
+
+        return {
+          ...parsed,
+          phase,
+          questions,
+          questionIndex,
+          scores,
+          round,
+          bid,
+          attempt,
+        };
       }
 
       function readLocalResume() {
@@ -367,9 +421,7 @@
           if (!raw) return null;
           const parsed = JSON.parse(raw);
           if (!parsed || parsed.version !== AUCTION_LOCAL_RESUME_VERSION || parsed.mode !== "local") return null;
-          if (!Array.isArray(parsed.questions) || !parsed.questions.length) return null;
-          if (hasDuplicateQuestionEntries(parsed.questions)) return null;
-          return parsed;
+          return sanitizeLocalResume(parsed);
         } catch (_) {
           return null;
         }
@@ -575,7 +627,7 @@
         el.raiseBidBtn.textContent = `تأكيد مزايدة ${teamName}`;
         el.bidInfo.innerHTML = `<small>أعلى مزايدة مسجلة</small>${state.bid.current}`;
         el.bidInput.min = String(minValue);
-        if (Number(el.bidInput.value) < minValue) el.bidInput.value = String(minValue);
+        el.bidInput.value = String(minValue);
         updateHeader();
       }
 
@@ -630,7 +682,7 @@
             clearInterval(state.timerId);
             state.timerId = null;
             state.attempt.endsAt = null;
-            el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+            el.judgeHint.textContent = buildJudgeHintText(state.attempt.team, state.attempt.target);
             setPhase("judge");
             setPrimaryFocusButton(el.correctBtn, [el.correctBtn, el.otherPointBtn]);
             saveLocalResume();
@@ -948,9 +1000,17 @@
         el.bidInput.parentElement.classList.add("hidden");
         el.bidCountdownBtn.disabled = !canBid;
         el.startAttemptBtn.disabled = !(gs.phase === "attempt_ready" && isHost());
+        const canHostJudgeDecision = gs.phase === "judging" && isHost();
+        el.correctBtn.disabled = !canHostJudgeDecision;
+        el.otherPointBtn.disabled = !canHostJudgeDecision;
+        el.correctBtn.classList.toggle("hidden", !isHost());
+        el.otherPointBtn.classList.toggle("hidden", !isHost());
         const onlineHasNext = state.questionIndex < Math.max(0, getOnlineQuestionTarget(gs) - 1);
         el.manualAdvanceBtn.disabled = !(isHost() && onlineHasNext);
         el.manualAdvanceBtn.textContent = hasNextPromptInSameCategoryOnline(gs) ? "السؤال التالي" : "الفئة التالية";
+        const canHostNextQuestion = gs.phase === "result" && isHost();
+        el.nextQuestionBtn.disabled = !canHostNextQuestion;
+        el.nextQuestionBtn.classList.toggle("hidden", !isHost());
       }
 
       function updateCountdownUI() {
@@ -1046,10 +1106,21 @@
       }
 
       function setDataState({ title, message, canRetry }) {
+        showScreen("game");
         el.dataStateTitle.textContent = title;
         el.dataStateMessage.textContent = message;
         el.retryLoadBtn.classList.toggle("hidden", !canRetry);
         setPhase("dataState");
+      }
+
+      function buildJudgeHintText(attemptTeam, target) {
+        if (attemptTeam !== 0 && attemptTeam !== 1) return "انتهى الوقت. احسموا النتيجة الآن.";
+        return `${teamNameAt(attemptTeam)} كان هدفه ${Math.max(1, toInt(target, 0))}. احسموا النتيجة الآن.`;
+      }
+
+      function buildBetweenTextFallback() {
+        const totalQuestions = Math.max(1, getLocalQuestionTarget());
+        return `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${totalQuestions}. جاهزون للسؤال التالي؟`;
       }
 
       async function initializeQuestions() {
@@ -1073,21 +1144,24 @@
 
       function applyLocalResume(saved) {
         if (!saved) return false;
+        const sanitized = sanitizeLocalResume(saved);
+        if (!sanitized) return false;
         state.mode = "local";
-        setTeamNamesForLocal(saved.teamNames?.[0], saved.teamNames?.[1]);
-        state.questions = saved.questions;
-        state.questionIndex = toInt(saved.questionIndex, 0);
-        state.scores = Array.isArray(saved.scores) ? [toInt(saved.scores[0], 0), toInt(saved.scores[1], 0)] : [0, 0];
-        state.round = saved.round && typeof saved.round === "object"
-          ? { categoryRevealed: Boolean(saved.round.categoryRevealed), readyForQuestion: normalizeReadyMap(saved.round.readyForQuestion) }
-          : { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
-        state.bid = saved.bid && typeof saved.bid === "object" ? saved.bid : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
-        state.attempt = saved.attempt && typeof saved.attempt === "object" ? saved.attempt : { team: null, target: 0, endsAt: null };
-        const savedCountedKeys = Array.isArray(saved.attemptProgress?.countedKeys)
-          ? saved.attemptProgress.countedKeys.map((item) => normalizeAnswerKey(item)).filter(Boolean)
+        setTeamNamesForLocal(sanitized.teamNames?.[0], sanitized.teamNames?.[1]);
+        state.questions = sanitized.questions;
+        state.questionIndex = sanitized.questionIndex;
+        state.scores = sanitized.scores;
+        state.round = sanitized.round;
+        state.bid = sanitized.bid;
+        state.attempt = sanitized.attempt;
+        const savedCountedKeys = Array.isArray(sanitized.attemptProgress?.countedKeys)
+          ? sanitized.attemptProgress.countedKeys.map((item) => normalizeAnswerKey(item)).filter(Boolean)
           : [];
         state.attemptProgress = { countedKeys: [...new Set(savedCountedKeys)], isSubmitting: false };
-        state.timerValue = toInt(saved.timerValue, 60);
+        state.timerValue = toInt(sanitized.timerValue, 60);
+        el.correctBtn.classList.remove("hidden");
+        el.otherPointBtn.classList.remove("hidden");
+        el.nextQuestionBtn.classList.remove("hidden");
         showScreen("game");
         const q = getQuestion();
         if (q) {
@@ -1103,7 +1177,7 @@
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
         renderAttemptAnswerProgress(q);
         updateManualAdvanceButton();
-        if (saved.phase === "attempt" && toInt(state.attempt.endsAt, 0) > 0) {
+        if (sanitized.phase === "attempt" && toInt(state.attempt.endsAt, 0) > 0) {
           const remain = Math.max(0, Math.ceil((toInt(state.attempt.endsAt, 0) - now()) / 1000));
           state.timerValue = remain;
           el.timerText.textContent = String(remain);
@@ -1118,21 +1192,26 @@
                 clearInterval(state.timerId);
                 state.timerId = null;
                 state.attempt.endsAt = null;
-                el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+                el.judgeHint.textContent = buildJudgeHintText(state.attempt.team, state.attempt.target);
                 setPhase("judge");
                 saveLocalResume();
               }
             }, 1000);
           } else {
             state.attempt.endsAt = null;
-            el.judgeHint.textContent = `${teamNameAt(state.attempt.team)} كان هدفه ${state.attempt.target}. احسموا النتيجة الآن.`;
+            el.judgeHint.textContent = buildJudgeHintText(state.attempt.team, state.attempt.target);
           }
-        } else if (saved.phase === "roleSelection") { renderRoundPreparationUI(); setPhase("roleSelection"); }
-        else if (saved.phase === "reveal") setPhase("reveal");
-        else if (saved.phase === "bidding") { setPhase("bidding"); renderBidding(); }
-        else if (saved.phase === "attemptReady") setPhase("attemptReady");
-        else if (saved.phase === "judge") setPhase("judge");
-        else if (saved.phase === "between") setPhase("between");
+        } else if (sanitized.phase === "roleSelection") { renderRoundPreparationUI(); setPhase("roleSelection"); }
+        else if (sanitized.phase === "reveal") setPhase("reveal");
+        else if (sanitized.phase === "bidding") { setPhase("bidding"); renderBidding(); }
+        else if (sanitized.phase === "attemptReady") setPhase("attemptReady");
+        else if (sanitized.phase === "judge") {
+          el.judgeHint.textContent = normalizeText(sanitized.judgeHint) || buildJudgeHintText(state.attempt.team, state.attempt.target);
+          setPhase("judge");
+        } else if (sanitized.phase === "between") {
+          el.betweenText.textContent = normalizeText(sanitized.betweenText) || buildBetweenTextFallback();
+          setPhase("between");
+        }
         else setPhase("roleSelection");
         updateHeader();
         saveLocalResume();
@@ -1176,9 +1255,11 @@
       });
       el.raiseBidBtn.addEventListener("click", () => {
         if (onlineState.enabled || state.phase !== "bidding") return;
-        const minValue = state.bid.current + 1; const value = Number(el.bidInput.value);
-        if (!Number.isInteger(value) || value < minValue) { el.bidInput.value = String(minValue); return; }
-        state.bid.current = value; state.bid.leadingTeam = state.bid.turnTeam; state.bid.turnTeam = 1 - state.bid.turnTeam; renderBidding();
+        state.bid.current += 1;
+        state.bid.leadingTeam = state.bid.turnTeam;
+        state.bid.turnTeam = 1 - state.bid.turnTeam;
+        el.bidInput.value = String(state.bid.current + 1);
+        renderBidding();
         saveLocalResume();
       });
       el.bidCountdownBtn.addEventListener("click", () => submitOnlineAction("BID"));
@@ -1196,10 +1277,25 @@
         if (!["attemptReady", "attempt", "judge", "between"].includes(state.phase)) return;
         advanceToNextPromptLocal();
       });
-      el.correctBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_SUCCESS") : applyJudgeResult(true));
-      el.otherPointBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_FAIL") : applyJudgeResult(false));
+      el.correctBtn.addEventListener("click", () => {
+        if (onlineState.enabled) {
+          if (!isHost()) return;
+          submitOnlineAction("JUDGE_SUCCESS");
+          return;
+        }
+        applyJudgeResult(true);
+      });
+      el.otherPointBtn.addEventListener("click", () => {
+        if (onlineState.enabled) {
+          if (!isHost()) return;
+          submitOnlineAction("JUDGE_FAIL");
+          return;
+        }
+        applyJudgeResult(false);
+      });
       el.nextQuestionBtn.addEventListener("click", () => {
         if (onlineState.enabled) {
+          if (!isHost()) return;
           submitOnlineAction("NEXT_QUESTION");
           return;
         }
@@ -1231,6 +1327,9 @@
         onlineState.unsubscribePresence = null;
         onlineState.hostClockId = null;
         if (gameRooms) gameRooms.clearGameRoomSession();
+        el.correctBtn.classList.remove("hidden");
+        el.otherPointBtn.classList.remove("hidden");
+        el.nextQuestionBtn.classList.remove("hidden");
         setTeamNamesForLocal(el.team1NameInput.value, el.team2NameInput.value);
         clearLocalResume();
         el.localResumeWrap.classList.add("hidden");
@@ -1242,6 +1341,9 @@
         state.mode = "online";
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
+        el.correctBtn.classList.remove("hidden");
+        el.otherPointBtn.classList.remove("hidden");
+        el.nextQuestionBtn.classList.remove("hidden");
         clearLocalResume();
         state.pendingLocalResume = null;
         el.localResumeWrap.classList.add("hidden");
@@ -1278,6 +1380,9 @@
         onlineState.roomData = null;
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
+        el.correctBtn.classList.remove("hidden");
+        el.otherPointBtn.classList.remove("hidden");
+        el.nextQuestionBtn.classList.remove("hidden");
         if (gameRooms) gameRooms.clearGameRoomSession();
         showScreen("mode");
       });
