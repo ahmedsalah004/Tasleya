@@ -3517,6 +3517,21 @@ body.local-three-teams .category-team-inputs {
   color: rgba(255, 215, 120, 0.88);
 }
 
+.contact-page-card {
+  gap: 1rem;
+}
+
+.contact-layout-columns {
+  display: grid;
+  gap: clamp(0.9rem, 1.4vw, 1.15rem);
+}
+
+.contact-layout-column {
+  display: grid;
+  align-content: start;
+  gap: 0.72rem;
+}
+
 @media (min-width: 1200px) {
   .info-page-shell {
     padding-top: clamp(1.2rem, 2.6vw, 2rem);
@@ -3549,6 +3564,21 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-content .card-grid.mode-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .info-page-content.contact-page-content {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(93vw, 1240px);
+  }
+
+  .info-page-content.contact-page-content > .info-page-header,
+  .info-page-content.contact-page-content > .contact-page-card {
+    max-inline-size: min(100%, 1120px);
+  }
+
+  .info-page-content.contact-page-content .contact-layout-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
   }
 }
 
