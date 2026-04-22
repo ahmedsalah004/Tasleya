@@ -430,6 +430,11 @@ html {
   margin-top: clamp(0.5rem, 2vw, 1rem);
 }
 
+.home-pair-row {
+  display: grid;
+  gap: inherit;
+}
+
 .home-panel {
   background: rgba(8, 14, 36, 0.66);
   border: 1px solid rgba(255, 215, 120, 0.35);
@@ -449,13 +454,18 @@ html {
   font-size: clamp(1.15rem, 2.3vw, 1.55rem);
 }
 
+.home-panel > .section-body-text {
+  max-inline-size: 64ch;
+  margin-bottom: 0.68rem;
+}
+
 .panel-wide > h2 {
   margin-bottom: 0.85rem;
 }
 
 .card-grid {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.76rem;
 }
 
 .steps-grid {
@@ -472,11 +482,11 @@ html {
 .mode-card {
   display: grid;
   align-content: start;
-  gap: 0.34rem;
-  background: rgba(20, 30, 68, 0.7);
+  gap: 0.36rem;
+  background: rgba(20, 30, 68, 0.66);
   border: 1px solid rgba(255, 215, 120, 0.26);
-  border-radius: 13px;
-  padding: 0.82rem 0.9rem;
+  border-radius: 14px;
+  padding: 0.9rem 0.98rem;
   color: rgba(245, 248, 255, 0.96);
   min-height: 100%;
 }
@@ -490,12 +500,12 @@ html {
 .support-block {
   display: grid;
   align-content: start;
-  gap: 0.44rem;
+  gap: 0.36rem;
   min-height: 100%;
-  padding: 0.84rem 0.92rem;
-  border-radius: 13px;
-  border: 1px solid rgba(255, 215, 120, 0.2);
-  background: rgba(18, 29, 65, 0.54);
+  padding: 0.9rem 0.98rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 215, 120, 0.24);
+  background: rgba(20, 30, 68, 0.62);
 }
 
 .mode-card h3,
@@ -551,6 +561,7 @@ html {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  margin-top: 0.62rem;
 }
 
 .chip {
@@ -782,16 +793,28 @@ html {
   }
 }
 
-@media (min-width: 1200px) {
+@media (min-width: 1024px) {
   .home-sections:not(.info-page-content) {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: clamp(0.95rem, 1.45vw, 1.3rem);
     align-items: start;
   }
 
   .home-sections:not(.info-page-content) > .home-panel {
-    grid-column: span 6;
+    grid-column: 1 / -1;
     padding: clamp(1.06rem, 1.15vw, 1.34rem);
+  }
+
+  .home-sections:not(.info-page-content) > .home-pair-row {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: clamp(0.95rem, 1.45vw, 1.3rem);
+    align-items: stretch;
+  }
+
+  .home-sections:not(.info-page-content) > .home-pair-row > .home-panel {
+    grid-column: span 6;
+    height: 100%;
   }
 
   .home-sections:not(.info-page-content) > .intro-section,
@@ -807,11 +830,11 @@ html {
   }
 
   .home-sections:not(.info-page-content) .mode-grid > .mode-card {
-    min-height: 170px;
+    min-height: 178px;
   }
 
   .home-sections:not(.info-page-content) .intro-section .compact-cards .mode-card {
-    min-height: 150px;
+    min-height: 164px;
   }
 
   .home-sections:not(.info-page-content) .support-grid {
@@ -819,8 +842,41 @@ html {
     align-items: stretch;
   }
 
+  .home-sections:not(.info-page-content) .intro-section {
+    padding: clamp(1.12rem, 1.25vw, 1.46rem);
+  }
+
+  .home-sections:not(.info-page-content) .intro-section > .card-grid.mode-grid {
+    margin-top: 0.24rem;
+  }
+
+  .home-sections:not(.info-page-content) .panel-help,
+  .home-sections:not(.info-page-content) .support-hub {
+    background: rgba(8, 14, 36, 0.58);
+    border-color: rgba(255, 215, 120, 0.3);
+  }
+
   .home-sections:not(.info-page-content) .panel-help {
     align-content: start;
+  }
+
+  .home-sections:not(.info-page-content) .panel-help .home-secondary-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-top: 0.66rem;
+  }
+
+  .home-sections:not(.info-page-content) .panel-help #instructionsBtn,
+  .home-sections:not(.info-page-content) .panel-help #installGuideBtn,
+  .home-sections:not(.info-page-content) .panel-help #contactBtn {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 58px;
+    padding: 0.74rem 0.82rem;
+    font-size: clamp(1.01rem, 1.02vw, 1.14rem);
+    line-height: 1.35;
+    letter-spacing: 0;
   }
 }
 
