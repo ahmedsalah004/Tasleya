@@ -1,5 +1,7 @@
 (function () {
-  const intro = document.getElementById("guessHintIntro");
+  const contentView = document.getElementById("guessHintContentView");
+  const gameplayView = document.getElementById("guessHintGameplayView");
+  const backToIntroBtn = document.getElementById("backToGuessHintIntroBtn");
   const runtimeHost = document.getElementById("guessHintRuntimeHost");
   const enterBtn = document.getElementById("enterModeScreenBtn");
   const runtimeUrl = "/games/guess-from-hint/runtime-fragment.html";
@@ -14,6 +16,16 @@
   let mounted = false;
   let mounting = false;
   let initialized = false;
+
+  function showContentView() {
+    if (contentView) contentView.classList.remove("hidden");
+    if (gameplayView) gameplayView.classList.add("hidden");
+  }
+
+  function showGameplayView() {
+    if (contentView) contentView.classList.add("hidden");
+    if (gameplayView) gameplayView.classList.remove("hidden");
+  }
 
   function loadScript(src) {
     return new Promise((resolve, reject) => {
@@ -51,11 +63,6 @@
     if (initialized) return;
     initialized = true;
       (function () {
-        document.getElementById("enterModeScreenBtn").addEventListener("click", () => {
-          document.getElementById("guessHintIntro").classList.add("hidden");
-          document.getElementById("modeScreen").classList.remove("hidden");
-        });
-
         const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
         const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
         const POINTS = [5, 4, 3, 2, 1];
@@ -1196,7 +1203,7 @@
     try {
       await mountRuntime();
       await Promise.all(deps.map(loadScript));
-      intro.classList.add("hidden");
+      showGameplayView();
       await initRuntime();
       const modeScreen = document.getElementById("modeScreen");
       if (modeScreen) modeScreen.classList.remove("hidden");
@@ -1205,4 +1212,10 @@
       enterBtn.disabled = false;
     }
   });
+
+  if (backToIntroBtn) {
+    backToIntroBtn.addEventListener("click", () => {
+      showContentView();
+    });
+  }
 })();
