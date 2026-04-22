@@ -58,24 +58,6 @@
         margin-bottom: 1.4rem;
       }
 
-      .quick-picks {
-        margin: 1rem 0 0;
-        padding: 0;
-        list-style: none;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-
-      .quick-picks li {
-        border: 1px solid rgba(244, 206, 108, 0.35);
-        border-radius: 999px;
-        padding: 0.33rem 0.75rem;
-        background: rgba(10, 22, 56, 0.56);
-        color: #ffedbb;
-        font-size: 0.86rem;
-      }
-
       .section-title {
         margin: 0 0 0.8rem;
         font-size: clamp(1.15rem, 3vw, 1.35rem);
@@ -249,34 +231,7 @@
         }
 
         .games-hero {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(320px, 0.8fr);
-          align-items: start;
-          gap: clamp(1rem, 2vw, 1.8rem);
           margin-bottom: 1.7rem;
-        }
-
-        .games-hero h1,
-        .games-hero .subtitle {
-          grid-column: 1;
-        }
-
-        .games-hero .quick-picks {
-          grid-column: 2;
-          grid-row: 1 / span 2;
-          align-self: stretch;
-          margin: 0;
-          padding: 0.9rem;
-          border-radius: 16px;
-          border: 1px solid rgba(244, 206, 108, 0.26);
-          background: linear-gradient(180deg, rgba(16, 33, 78, 0.55), rgba(9, 19, 47, 0.72));
-          gap: 0.55rem;
-          align-content: start;
-        }
-
-        .quick-picks li {
-          border-radius: 12px;
-          padding: 0.48rem 0.62rem;
         }
 
         .guide-wrap {
@@ -308,12 +263,6 @@
       <section class="games-hero" aria-label="اختيار لعبة تسلية">
         <h1>اختر لعبة من تسلية</h1>
         <p class="subtitle">ادخل مباشرة على اللعبة المناسبة لجلسة اليوم. كل بطاقة تعطيك نوع اللعب، مستوى التحدي، والأجواء المتوقعة لتختار بسرعة بدون قراءة طويلة.</p>
-        <ul class="quick-picks" aria-label="اختيارات سريعة">
-          <li>للجلسة الأولى: ابدأ بـ «أفلام» أو «خمن العمل من الإيموجي»</li>
-          <li>للأسئلة والمعرفة: تسلية الأصلية + الخريطة</li>
-          <li>للتحدي الجماعي: ممنوع تقولها + المزاد</li>
-          <li>للتحليل والتركيز: XO | خمّن الرابط</li>
-        </ul>
       </section>
 
       <section aria-labelledby="games-grid-title">
