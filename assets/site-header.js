@@ -1,4 +1,14 @@
 (function () {
+  const ua = window.navigator.userAgent || '';
+  const isSafariDesktopOrTablet = /Safari/i.test(ua) && !/(Chrome|CriOS|Chromium|Edg|OPR|Firefox|FxiOS|SamsungBrowser)/i.test(ua);
+  const isIOS = /iPad|iPhone|iPod/i.test(ua);
+  if (isSafariDesktopOrTablet) {
+    document.documentElement.classList.add('is-safari');
+  }
+  if (isSafariDesktopOrTablet && isIOS) {
+    document.documentElement.classList.add('is-ios-safari');
+  }
+
   const primaryLinks = [
     { href: '/', label: 'الرئيسية' },
     { href: '/games/', label: 'الألعاب' },
@@ -46,10 +56,14 @@
         />
         <span class="site-header__brand-text">تسلية</span>
       </a>
-      <nav class="site-header__nav" aria-label="روابط رئيسية">
-        ${primaryLinks.map(makeLink).join('')}
-      </nav>
-      <a class="site-header__cta" href="/">ابدأ اللعب الآن</a>
+      <div class="site-header__nav-shell">
+        <nav class="site-header__nav" aria-label="روابط رئيسية">
+          ${primaryLinks.map(makeLink).join('')}
+        </nav>
+      </div>
+      <div class="site-header__cta-shell">
+        <a class="site-header__cta" href="/">ابدأ اللعب الآن</a>
+      </div>
       <button class="site-header__toggle" type="button" aria-expanded="false" aria-controls="siteHeaderPanel">القائمة</button>
     </div>
     <nav id="siteHeaderPanel" class="site-header__panel" aria-label="قائمة التنقل على الجوال">

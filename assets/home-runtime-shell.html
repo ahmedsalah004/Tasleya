@@ -220,6 +220,24 @@
       </div>
     </div>
 
+    <div id="teamShuffleModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="teamShuffleTitle">
+      <div class="modal-content team-shuffle-modal-content">
+        <h2 id="teamShuffleTitle">توزيع اللاعبين على الفرق (اختياري)</h2>
+        <p class="team-shuffle-intro">اكتب أسماء اللاعبين كل اسم في سطر مستقل، ثم وزّعهم عشوائيًا على الفرق بشكل متوازن.</p>
+        <label for="teamShuffleNamesInput" class="team-name-label">أسماء اللاعبين</label>
+        <textarea id="teamShuffleNamesInput" class="team-shuffle-input" rows="6" placeholder="أحمد&#10;محمد&#10;سارة"></textarea>
+        <div class="modal-actions">
+          <button id="teamShuffleGenerateBtn" class="secondary-btn" type="button">توزيع عشوائي</button>
+          <button id="teamShuffleReshuffleBtn" class="secondary-btn hidden" type="button">إعادة التوزيع</button>
+        </div>
+        <div id="teamShuffleResult" class="team-shuffle-result hidden" aria-live="polite"></div>
+        <div class="modal-actions">
+          <button id="teamShuffleContinueBtn" class="success-btn" type="button">متابعة إلى اختيار الفئات</button>
+          <button id="teamShuffleSkipBtn" class="ghost-btn" type="button">متابعة بدون توزيع</button>
+        </div>
+      </div>
+    </div>
+
     <div id="groupModeModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="groupModeModalTitle">
       <div class="modal-content local-teams-modal-content">
         <h2 id="groupModeModalTitle">اختر طريقة اللعب الجماعي</h2>
