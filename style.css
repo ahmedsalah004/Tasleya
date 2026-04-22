@@ -2720,6 +2720,38 @@ body.image-question-active {
   flex: 1 1 120px;
 }
 
+.category-modal-content .category-action-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-modal-content .category-action-row > button {
+  min-height: 46px;
+}
+
+.category-modal-content .category-start-btn {
+  font-size: clamp(1rem, 0.34vw + 0.9rem, 1.08rem);
+  box-shadow: 0 12px 30px rgba(18, 155, 111, 0.42);
+  letter-spacing: 0.01em;
+}
+
+.category-modal-content .category-random-btn {
+  background: linear-gradient(135deg, rgba(69, 99, 182, 0.66), rgba(45, 73, 152, 0.66));
+  border: 1px solid rgba(127, 157, 238, 0.56);
+  color: rgba(233, 241, 255, 0.95);
+  box-shadow: none;
+}
+
+.category-modal-content .category-cancel-btn {
+  background: transparent;
+  border: 1px solid rgba(108, 132, 206, 0.4);
+  color: rgba(188, 204, 240, 0.84);
+  box-shadow: none;
+  min-width: 88px;
+}
+
 @media (min-width: 860px) {
   .category-modal-content {
     width: min(980px, 100%);
@@ -3329,6 +3361,15 @@ body.image-question-active {
     margin-top: auto;
     bottom: calc(-0.1rem + env(safe-area-inset-bottom));
     padding-bottom: calc(0.12rem + env(safe-area-inset-bottom));
+  }
+
+  #categoryModal .category-action-row {
+    grid-template-columns: 1fr;
+    gap: 0.38rem;
+  }
+
+  #categoryModal .category-action-row > button {
+    width: 100%;
   }
 
   #categoryModal .modal-actions > button {
