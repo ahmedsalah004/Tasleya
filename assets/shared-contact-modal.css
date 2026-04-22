@@ -170,3 +170,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (min-width: 1024px) {
+  .tasleya-contact-trigger {
+    min-height: 46px;
+    padding: 0.58rem 1.04rem;
+    font-size: 0.98rem;
+  }
+}
