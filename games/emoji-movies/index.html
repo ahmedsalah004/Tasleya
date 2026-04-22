@@ -91,38 +91,62 @@
         line-height: 1.8;
       }
 
-      .intro-guide {
-        margin-bottom: 1rem;
+      .detail-stack {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .detail-hero,
+      .detail-explainer,
+      .detail-cta {
+        display: grid;
+        gap: 0.95rem;
+      }
+
+      .detail-title {
+        margin: 0;
+        color: #fff1bf;
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
+      }
+
+      .detail-body {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.85;
+      }
+
+      .detail-grid {
         display: grid;
         gap: 0.9rem;
       }
 
-      .guide-block {
-        border-radius: 14px;
-        border: 1px solid rgba(244, 206, 108, 0.26);
-        background: rgba(6, 17, 45, 0.68);
-        padding: 0.85rem 0.9rem;
+      .detail-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.32);
+        background: rgba(5, 17, 45, 0.72);
+        padding: 0.9rem 1rem;
+        display: grid;
+        gap: 0.6rem;
       }
 
-      .guide-title {
-        margin: 0 0 0.5rem;
-        color: #fff1bf;
-        font-size: 1.07rem;
+      .detail-card h2 {
+        margin: 0;
+        color: #fff2c3;
+        font-size: 1.05rem;
       }
 
-      .guide-text,
-      .guide-list {
+      .detail-card p,
+      .detail-card li {
         margin: 0;
         color: var(--text-muted);
-        line-height: 1.8;
+        line-height: 1.85;
       }
 
-      .guide-list {
-        padding: 0 1.1rem 0 0;
-      }
-
-      .guide-list li + li {
-        margin-top: 0.35rem;
+      .detail-card ul {
+        margin: 0;
+        padding: 0 1.2rem 0 0;
+        display: grid;
+        gap: 0.45rem;
       }
 
       .panel {
@@ -345,15 +369,18 @@
           max-width: 44ch;
         }
 
-        .intro-guide {
-          margin-bottom: 1.2rem;
+        .detail-stack {
+          gap: 1.2rem;
+        }
+
+        .detail-grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 1rem;
         }
 
-        .guide-block {
-          border-radius: 16px;
-          padding: 1rem 1.05rem;
+        .detail-card {
+          border-radius: 18px;
+          padding: 1rem 1.08rem;
         }
 
         .panel {
@@ -429,63 +456,54 @@
     <main class="shell">
       <a class="top-nav" href="/games/">← العودة للألعاب</a>
       <div id="emojiContentView">
-        <h1>خمن العمل من الإيموجي</h1>
-        <p class="subtitle">تظهر لك رموز إيموجي تمثل اسم فيلم أو مسلسل أو كرتون. لكل فريق ٦٠ ثانية للتخمين، والفريق الذي يكتب الإجابة الصحيحة يحصل على النقاط.</p>
+        <div class="detail-stack">
+          <section class="panel detail-hero" aria-label="مقدمة لعبة خمن العمل من الإيموجي">
+            <h1>خمن العمل من الإيموجي</h1>
+            <p class="subtitle">تظهر لك رموز إيموجي تمثل اسم فيلم أو مسلسل أو كرتون. لكل فريق ٦٠ ثانية للتخمين، والفريق الذي يكتب الإجابة الصحيحة يحصل على النقاط.</p>
+            <p class="detail-body">لعبة جماعية سريعة تجمع سرعة الربط الذهني مع متعة النقاش. كل بطاقة إيموجي تعطي إشارة بصرية تحتاج تفسيرًا ذكيًا، وهذا يجعل كل جولة مختلفة حتى مع نفس المجموعة.</p>
+          </section>
 
-        <section class="panel intro-guide" aria-label="شرح لعبة خمن العمل من الإيموجي">
-          <article class="guide-block">
-            <h2 class="guide-title">ما هي لعبة خمن العمل من الإيموجي؟</h2>
-            <p class="guide-text">هي لعبة جماعية سريعة تعتمد على تفسير مجموعة إيموجي وتحويلها إلى اسم عمل معروف: فيلم أو مسلسل أو كرتون أو برنامج. الفكرة أن الرموز تعطيك معنى قريب من العنوان أو أشهر مشهد فيه، وتحتاج تربط بينها بسرعة.</p>
-          </article>
+          <section class="panel detail-explainer" aria-label="شرح لعبة خمن العمل من الإيموجي">
+            <h2 class="detail-title">كيف تلعبون؟ وما الذي يميز التجربة؟</h2>
+            <div class="detail-grid">
+              <article class="detail-card">
+                <h2>كيف تمثل الإيموجي الأعمال؟</h2>
+                <p>كل بطاقة تعرض تركيبة رموز مختارة بعناية. أحيانًا تكون مباشرة مثل بطل + مكان، وأحيانًا تعتمد على إشارة لفظية أو صورة ذهنية من العمل نفسه.</p>
+              </article>
+              <article class="detail-card">
+                <h2>طريقة اللعب بين الفريقين</h2>
+                <ul>
+                  <li>يتقسم اللاعبون إلى فريقين، وكل مرة يلعب فريق واحد فقط.</li>
+                  <li>يأخذ الفريق دوره ويحاول يكتب الإجابة الصحيحة أثناء وقته.</li>
+                  <li>بعد انتهاء الدور أو كشف الإجابة، ينتقل اللعب للفريق الآخر.</li>
+                </ul>
+              </article>
+              <article class="detail-card">
+                <h2>الوقت، التخمين، والنقاط</h2>
+                <ul>
+                  <li>لكل دور مؤقت واضح، والسباق يكون ضد الثواني.</li>
+                  <li>تقدر تكتب التخمين مباشرة داخل خانة الإجابة أثناء الدور.</li>
+                  <li>النقاط تُضاف للفريق عند الإجابة الصحيحة حسب البطاقة المعروضة.</li>
+                </ul>
+              </article>
+              <article class="detail-card">
+                <h2>FAQ / نصائح سريعة</h2>
+                <ul>
+                  <li>ابدأوا بتخمين النوع أولًا: فيلم؟ مسلسل؟ كرتون؟</li>
+                  <li>لا تضيّعوا الوقت على إجابة واحدة؛ جرّبوا أكثر من احتمال بسرعة.</li>
+                  <li>اختاروا لاعبًا للكتابة ولاعبًا للقراءة بصوت واضح لتنظيم الدور.</li>
+                  <li>إذا علِقتم، استخدموا المساعدة ثم ابنوا التخمين على الكلمات الأقرب.</li>
+                </ul>
+              </article>
+            </div>
+          </section>
 
-          <article class="guide-block">
-            <h2 class="guide-title">كيف تمثل الإيموجي الأعمال؟</h2>
-            <p class="guide-text">كل بطاقة تعرض تركيبة رموز مختارة بعناية. أحيانًا تكون مباشرة مثل بطل + مكان، وأحيانًا تكون ذكية وتعتمد على إشارة لفظية أو صورة ذهنية من العمل نفسه، لذلك التخمين يحتاج تعاون الفريق وليس الحفظ فقط.</p>
-          </article>
-
-          <article class="guide-block">
-            <h2 class="guide-title">طريقة اللعب بين الفريقين</h2>
-            <ul class="guide-list">
-              <li>يتقسم اللاعبون إلى فريقين، وكل مرة يلعب فريق واحد فقط.</li>
-              <li>يأخذ الفريق دوره ويحاول يكتب الإجابة الصحيحة أثناء وقته.</li>
-              <li>بعد انتهاء الدور أو كشف الإجابة، ينتقل اللعب للفريق الآخر.</li>
-            </ul>
-          </article>
-
-          <article class="guide-block">
-            <h2 class="guide-title">الوقت، التخمين، والنقاط</h2>
-            <ul class="guide-list">
-              <li>لكل دور مؤقت واضح، والسباق يكون ضد الثواني.</li>
-              <li>تقدر تكتب التخمين مباشرة داخل خانة الإجابة أثناء الدور.</li>
-              <li>النقاط تُضاف للفريق عند الإجابة الصحيحة حسب البطاقة المعروضة.</li>
-            </ul>
-          </article>
-
-          <article class="guide-block">
-            <h2 class="guide-title">لماذا اللعبة ممتعة في الجلسات؟</h2>
-            <p class="guide-text">لأنها تجمع السرعة والضحك والعصف الذهني في نفس الوقت. كل لاعب يشوف الإيموجي بطريقة مختلفة، وهذا يخلق نقاشات وتعليقات مضحكة ويخلي حتى المتفرجين متفاعلين مع كل جولة.</p>
-          </article>
-
-          <article class="guide-block">
-            <h2 class="guide-title">مثال جولة سريعة</h2>
-            <p class="guide-text">ظهر الإيموجي: 👑🦁. فريقك أمامه وقت محدود. لاعب يقول "فيلم كرتون عن أسد ملك"، لاعب آخر يكتب التخمين في الخانة. إذا كانت الإجابة صحيحة قبل انتهاء الوقت، تُحتسب النقاط مباشرة للفريق.</p>
-          </article>
-
-          <article class="guide-block">
-            <h2 class="guide-title">FAQ / نصائح سريعة</h2>
-            <ul class="guide-list">
-              <li>ابدأوا بتخمين النوع أولًا: فيلم؟ مسلسل؟ كرتون؟</li>
-              <li>لا تضيّعوا الوقت على إجابة واحدة؛ جرّبوا أكثر من احتمال بسرعة.</li>
-              <li>اختاروا لاعبًا للكتابة ولاعبًا للقراءة بصوت واضح لتنظيم الدور.</li>
-              <li>إذا علِقتم، استخدموا المساعدة ثم ابنوا التخمين على الكلمات الأقرب.</li>
-            </ul>
-          </article>
-        </section>
-
-        <section id="emojiIntro" class="panel">
-          <p class="card-extra-text">اختبر سرعة الربط بين الإيموجي واسم العمل. تبدأ واجهة اللعب بعد الضغط على الزر التالي.</p>
-          <button id="enterEmojiGameBtn" type="button" class="btn">ابدأ الإعداد</button>
-        </section>
+          <section id="emojiIntro" class="panel detail-cta" aria-label="بدء إعداد لعبة خمن العمل من الإيموجي">
+            <h2 class="detail-title">جاهزين تبدأون؟</h2>
+            <p class="detail-body">اختبر سرعة الربط بين الإيموجي واسم العمل. تبدأ واجهة اللعب بعد الضغط على الزر التالي.</p>
+            <button id="enterEmojiGameBtn" type="button" class="btn">ابدأ الإعداد</button>
+          </section>
+        </div>
       </div>
 
       <section id="emojiGameplayView" class="gameplay-view hidden" aria-label="وضع اللعب">
