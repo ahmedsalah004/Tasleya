@@ -57,7 +57,8 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest" />
     <!-- Deployment version token: keep all homepage shell assets on the same v to avoid stale mix. -->
-        <link rel="stylesheet" href="style.css?v=1.2.6" />
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1226641775451871" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="style.css?v=1.2.6" />
     <link rel="stylesheet" href="mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
       <link rel="stylesheet" href="/assets/site-header.css?v=1.2.6" />
   </head>
@@ -74,12 +75,31 @@
           <span class="hero-pill">محتوى عربي أولًا</span>
         </div>
         <div class="start-actions">
-          <div class="play-flow-shell" aria-label="روابط البدء">
-            <a class="cta-primary" href="/play/">ابدأ اللعب</a>
-            <a class="cta-secondary" href="/play/">ابدأ اللعب الجماعي</a>
-            <a id="gamesHubBtn" href="/games/">
-              <span class="games-hub-btn__title">استكشف ألعابًا أخرى</span>
-            </a>
+          <div class="play-flow-shell" aria-live="polite" aria-atomic="true">
+            <div id="resumeGamePrompt" class="resume-game-prompt hidden" role="group" aria-label="متابعة">
+              <p class="resume-game-prompt-text"></p>
+              <div class="resume-game-actions">
+                <button id="resumeGameBtn" type="button"></button>
+                <button id="discardResumeGameBtn" type="button"></button>
+              </div>
+            </div>
+            <div id="homepagePrimaryStep" class="home-flow-step">
+              <button id="startLocalBtn" class="cta-primary" type="button">ابدأ اللعب</button>
+              <button id="startOnlineBtn" class="cta-secondary" type="button">ابدأ اللعب الجماعي</button>
+              <a id="gamesHubBtn" href="/games/" aria-haspopup="dialog" aria-controls="gamesPromoPopup">
+                <span class="games-hub-btn__title">استكشف ألعابًا أخرى</span>
+              </a>
+            </div>
+            <div id="homepageGroupDeviceStep" class="home-flow-step hidden">
+              <button id="homeGroupOneDeviceBtn" type="button">اللعب على جهاز واحد</button>
+              <button id="homeGroupMultiDeviceBtn" type="button">اللعب على أجهزة مختلفة</button>
+              <button id="homeGroupDeviceBackBtn" class="flow-back-button" type="button">رجوع</button>
+            </div>
+            <div id="homepageGroupTeamsStep" class="home-flow-step hidden">
+              <button id="homeGroupTwoTeamsBtn" type="button">فريقان</button>
+              <button id="homeGroupThreeTeamsBtn" type="button">3 فرق</button>
+              <button id="homeGroupTeamsBackBtn" class="flow-back-button" type="button">رجوع</button>
+            </div>
           </div>
         </div>
         <p class="scroll-hint">↓ اكتشف المزيد</p>
@@ -155,9 +175,9 @@
           <h2 id="helpActionsTitle">روابط مساعدة سريعة</h2>
           <p class="section-body-text">إذا رغبت في معرفة التفاصيل قبل اللعب، ستجدها هنا بدون تشتيت الشاشة الأولى.</p>
           <div class="home-secondary-actions">
-            <a class="secondary-button" href="/how-to-play/">التعليمات</a>
-            <a class="secondary-button" href="/how-to-play/#install-guide">📱 ثبت تسلية كتطبيق</a>
-            <a class="secondary-button" href="/contact/">تواصل معنا</a>
+            <button id="instructionsBtn" class="secondary-button" type="button">التعليمات</button>
+            <button id="installGuideBtn" class="secondary-button" type="button">📱 ثبت تسلية كتطبيق</button>
+            <button id="contactBtn" class="secondary-button" type="button">تواصل معنا</button>
           </div>
         </section>
 
@@ -262,8 +282,165 @@
 
     </div>
 
-    
+    <div id="gamesPromoPopup" class="games-promo-popup hidden" role="dialog" aria-modal="true" aria-labelledby="gamesPromoTitle">
+      <div class="games-promo-popup__backdrop" data-popup-close="true"></div>
+      <div class="games-promo-popup__card">
+        <button id="closeGamesPromoPopupBtn" class="games-promo-popup__close" type="button" aria-label="إغلاق النافذة">×</button>
+        <h2 id="gamesPromoTitle" class="games-promo-popup__title">ألعاب أكثر… متعة أكبر!</h2>
+        <p class="games-promo-popup__subtitle">اكتشف ألعاب تسلية الجديدة</p>
+        <div class="games-promo-popup__media-wrap">
+          <img src="/assets/games-preview.webp" alt="معاينة ألعاب تسلية" class="games-promo-popup__media" loading="lazy" />
+        </div>
+        <a id="gamesPromoPopupCtaBtn" class="games-promo-popup__cta" href="/games/">اكتشف الألعاب الآن</a>
+      </div>
+    </div>
 
-    <script src="/assets/site-header.js?v=1.2.6" defer></script>
+    <div id="instructionsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="instructionsTitle">
+      <div class="modal-content instructions-content">
+        <h2 id="instructionsTitle">تعليمات اللعبة</h2>
+
+        <div class="instructions-accordion" aria-label="أقسام تعليمات اللعبة">
+          <details class="instructions-section" open>
+            <summary>فكرة اللعبة</summary>
+            <p>تسلية هي لعبة أسئلة عربية ممتعة يمكن لعبها بمفردك أو بين فريقين أو أكثر.<br />اختر الفئات، أجب عن الأسئلة، واجمع أكبر عدد من النقاط للفوز.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>النقاط</summary>
+            <p>كل سؤال له قيمة نقاط مختلفة.<br />الأسئلة الأصعب تعطي نقاطًا أكثر.<br />اللاعب أو الفريق الذي يجمع أكبر عدد من النقاط يتصدر الجولة.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>نظام الأدوار</summary>
+            <p>عند اللعب بأكثر من فريق، يتم التناوب بين الفرق.<br />وعند اللعب بفريق واحد، يتحكم اللاعب نفسه في جميع الأسئلة.<br />يعرض النظام خطوات التفاعل بشكل متسلسل وواضح أثناء كل سؤال.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>الوسائل المساعدة</summary>
+            <p>بعض الأسئلة قد تتضمن وسائل مساعدة مثل "تلميح" و"اختيارات".<br />التلميح يقدّم معلومة إضافية عن الإجابة، مثل الحرف الأول.<br />الاختيارات تعرض عدة إجابات ممكنة، وعلى اللاعب اختيار الإجابة الصحيحة منها.</p>
+          </details>
+
+          <details class="instructions-section">
+            <summary>أنماط اللعب</summary>
+            <p>لعب على جهاز واحد:<br />هذا الوضع مخصص عندما يلعب جميع اللاعبين على نفس الجهاز.<br />يمكن اختيار فريق واحد للعب الفردي، أو أكثر من فريق للعب الجماعي.<br />عند اختيار فريق واحد، يبدأ اللعب بعد اختيار 3 فئات فقط.<br />وعند اختيار أكثر من فريق، يبدأ اللعب بعد اختيار 6 فئات.</p>
+            <p>لعب على أجهزة مختلفة:<br />يمكن بدء جلسة مشتركة ثم دعوة بقية اللاعبين للمشاركة.<br />تتبع كل مجموعة دورها بالتسلسل نفسه لضمان عدالة الجولة.</p>
+          </details>
+        </div>
+
+        <div class="modal-actions">
+          <button id="closeInstructionsBtn" class="ghost-btn" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="installGuideModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="installGuideTitle">
+      <div class="modal-content install-guide-content">
+        <h2 id="installGuideTitle">تثبيت تسلية كتطبيق</h2>
+        <p id="installGuideMobileIntro">يمكنك تثبيت تسلية على شاشة الهاتف الرئيسية لتشغيلها بسرعة كتطبيق.</p>
+        <p id="installGuideDesktopMessage" class="hidden">لتثبيت تسلية كتطبيق، افتح tasleya.online من هاتفك.</p>
+
+        <div id="installGuideMobileSteps" class="install-guide-steps" aria-label="خطوات التثبيت">
+          <p>
+            <strong class="install-step-platform">على iPhone (Safari):</strong>
+            <span class="install-step-action">اضغط زر المشاركة ثم اختر <span class="install-inline-en">Add to Home Screen</span></span>
+          </p>
+          <p>
+            <strong class="install-step-platform">على Android (Chrome):</strong>
+            <span class="install-step-action">اضغط <span class="install-inline-en">Install App</span> أو <span class="install-inline-en">Add to Home Screen</span></span>
+          </p>
+        </div>
+
+        <div class="modal-actions">
+          <button id="closeInstallGuideBtn" class="ghost-btn" type="button">إغلاق</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="contactModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+      <div class="modal-content contact-modal-content">
+        <h2 id="contactTitle">تواصل معنا</h2>
+        <p class="contact-modal-subtitle">اكتب رسالتك هنا</p>
+        <form id="contactForm" action="https://formspree.io/f/mnjobyeq" method="POST">
+          <textarea
+            id="contactMessageInput"
+            name="message"
+            class="contact-message-input"
+            rows="7"
+            maxlength="1000"
+            placeholder="اكتب رسالتك هنا"
+            aria-label="رسالة التواصل"
+          ></textarea>
+          <p class="contact-helper-text">للتواصل المباشر عبر البريد الإلكتروني: <a href="mailto:contact@tasleya.online" class="inline-email-link">contact@tasleya.online</a></p>
+          <p class="contact-helper-text">إذا رغبت في الحصول على رد، يمكنك كتابة اسمك وبريدك الإلكتروني.</p>
+          <label class="contact-input-label" for="contactNameInput">الاسم (اختياري)</label>
+          <input
+            id="contactNameInput"
+            name="name"
+            class="contact-optional-input"
+            type="text"
+            maxlength="100"
+            placeholder="الاسم (اختياري)"
+            aria-label="الاسم (اختياري)"
+          />
+          <label class="contact-input-label" for="contactEmailInput">البريد الإلكتروني (اختياري)</label>
+          <input
+            id="contactEmailInput"
+            name="email"
+            class="contact-optional-input"
+            type="email"
+            maxlength="254"
+            inputmode="email"
+            autocomplete="email"
+            placeholder="البريد الإلكتروني (اختياري)"
+            aria-label="البريد الإلكتروني (اختياري)"
+          />
+          <p class="contact-privacy-note">لن نستخدم بياناتك إلا إذا كنت ترغب في تلقي رد.</p>
+          <p id="contactFeedback" class="contact-feedback hidden" role="status" aria-live="polite"></p>
+          <div class="modal-actions contact-modal-actions">
+            <button id="sendContactBtn" class="primary-btn" type="submit">إرسال</button>
+            <button id="closeContactBtn" class="ghost-btn" type="button">إغلاق</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div id="runtimeShellMount" data-shell="homepage-game-runtime"></div>
+
+    <!-- deploy-version: 1.2.6 -->
+    <script>
+      (async function bootstrapHomepageRuntime() {
+        const mount = document.getElementById("runtimeShellMount");
+        if (!mount) return;
+
+        try {
+          const response = await fetch('/assets/home-runtime-shell.html?v=1.2.6', { cache: 'no-store' });
+          if (!response.ok) throw new Error('runtime shell fetch failed');
+          mount.innerHTML = await response.text();
+
+          const scriptUrls = [
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
+            'https://www.gstatic.com/firebasejs/10.12.5/firebase-analytics-compat.js',
+            '/firebase-config.js?v=1.2.6',
+            '/game-config.js?v=1.2.6',
+            '/script.js?v=1.2.6'
+          ];
+
+          for (const src of scriptUrls) {
+            await new Promise((resolve, reject) => {
+              const s = document.createElement('script');
+              s.src = src;
+              s.onload = resolve;
+              s.onerror = reject;
+              document.body.appendChild(s);
+            });
+          }
+        } catch (error) {
+          console.error('Failed to bootstrap homepage runtime shell', error);
+        }
+      })();
+    </script>
+      <script src="/assets/site-header.js?v=1.2.6" defer></script>
   </body>
 </html>
