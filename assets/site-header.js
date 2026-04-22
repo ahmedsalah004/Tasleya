@@ -32,6 +32,7 @@
   };
 
   const currentPath = normalizePath(window.location.pathname);
+  const activeSupportLink = supportLinks.find((link) => normalizePath(link.href) === currentPath) || null;
   const makeLink = (link) => {
     const isActive = normalizePath(link.href) === currentPath;
     return `<a class="site-header__link" href="${link.href}"${isActive ? ' aria-current="page"' : ''}>${link.label}</a>`;
@@ -61,6 +62,22 @@
           ${primaryLinks.map(makeLink).join('')}
         </nav>
       </div>
+      <div class="site-header__utility">
+        <button
+          class="site-header__support-toggle${activeSupportLink ? ' is-active' : ''}"
+          type="button"
+          aria-expanded="false"
+          aria-controls="siteHeaderSupportMenu"
+        >
+          ${activeSupportLink ? activeSupportLink.label : 'روابط مهمة'}
+        </button>
+        <div id="siteHeaderSupportMenu" class="site-header__support-menu" role="menu" aria-label="روابط الدعم والمعلومات">
+          ${supportLinks.map((link) => {
+            const isActive = normalizePath(link.href) === currentPath;
+            return `<a class="site-header__support-link" role="menuitem" href="${link.href}"${isActive ? ' aria-current="page"' : ''}>${link.label}</a>`;
+          }).join('')}
+        </div>
+      </div>
       <div class="site-header__cta-shell">
         <a class="site-header__cta" href="/">ابدأ اللعب الآن</a>
       </div>
@@ -79,10 +96,41 @@
   host.prepend(header);
 
   const toggleButton = header.querySelector('.site-header__toggle');
+  const supportToggle = header.querySelector('.site-header__support-toggle');
+  const closeSupportMenu = () => {
+    header.classList.remove('site-header--support-open');
+    if (supportToggle) {
+      supportToggle.setAttribute('aria-expanded', 'false');
+    }
+  };
+
+  if (supportToggle) {
+    supportToggle.addEventListener('click', () => {
+      const shouldOpen = !header.classList.contains('site-header--support-open');
+      header.classList.toggle('site-header--support-open', shouldOpen);
+      supportToggle.setAttribute('aria-expanded', String(shouldOpen));
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!header.contains(event.target)) {
+        closeSupportMenu();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeSupportMenu();
+      }
+    });
+  }
+
   if (!toggleButton) return;
 
   toggleButton.addEventListener('click', () => {
     const isOpen = header.classList.toggle('site-header--open');
     toggleButton.setAttribute('aria-expanded', String(isOpen));
+    if (isOpen) {
+      closeSupportMenu();
+    }
   });
 })();
