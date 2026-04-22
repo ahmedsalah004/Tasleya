@@ -97,6 +97,27 @@
         background: rgba(14, 27, 67, 0.38);
       }
 
+      .shell.gameplay-active .top-nav,
+      .shell.gameplay-active .back-to-intro {
+        min-height: 46px;
+        padding: 0.58rem 1.05rem;
+        font-size: 0.98rem;
+      }
+
+      .shell.gameplay-active .gameplay-view {
+        margin-top: 0.25rem;
+      }
+
+      .shell.gameplay-active .gameplay-toolbar {
+        margin-top: 0.35rem;
+      }
+
+      .shell.gameplay-active .tasleya-contact-trigger {
+        min-height: 46px;
+        padding: 0.56rem 1.02rem;
+        font-size: 0.95rem;
+      }
+
       h1 {
         margin: 1rem 0 0.55rem;
         font-size: clamp(1.8rem, 4.8vw, 2.8rem);
@@ -357,6 +378,27 @@
       @media (min-width: 1024px) {
         .shell {
           width: min(1160px, 94vw);
+        }
+
+        .shell.gameplay-active .gameplay-view {
+          margin-top: 0.55rem;
+        }
+
+        .shell.gameplay-active .gameplay-toolbar {
+          margin-top: 0.55rem;
+        }
+
+        .shell.gameplay-active .top-nav,
+        .shell.gameplay-active .back-to-intro {
+          min-height: 52px;
+          padding: 0.68rem 1.2rem;
+          font-size: 1.04rem;
+        }
+
+        .shell.gameplay-active .tasleya-contact-trigger {
+          min-height: 50px;
+          padding: 0.64rem 1.1rem;
+          font-size: 1rem;
         }
 
         h1 {

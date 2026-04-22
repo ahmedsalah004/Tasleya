@@ -4,6 +4,7 @@
   const backToIntroBtn = document.getElementById("backToGuessHintIntroBtn");
   const runtimeHost = document.getElementById("guessHintRuntimeHost");
   const enterBtn = document.getElementById("enterModeScreenBtn");
+  const shell = document.querySelector(".shell");
   const runtimeUrl = "/games/guess-from-hint/runtime-fragment.html";
   const deps = [
     "https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js",
@@ -20,11 +21,13 @@
   function showContentView() {
     if (contentView) contentView.classList.remove("hidden");
     if (gameplayView) gameplayView.classList.add("hidden");
+    if (shell) shell.classList.remove("gameplay-active");
   }
 
   function showGameplayView() {
     if (contentView) contentView.classList.add("hidden");
     if (gameplayView) gameplayView.classList.remove("hidden");
+    if (shell) shell.classList.add("gameplay-active");
   }
 
   function loadScript(src) {
