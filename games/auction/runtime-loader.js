@@ -57,6 +57,7 @@
         round: { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } },
         bid: { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null },
         attempt: { team: null, target: 0, endsAt: null },
+        attemptProgress: { questionKey: null, acceptedKeys: [], totalAnswerCount: 1, message: "" },
         timerValue: 60,
         timerId: null,
         questionBank: [],
@@ -139,6 +140,11 @@
         attemptNowTeam: document.getElementById("attemptNowTeam"),
         timerQuestionCategory: document.getElementById("timerQuestionCategory"),
         timerQuestionPrompt: document.getElementById("timerQuestionPrompt"),
+        acceptedAnswersProgress: document.getElementById("acceptedAnswersProgress"),
+        attemptAnswerInput: document.getElementById("attemptAnswerInput"),
+        submitAttemptAnswerBtn: document.getElementById("submitAttemptAnswerBtn"),
+        attemptAnswerMessage: document.getElementById("attemptAnswerMessage"),
+        manualAdvanceBtn: document.getElementById("manualAdvanceBtn"),
         judgeHint: document.getElementById("judgeHint"),
         correctBtn: document.getElementById("correctBtn"),
         otherPointBtn: document.getElementById("otherPointBtn"),
@@ -216,6 +222,56 @@
         if (!question || typeof question !== "object") return [];
         const source = Array.isArray(question.acceptedAnswers) ? question.acceptedAnswers : Array.isArray(question.accepted_answers) ? question.accepted_answers : [];
         return source.map((item) => String(item ?? "").trim()).filter(Boolean);
+      }
+
+      function normalizeAnswerKey(value) {
+        return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+      }
+
+      function getQuestionAnswerCap(question) {
+        if (!question || typeof question !== "object") return 1;
+        const rawCap = Number.parseInt(
+          normalizeText(String(question.totalAnswerCount ?? question.total_answer_count ?? "")),
+          10
+        );
+        if (Number.isFinite(rawCap) && rawCap >= 1) return rawCap;
+        const fallback = getAcceptedAnswers(question).length;
+        return Math.max(1, fallback);
+      }
+
+      function syncAttemptProgressQuestion(question) {
+        const key = getQuestionUniqueKey(question);
+        const totalAnswerCount = getQuestionAnswerCap(question);
+        if (state.attemptProgress.questionKey === key && state.attemptProgress.totalAnswerCount === totalAnswerCount) return;
+        state.attemptProgress = { questionKey: key, acceptedKeys: [], totalAnswerCount, message: "" };
+      }
+
+      function renderAttemptProgress() {
+        const total = Math.max(1, Number(state.attemptProgress.totalAnswerCount) || 1);
+        const count = Array.isArray(state.attemptProgress.acceptedKeys) ? state.attemptProgress.acceptedKeys.length : 0;
+        el.acceptedAnswersProgress.textContent = `الإجابات المقبولة: ${count} / ${total}`;
+        const message = normalizeText(state.attemptProgress.message);
+        el.attemptAnswerMessage.textContent = message;
+        el.attemptAnswerMessage.classList.toggle("hidden", !message);
+        const capReached = count >= total;
+        el.submitAttemptAnswerBtn.disabled = state.phase !== "attempt" || capReached || onlineState.enabled;
+        if (capReached) {
+          el.attemptAnswerInput.setAttribute("aria-disabled", "true");
+        } else {
+          el.attemptAnswerInput.removeAttribute("aria-disabled");
+        }
+      }
+
+      function getManualAdvanceLabel() {
+        const current = getQuestion();
+        const next = state.questions[state.questionIndex + 1];
+        if (!current || !next) return "الفئة التالية";
+        return normalizeText(current.category) === normalizeText(next.category) ? "السؤال التالي" : "الفئة التالية";
+      }
+
+      function updateManualAdvanceButton() {
+        el.manualAdvanceBtn.textContent = getManualAdvanceLabel();
+        el.manualAdvanceBtn.disabled = state.phase !== "attempt" || onlineState.enabled;
       }
 
       function setJudgePanelExpanded(expanded) {
@@ -305,6 +361,7 @@
             round: state.round,
             bid: state.bid,
             attempt: state.attempt,
+            attemptProgress: state.attemptProgress,
             timerValue: state.timerValue,
             savedAt: Date.now(),
           }));
@@ -349,6 +406,8 @@
         if (name === "attemptReady") setPrimaryFocusButton(el.startAttemptBtn, [el.startAttemptBtn]);
         if (name === "judge") setPrimaryFocusButton(el.correctBtn, [el.correctBtn, el.otherPointBtn]);
         if (name === "between") setPrimaryFocusButton(el.nextQuestionBtn, [el.nextQuestionBtn]);
+        renderAttemptProgress();
+        updateManualAdvanceButton();
         updateFlowSteps();
       }
 
@@ -471,6 +530,9 @@
           updateHeader();
           return;
         }
+        syncAttemptProgressQuestion(q);
+        el.attemptAnswerInput.value = "";
+        renderAttemptProgress();
         el.questionCategory.textContent = q.category || "-";
         el.questionPrompt.textContent = q.prompt;
         renderJudgeAssistReference(q);
@@ -554,6 +616,10 @@
         if (state.timerId) return;
         const q = getQuestion();
         state.judgeAssistOpen = false;
+        syncAttemptProgressQuestion(q);
+        state.attemptProgress.message = "";
+        el.attemptAnswerInput.value = "";
+        renderAttemptProgress();
         state.attempt.endsAt = now() + ATTEMPT_WINDOW_MS;
         state.timerValue = 60;
         el.timerText.textContent = "60";
@@ -598,6 +664,68 @@
         }
         el.betweenText.textContent = [success ? `✅ نقطة لـ ${teamNameAt(pointTeam)} بعد تحقيق الهدف ${state.attempt.target}.` : `❌ لم يتحقق الهدف ${state.attempt.target}. النقطة تذهب إلى ${teamNameAt(pointTeam)}.`, `النتيجة الآن: ${state.scores[0]} - ${state.scores[1]} | السؤال ${state.questionIndex + 1} من ${Math.max(1, totalQuestions)}`, "جاهزون للسؤال التالي؟"].join(" ");
         setPhase("between");
+        saveLocalResume();
+      }
+
+      function submitAttemptAnswer() {
+        if (state.phase !== "attempt") return;
+        const q = getQuestion();
+        syncAttemptProgressQuestion(q);
+
+        const total = Math.max(1, Number(state.attemptProgress.totalAnswerCount) || 1);
+        const currentAccepted = Array.isArray(state.attemptProgress.acceptedKeys) ? state.attemptProgress.acceptedKeys : [];
+        if (currentAccepted.length >= total) {
+          state.attemptProgress.message = "تم الوصول للحد الأقصى من الإجابات المقبولة لهذا السؤال.";
+          renderAttemptProgress();
+          return;
+        }
+
+        const answerKey = normalizeAnswerKey(el.attemptAnswerInput.value);
+        if (!answerKey) {
+          state.attemptProgress.message = "اكتب إجابة أولًا.";
+          renderAttemptProgress();
+          return;
+        }
+        const acceptedKeys = new Set(getAcceptedAnswers(q).map((item) => normalizeAnswerKey(item)));
+        if (!acceptedKeys.has(answerKey)) {
+          state.attemptProgress.message = "هذه الإجابة غير معتمدة.";
+          renderAttemptProgress();
+          return;
+        }
+        if (currentAccepted.includes(answerKey)) {
+          state.attemptProgress.message = "تم احتساب هذه الإجابة مسبقًا.";
+          renderAttemptProgress();
+          return;
+        }
+
+        currentAccepted.push(answerKey);
+        state.attemptProgress.acceptedKeys = currentAccepted.slice(0, total);
+        const reachedCap = state.attemptProgress.acceptedKeys.length >= total;
+        state.attemptProgress.message = reachedCap
+          ? "تم الوصول للحد الأقصى من الإجابات المقبولة لهذا السؤال."
+          : "تم اعتماد الإجابة.";
+        el.attemptAnswerInput.value = "";
+        renderAttemptProgress();
+        saveLocalResume();
+      }
+
+      function advanceToNextQuestionImmediately() {
+        if (state.phase !== "attempt") return;
+        clearInterval(state.timerId);
+        state.timerId = null;
+        state.attempt.endsAt = null;
+        const totalQuestions = getLocalQuestionTarget();
+        if (state.questionIndex >= totalQuestions - 1) {
+          const diff = state.scores[0] - state.scores[1];
+          el.finalText.textContent = diff === 0
+            ? `تعادل! ${teamNameAt(0)} ${state.scores[0]} - ${teamNameAt(1)} ${state.scores[1]}`
+            : `${diff > 0 ? teamNameAt(0) : teamNameAt(1)} فاز! النتيجة: ${state.scores[0]} - ${state.scores[1]}`;
+          setPhase("final");
+          clearLocalResume();
+          return;
+        }
+        state.questionIndex += 1;
+        startRound();
         saveLocalResume();
       }
 
@@ -802,6 +930,8 @@
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
         const q = gs.currentQuestion || resolveQuestion(gs) || getQuestion();
+        syncAttemptProgressQuestion(q);
+        if (state.phase !== "attempt") state.attemptProgress.message = "";
         if (q) renderJudgeAssistReference(q);
         state.questionIndex = toInt(gs.questionIndex, 0);
         state.scores = [toInt(gs.scores?.[0], 0), toInt(gs.scores?.[1], 0)];
@@ -984,16 +1114,33 @@
           : { categoryRevealed: false, readyForQuestion: { 0: false, 1: false } };
         state.bid = saved.bid && typeof saved.bid === "object" ? saved.bid : { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = saved.attempt && typeof saved.attempt === "object" ? saved.attempt : { team: null, target: 0, endsAt: null };
+        state.attemptProgress = saved.attemptProgress && typeof saved.attemptProgress === "object"
+          ? {
+            questionKey: normalizeText(saved.attemptProgress.questionKey),
+            acceptedKeys: Array.isArray(saved.attemptProgress.acceptedKeys) ? saved.attemptProgress.acceptedKeys.map((item) => normalizeAnswerKey(item)).filter(Boolean) : [],
+            totalAnswerCount: Math.max(1, toInt(saved.attemptProgress.totalAnswerCount, 1)),
+            message: normalizeText(saved.attemptProgress.message),
+          }
+          : { questionKey: null, acceptedKeys: [], totalAnswerCount: 1, message: "" };
         state.timerValue = toInt(saved.timerValue, 60);
         showScreen("game");
         const q = getQuestion();
         if (q) {
+          const qKey = getQuestionUniqueKey(q);
+          const cap = getQuestionAnswerCap(q);
+          if (state.attemptProgress.questionKey !== qKey) {
+            state.attemptProgress = { questionKey: qKey, acceptedKeys: [], totalAnswerCount: cap, message: "" };
+          } else {
+            state.attemptProgress.totalAnswerCount = cap;
+            state.attemptProgress.acceptedKeys = state.attemptProgress.acceptedKeys.slice(0, cap);
+          }
           el.questionCategory.textContent = q.category || "-";
           el.questionPrompt.textContent = q.prompt || "";
           el.timerQuestionCategory.textContent = q.category || "-";
           el.timerQuestionPrompt.textContent = q.prompt || "";
           renderJudgeAssistReference(q);
         }
+        el.attemptAnswerInput.value = "";
         el.attemptTeamText.textContent = state.attempt.team == null ? "" : `${teamNameAt(state.attempt.team)} يبدأ التحدي الآن`;
         el.attemptTargetText.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
         el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
@@ -1082,6 +1229,16 @@
         if (window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟")) { state.bid.stoppedTeam = state.bid.turnTeam; lockAttemptFromBidStop(); }
       });
       el.startAttemptBtn.addEventListener("click", () => (onlineState.enabled ? submitOnlineAction("START_ATTEMPT") : startAttemptTimer()));
+      el.submitAttemptAnswerBtn.addEventListener("click", () => submitAttemptAnswer());
+      el.attemptAnswerInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        submitAttemptAnswer();
+      });
+      el.manualAdvanceBtn.addEventListener("click", () => {
+        if (onlineState.enabled) return;
+        advanceToNextQuestionImmediately();
+      });
       el.correctBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_SUCCESS") : applyJudgeResult(true));
       el.otherPointBtn.addEventListener("click", () => onlineState.enabled ? submitOnlineAction("JUDGE_FAIL") : applyJudgeResult(false));
       el.nextQuestionBtn.addEventListener("click", () => {
