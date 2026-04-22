@@ -73,34 +73,59 @@
         padding: clamp(1.15rem, 3.8vw, 1.8rem);
       }
 
-      .content-panel {
-        margin-bottom: 1rem;
+      .detail-stack {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .detail-hero,
+      .detail-explainer,
+      .detail-cta {
         display: grid;
         gap: 0.95rem;
       }
 
-      .content-section {
-        border-radius: 16px;
-        border: 1px solid rgba(255, 225, 140, 0.32);
-        background: rgba(4, 16, 45, 0.65);
-        padding: 0.9rem 1rem;
-      }
-
-      .content-section h2 {
-        margin: 0 0 0.55rem;
+      .detail-title {
+        margin: 0;
         color: #fff2c3;
-        font-size: 1.05rem;
+        font-size: clamp(1.2rem, 3vw, 1.6rem);
       }
 
-      .content-section p,
-      .content-section li {
+      .detail-body {
         margin: 0;
         color: var(--text-muted);
         line-height: 1.85;
       }
 
-      .content-section ul,
-      .content-section ol {
+      .detail-grid {
+        display: grid;
+        gap: 0.9rem;
+      }
+
+      .detail-card {
+        border-radius: 16px;
+        border: 1px solid rgba(255, 225, 140, 0.32);
+        background: rgba(4, 16, 45, 0.65);
+        padding: 0.9rem 1rem;
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .detail-card h2 {
+        margin: 0;
+        color: #fff2c3;
+        font-size: 1.05rem;
+      }
+
+      .detail-card p,
+      .detail-card li {
+        margin: 0;
+        color: var(--text-muted);
+        line-height: 1.85;
+      }
+
+      .detail-card ul,
+      .detail-card ol {
         margin: 0;
         padding-inline-start: 1.2rem;
         display: grid;
@@ -485,6 +510,20 @@
           line-height: 1.95;
         }
 
+        .detail-stack {
+          gap: 1.2rem;
+        }
+
+        .detail-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 1rem;
+        }
+
+        .detail-card {
+          border-radius: 18px;
+          padding: 1rem 1.08rem;
+        }
+
         #setup-screen {
           width: min(980px, 100%);
           margin-inline: auto;
@@ -568,80 +607,68 @@
     <main class="shell">
       <a class="top-nav" href="/games/">← العودة للألعاب</a>
       <div id="forbiddenWordsContentView">
-        <h1>ممنوع تقولها</h1>
-        <p class="subtitle">
-          لعبة لفريقين فقط: كل فريق يحصل على 10 مصطلحات (2 من كل مستوى صعوبة 1–5)، وتنتقل الأدوار بالتناوب مصطلحًا بمصطلح.
-        </p>
-
-        <section class="panel content-panel" aria-label="شرح لعبة ممنوع تقولها">
-          <article class="content-section" aria-label="ما هي لعبة ممنوع تقولها">
-            <h2>ما هي لعبة ممنوع تقولها؟</h2>
-            <p>
-              ممنوع تقولها لعبة كلمات جماعية سريعة لفريقين، هدفها أن تشرح كلمة الهدف لفريقك بذكاء ووضوح، لكن بدون استخدام قائمة الكلمات
-              الممنوعة المرتبطة بها. الفكرة بسيطة، لكن الضغط الزمني يجعل كل دور مليئًا بالحماس والتركيز.
+        <div class="detail-stack">
+          <section class="panel detail-hero" aria-label="مقدمة لعبة ممنوع تقولها">
+            <h1>ممنوع تقولها</h1>
+            <p class="subtitle">
+              لعبة لفريقين فقط: كل فريق يحصل على 10 مصطلحات (2 من كل مستوى صعوبة 1–5)، وتنتقل الأدوار بالتناوب مصطلحًا بمصطلح.
             </p>
-          </article>
+            <p class="detail-body">تجربة كلمات سريعة تركّز على جودة التلميح تحت ضغط الوقت: المطلوب أن تكون واضحًا كفاية لفريقك، لكن بدون لمس الكلمات المحظورة.</p>
+          </section>
 
-          <article class="content-section" aria-label="طريقة اللعب والجولات">
-            <h2>كيف تمشي الجولة؟</h2>
-            <ul>
-              <li>في كل دور، يظهر لك مصطلح واحد مع 5 كلمات ممنوع ذكرها أثناء الشرح.</li>
-              <li>قبل بدء المؤقت، تضغط «إظهار الكلمة» ثم يبدأ العد التنازلي (30 ثانية).</li>
-              <li>خلال الوقت، تختار نتيجة الدور: إجابة صحيحة، إجابة خاطئة، أو إجابة للفريق الآخر.</li>
-              <li>بعد تثبيت النتيجة، ينتقل اللعب تلقائيًا للفريق الثاني ثم يعود بالتناوب حتى نهاية المصطلحات.</li>
-            </ul>
-          </article>
+          <section class="panel detail-explainer" aria-label="شرح لعبة ممنوع تقولها">
+            <h2 class="detail-title">طريقة اللعب، النقاط، والأسئلة السريعة</h2>
+            <div class="detail-grid">
+              <article class="detail-card">
+                <h2>كيف تمشي الجولة؟</h2>
+                <ul>
+                  <li>في كل دور، يظهر لك مصطلح واحد مع 5 كلمات ممنوع ذكرها أثناء الشرح.</li>
+                  <li>قبل بدء المؤقت، تضغط «إظهار الكلمة» ثم يبدأ العد التنازلي (30 ثانية).</li>
+                  <li>خلال الوقت، تختار نتيجة الدور: إجابة صحيحة، إجابة خاطئة، أو إجابة للفريق الآخر.</li>
+                  <li>بعد تثبيت النتيجة، ينتقل اللعب تلقائيًا للفريق الثاني ثم يعود بالتناوب حتى نهاية المصطلحات.</li>
+                </ul>
+              </article>
 
-          <article class="content-section" aria-label="معنى الكلمات الممنوعة والنقاط">
-            <h2>ما المقصود بالكلمة الممنوعة؟ وكيف تُحسب النقاط؟</h2>
-            <p>
-              الكلمة الممنوعة هي كلمة مباشرة جدًا قد تكشف الجواب فورًا أو تقرّب المعنى بطريقة سهلة جدًا، لذلك لا يُسمح بذكرها أثناء الشرح.
-              في هذا المسار، يتقدم كل فريق عبر 10 مصطلحات، وتُجمع النقاط حسب مستوى الصعوبة الظاهر على البطاقة؛ لذلك تقدّم الجولة ليس فقط
-              بعدد الإجابات، بل أيضًا بقيمة كل مصطلح.
-            </p>
-          </article>
+              <article class="detail-card">
+                <h2>ما المقصود بالكلمة الممنوعة؟</h2>
+                <p>
+                  الكلمة الممنوعة هي كلمة مباشرة جدًا قد تكشف الجواب فورًا أو تقرّب المعنى بطريقة سهلة جدًا، لذلك لا يُسمح بذكرها أثناء الشرح. تُجمع النقاط حسب مستوى الصعوبة لكل مصطلح.
+                </p>
+              </article>
 
-          <article class="content-section" aria-label="أهمية مستويات الصعوبة">
-            <h2>ليش مستويات الصعوبة مهمة؟</h2>
-            <p>
-              مستويات الصعوبة (1 إلى 5) تضبط توازن اللعبة بين البساطة والتحدي. المصطلحات السهلة تساعد الفريق على الدخول في أجواء اللعب
-              بسرعة، بينما المصطلحات الأعلى صعوبة تفتح فرصًا لنقاط أكبر وتحتاج مهارة أكبر في انتقاء التلميحات الدقيقة.
-            </p>
-          </article>
+              <article class="detail-card">
+                <h2>أهمية مستويات الصعوبة</h2>
+                <p>
+                  مستويات الصعوبة (1 إلى 5) تضبط توازن اللعبة بين البساطة والتحدي. السهل يساعد على الدخول السريع، والأصعب يمنح نقاطًا أكبر ويحتاج دقة أعلى في التعبير.
+                </p>
+              </article>
 
-          <article class="content-section" aria-label="مثال جولة سريعة">
-            <h2>مثال جولة قصيرة</h2>
-            <ol>
-              <li>ظهر للمُلمِّح مصطلح: «كرة القدم»، والكلمات الممنوعة تشمل: «هدف» و«ملعب» وغيرها.</li>
-              <li>يبدأ الشرح بجملة مثل: «رياضة جماعية فيها 11 لاعبًا، وفيها شوطان» بدون ذكر الكلمات المحظورة.</li>
-              <li>الفريق يجاوب بشكل صحيح خلال الوقت، فيتم تسجيل الإجابة الصحيحة ثم ينتقل الدور للفريق الآخر.</li>
-            </ol>
-          </article>
-
-          <article class="content-section" aria-label="لماذا اللعبة ممتعة وأسئلة سريعة">
-            <h2>ليش ممتعة في الجلسات؟ + FAQ سريع</h2>
-            <ul>
-              <li><strong>ليش ممتعة؟</strong> لأنها تجمع السرعة، التفكير، والضحك على التلميحات غير المتوقعة.</li>
-              <li><strong>نصيحة:</strong> استخدم أوصافًا عامة (وظيفة الشيء، مكانه، استخدامه) بدل الكلمات القريبة جدًا.</li>
-              <li><strong>متى ينتهي اللعب؟</strong> بعد اكتمال مصطلحات الفريقين، ثم تظهر النتيجة النهائية مباشرة.</li>
-              <li><strong>أفضل طريقة للفوز؟</strong> موازنة السرعة مع الوضوح وعدم المخاطرة بكلمات ممنوعة.</li>
-            </ul>
-          </article>
-        </section>
-
-        <section id="intro-screen" class="panel" aria-label="مقدمة لعبة ممنوع تقولها">
-          <div class="setup-stack">
-            <div class="setup-summary" aria-label="فكرة اللعبة">
-              <p class="setup-summary-title">كيف تعمل اللعبة؟</p>
-              <ul class="setup-summary-list">
-                <li>شرح كلمة الهدف بدون استخدام الكلمات الممنوعة</li>
-                <li>30 ثانية لكل دور</li>
-                <li>الفريق الأعلى نقاطًا يفوز</li>
-              </ul>
+              <article class="detail-card">
+                <h2>FAQ سريع</h2>
+                <ul>
+                  <li><strong>ليش ممتعة؟</strong> لأنها تجمع السرعة، التفكير، والضحك على التلميحات غير المتوقعة.</li>
+                  <li><strong>متى ينتهي اللعب؟</strong> بعد اكتمال مصطلحات الفريقين، ثم تظهر النتيجة النهائية مباشرة.</li>
+                  <li><strong>أفضل طريقة للفوز؟</strong> موازنة السرعة مع الوضوح وعدم المخاطرة بكلمات ممنوعة.</li>
+                </ul>
+              </article>
             </div>
-            <button id="enterForbiddenSetupBtn" class="start-btn" type="button">ابدأ الإعداد</button>
-          </div>
-        </section>
+          </section>
+
+          <section id="intro-screen" class="panel detail-cta" aria-label="بدء إعداد لعبة ممنوع تقولها">
+            <h2 class="detail-title">جاهزين تبدأون الإعداد؟</h2>
+            <div class="setup-stack">
+              <div class="setup-summary" aria-label="فكرة اللعبة">
+                <p class="setup-summary-title">كيف تعمل اللعبة؟</p>
+                <ul class="setup-summary-list">
+                  <li>شرح كلمة الهدف بدون استخدام الكلمات الممنوعة</li>
+                  <li>30 ثانية لكل دور</li>
+                  <li>الفريق الأعلى نقاطًا يفوز</li>
+                </ul>
+              </div>
+              <button id="enterForbiddenSetupBtn" class="start-btn" type="button">ابدأ الإعداد</button>
+            </div>
+          </section>
+        </div>
       </div>
 
       <section id="forbiddenWordsGameplayView" class="gameplay-view hidden" aria-label="وضع اللعب">
