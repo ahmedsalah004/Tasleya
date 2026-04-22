@@ -449,6 +449,10 @@ html {
   font-size: clamp(1.15rem, 2.3vw, 1.55rem);
 }
 
+.panel-wide > h2 {
+  margin-bottom: 0.85rem;
+}
+
 .card-grid {
   display: grid;
   gap: 0.7rem;
@@ -477,8 +481,26 @@ html {
   min-height: 100%;
 }
 
+.support-grid {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.7rem;
+}
+
+.support-block {
+  display: grid;
+  align-content: start;
+  gap: 0.44rem;
+  min-height: 100%;
+  padding: 0.84rem 0.92rem;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 215, 120, 0.2);
+  background: rgba(18, 29, 65, 0.54);
+}
+
 .mode-card h3,
-.faq-item h3 {
+.faq-item h3,
+.support-block h3 {
   margin: 0 0 0.4rem;
   color: rgba(255, 225, 142, 0.95);
   font-size: 1rem;
@@ -486,6 +508,7 @@ html {
 
 .mode-card p,
 .faq-item p,
+.support-block p,
 .more-text {
   margin: 0;
   color: rgba(224, 234, 255, 0.9);
@@ -772,14 +795,10 @@ html {
   }
 
   .home-sections:not(.info-page-content) > .intro-section,
-  .home-sections:not(.info-page-content) > [aria-labelledby="faqTitle"] {
+  .home-sections:not(.info-page-content) > [aria-labelledby="categoriesTitle"],
+  .home-sections:not(.info-page-content) > [aria-labelledby="faqTitle"],
+  .home-sections:not(.info-page-content) > .support-hub {
     grid-column: 1 / -1;
-  }
-
-  .home-sections:not(.info-page-content) > #about-section,
-  .home-sections:not(.info-page-content) > #privacy-section,
-  .home-sections:not(.info-page-content) > #contact-section {
-    grid-column: span 4;
   }
 
   .home-sections:not(.info-page-content) .card-grid.mode-grid {
@@ -794,12 +813,20 @@ html {
   .home-sections:not(.info-page-content) .intro-section .compact-cards .mode-card {
     min-height: 150px;
   }
+
+  .home-sections:not(.info-page-content) .support-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .home-sections:not(.info-page-content) .panel-help {
+    align-content: start;
+  }
 }
 
 @media (min-width: 1480px) {
   .home-sections:not(.info-page-content) > .intro-section .card-grid.mode-grid,
-  .home-sections:not(.info-page-content) > [aria-labelledby="modesTitle"] .card-grid.mode-grid,
-  .home-sections:not(.info-page-content) > [aria-labelledby="helpActionsTitle"] .card-grid.mode-grid {
+  .home-sections:not(.info-page-content) > [aria-labelledby="modesTitle"] .card-grid.mode-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -930,7 +957,8 @@ html {
   }
 
   .mode-card h3,
-  .faq-item h3 {
+  .faq-item h3,
+  .support-block h3 {
     margin-bottom: 0.18rem;
   }
 
@@ -938,7 +966,8 @@ html {
   .section-body-note,
   .more-text,
   .mode-card p,
-  .faq-item p {
+  .faq-item p,
+  .support-block p {
     max-inline-size: 62ch;
   }
 
@@ -1018,7 +1047,8 @@ html {
 
   .features-grid,
   .faq-list,
-  .mode-grid {
+  .mode-grid,
+  .support-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
