@@ -2280,6 +2280,22 @@ body.image-question-active {
   font-weight: 700;
 }
 
+.team-shuffle-setup-helper {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.45rem;
+}
+
+.team-shuffle-setup-btn {
+  justify-self: start;
+}
+
+.team-shuffle-setup-status {
+  margin: 0;
+  color: #c6d7ff;
+  font-size: 0.9rem;
+}
+
 .category-host-note {
   margin: 0.35rem 0 0;
   color: #ffd67d;
