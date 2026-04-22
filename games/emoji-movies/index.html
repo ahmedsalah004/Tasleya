@@ -361,6 +361,21 @@
           padding: clamp(1.4rem, 2.6vw, 2rem);
         }
 
+        body.gameplay-mode .gameplay-view {
+          gap: 1.35rem;
+        }
+
+        body.gameplay-mode .top-nav,
+        body.gameplay-mode .back-to-intro {
+          min-height: 46px;
+          padding: 0.58rem 1.04rem;
+          font-size: 1.01rem;
+        }
+
+        body.gameplay-mode .gameplay-toolbar {
+          margin-top: 0.1rem;
+        }
+
         .score-strip {
           margin-bottom: 1.25rem;
           gap: 1rem;
@@ -493,11 +508,13 @@
       function showContentView() {
         contentView.classList.remove("hidden");
         gameplayView.classList.add("hidden");
+        document.body.classList.remove("gameplay-mode");
       }
 
       function showGameplayView() {
         contentView.classList.add("hidden");
         gameplayView.classList.remove("hidden");
+        document.body.classList.add("gameplay-mode");
       }
 
       async function loadRuntimeFragment() {
