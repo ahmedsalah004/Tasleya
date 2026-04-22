@@ -134,6 +134,10 @@
             placeholder="الفريق الثالث"
           />
         </div>
+        <div id="teamShuffleSetupHelper" class="team-shuffle-setup-helper hidden">
+          <button id="teamShuffleSetupBtn" class="ghost-btn team-shuffle-setup-btn" type="button">توزيع اللاعبين عشوائيًا على الفرق (اختياري)</button>
+          <p id="teamShuffleSetupStatus" class="team-shuffle-setup-status hidden" role="status" aria-live="polite"></p>
+        </div>
         <p id="categoryCounter" class="category-counter">المحدد: 0 / 6</p>
         <p id="categoryHostOnlyNote" class="category-host-note hidden" role="note">فقط منشئ الغرفة يمكنه بدء اللعبة</p>
         <div id="categoryList" class="category-list" aria-label="قائمة الفئات"></div>
@@ -232,8 +236,8 @@
         </div>
         <div id="teamShuffleResult" class="team-shuffle-result hidden" aria-live="polite"></div>
         <div class="modal-actions">
-          <button id="teamShuffleContinueBtn" class="success-btn" type="button">متابعة إلى اختيار الفئات</button>
-          <button id="teamShuffleSkipBtn" class="ghost-btn" type="button">متابعة بدون توزيع</button>
+          <button id="teamShuffleContinueBtn" class="success-btn" type="button">اعتماد التوزيع والعودة</button>
+          <button id="teamShuffleSkipBtn" class="ghost-btn" type="button">إغلاق</button>
         </div>
       </div>
     </div>

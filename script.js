@@ -222,6 +222,9 @@ function cacheElements() {
   categoryTeam2NameLabel: document.getElementById("categoryTeam2NameLabel"),
   categoryTeam3NameInput: document.getElementById("categoryTeam3NameInput"),
   categoryTeam3NameLabel: document.getElementById("categoryTeam3NameLabel"),
+  teamShuffleSetupHelper: document.getElementById("teamShuffleSetupHelper"),
+  teamShuffleSetupBtn: document.getElementById("teamShuffleSetupBtn"),
+  teamShuffleSetupStatus: document.getElementById("teamShuffleSetupStatus"),
   categoryCounter: document.getElementById("categoryCounter"),
   categoryHostOnlyNote: document.getElementById("categoryHostOnlyNote"),
   startGameBtn: document.getElementById("startGameBtn"),
@@ -349,8 +352,8 @@ function ensureHomepageFlowModals() {
             </div>
             <div id="teamShuffleResult" class="team-shuffle-result hidden" aria-live="polite"></div>
             <div class="modal-actions">
-              <button id="teamShuffleContinueBtn" class="success-btn" type="button">متابعة إلى اختيار الفئات</button>
-              <button id="teamShuffleSkipBtn" class="ghost-btn" type="button">متابعة بدون توزيع</button>
+              <button id="teamShuffleContinueBtn" class="success-btn" type="button">اعتماد التوزيع والعودة</button>
+              <button id="teamShuffleSkipBtn" class="ghost-btn" type="button">إغلاق</button>
             </div>
           </div>
         </div>
@@ -426,6 +429,7 @@ const contactState = {
 const teamShuffleSetupState = {
   teamCount: 2,
   assignments: null,
+  appliedPlayerCount: 0,
 };
 
 
@@ -1090,6 +1094,32 @@ function updateTeamModeUI() {
   el.categoryTeam2NameLabel.classList.toggle("hidden", isOneTeam);
   el.categoryTeam3NameInput.classList.toggle("hidden", !isThreeTeams);
   el.categoryTeam3NameLabel.classList.toggle("hidden", !isThreeTeams);
+  if (el.teamShuffleSetupHelper) {
+    el.teamShuffleSetupHelper.classList.toggle("hidden", isOneTeam || online.mode === "online");
+  }
+  updateTeamShuffleSetupUI();
+}
+
+function formatTeamShuffleSummary() {
+  const playerCount = Math.max(0, Number(teamShuffleSetupState.appliedPlayerCount) || 0);
+  if (!playerCount) return "";
+  const teamCount = normalizeTeamCount(state.teamCount);
+  if (teamCount === 3) {
+    return `تم توزيع ${playerCount} لاعبين على 3 فرق.`;
+  }
+  return `تم توزيع ${playerCount} لاعبين على فريقين.`;
+}
+
+function updateTeamShuffleSetupUI() {
+  if (!el.teamShuffleSetupBtn) return;
+  const hasAppliedDistribution = (Number(teamShuffleSetupState.appliedPlayerCount) || 0) > 0;
+  el.teamShuffleSetupBtn.textContent = hasAppliedDistribution
+    ? "إعادة توزيع اللاعبين"
+    : "توزيع اللاعبين عشوائيًا على الفرق (اختياري)";
+  if (!el.teamShuffleSetupStatus) return;
+  const statusText = hasAppliedDistribution ? formatTeamShuffleSummary() : "";
+  el.teamShuffleSetupStatus.textContent = statusText;
+  el.teamShuffleSetupStatus.classList.toggle("hidden", !statusText);
 }
 
 function getTeamControlEntries() {
@@ -5230,7 +5260,7 @@ async function chooseHomepageGroupTeamCount(teamCount) {
     closeLocalTeamsModal();
     resetOnlineMode();
     showGameScreen();
-    await launchOptionalTeamShuffleAndStart(teamCount);
+    await startLocalGroupSetup(teamCount);
     return;
   }
 
@@ -5326,9 +5356,12 @@ function renderTeamShuffleAssignments(assignments) {
 
 function openTeamShuffleModal(teamCount) {
   teamShuffleSetupState.teamCount = normalizeTeamCount(teamCount);
-  teamShuffleSetupState.assignments = null;
-  if (el.teamShuffleNamesInput) el.teamShuffleNamesInput.value = "";
-  renderTeamShuffleAssignments(null);
+  if (!teamShuffleSetupState.assignments) {
+    if (el.teamShuffleNamesInput) el.teamShuffleNamesInput.value = "";
+    renderTeamShuffleAssignments(null);
+  } else {
+    renderTeamShuffleAssignments(teamShuffleSetupState.assignments);
+  }
   if (!el.teamShuffleModal) return;
   el.teamShuffleModal.classList.remove("hidden", "is-closing");
   requestAnimationFrame(() => el.teamShuffleModal.classList.add("is-open"));
@@ -5353,15 +5386,20 @@ function generateTeamShuffleAssignments() {
   renderTeamShuffleAssignments(teamShuffleSetupState.assignments);
 }
 
-async function launchOptionalTeamShuffleAndStart(teamCount) {
+async function startLocalGroupSetup(teamCount) {
   setLocalTeamCount(teamCount);
+  teamShuffleSetupState.teamCount = normalizeTeamCount(teamCount);
+  teamShuffleSetupState.assignments = null;
+  teamShuffleSetupState.appliedPlayerCount = 0;
+  if (el.teamShuffleNamesInput) el.teamShuffleNamesInput.value = "";
+  renderTeamShuffleAssignments(null);
   updateTeamModeUI();
-  openTeamShuffleModal(teamCount);
+  await startNewGame();
 }
 
 async function chooseLocalTeamCount(teamCount) {
   closeLocalTeamsModal();
-  await launchOptionalTeamShuffleAndStart(teamCount);
+  await startLocalGroupSetup(teamCount);
 }
 
 function tryAutoJoinFromUrl() {
@@ -5859,19 +5897,28 @@ function initializeApp() {
   }, "localTeamsModal");
   bindEvent(el.teamShuffleGenerateBtn, "click", generateTeamShuffleAssignments, "teamShuffleGenerateBtn");
   bindEvent(el.teamShuffleReshuffleBtn, "click", generateTeamShuffleAssignments, "teamShuffleReshuffleBtn");
-  bindEvent(el.teamShuffleContinueBtn, "click", async () => {
+  bindEvent(el.teamShuffleContinueBtn, "click", () => {
+    const assignments = teamShuffleSetupState.assignments && typeof teamShuffleSetupState.assignments === "object"
+      ? teamShuffleSetupState.assignments
+      : null;
+    if (assignments) {
+      teamShuffleSetupState.appliedPlayerCount = Object.values(assignments)
+        .reduce((total, players) => total + (Array.isArray(players) ? players.length : 0), 0);
+    }
+    updateTeamShuffleSetupUI();
     closeTeamShuffleModal();
-    await startNewGame();
   }, "teamShuffleContinueBtn");
-  bindEvent(el.teamShuffleSkipBtn, "click", async () => {
+  bindEvent(el.teamShuffleSkipBtn, "click", () => {
     closeTeamShuffleModal();
-    await startNewGame();
   }, "teamShuffleSkipBtn");
   bindEvent(el.teamShuffleModal, "click", (event) => {
     if (event.target !== el.teamShuffleModal) return;
     closeTeamShuffleModal();
-    startNewGame();
   }, "teamShuffleModal");
+  bindEvent(el.teamShuffleSetupBtn, "click", () => {
+    if (online.mode !== "local" || state.teamCount === 1) return;
+    openTeamShuffleModal(state.teamCount);
+  }, "teamShuffleSetupBtn");
   bindEvent(el.startOnlineBtn, "click", (event) => {
     event.preventDefault();
     event.stopPropagation();
