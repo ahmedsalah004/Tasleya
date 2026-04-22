@@ -41,7 +41,7 @@ html {
 .home-footer {
   position: relative;
   z-index: 2;
-  width: min(94vw, 1020px);
+  width: min(95vw, 1140px);
 }
 
 .hero-section {
@@ -431,8 +431,8 @@ html {
 .home-panel {
   background: rgba(8, 14, 36, 0.66);
   border: 1px solid rgba(255, 215, 120, 0.35);
-  border-radius: 18px;
-  padding: clamp(0.92rem, 2.4vw, 1.28rem);
+  border-radius: 16px;
+  padding: clamp(0.95rem, 2.2vw, 1.28rem);
   box-shadow:
     0 14px 40px rgba(0, 0, 0, 0.34),
     0 0 16px rgba(255, 193, 67, 0.12),
@@ -449,7 +449,7 @@ html {
 
 .card-grid {
   display: grid;
-  gap: 0.62rem;
+  gap: 0.7rem;
 }
 
 .steps-grid {
@@ -464,11 +464,15 @@ html {
 
 .mini-card,
 .mode-card {
+  display: grid;
+  align-content: start;
+  gap: 0.34rem;
   background: rgba(20, 30, 68, 0.7);
   border: 1px solid rgba(255, 215, 120, 0.26);
-  border-radius: 14px;
-  padding: 0.75rem 0.85rem;
+  border-radius: 13px;
+  padding: 0.82rem 0.9rem;
   color: rgba(245, 248, 255, 0.96);
+  min-height: 100%;
 }
 
 .mode-card h3,
@@ -657,7 +661,7 @@ html {
   .hero-section,
   .home-sections,
   .home-footer {
-    width: min(93vw, 1340px);
+    width: min(94vw, 1420px);
   }
 
   .hero-section {
@@ -678,7 +682,7 @@ html {
   }
 
   .start-actions {
-    width: min(90vw, 620px);
+    width: min(90vw, 680px);
     gap: 1.16rem;
   }
 
@@ -753,7 +757,7 @@ html {
 
   .home-sections:not(.info-page-content) > .home-panel {
     grid-column: span 6;
-    padding: clamp(1rem, 1.2vw, 1.34rem);
+    padding: clamp(1.06rem, 1.15vw, 1.34rem);
   }
 
   .home-sections:not(.info-page-content) > .intro-section,
@@ -769,12 +773,19 @@ html {
 
   .home-sections:not(.info-page-content) .card-grid.mode-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
   }
 }
 
 @media (min-width: 1480px) {
   .home-sections:not(.info-page-content) .card-grid.mode-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .home-sections:not(.info-page-content) > .intro-section .card-grid.mode-grid,
+  .home-sections:not(.info-page-content) > [aria-labelledby="modesTitle"] .card-grid.mode-grid,
+  .home-sections:not(.info-page-content) > [aria-labelledby="helpActionsTitle"] .card-grid.mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -899,7 +910,7 @@ html {
     display: grid;
     align-content: start;
     gap: 0.26rem;
-    padding: 0.66rem 0.78rem;
+    padding: 0.76rem 0.84rem;
     min-height: 100%;
   }
 
@@ -1007,6 +1018,23 @@ html {
 
   #homepagePrimaryStep .games-hub-btn__title {
     font-size: clamp(1.1rem, 1.7vw, 1.42rem);
+  }
+}
+
+html.is-safari #startScreen .hero-section,
+html.is-safari #startScreen .home-sections,
+html.is-safari #startScreen .home-footer {
+  width: min(96vw, 1460px);
+}
+
+@media (min-width: 1024px) {
+  html.is-safari #startScreen .home-panel {
+    padding: clamp(1rem, 1.5vw, 1.3rem);
+  }
+
+  html.is-safari #startScreen .mode-card,
+  html.is-safari #startScreen .mini-card {
+    padding: 0.86rem 0.94rem;
   }
 }
 
@@ -3243,6 +3271,54 @@ body.image-question-active {
 
 .local-teams-modal-content {
   width: min(420px, 100%);
+}
+
+.team-shuffle-modal-content {
+  width: min(560px, 100%);
+}
+
+.team-shuffle-intro {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.team-shuffle-input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(124, 152, 228, 0.5);
+  background: rgba(10, 19, 46, 0.86);
+  color: var(--text);
+  padding: 0.64rem 0.72rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+  min-height: 122px;
+}
+
+.team-shuffle-result {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.team-shuffle-team {
+  border: 1px solid rgba(255, 215, 120, 0.24);
+  border-radius: 12px;
+  background: rgba(14, 25, 60, 0.76);
+  padding: 0.58rem 0.62rem;
+}
+
+.team-shuffle-team h3 {
+  margin: 0 0 0.24rem;
+  font-size: 0.97rem;
+  color: rgba(255, 225, 142, 0.95);
+}
+
+.team-shuffle-team p {
+  margin: 0;
+  color: rgba(226, 236, 255, 0.9);
+  line-height: 1.65;
 }
 
 .local-team-count-actions {
