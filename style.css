@@ -1,6 +1,8 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 #startScreen {
@@ -41,7 +43,7 @@ html {
 .home-footer {
   position: relative;
   z-index: 2;
-  width: min(95vw, 1140px);
+  width: min(96vw, 1180px);
 }
 
 .hero-section {
@@ -661,7 +663,16 @@ html {
   .hero-section,
   .home-sections,
   .home-footer {
-    width: min(94vw, 1420px);
+    width: min(95vw, 1500px);
+  }
+
+  .hero-section {
+    width: min(94vw, 1360px);
+  }
+
+  .home-sections,
+  .home-footer {
+    width: min(95vw, 1500px);
   }
 
   .hero-section {
@@ -744,7 +755,7 @@ html {
 
   #startScreen .home-sections {
     margin-top: clamp(0.2rem, 0.9vh, 0.58rem);
-    gap: clamp(0.92rem, 1.3vw, 1.18rem);
+    gap: clamp(1rem, 1.4vw, 1.3rem);
   }
 }
 
@@ -775,13 +786,17 @@ html {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
   }
+
+  .home-sections:not(.info-page-content) .mode-grid > .mode-card {
+    min-height: 170px;
+  }
+
+  .home-sections:not(.info-page-content) .intro-section .compact-cards .mode-card {
+    min-height: 150px;
+  }
 }
 
 @media (min-width: 1480px) {
-  .home-sections:not(.info-page-content) .card-grid.mode-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .home-sections:not(.info-page-content) > .intro-section .card-grid.mode-grid,
   .home-sections:not(.info-page-content) > [aria-labelledby="modesTitle"] .card-grid.mode-grid,
   .home-sections:not(.info-page-content) > [aria-labelledby="helpActionsTitle"] .card-grid.mode-grid {
@@ -1024,17 +1039,12 @@ html {
 html.is-safari #startScreen .hero-section,
 html.is-safari #startScreen .home-sections,
 html.is-safari #startScreen .home-footer {
-  width: min(96vw, 1460px);
+  width: min(95vw, 1500px);
 }
 
 @media (min-width: 1024px) {
-  html.is-safari #startScreen .home-panel {
-    padding: clamp(1rem, 1.5vw, 1.3rem);
-  }
-
-  html.is-safari #startScreen .mode-card,
-  html.is-safari #startScreen .mini-card {
-    padding: 0.86rem 0.94rem;
+  html.is-safari {
+    font-size: 15.5px;
   }
 }
 
