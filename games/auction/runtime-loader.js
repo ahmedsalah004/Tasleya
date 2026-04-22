@@ -141,9 +141,6 @@
         timerQuestionCategory: document.getElementById("timerQuestionCategory"),
         timerQuestionPrompt: document.getElementById("timerQuestionPrompt"),
         acceptedProgressText: document.getElementById("acceptedProgressText"),
-        attemptAnswerInput: document.getElementById("attemptAnswerInput"),
-        submitAnswerBtn: document.getElementById("submitAnswerBtn"),
-        attemptAnswerMessage: document.getElementById("attemptAnswerMessage"),
         manualAdvanceBtn: document.getElementById("manualAdvanceBtn"),
         judgeHint: document.getElementById("judgeHint"),
         correctBtn: document.getElementById("correctBtn"),
@@ -246,10 +243,6 @@
         el.acceptedProgressText.textContent = `الإجابات المقبولة: ${counted} / ${cap}`;
       }
 
-      function setAttemptAnswerMessage(text) {
-        setMessage(el.attemptAnswerMessage, text);
-      }
-
       function hasNextPromptInSameCategory() {
         const currentQuestion = getQuestion();
         const nextQuestion = state.questions[state.questionIndex + 1];
@@ -272,12 +265,6 @@
         const hasNext = state.questionIndex < Math.max(0, state.questions.length - 1);
         el.manualAdvanceBtn.disabled = !hasNext || (onlineState.enabled && !isHost());
         el.manualAdvanceBtn.textContent = hasNextPromptInSameCategory() ? "السؤال التالي" : "الفئة التالية";
-      }
-
-      function updateAttemptInputAvailability() {
-        const enabled = !onlineState.enabled && state.phase === "attempt";
-        el.attemptAnswerInput.disabled = !enabled;
-        el.submitAnswerBtn.disabled = !enabled;
       }
 
       function setJudgePanelExpanded(expanded) {
@@ -416,7 +403,6 @@
         }
         if (name === "judge") setPrimaryFocusButton(el.correctBtn, [el.correctBtn, el.otherPointBtn]);
         if (name === "between") setPrimaryFocusButton(el.nextQuestionBtn, [el.nextQuestionBtn]);
-        updateAttemptInputAvailability();
         updateFlowSteps();
       }
 
@@ -531,8 +517,6 @@
         state.bid = { current: 0, turnTeam: 0, leadingTeam: null, stoppedTeam: null };
         state.attempt = { team: null, target: 0, endsAt: null };
         state.attemptProgress = { countedKeys: [], isSubmitting: false };
-        el.attemptAnswerInput.value = "";
-        setAttemptAnswerMessage("");
         const q = getQuestion();
         if (!q) {
           setPhase("final");
@@ -634,8 +618,6 @@
         el.attemptNowTeam.textContent = `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerQuestionCategory.textContent = q.category || "-";
         el.timerQuestionPrompt.textContent = q.prompt;
-        setAttemptAnswerMessage("");
-        el.attemptAnswerInput.value = "";
         renderAttemptAnswerProgress(q);
         updateManualAdvanceButton();
         setPhase("attempt");
@@ -655,49 +637,6 @@
           }
         }, 1000);
         saveLocalResume();
-      }
-
-      function submitAttemptAnswer() {
-        if (state.phase !== "attempt") return;
-        if (state.attemptProgress.isSubmitting) return;
-        state.attemptProgress.isSubmitting = true;
-        try {
-          const question = getQuestion();
-          const rawAnswer = normalizeText(el.attemptAnswerInput.value);
-          if (!question || !rawAnswer) {
-            setAttemptAnswerMessage("اكتبوا إجابة أولاً.");
-            return;
-          }
-          const acceptedAnswers = getAcceptedAnswers(question);
-          const acceptedKeySet = new Set(acceptedAnswers.map((answer) => normalizeAnswerKey(answer)).filter(Boolean));
-          const answerKey = normalizeAnswerKey(rawAnswer);
-          const countedSet = getCountedAnswerSet();
-          const cap = getQuestionAnswerCap(question);
-          if (countedSet.size >= cap) {
-            setAttemptAnswerMessage("تم الوصول إلى الحد الأقصى للإجابات المقبولة في هذا السؤال.");
-            return;
-          }
-          if (!acceptedKeySet.has(answerKey)) {
-            setAttemptAnswerMessage("إجابة غير معتمدة لهذا السؤال.");
-            return;
-          }
-          if (countedSet.has(answerKey)) {
-            setAttemptAnswerMessage("هذه الإجابة تم احتسابها مسبقًا.");
-            return;
-          }
-          countedSet.add(answerKey);
-          state.attemptProgress.countedKeys = [...countedSet];
-          renderAttemptAnswerProgress(question);
-          if (countedSet.size >= cap) {
-            setAttemptAnswerMessage("تم الوصول إلى الحد الأقصى للإجابات المقبولة في هذا السؤال.");
-          } else {
-            setAttemptAnswerMessage("تم تسجيل إجابة صحيحة.");
-          }
-          el.attemptAnswerInput.value = "";
-          saveLocalResume();
-        } finally {
-          state.attemptProgress.isSubmitting = false;
-        }
       }
 
       function advanceToNextPromptLocal() {
@@ -981,7 +920,6 @@
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
         state.attemptProgress = { countedKeys: [], isSubmitting: false };
         renderAttemptAnswerProgress(q);
-        setAttemptAnswerMessage("");
         updateManualAdvanceButton();
 
         renderRoundPreparationUI();
@@ -1010,9 +948,6 @@
         el.bidInput.parentElement.classList.add("hidden");
         el.bidCountdownBtn.disabled = !canBid;
         el.startAttemptBtn.disabled = !(gs.phase === "attempt_ready" && isHost());
-        const onlineCanUseAttemptInput = false;
-        el.submitAnswerBtn.disabled = !onlineCanUseAttemptInput;
-        el.attemptAnswerInput.disabled = !onlineCanUseAttemptInput;
         const onlineHasNext = state.questionIndex < Math.max(0, getOnlineQuestionTarget(gs) - 1);
         el.manualAdvanceBtn.disabled = !(isHost() && onlineHasNext);
         el.manualAdvanceBtn.textContent = hasNextPromptInSameCategoryOnline(gs) ? "السؤال التالي" : "الفئة التالية";
@@ -1166,8 +1101,6 @@
         el.attemptTargetText.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
         el.attemptNowTeam.textContent = state.attempt.team == null ? "" : `المحاولة الآن: ${teamNameAt(state.attempt.team)}`;
         el.timerTarget.textContent = `الهدف ${Math.max(1, state.attempt.target || 0)}`;
-        el.attemptAnswerInput.value = "";
-        setAttemptAnswerMessage("");
         renderAttemptAnswerProgress(q);
         updateManualAdvanceButton();
         if (saved.phase === "attempt" && toInt(state.attempt.endsAt, 0) > 0) {
@@ -1254,12 +1187,6 @@
         if (window.confirm("هل أنتم متأكدون من إيقاف المزاد عند هذا الرقم؟")) { state.bid.stoppedTeam = state.bid.turnTeam; lockAttemptFromBidStop(); }
       });
       el.startAttemptBtn.addEventListener("click", () => (onlineState.enabled ? submitOnlineAction("START_ATTEMPT") : startAttemptTimer()));
-      el.submitAnswerBtn.addEventListener("click", () => submitAttemptAnswer());
-      el.attemptAnswerInput.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        submitAttemptAnswer();
-      });
       el.manualAdvanceBtn.addEventListener("click", () => {
         if (onlineState.enabled) {
           if (!isHost()) return;

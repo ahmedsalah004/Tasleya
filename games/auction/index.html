@@ -552,20 +552,28 @@
         padding: 1rem;
       }
 
-      .attempt-answer-tools {
-        display: grid;
-        gap: 0.55rem;
+      .question-meta-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.65rem;
+        flex-wrap: wrap;
       }
 
-      .attempt-answer-row {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 0.5rem;
+      .question-meta-row .question-prompt {
+        flex: 1 1 280px;
       }
 
-      .attempt-answer-row .btn {
-        min-height: 50px;
-        padding-inline: 1rem;
+      .accepted-progress {
+        margin: 0;
+        align-self: flex-start;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 225, 140, 0.32);
+        background: rgba(3, 12, 35, 0.72);
+        padding: 0.38rem 0.7rem;
+        color: var(--text-muted);
+        font-size: 0.84rem;
+        white-space: nowrap;
       }
 
       .target {
@@ -802,6 +810,8 @@
         .round-flow-step { font-size: 0.78rem; padding: 0.35rem 0.4rem; }
         .current-category { padding: 0.7rem 0.8rem; }
         .current-category-value { font-size: clamp(1.3rem, 6vw, 1.75rem); }
+        .question-meta-row { flex-direction: column; gap: 0.45rem; }
+        .accepted-progress { white-space: normal; }
       }
     </style>
       <link rel="stylesheet" href="/assets/shared-contact-modal.css" />
