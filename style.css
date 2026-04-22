@@ -1042,9 +1042,14 @@ html.is-safari #startScreen .home-footer {
   width: min(95vw, 1500px);
 }
 
-@media (min-width: 1024px) {
-  html.is-safari {
-    font-size: 15.5px;
+html.is-safari:not(.is-ios-safari) {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+@media (min-width: 900px) {
+  html.is-safari:not(.is-ios-safari) {
+    font-size: 15.25px;
   }
 }
 
