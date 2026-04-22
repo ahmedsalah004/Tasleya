@@ -25,7 +25,7 @@
   display: grid;
   grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  gap: 0.62rem;
+  gap: 0.7rem;
 }
 
 .site-header__brand {
@@ -39,8 +39,9 @@
   border-radius: 12px;
   padding: 0.3rem 0.45rem;
   -webkit-tap-highlight-color: transparent;
-  border: 1px solid rgba(255, 219, 132, 0.2);
-  background: linear-gradient(145deg, rgba(255, 231, 162, 0.08), rgba(255, 231, 162, 0.02));
+  border: 1px solid rgba(255, 219, 132, 0.26);
+  background: linear-gradient(145deg, rgba(255, 231, 162, 0.12), rgba(255, 231, 162, 0.04));
+  box-shadow: inset 0 1px 0 rgba(255, 242, 206, 0.22);
 }
 
 .site-header__brand:hover,
@@ -50,7 +51,7 @@
 .site-header__brand[aria-current="page"] {
   color: var(--site-header-text);
   text-decoration: none;
-  background: transparent;
+  background: linear-gradient(145deg, rgba(255, 231, 162, 0.16), rgba(255, 231, 162, 0.06));
 }
 
 .site-header__brand:focus-visible {
@@ -110,16 +111,22 @@
 }
 
 .site-header__nav-shell {
-  border-inline: 1px solid rgba(255, 220, 128, 0.2);
-  padding-inline: 0.55rem;
+  border-inline: 1px solid rgba(255, 220, 128, 0.26);
+  padding: 0.22rem 0.64rem;
+  border-radius: 999px;
+  background: rgba(8, 18, 48, 0.52);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24);
 }
 
 .site-header__link {
   text-decoration: none;
   color: var(--site-header-text-muted);
-  padding: 0.42rem 0.62rem;
+  padding: 0.44rem 0.68rem;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 0.91rem;
+  font-weight: 600;
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -133,12 +140,16 @@
 .site-header__link[aria-current="page"] {
   color: #091734;
   background: linear-gradient(145deg, #ffe7a2, #f4ce6c);
-  box-shadow: 0 0 0 1px rgba(255, 244, 210, 0.5) inset;
-  font-weight: 700;
+  box-shadow:
+    0 0 0 1px rgba(255, 244, 210, 0.54) inset,
+    0 6px 16px rgba(244, 206, 108, 0.2);
+  font-weight: 800;
 }
 
 .site-header__cta-shell {
-  padding-inline-start: 0.06rem;
+  padding-inline-start: 0.1rem;
+  border-inline-start: 1px solid rgba(255, 220, 128, 0.2);
+  margin-inline-start: 0.05rem;
 }
 
 .site-header__cta {
@@ -146,9 +157,13 @@
   background: linear-gradient(145deg, #ffe7a2, #f4ce6c);
   color: #081532;
   border-radius: 12px;
-  padding: 0.56rem 0.86rem;
-  font-weight: 800;
+  padding: 0.52rem 0.82rem;
+  font-weight: 760;
+  font-size: 0.9rem;
   white-space: nowrap;
+  box-shadow:
+    0 0 0 1px rgba(255, 247, 227, 0.42) inset,
+    0 8px 18px rgba(244, 206, 108, 0.2);
 }
 
 .site-header__toggle {
