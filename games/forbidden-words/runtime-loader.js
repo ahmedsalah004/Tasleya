@@ -1,10 +1,22 @@
 (function () {
-  const intro = document.getElementById('intro-screen');
+  const contentView = document.getElementById('forbiddenWordsContentView');
+  const gameplayView = document.getElementById('forbiddenWordsGameplayView');
+  const backToIntroBtn = document.getElementById('backToForbiddenWordsIntroBtn');
   const host = document.getElementById('forbiddenRuntimeHost');
   const enterBtn = document.getElementById('enterForbiddenSetupBtn');
   let mounted = false;
   let mounting = false;
   let initialized = false;
+
+  function showContentView() {
+    if (contentView) contentView.classList.remove('hidden');
+    if (gameplayView) gameplayView.classList.add('hidden');
+  }
+
+  function showGameplayView() {
+    if (contentView) contentView.classList.add('hidden');
+    if (gameplayView) gameplayView.classList.remove('hidden');
+  }
 
   async function mountRuntime() {
     if (mounted || mounting) return;
@@ -22,11 +34,6 @@
   function initRuntime() {
     if (initialized) return;
     initialized = true;
-      document.getElementById("enterForbiddenSetupBtn").addEventListener("click", () => {
-        document.getElementById("intro-screen").classList.add("hidden");
-        document.getElementById("setup-screen").classList.remove("hidden");
-      });
-
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
 
@@ -928,13 +935,20 @@
     enterBtn.disabled = true;
     try {
       await mountRuntime();
-      intro.classList.add('hidden');
+      showGameplayView();
       initRuntime();
       const setupScreen = document.getElementById('setup-screen');
       if (setupScreen) setupScreen.classList.remove('hidden');
     } catch (error) {
       console.error('[forbidden-words] failed to mount runtime', error);
       enterBtn.disabled = false;
+      showContentView();
     }
   });
+
+  if (backToIntroBtn) {
+    backToIntroBtn.addEventListener('click', () => {
+      showContentView();
+    });
+  }
 })();
