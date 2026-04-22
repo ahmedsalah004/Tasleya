@@ -43,6 +43,10 @@
             : [];
         const acceptedAnswers = acceptedAnswersRaw.map((item) => normalizeCell(item)).filter(Boolean);
         const difficultyValue = Number.parseInt(normalizeCell(row && row.difficulty), 10);
+        const totalAnswerCountValue = Number.parseInt(
+          normalizeCell(row && (row.total_answer_count ?? row.totalAnswerCount)),
+          10
+        );
 
         return {
           id: normalizeCell(row && row.id),
@@ -50,6 +54,7 @@
           prompt: normalizeCell(row && row.prompt),
           difficulty: Number.isFinite(difficultyValue) ? difficultyValue : null,
           acceptedAnswers,
+          totalAnswerCount: Number.isFinite(totalAnswerCountValue) ? totalAnswerCountValue : null,
           notes: normalizeCell(row && row.notes),
         };
       })
