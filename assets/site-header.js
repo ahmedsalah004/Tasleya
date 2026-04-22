@@ -49,14 +49,14 @@
       <nav class="site-header__nav" aria-label="روابط رئيسية">
         ${primaryLinks.map(makeLink).join('')}
       </nav>
-      <a class="site-header__cta" href="/">ابدأ اللعب الآن</a>
+      <a class="site-header__cta" href="/play/">ابدأ اللعب الآن</a>
       <button class="site-header__toggle" type="button" aria-expanded="false" aria-controls="siteHeaderPanel">القائمة</button>
     </div>
     <nav id="siteHeaderPanel" class="site-header__panel" aria-label="قائمة التنقل على الجوال">
       <div class="site-header__panel-links">
         ${primaryLinks.map(makeLink).join('')}
         ${supportLinks.map(makeLink).join('')}
-        <a class="site-header__cta" href="/">ابدأ اللعب الآن</a>
+        <a class="site-header__cta" href="/play/">ابدأ اللعب الآن</a>
       </div>
     </nav>
   `;
