@@ -58,8 +58,10 @@
       const MAP_GAME_STATE_STORAGE_KEY = "tasleya_map_game_state_v1";
       const MAP_GAME_STATE_STORAGE_VERSION = 1;
       const MAP_GAME_MODE_MAP = "map";
+      const MAP_GAME_MODE_IMAGE = "image";
       const MAP_GAME_MODE_LANGUAGE = "language";
       const LANGUAGE_MODE_INSTRUCTION = "استمع إلى اللغة ثم اختر الدولة على الخريطة";
+      const IMAGE_MODE_INSTRUCTION = "شاهد الصورة وحدد الدولة على الخريطة.";
       const ROUND_REQUIREMENTS = [
         { difficulty: "easy", points: 100, count: 4 },
         { difficulty: "medium", points: 300, count: 8 },
@@ -136,18 +138,22 @@
         selectedMode: MAP_GAME_MODE_MAP,
         questionPoolByMode: {
           [MAP_GAME_MODE_MAP]: [],
+          [MAP_GAME_MODE_IMAGE]: [],
           [MAP_GAME_MODE_LANGUAGE]: [],
         },
         questionsReadyByMode: {
           [MAP_GAME_MODE_MAP]: false,
+          [MAP_GAME_MODE_IMAGE]: false,
           [MAP_GAME_MODE_LANGUAGE]: false,
         },
         modeLoadErrorByMode: {
           [MAP_GAME_MODE_MAP]: "",
+          [MAP_GAME_MODE_IMAGE]: "",
           [MAP_GAME_MODE_LANGUAGE]: "",
         },
         audioPlayer: null,
         audioErrorByQuestionId: new Map(),
+        imageLoadStateByQuestionId: new Map(),
       };
 
       const el = {
@@ -183,6 +189,7 @@
         resumeBtn: document.getElementById("resumeBtn"),
         discardResumeBtn: document.getElementById("discardResumeBtn"),
         modeMap: document.getElementById("modeMap"),
+        modeImage: document.getElementById("modeImage"),
         modeLanguage: document.getElementById("modeLanguage"),
         modeStatus: document.getElementById("modeStatus"),
         modeStatusText: document.getElementById("modeStatusText"),
@@ -193,6 +200,11 @@
         audioControls: document.getElementById("audioControls"),
         playAudioBtn: document.getElementById("playAudioBtn"),
         audioStatusText: document.getElementById("audioStatusText"),
+        imagePromptWrap: document.getElementById("imagePromptWrap"),
+        imageQuestionText: document.getElementById("imageQuestionText"),
+        imageLoading: document.getElementById("imageLoading"),
+        imageError: document.getElementById("imageError"),
+        questionImage: document.getElementById("questionImage"),
       };
 
 
@@ -248,6 +260,18 @@
         return String(value || "").trim().toUpperCase();
       }
 
+      const COUNTRY_CODE_ALIASES = new Map([
+        ["UK", "GB"],
+        ["EL", "GR"],
+        ["GL", "GL"],
+        ["DK", "DK"],
+      ]);
+
+      function normalizeQuestionCountryCode(value) {
+        const code = normalizeCountryCode(value);
+        return COUNTRY_CODE_ALIASES.get(code) || code;
+      }
+
       function normalizeIdentityPart(value) {
         return String(value || "")
           .trim()
@@ -260,8 +284,11 @@
       function buildQuestionKey(question) {
         const stableId = String(question.id || "").trim();
         if (stableId) return `id:${stableId}`;
-        const normalizedCountry = normalizeIdentityPart(question.countryNameEn || question.countryNameAr || question.countryCode);
-        return `fallback:${normalizedCountry}|${question.difficulty}|${question.points}`;
+        const normalizedCountry = normalizeIdentityPart(
+          question.targetCountryNameEn || question.countryNameEn || question.targetCountryNameAr || question.countryNameAr || question.targetCountryCode || question.countryCode
+        );
+        const normalizedPrompt = normalizeIdentityPart(question.imageUrl || question.audioUrl || question.placeNameEn || "");
+        return `fallback:${normalizedCountry}|${normalizedPrompt}|${question.difficulty}|${question.points}`;
       }
 
       function getEmptyUsedHistory() {
@@ -312,13 +339,16 @@
         }
       }
 
-      function pickUniqueQuestions(candidates, count, roundUsedKeys) {
+      function pickUniqueQuestions(candidates, count, roundUsedKeys, roundUsedCountryCodes) {
         const picked = [];
         const shuffled = shuffle(candidates);
         for (const item of shuffled) {
           if (picked.length >= count) break;
           if (roundUsedKeys.has(item.questionKey)) continue;
+          const targetCode = item.targetCountryCode || item.countryCode;
+          if (targetCode && roundUsedCountryCodes && roundUsedCountryCodes.has(targetCode)) continue;
           roundUsedKeys.add(item.questionKey);
+          if (targetCode && roundUsedCountryCodes) roundUsedCountryCodes.add(targetCode);
           picked.push(item);
         }
         return picked;
@@ -376,8 +406,9 @@
       function restoreSavedGameState(saved) {
         if (!saved) return false;
         if (!Array.isArray(saved.questions) || !saved.questions.length) return false;
-        state.selectedMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode) ? saved.selectedMode : MAP_GAME_MODE_MAP;
+        state.selectedMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode) ? saved.selectedMode : MAP_GAME_MODE_MAP;
         el.modeMap.checked = state.selectedMode === MAP_GAME_MODE_MAP;
+        el.modeImage.checked = state.selectedMode === MAP_GAME_MODE_IMAGE;
         el.modeLanguage.checked = state.selectedMode === MAP_GAME_MODE_LANGUAGE;
         applyModeUiState();
         state.questions = saved.questions;
@@ -405,6 +436,7 @@
 
       function buildQuestions() {
         const roundUsedKeys = new Set();
+        const roundUsedCountryCodes = new Set();
         const questions = [];
         let historyUpdatedByReset = false;
 
@@ -418,16 +450,24 @@
 
           const bucketHistory = state.usedQuestionHistory[bucket.difficulty];
           const unused = bucketPool.filter((item) => !bucketHistory.has(item.questionKey));
-          let selected = pickUniqueQuestions(unused, bucket.count, roundUsedKeys);
+          let selected = pickUniqueQuestions(unused, bucket.count, roundUsedKeys, roundUsedCountryCodes);
 
           if (selected.length < bucket.count) {
             bucketHistory.clear();
             historyUpdatedByReset = true;
-            selected = pickUniqueQuestions(bucketPool, bucket.count, roundUsedKeys);
+            selected = pickUniqueQuestions(bucketPool, bucket.count, roundUsedKeys, roundUsedCountryCodes);
           }
 
           if (selected.length < bucket.count) {
-            throw new Error("Not enough unique rows in CSV to build 20 questions");
+            const needed = bucket.count - selected.length;
+            const fallback = shuffle(bucketPool).filter((item) => !roundUsedKeys.has(item.questionKey)).slice(0, needed);
+            if (fallback.length < needed) {
+              throw new Error("Not enough unique rows in CSV to build 20 questions");
+            }
+            fallback.forEach((item) => {
+              roundUsedKeys.add(item.questionKey);
+            });
+            selected = selected.concat(fallback);
           }
 
           questions.push(...selected);
@@ -463,6 +503,10 @@
         return state.selectedMode === MAP_GAME_MODE_LANGUAGE;
       }
 
+      function isImageMode() {
+        return state.selectedMode === MAP_GAME_MODE_IMAGE;
+      }
+
       function stopCurrentAudio() {
         if (!state.audioPlayer) return;
         try {
@@ -493,6 +537,70 @@
         el.audioControls.classList.add("active");
         const hasError = q && state.audioErrorByQuestionId.has(String(q.id || q.audioUrl || ""));
         setAudioStatus(hasError ? "تعذر تحميل الصوت. اضغط لإعادة المحاولة." : "");
+      }
+
+      function resetImageUi() {
+        el.imagePromptWrap.classList.add("hidden");
+        el.imageLoading.classList.add("hidden");
+        el.imageError.classList.add("hidden");
+        el.questionImage.classList.add("hidden");
+        el.questionImage.removeAttribute("src");
+      }
+
+      function updateImageUi() {
+        if (!isImageMode()) {
+          resetImageUi();
+          return;
+        }
+        const q = getQuestion();
+        el.imagePromptWrap.classList.remove("hidden");
+        el.imageQuestionText.textContent = "ما هي الدولة التي تظهر في الصورة؟";
+
+        const imageUrl = normalizeCell(q?.imageUrl);
+        if (!imageUrl) {
+          el.imageLoading.classList.add("hidden");
+          el.questionImage.classList.add("hidden");
+          el.imageError.classList.remove("hidden");
+          return;
+        }
+
+        const questionKey = String(q?.id || q?.sourceId || imageUrl);
+        const knownState = state.imageLoadStateByQuestionId.get(questionKey);
+        if (knownState === "loaded" && el.questionImage.dataset.currentSrc === imageUrl) {
+          el.imageLoading.classList.add("hidden");
+          el.imageError.classList.add("hidden");
+          el.questionImage.classList.remove("hidden");
+          return;
+        }
+        if (knownState === "error" && el.questionImage.dataset.currentSrc === imageUrl) {
+          el.imageLoading.classList.add("hidden");
+          el.questionImage.classList.add("hidden");
+          el.imageError.classList.remove("hidden");
+          return;
+        }
+
+        el.imageLoading.classList.remove("hidden");
+        el.imageError.classList.add("hidden");
+        el.questionImage.classList.add("hidden");
+
+        el.questionImage.dataset.currentSrc = imageUrl;
+        el.questionImage.onload = () => {
+          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          state.imageLoadStateByQuestionId.set(questionKey, "loaded");
+          el.imageLoading.classList.add("hidden");
+          el.imageError.classList.add("hidden");
+          el.questionImage.classList.remove("hidden");
+        };
+        el.questionImage.onerror = () => {
+          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          state.imageLoadStateByQuestionId.set(questionKey, "error");
+          el.imageLoading.classList.add("hidden");
+          el.questionImage.classList.add("hidden");
+          el.imageError.classList.remove("hidden");
+        };
+        if (el.questionImage.src !== imageUrl) {
+          el.questionImage.src = imageUrl;
+        }
       }
 
       function ensureAudioPlayer() {
@@ -558,18 +666,25 @@
           el.targetCountry.textContent = "—";
           el.targetHintText.textContent = LANGUAGE_MODE_INSTRUCTION;
           el.targetHintText.classList.add("mode-instruction");
+        } else if (isImageMode()) {
+          el.targetTitle.textContent = "تعليمات السؤال";
+          el.targetCountry.textContent = "—";
+          el.targetHintText.textContent = IMAGE_MODE_INSTRUCTION;
+          el.targetHintText.classList.add("mode-instruction");
         } else {
           el.targetTitle.textContent = "الدولة المطلوبة";
           el.targetHintText.textContent = "اختر هذه الدولة على الخريطة";
           el.targetHintText.classList.remove("mode-instruction");
         }
+        updateImageUi();
       }
 
       function setSelectedMode(mode, { syncInput = true } = {}) {
-        const nextMode = mode === MAP_GAME_MODE_LANGUAGE ? MAP_GAME_MODE_LANGUAGE : MAP_GAME_MODE_MAP;
+        const nextMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode) ? mode : MAP_GAME_MODE_MAP;
         state.selectedMode = nextMode;
         if (syncInput) {
           el.modeMap.checked = nextMode === MAP_GAME_MODE_MAP;
+          el.modeImage.checked = nextMode === MAP_GAME_MODE_IMAGE;
           el.modeLanguage.checked = nextMode === MAP_GAME_MODE_LANGUAGE;
         }
         applyModeUiState();
@@ -642,7 +757,7 @@
 
         const country = document.createElement("p");
         country.className = "result-correct-country";
-        country.innerHTML = `الدولة الصحيحة: <strong>${payload.correctCountry}</strong>`;
+        country.innerHTML = `الإجابة الصحيحة: <strong>${payload.correctCountry}</strong>`;
         summary.appendChild(country);
         el.overlayText.appendChild(summary);
 
@@ -689,7 +804,7 @@
         el.questionNumberMeta.textContent = `${state.questionIndex + 1} من 20`;
         el.questionDifficultyMeta.textContent = DIFFICULTY_AR[q.difficulty];
         el.questionPointsMeta.textContent = `${q.points}`;
-        el.targetCountry.textContent = isLanguageMode() ? "—" : q.countryNameAr;
+        el.targetCountry.textContent = (isLanguageMode() || isImageMode()) ? "—" : (q.targetCountryNameAr || q.countryNameAr);
         applyModeUiState();
         updateAudioUi();
         const currentTurnIdx = state.phase === "other_response" ? otherIdx : activeIdx;
@@ -730,7 +845,7 @@
             if (state.pendingTeamIndex === 0) node.classList.add("team1");
             if (state.pendingTeamIndex === 1) node.classList.add("team2");
           }
-          if (state.phase === "revealed" && target.countryCode === code) node.classList.add("correct");
+          if (state.phase === "revealed" && (target.targetCountryCode || target.countryCode) === code) node.classList.add("correct");
         });
       }
 
@@ -744,22 +859,23 @@
         const unmatchedByName = [];
 
         state.questionPool.forEach((question) => {
-          const normalizedName = normalizeName(question.countryNameEn);
-          const mappedByCode = featureCodes.has(question.countryCode);
-          const mappedByName = mappedNameToCode.has(`${normalizedName}:${question.countryCode}`);
+          const normalizedName = normalizeName(question.targetCountryNameEn || question.countryNameEn);
+          const targetCode = question.targetCountryCode || question.countryCode;
+          const mappedByCode = featureCodes.has(targetCode);
+          const mappedByName = mappedNameToCode.has(`${normalizedName}:${targetCode}`);
           if (!mappedByCode) {
             missingByCode.push({
-              countryCode: question.countryCode,
-              countryNameEn: question.countryNameEn,
-              countryNameAr: question.countryNameAr,
+              countryCode: targetCode,
+              countryNameEn: question.targetCountryNameEn || question.countryNameEn,
+              countryNameAr: question.targetCountryNameAr || question.countryNameAr,
             });
             return;
           }
           if (!mappedByName) {
             unmatchedByName.push({
-              countryCode: question.countryCode,
-              countryNameEn: question.countryNameEn,
-              countryNameAr: question.countryNameAr,
+              countryCode: targetCode,
+              countryNameEn: question.targetCountryNameEn || question.countryNameEn,
+              countryNameAr: question.targetCountryNameAr || question.countryNameAr,
             });
           }
         });
@@ -792,7 +908,9 @@
         const half = Math.floor(points / 2);
         const activeIdx = activeTeamIndex();
         const otherIdx = otherTeamIndex();
-        const pickedCorrect = [state.teamPicks[0]?.countryCode === q.countryCode, state.teamPicks[1]?.countryCode === q.countryCode];
+        const targetCode = q.targetCountryCode || q.countryCode;
+        const targetCountryAr = q.targetCountryNameAr || q.countryNameAr;
+        const pickedCorrect = [state.teamPicks[0]?.countryCode === targetCode, state.teamPicks[1]?.countryCode === targetCode];
 
         const resultState = {
           status: "tie",
@@ -800,7 +918,7 @@
           pointsLabel: "+0",
           pointsNote: "لا نقاط لهذا السؤال",
           secondaryText: "",
-          correctCountry: q.countryNameAr,
+          correctCountry: targetCountryAr,
         };
 
         if (state.otherTeamAcceptedActiveAnswer) {
@@ -830,7 +948,7 @@
           resultState.pointsLabel = `+${points}`;
           resultState.pointsNote = "نقاط مكتسبة";
         } else {
-          const target = state.centroids.get(q.countryCode);
+          const target = state.centroids.get(targetCode);
           const c1 = state.centroids.get(state.teamPicks[0]?.countryCode);
           const c2 = state.centroids.get(state.teamPicks[1]?.countryCode);
           if (target && c1 && c2) {
@@ -848,14 +966,14 @@
               resultState.teamName = state.teamNames[0];
               resultState.pointsLabel = `+${half}`;
               resultState.pointsNote = "نقاط قرب";
-              resultState.secondaryText = "لم يختر أحد الإجابة الصحيحة، وتم احتساب الأقرب.";
+              resultState.secondaryText = "الأقرب يحصل على نصف النقاط.";
             } else {
               state.scores[1] += half;
               resultState.status = "correct";
               resultState.teamName = state.teamNames[1];
               resultState.pointsLabel = `+${half}`;
               resultState.pointsNote = "نقاط قرب";
-              resultState.secondaryText = "لم يختر أحد الإجابة الصحيحة، وتم احتساب الأقرب.";
+              resultState.secondaryText = "الأقرب يحصل على نصف النقاط.";
             }
           } else {
             resultState.status = "tie";
@@ -868,6 +986,11 @@
         state.phase = "revealed";
         updateHeader();
         updateMapHighlights();
+        if (isImageMode() && normalizeCell(q.placeNameAr)) {
+          resultState.secondaryText = resultState.secondaryText
+            ? `${resultState.secondaryText} — المكان: ${q.placeNameAr}`
+            : `المكان: ${q.placeNameAr}`;
+        }
 
         if (!isMobileViewport()) {
           showQuestionResultOverlay(resultState);
@@ -943,7 +1066,7 @@
 
         state.teamPicks[teamIdx] = {
           countryCode: state.pendingPick,
-          isCorrect: state.pendingPick === q.countryCode,
+          isCorrect: state.pendingPick === (q.targetCountryCode || q.countryCode),
         };
 
         state.pendingPick = null;
@@ -1293,7 +1416,7 @@
         const saved = state.pendingResume;
         el.resumePrompt.classList.add("hidden");
         if (!saved) return;
-        const resumeMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode)
+        const resumeMode = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(saved.selectedMode)
           ? saved.selectedMode
           : MAP_GAME_MODE_MAP;
         setSelectedMode(resumeMode);
@@ -1320,6 +1443,11 @@
         showModeLoadMessage("");
         el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
       });
+      el.modeImage.addEventListener("change", () => {
+        if (!el.modeImage.checked) return;
+        setSelectedMode(MAP_GAME_MODE_IMAGE, { syncInput: false });
+        ensureQuestionsForMode(MAP_GAME_MODE_IMAGE);
+      });
       el.modeLanguage.addEventListener("change", () => {
         if (!el.modeLanguage.checked) return;
         setSelectedMode(MAP_GAME_MODE_LANGUAGE, { syncInput: false });
@@ -1340,22 +1468,53 @@
       });
 
       async function loadQuestionsFromApi(mode, { forceReload = false } = {}) {
-        const modeKey = mode === MAP_GAME_MODE_LANGUAGE ? MAP_GAME_MODE_LANGUAGE : MAP_GAME_MODE_MAP;
+        const modeKey = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode) ? mode : MAP_GAME_MODE_MAP;
         if (!forceReload && state.questionsReadyByMode[modeKey] && state.questionPoolByMode[modeKey].length) {
           return true;
         }
         try {
-          const endpoint = modeKey === MAP_GAME_MODE_LANGUAGE ? "/map-game/language-questions" : "/map-game/questions";
+          const endpoint =
+            modeKey === MAP_GAME_MODE_LANGUAGE
+              ? "/map-game/language-questions"
+              : modeKey === MAP_GAME_MODE_IMAGE
+                ? "/map-game/image-questions"
+                : "/map-game/questions";
           const payload = await apiFetchJson(endpoint);
           const questions = Array.isArray(payload?.questions)
-            ? payload.questions.map((question) => ({
-                ...question,
-                countryCode: normalizeCountryCode(question.countryCode),
-                questionKey: buildQuestionKey(question),
-              })).filter((question) => question.countryCode)
+            ? payload.questions.map((question) => {
+                const normalizedQuestion = {
+                  id: String(question.sourceId || question.id || "").trim(),
+                  mode: modeKey,
+                  promptType: question.promptType || (modeKey === MAP_GAME_MODE_LANGUAGE ? "audio" : modeKey === MAP_GAME_MODE_IMAGE ? "image" : "map"),
+                  sourceId: question.sourceId || question.id || "",
+                  targetCountryCode: normalizeQuestionCountryCode(question.targetCountryCode || question.countryCode),
+                  targetCountryNameAr: question.targetCountryNameAr || question.countryNameAr || "",
+                  targetCountryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
+                  countryCode: normalizeQuestionCountryCode(question.targetCountryCode || question.countryCode),
+                  countryNameAr: question.targetCountryNameAr || question.countryNameAr || "",
+                  countryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
+                  difficulty: question.difficulty,
+                  points: question.points,
+                  imageUrl: question.imageUrl || "",
+                  audioUrl: question.audioUrl || "",
+                  placeNameAr: question.placeNameAr || "",
+                  placeNameEn: question.placeNameEn || "",
+                  status: question.status || "",
+                  lat: Number(question.lat),
+                  lng: Number(question.lng),
+                };
+                normalizedQuestion.questionKey = buildQuestionKey(normalizedQuestion);
+                return normalizedQuestion;
+              }).filter((question) => question.targetCountryCode)
             : [];
           if (!questions.length) {
-            throw new Error(modeKey === MAP_GAME_MODE_LANGUAGE ? "بيانات وضع اللغة غير متوفرة حالياً." : "No valid map-game rows in API response");
+            throw new Error(
+              modeKey === MAP_GAME_MODE_LANGUAGE
+                ? "بيانات وضع اللغة غير متوفرة حالياً."
+                : modeKey === MAP_GAME_MODE_IMAGE
+                  ? "بيانات وضع الصورة غير متوفرة حالياً."
+                  : "No valid map-game rows in API response"
+            );
           }
 
           state.questionPoolByMode[modeKey] = questions;
@@ -1363,9 +1522,9 @@
           state.modeLoadErrorByMode[modeKey] = "";
           if (modeKey === state.selectedMode) {
             state.questionPool = questions;
-            state.questionByCountryCode = new Map(questions.map((item) => [item.countryCode, item]));
-            state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
-            state.centroids = new Map(questions.map((item) => [item.countryCode, [item.lng, item.lat]]));
+            state.questionByCountryCode = new Map(questions.map((item) => [item.targetCountryCode, item]));
+            state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.targetCountryNameEn), item.targetCountryCode]));
+            state.centroids = new Map(questions.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng)).map((item) => [item.targetCountryCode, [item.lng, item.lat]]));
             showModeLoadMessage("");
           }
           return true;
@@ -1376,6 +1535,8 @@
           if (modeKey === state.selectedMode) {
             showModeLoadMessage(modeKey === MAP_GAME_MODE_LANGUAGE
               ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
+              : modeKey === MAP_GAME_MODE_IMAGE
+                ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
               : CSV_LOAD_ERROR_AR);
           }
           return false;
@@ -1387,9 +1548,13 @@
         if (ok) {
           if (mode === state.selectedMode) {
             state.questionPool = state.questionPoolByMode[mode];
-            state.questionByCountryCode = new Map(state.questionPool.map((item) => [item.countryCode, item]));
-            state.countryCodeByNormalizedName = new Map(state.questionPool.map((item) => [normalizeName(item.countryNameEn), item.countryCode]));
-            state.centroids = new Map(state.questionPool.map((item) => [item.countryCode, [item.lng, item.lat]]));
+            state.questionByCountryCode = new Map(state.questionPool.map((item) => [item.targetCountryCode, item]));
+            state.countryCodeByNormalizedName = new Map(state.questionPool.map((item) => [normalizeName(item.targetCountryNameEn), item.targetCountryCode]));
+            state.centroids = new Map(
+              state.questionPool
+                .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+                .map((item) => [item.targetCountryCode, [item.lng, item.lat]])
+            );
             showModeLoadMessage("");
           }
           el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];

@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>خمن الدولة من الخريطة</title>
+    <title>خمن الدولة</title>
     <meta
       name="description"
-      content="لعبة خمن الدولة من الخريطة - تحدي فرق بخريطة عالم تفاعلية كبيرة مع نظام نقاط عادل."
+      content="لعبة خمن الدولة - تحدي فرق بخريطة عالم تفاعلية كبيرة مع أنماط متعددة ونظام نقاط عادل."
     />
     <style>
       :root {
@@ -482,6 +482,63 @@
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
 
+      .image-prompt {
+        position: absolute;
+        top: 0.6rem;
+        inset-inline: 0.6rem;
+        z-index: 2;
+        display: grid;
+        gap: 0.45rem;
+        pointer-events: none;
+      }
+
+      .image-question-text {
+        margin: 0;
+        width: fit-content;
+        max-width: 100%;
+        padding: 0.34rem 0.65rem;
+        border-radius: 999px;
+        background: rgba(4, 12, 32, 0.86);
+        border: 1px solid rgba(255, 234, 184, 0.35);
+        color: #ffe8ac;
+        font-weight: 800;
+        font-size: 0.9rem;
+      }
+
+      .image-frame {
+        position: relative;
+        width: min(430px, 92%);
+        aspect-ratio: 16 / 9;
+        border-radius: 14px;
+        border: 1px solid rgba(170, 193, 255, 0.35);
+        overflow: hidden;
+        background: rgba(5, 10, 24, 0.95);
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.32);
+      }
+
+      .question-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .image-loading,
+      .image-error {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        text-align: center;
+        padding: 0.8rem;
+        background: rgba(3, 8, 20, 0.74);
+        font-weight: 700;
+      }
+
+      .image-error {
+        color: #ffd4d4;
+      }
+
       .map-svg {
         width: 100%;
         height: 100%;
@@ -939,6 +996,10 @@
           align-items: flex-end;
           padding: 0.5rem;
         }
+
+        .image-frame {
+          width: min(360px, 88%);
+        }
       }
 
       @media (max-width: 420px) {
@@ -1048,6 +1109,21 @@
         .map-stage {
           min-height: 240px;
         }
+
+        .image-prompt {
+          top: 0.36rem;
+          inset-inline: 0.36rem;
+        }
+
+        .image-question-text {
+          font-size: 0.76rem;
+          padding: 0.24rem 0.5rem;
+        }
+
+        .image-frame {
+          width: min(290px, 90%);
+          border-radius: 10px;
+        }
       }
 
       @media (max-width: 360px) {
@@ -1065,10 +1141,10 @@
     <main class="shell">
       <a class="back-link" href="/games/">← العودة إلى الألعاب</a>
 
-      <section class="setup content-intro" id="introScreen" aria-label="مقدمة لعبة خمن الدولة من الخريطة">
-        <h1>خمن الدولة من الخريطة</h1>
+      <section class="setup content-intro" id="introScreen" aria-label="مقدمة لعبة خمن الدولة">
+        <h1>خمن الدولة</h1>
         <div class="intro-card">
-          <h2>ما هي لعبة خمن الدولة من الخريطة؟</h2>
+          <h2>ما هي لعبة خمن الدولة؟</h2>
           <p>
             هذه لعبة جغرافيا تنافسية بين فريقين. في كل سؤال تظهر دولة مطلوبة (أو يظهر تلميح اللغة عند تفعيل وضع اللغة)،
             ويكون الهدف اختيار مكان الدولة الصحيح على خريطة العالم التفاعلية بأسرع قرار وأدق تخمين.
@@ -1078,6 +1154,7 @@
           <h2>أنماط اللعب المتاحة</h2>
           <ul class="intro-list">
             <li><strong>خمن الدولة من الخريطة:</strong> يظهر اسم الدولة، وعلى الفريق تحديد موقعها على الخريطة.</li>
+            <li><strong>خمن الدولة من الصورة:</strong> تظهر صورة مكان أو معلم، وعلى الفريق تحديد الدولة على الخريطة.</li>
             <li><strong>خمن مكان الدولة من اللغة:</strong> إذا كان وضع اللغة متاحًا على هذا المسار، يتم الاستماع للصوت ثم اختيار الدولة المناسبة على الخريطة.</li>
           </ul>
         </div>

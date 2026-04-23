@@ -88,11 +88,28 @@ export default {
       }
 
       if (url.pathname === '/map-game/language-questions' && request.method === 'GET') {
+        const mapRows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAP_GAME_SHEET_CSV_URL',
+          cacheKeyPrefix: 'map-game-questions',
+        });
         const rows = await getSheetRows(request, env, ctx, {
           envVarName: 'MAP_LANGUAGE_MODE_SHEET_CSV_URL',
           cacheKeyPrefix: 'map-language-mode-questions',
         });
-        const questions = buildMapLanguageModeQuestions(rows);
+        const questions = buildMapLanguageModeQuestions(rows, buildMapCountryCoordinatesLookup(mapRows));
+        return json({ questions }, 200, request, env);
+      }
+
+      if (url.pathname === '/map-game/image-questions' && request.method === 'GET') {
+        const mapRows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAP_GAME_SHEET_CSV_URL',
+          cacheKeyPrefix: 'map-game-questions',
+        });
+        const rows = await getSheetRows(request, env, ctx, {
+          envVarName: 'MAP_GEOGUESS_MODE_SHEET_CSV_URL',
+          cacheKeyPrefix: 'map-geoguess-mode-questions',
+        });
+        const questions = buildMapGeoguessModeQuestions(rows, buildMapCountryCoordinatesLookup(mapRows));
         return json({ questions }, 200, request, env);
       }
 
@@ -318,11 +335,22 @@ function buildMapGameQuestions(rows) {
 
       return {
         id,
+        mode: 'map',
+        promptType: 'map',
+        sourceId: id,
+        targetCountryCode: countryCode,
+        targetCountryNameAr: countryNameAr,
+        targetCountryNameEn: countryNameEn,
         countryCode,
         countryNameAr,
         countryNameEn,
         difficulty,
         points,
+        imageUrl: '',
+        audioUrl: '',
+        placeNameAr: '',
+        placeNameEn: '',
+        status: 'approved_v1',
         lat,
         lng,
       };
@@ -330,7 +358,19 @@ function buildMapGameQuestions(rows) {
     .filter(Boolean);
 }
 
-function buildMapLanguageModeQuestions(rows) {
+function buildMapCountryCoordinatesLookup(rows) {
+  const questions = buildMapGameQuestions(rows);
+  const byCode = new Map();
+  questions.forEach((question) => {
+    byCode.set(normalizeCell(question.countryCode).toUpperCase(), {
+      lat: question.lat,
+      lng: question.lng,
+    });
+  });
+  return byCode;
+}
+
+function buildMapLanguageModeQuestions(rows, countryCoordinates = new Map()) {
   const [headers, ...dataRows] = rows;
   const headerMap = headers.map(normalizeHeader);
 
@@ -366,12 +406,19 @@ function buildMapLanguageModeQuestions(rows) {
       const audioUrl = normalizeCell(raw.audio_url);
       const id = firstNonEmpty(raw.source_id, raw.id, `language-row-${index + 1}`);
       const sourceLanguageAnswer = normalizeCell(raw.source_language_answer);
+      const coords = countryCoordinates.get(countryCode);
 
       if (!countryCode || !countryNameAr || !countryNameEn) return null;
       if (!audioUrl || !['easy', 'medium', 'hard'].includes(difficulty) || !Number.isFinite(points)) return null;
 
       return {
         id,
+        mode: 'language',
+        promptType: 'audio',
+        sourceId: id,
+        targetCountryCode: countryCode,
+        targetCountryNameAr: countryNameAr,
+        targetCountryNameEn: countryNameEn,
         countryCode,
         countryNameAr,
         countryNameEn,
@@ -379,6 +426,81 @@ function buildMapLanguageModeQuestions(rows) {
         points,
         audioUrl,
         sourceLanguageAnswer,
+        imageUrl: '',
+        placeNameAr: '',
+        placeNameEn: '',
+        status: normalizeCell(raw.status),
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildMapGeoguessModeQuestions(rows, countryCoordinates = new Map()) {
+  const [headers, ...dataRows] = rows;
+  const headerMap = headers.map(normalizeHeader);
+
+  const requiredHeaders = [
+    'source_id',
+    'image_url',
+    'target_country_code',
+    'target_country_name_ar',
+    'target_country_name_en',
+    'place_name_ar',
+    'place_name_en',
+    'difficulty',
+    'points',
+    'status',
+  ];
+  const missingHeaders = requiredHeaders.filter((header) => !headerMap.includes(header));
+  if (missingHeaders.length) {
+    throw new Error(`CSV headers are missing required columns: ${missingHeaders.join(', ')}`);
+  }
+
+  return dataRows
+    .map((row, index) => {
+      const raw = {};
+      headerMap.forEach((key, columnIndex) => {
+        raw[key] = normalizeCell(row[columnIndex]);
+      });
+
+      if (normalizeCell(raw.status).toLowerCase() !== 'approved_v1') return null;
+
+      const sourceId = firstNonEmpty(raw.source_id, raw.id, `geoguess-row-${index + 1}`);
+      const imageUrl = normalizeCell(raw.image_url);
+      const targetCountryCode = normalizeCell(raw.target_country_code).toUpperCase();
+      const targetCountryNameAr = normalizeCell(raw.target_country_name_ar);
+      const targetCountryNameEn = normalizeCell(raw.target_country_name_en);
+      const placeNameAr = normalizeCell(raw.place_name_ar);
+      const placeNameEn = normalizeCell(raw.place_name_en);
+      const difficulty = normalizeCell(raw.difficulty).toLowerCase();
+      const points = toInteger(raw.points);
+      const coords = countryCoordinates.get(targetCountryCode);
+
+      if (!targetCountryCode || !targetCountryNameAr || !targetCountryNameEn) return null;
+      if (!['easy', 'medium', 'hard'].includes(difficulty) || !Number.isFinite(points)) return null;
+
+      return {
+        id: sourceId,
+        mode: 'image',
+        promptType: 'image',
+        sourceId,
+        targetCountryCode,
+        targetCountryNameAr,
+        targetCountryNameEn,
+        countryCode: targetCountryCode,
+        countryNameAr: targetCountryNameAr,
+        countryNameEn: targetCountryNameEn,
+        difficulty,
+        points,
+        imageUrl,
+        audioUrl: '',
+        placeNameAr,
+        placeNameEn,
+        status: normalizeCell(raw.status),
+        lat: coords?.lat ?? null,
+        lng: coords?.lng ?? null,
       };
     })
     .filter(Boolean);
