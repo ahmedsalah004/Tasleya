@@ -16,3 +16,12 @@ XO_INTERSECTION_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-
 
 ALLOWED_ORIGIN = "https://tasleya.online"
 CACHE_TTL_SECONDS = "300"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
