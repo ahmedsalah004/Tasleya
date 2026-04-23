@@ -1,5 +1,5 @@
       <section class="setup" id="setupScreen" style="display:none;">
-        <h1>خمن الدولة من الخريطة</h1>
+        <h1>خمن الدولة</h1>
         <div class="field">
           <label for="team1Name">اسم الفريق الأول</label>
           <input id="team1Name" type="text" maxlength="30" placeholder="الفريق الأول" />
@@ -12,6 +12,10 @@
           <label class="mode-option">
             <input type="radio" name="mapGameMode" value="map" id="modeMap" checked />
             خمن الدولة من الخريطة
+          </label>
+          <label class="mode-option">
+            <input type="radio" name="mapGameMode" value="image" id="modeImage" />
+            خمن الدولة من الصورة
           </label>
           <label class="mode-option">
             <input type="radio" name="mapGameMode" value="language" id="modeLanguage" />
@@ -81,6 +85,14 @@
         </header>
 
         <section class="map-stage" id="mapStage">
+          <div class="image-prompt hidden" id="imagePromptWrap" aria-live="polite">
+            <p class="image-question-text" id="imageQuestionText">ما هي الدولة التي تظهر في الصورة؟</p>
+            <div class="image-frame" id="imageFrame">
+              <div class="image-loading" id="imageLoading">جاري تحميل الصورة...</div>
+              <img class="question-image hidden" id="questionImage" alt="صورة السؤال الجغرافي" loading="lazy" decoding="async" />
+              <div class="image-error hidden" id="imageError">تعذر تحميل الصورة. يمكنك الانتقال للسؤال التالي.</div>
+            </div>
+          </div>
           <div class="loading" id="mapLoading">جاري تحميل الخريطة...</div>
 
           <div class="overlay" id="overlay">
