@@ -72,6 +72,15 @@
         { difficulty: "medium", points: 300, count: 8 },
         { difficulty: "hard", points: 500, count: 8 },
       ];
+      const ROUND_REQUIREMENTS_BY_MODE = {
+        [MAP_GAME_MODE_MAP]: ROUND_REQUIREMENTS,
+        [MAP_GAME_MODE_IMAGE]: [
+          { difficulty: "easy", count: 4 },
+          { difficulty: "medium", count: 8 },
+          { difficulty: "hard", count: 8 },
+        ],
+        [MAP_GAME_MODE_LANGUAGE]: ROUND_REQUIREMENTS,
+      };
       const WORLD_MAP_URL =
         "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson";
       const NAME_NORMALIZATION_ALIASES = new Map([
@@ -301,6 +310,12 @@
         return COUNTRY_CODE_ALIASES.get(code) || code;
       }
 
+      function normalizeQuestionDifficulty(value) {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (["easy", "medium", "hard"].includes(normalized)) return normalized;
+        return "";
+      }
+
       function normalizeIdentityPart(value) {
         return String(value || "")
           .trim()
@@ -464,47 +479,139 @@
       }
 
       function buildQuestions() {
+        const modeKey = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(state.selectedMode)
+          ? state.selectedMode
+          : MAP_GAME_MODE_MAP;
+        const requirements = ROUND_REQUIREMENTS_BY_MODE[modeKey] || ROUND_REQUIREMENTS;
+        const strictDistribution = modeKey === MAP_GAME_MODE_MAP;
+        const mapFeatureCodes = new Set(
+          Array.from(el.mapStage?.querySelectorAll?.(".country[data-country-code]") || [])
+            .map((node) => normalizeQuestionCountryCode(node.dataset.countryCode))
+            .filter(Boolean)
+        );
+        const diagnostics = {
+          mode: modeKey,
+          totalRows: state.questionPool.length,
+          withCountryCode: 0,
+          withMapFeature: 0,
+          withLatLng: 0,
+          byDifficulty: { easy: 0, medium: 0, hard: 0, unknown: 0 },
+          byPoints: {},
+          byDifficultyPoints: {},
+          perBucketPool: [],
+          duplicateCountrySkipped: 0,
+          duplicateQuestionKeySkipped: 0,
+        };
+
+        const allRowsWithCountryCode = state.questionPool.filter((item) => {
+          const hasCountryCode = Boolean(item.targetCountryCode || item.countryCode);
+          if (!hasCountryCode) return false;
+          diagnostics.withCountryCode += 1;
+          const targetCode = item.targetCountryCode || item.countryCode;
+          if (!mapFeatureCodes.size || mapFeatureCodes.has(targetCode)) diagnostics.withMapFeature += 1;
+          if (Number.isFinite(item.lat) && Number.isFinite(item.lng)) diagnostics.withLatLng += 1;
+          const diff = normalizeQuestionDifficulty(item.difficulty);
+          if (diff) diagnostics.byDifficulty[diff] += 1;
+          else diagnostics.byDifficulty.unknown += 1;
+          const pointsKey = String(item.points);
+          diagnostics.byPoints[pointsKey] = (diagnostics.byPoints[pointsKey] || 0) + 1;
+          const diffPointsKey = `${diff || "unknown"}:${pointsKey}`;
+          diagnostics.byDifficultyPoints[diffPointsKey] = (diagnostics.byDifficultyPoints[diffPointsKey] || 0) + 1;
+          return true;
+        });
+
         const roundUsedKeys = new Set();
         const roundUsedCountryCodes = new Set();
         const questions = [];
         let historyUpdatedByReset = false;
 
-        for (const bucket of ROUND_REQUIREMENTS) {
-          const bucketPool = state.questionPool.filter(
-            (item) => item.difficulty === bucket.difficulty && item.points === bucket.points
-          );
+        const pickWithDiagnostics = (candidates, count, { avoidCountries = true } = {}) => {
+          const picked = [];
+          const shuffled = shuffle(candidates);
+          for (const item of shuffled) {
+            if (picked.length >= count) break;
+            if (roundUsedKeys.has(item.questionKey)) {
+              diagnostics.duplicateQuestionKeySkipped += 1;
+              continue;
+            }
+            const targetCode = item.targetCountryCode || item.countryCode;
+            if (avoidCountries && targetCode && roundUsedCountryCodes.has(targetCode)) {
+              diagnostics.duplicateCountrySkipped += 1;
+              continue;
+            }
+            roundUsedKeys.add(item.questionKey);
+            if (targetCode) roundUsedCountryCodes.add(targetCode);
+            picked.push(item);
+          }
+          return picked;
+        };
+
+        for (const bucket of requirements) {
+          const bucketPool = allRowsWithCountryCode.filter((item) => {
+            const sameDifficulty = normalizeQuestionDifficulty(item.difficulty) === bucket.difficulty;
+            if (!sameDifficulty) return false;
+            if (typeof bucket.points === "number") return Number(item.points) === bucket.points;
+            return true;
+          });
+          diagnostics.perBucketPool.push({
+            difficulty: bucket.difficulty,
+            points: typeof bucket.points === "number" ? bucket.points : "any",
+            required: bucket.count,
+            available: bucketPool.length,
+          });
           if (bucketPool.length < bucket.count) {
-            throw new Error("Not enough valid rows in CSV to build 20 questions");
+            if (strictDistribution) {
+              console.error("[MapGame] Question build diagnostics", diagnostics);
+              throw new Error("Not enough valid rows in CSV to build 20 questions");
+            }
           }
 
           const bucketHistory = state.usedQuestionHistory[bucket.difficulty];
           const unused = bucketPool.filter((item) => !bucketHistory.has(item.questionKey));
-          let selected = pickUniqueQuestions(unused, bucket.count, roundUsedKeys, roundUsedCountryCodes);
+          let selected = pickWithDiagnostics(unused, bucket.count, { avoidCountries: true });
 
           if (selected.length < bucket.count) {
             bucketHistory.clear();
             historyUpdatedByReset = true;
-            selected = pickUniqueQuestions(bucketPool, bucket.count, roundUsedKeys, roundUsedCountryCodes);
+            selected = pickWithDiagnostics(bucketPool, bucket.count, { avoidCountries: true });
           }
 
           if (selected.length < bucket.count) {
             const needed = bucket.count - selected.length;
-            const fallback = shuffle(bucketPool).filter((item) => !roundUsedKeys.has(item.questionKey)).slice(0, needed);
-            if (fallback.length < needed) {
+            const fallback = pickWithDiagnostics(bucketPool, needed, { avoidCountries: false });
+            if (fallback.length < needed && strictDistribution) {
+              console.error("[MapGame] Question build diagnostics", diagnostics);
               throw new Error("Not enough unique rows in CSV to build 20 questions");
             }
-            fallback.forEach((item) => {
-              roundUsedKeys.add(item.questionKey);
-            });
             selected = selected.concat(fallback);
           }
 
           questions.push(...selected);
         }
 
+        if (questions.length < 20) {
+          const needed = 20 - questions.length;
+          const globalUnused = allRowsWithCountryCode.filter(
+            (item) => !roundUsedKeys.has(item.questionKey) && !state.usedQuestionHistory[normalizeQuestionDifficulty(item.difficulty)]?.has(item.questionKey)
+          );
+          const fillBestEffort = pickWithDiagnostics(globalUnused, needed, { avoidCountries: true });
+          questions.push(...fillBestEffort);
+        }
+        if (questions.length < 20) {
+          const needed = 20 - questions.length;
+          const globalPool = allRowsWithCountryCode.filter((item) => !roundUsedKeys.has(item.questionKey));
+          const fillAny = pickWithDiagnostics(globalPool, needed, { avoidCountries: false });
+          questions.push(...fillAny);
+        }
+        if (questions.length < 20) {
+          console.error("[MapGame] Question build diagnostics", diagnostics);
+          throw new Error("Not enough valid rows in CSV to build 20 questions");
+        }
+
         if (historyUpdatedByReset) {
           saveUsedQuestionHistory();
         }
+        console.info("[MapGame] Question build diagnostics", diagnostics);
         return questions;
       }
 
@@ -1732,8 +1839,8 @@
                   countryCode: normalizeQuestionCountryCode(question.targetCountryCode || question.countryCode),
                   countryNameAr: question.targetCountryNameAr || question.countryNameAr || "",
                   countryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
-                  difficulty: question.difficulty,
-                  points: question.points,
+                  difficulty: normalizeQuestionDifficulty(question.difficulty),
+                  points: Number.isFinite(Number(question.points)) ? Number(question.points) : POINTS[normalizeQuestionDifficulty(question.difficulty)] || 0,
                   imageUrl: question.imageUrl || "",
                   audioUrl: question.audioUrl || "",
                   placeNameAr: question.placeNameAr || "",
