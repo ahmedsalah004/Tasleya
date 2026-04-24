@@ -206,8 +206,8 @@
         imageError: document.getElementById("imageError"),
         questionImage: document.getElementById("questionImage"),
       };
-      const modeOptions = Array.from(document.querySelectorAll(".mode-option[data-mode-option]"));
       const modeRadioInputs = [el.modeMap, el.modeImage, el.modeLanguage].filter(Boolean);
+      const modeSelector = document.querySelector(".mode-selector");
 
 
       function normalizeCell(value) {
@@ -1404,8 +1404,10 @@
         }
       }
 
-      function startGame() {
-        if (!state.mapReady || !state.questionsReadyByMode[state.selectedMode]) return;
+      function startGame(mode = state.selectedMode) {
+        const modeToStart = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode) ? mode : MAP_GAME_MODE_MAP;
+        if (!state.mapReady || !state.questionsReadyByMode[modeToStart]) return;
+        setSelectedMode(modeToStart);
         clearPendingResultReveal();
         clearSavedGameState();
         stopCurrentAudio();
@@ -1414,7 +1416,7 @@
         state.scores = [0, 0];
         state.questionIndex = 0;
         try {
-          state.questionPool = state.questionPoolByMode[state.selectedMode];
+          state.questionPool = state.questionPoolByMode[modeToStart];
           state.questions = buildQuestions();
         } catch (error) {
           showOverlay("خطأ", CSV_LOAD_ERROR_AR, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
@@ -1438,11 +1440,16 @@
       }
 
       el.startBtn.addEventListener("click", () => {
-        if (!state.mapReady || !state.questionsReadyByMode[state.selectedMode]) {
+        const checkedMode = modeRadioInputs.find((radioInput) => radioInput.checked)?.value;
+        const effectiveMode = state.selectedMode || checkedMode || MAP_GAME_MODE_MAP;
+        if (effectiveMode !== state.selectedMode) {
+          handleModeSelection(effectiveMode);
+        }
+        if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
           initializeMapGame({ forceRetry: true });
           return;
         }
-        startGame();
+        startGame(effectiveMode);
       });
       el.enterSetupBtn.addEventListener("click", () => {
         el.introScreen.style.display = "none";
@@ -1480,15 +1487,35 @@
           handleModeSelection(radioInput.value);
         });
       });
-      modeOptions.forEach((option) => {
-        option.addEventListener("click", () => {
-          const mode = option.dataset.modeOption;
-          const radioInput = option.querySelector('input[type="radio"]');
-          if (!mode || !radioInput || radioInput.checked) return;
+      let lastDelegatedModeActivationAt = 0;
+      let lastDelegatedMode = "";
+      function selectModeFromOption(option, sourceEventType = "") {
+        if (!option) return;
+        const mode = option.dataset.modeOption;
+        if (![MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode)) return;
+        if (sourceEventType === "click" && mode === lastDelegatedMode && Date.now() - lastDelegatedModeActivationAt < 300) {
+          return;
+        }
+        const radioInput = option.querySelector('input[type="radio"]');
+        if (radioInput) {
           radioInput.checked = true;
-          radioInput.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        lastDelegatedMode = mode;
+        lastDelegatedModeActivationAt = Date.now();
+        handleModeSelection(mode);
+      }
+      function selectModeFromEvent(event) {
+        const option = event.target.closest("[data-mode-option]");
+        if (!option || (modeSelector && !modeSelector.contains(option))) return;
+        selectModeFromOption(option, event.type);
+      }
+      if (modeSelector) {
+        modeSelector.addEventListener("click", selectModeFromEvent);
+        modeSelector.addEventListener("pointerup", (event) => {
+          if (event.pointerType === "mouse") return;
+          selectModeFromEvent(event);
         });
-      });
+      }
       el.retryModeLoadBtn.addEventListener("click", () => {
         const mode = state.selectedMode;
         ensureQuestionsForMode(mode, { forceReload: true });
