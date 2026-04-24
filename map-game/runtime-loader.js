@@ -177,6 +177,8 @@
         audioErrorByQuestionId: new Map(),
         imageLoadStateByQuestionId: new Map(),
         imageLoadTimeoutId: null,
+        currentImageRequestId: 0,
+        imagePreloader: null,
       };
 
       const el = {
@@ -687,9 +689,15 @@
       }
 
       function resetImageUi() {
+        state.currentImageRequestId += 1;
         if (state.imageLoadTimeoutId) {
           clearTimeout(state.imageLoadTimeoutId);
           state.imageLoadTimeoutId = null;
+        }
+        if (state.imagePreloader) {
+          state.imagePreloader.onload = null;
+          state.imagePreloader.onerror = null;
+          state.imagePreloader = null;
         }
         el.imagePromptWrap.classList.add("hidden");
         el.imageLoading.classList.add("hidden");
@@ -707,16 +715,23 @@
           resetImageUi();
           return;
         }
+        state.currentImageRequestId += 1;
+        const requestId = state.currentImageRequestId;
         if (state.imageLoadTimeoutId) {
           clearTimeout(state.imageLoadTimeoutId);
           state.imageLoadTimeoutId = null;
+        }
+        if (state.imagePreloader) {
+          state.imagePreloader.onload = null;
+          state.imagePreloader.onerror = null;
+          state.imagePreloader = null;
         }
         const q = getQuestion();
         el.imagePromptWrap.classList.remove("hidden");
         el.imageQuestionText.textContent = "ما هي الدولة التي تظهر في الصورة؟";
 
-        const imageUrl = normalizeImageUrl(q?.imageUrl);
-        if (!imageUrl) {
+        const finalSrc = normalizeImageUrl(q?.imageUrl);
+        if (!finalSrc) {
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
           el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
@@ -724,15 +739,15 @@
           return;
         }
 
-        const questionKey = String(q?.id || q?.sourceId || imageUrl);
+        const questionKey = String(q?.id || q?.sourceId || finalSrc);
         const knownState = state.imageLoadStateByQuestionId.get(questionKey);
-        if (knownState === "loaded" && el.questionImage.dataset.currentSrc === imageUrl) {
+        if (knownState === "loaded" && el.questionImage.dataset.currentSrc === finalSrc) {
           el.imageLoading.classList.add("hidden");
           el.imageError.classList.add("hidden");
           el.questionImage.classList.remove("hidden");
           return;
         }
-        if (knownState === "error" && el.questionImage.dataset.currentSrc === imageUrl) {
+        if (knownState === "error" && el.questionImage.dataset.currentSrc === finalSrc) {
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
           el.imageError.classList.remove("hidden");
@@ -744,21 +759,28 @@
         el.questionImage.classList.add("hidden");
         el.questionImage.onload = null;
         el.questionImage.onerror = null;
+        delete el.questionImage.dataset.currentSrc;
 
-        el.questionImage.dataset.currentSrc = imageUrl;
-        el.questionImage.onload = () => {
-          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+        const preload = new Image();
+        state.imagePreloader = preload;
+        preload.onload = () => {
+          if (state.currentImageRequestId !== requestId) return;
           if (state.imageLoadTimeoutId) {
             clearTimeout(state.imageLoadTimeoutId);
             state.imageLoadTimeoutId = null;
           }
           state.imageLoadStateByQuestionId.set(questionKey, "loaded");
+          el.questionImage.dataset.currentSrc = finalSrc;
+          if (el.questionImage.src !== finalSrc) {
+            el.questionImage.src = finalSrc;
+          }
           el.imageLoading.classList.add("hidden");
           el.imageError.classList.add("hidden");
           el.questionImage.classList.remove("hidden");
+          state.imagePreloader = null;
         };
-        el.questionImage.onerror = () => {
-          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+        preload.onerror = () => {
+          if (state.currentImageRequestId !== requestId) return;
           if (state.imageLoadTimeoutId) {
             clearTimeout(state.imageLoadTimeoutId);
             state.imageLoadTimeoutId = null;
@@ -768,22 +790,25 @@
           el.questionImage.classList.add("hidden");
           el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
           el.imageError.classList.remove("hidden");
-          const resolvedSrc = el.questionImage.currentSrc || imageUrl;
-          console.warn("Map image failed to load:", resolvedSrc);
+          console.warn("Map image failed to preload:", finalSrc);
+          state.imagePreloader = null;
         };
         state.imageLoadTimeoutId = setTimeout(() => {
-          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          if (state.currentImageRequestId !== requestId) return;
           state.imageLoadStateByQuestionId.set(questionKey, "error");
+          if (state.imagePreloader) {
+            state.imagePreloader.onload = null;
+            state.imagePreloader.onerror = null;
+            state.imagePreloader = null;
+          }
+          state.imageLoadTimeoutId = null;
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
           el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
           el.imageError.classList.remove("hidden");
-          const resolvedSrc = el.questionImage.currentSrc || imageUrl;
-          console.warn("Map image load timed out:", resolvedSrc);
-        }, 12000);
-        if (el.questionImage.src !== imageUrl) {
-          el.questionImage.src = imageUrl;
-        }
+          console.warn("Map image preload timed out:", finalSrc);
+        }, 15000);
+        preload.src = finalSrc;
       }
 
       function ensureAudioPlayer() {
