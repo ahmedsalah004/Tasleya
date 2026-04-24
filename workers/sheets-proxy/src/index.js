@@ -910,12 +910,13 @@ function shuffle(input) {
 
 function buildCorsHeaders(request, env) {
   const allowedOrigins = normalizeCell(env.ALLOWED_ORIGIN || '*');
+  const allowedOriginList = splitCsvParam(allowedOrigins);
   const requestOrigin = request.headers.get('Origin');
   const allowOrigin = allowedOrigins === '*'
     ? '*'
-    : splitCsvParam(allowedOrigins).includes(requestOrigin)
+    : allowedOriginList.includes(requestOrigin)
       ? requestOrigin
-      : splitCsvParam(allowedOrigins)[0] || '*';
+      : allowedOriginList[0] || '*';
 
   return {
     'Access-Control-Allow-Origin': allowOrigin,
