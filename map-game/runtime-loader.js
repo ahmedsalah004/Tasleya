@@ -225,10 +225,24 @@
       }
 
       async function apiFetchJson(path) {
-        const response = await fetch(buildApiUrl(path));
+        const requestUrl = buildApiUrl(path);
+        let response;
+        try {
+          response = await fetch(requestUrl);
+        } catch (error) {
+          console.error("[MapGame] API request failed", { path, url: requestUrl.toString(), error });
+          throw new Error(CSV_LOAD_ERROR_AR);
+        }
+
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
           const message = normalizeCell(payload?.error) || CSV_LOAD_ERROR_AR;
+          console.error("[MapGame] API returned non-OK response", {
+            path,
+            url: requestUrl.toString(),
+            status: response.status,
+            payload,
+          });
           throw new Error(message);
         }
         return payload;
@@ -1363,7 +1377,10 @@
         } catch (error) {
           el.mapLoading.className = "error";
           el.mapLoading.textContent = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
-          console.error(error);
+          console.error("[MapGame] Failed to load map data", {
+            mapDataUrl: WORLD_MAP_URL,
+            error,
+          });
         }
       }
 
@@ -1575,10 +1592,10 @@
             el.mapLoading.className = "map-loading";
             el.mapLoading.textContent = "جاري تحميل الخريطة...";
           }
-          const questionsLoaded = await ensureQuestionsForMode(MAP_GAME_MODE_MAP, { forceReload: forceRetry });
-          if (questionsLoaded && !state.mapReady) {
-            await loadMap();
-          }
+          const [questionsLoaded] = await Promise.all([
+            ensureQuestionsForMode(MAP_GAME_MODE_MAP, { forceReload: forceRetry }),
+            state.mapReady ? Promise.resolve() : loadMap(),
+          ]);
           if (state.mapReady && state.questionsReadyByMode[state.selectedMode]) {
             state.pendingResume = readSavedGameState();
             if (state.pendingResume) {
