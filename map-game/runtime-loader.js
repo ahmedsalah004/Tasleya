@@ -167,6 +167,7 @@
         setupScreen: document.getElementById("setupScreen"),
         gameScreen: document.getElementById("gameScreen"),
         startBtn: document.getElementById("startBtn"),
+        setupErrorText: document.getElementById("setupErrorText"),
         team1Name: document.getElementById("team1Name"),
         team2Name: document.getElementById("team2Name"),
         team1Label: document.getElementById("team1Label"),
@@ -679,6 +680,18 @@
         }
         el.modeStatusText.textContent = text;
         el.modeStatus.classList.remove("hidden");
+      }
+
+      function showSetupError(message) {
+        const text = normalizeCell(message);
+        if (!el.setupErrorText) return;
+        if (!text) {
+          el.setupErrorText.textContent = "";
+          el.setupErrorText.classList.add("hidden");
+          return;
+        }
+        el.setupErrorText.textContent = text;
+        el.setupErrorText.classList.remove("hidden");
       }
 
       function applyModeUiState() {
@@ -1413,7 +1426,20 @@
 
       function startGame(mode = state.selectedMode) {
         const modeToStart = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode) ? mode : MAP_GAME_MODE_MAP;
-        if (!state.mapReady || !state.questionsReadyByMode[modeToStart]) return;
+        console.debug("[MapGame][start-flow] startGame called", {
+          modeToStart,
+          mapReady: state.mapReady,
+          questionsReady: state.questionsReadyByMode[modeToStart],
+        });
+        if (!state.mapReady || !state.questionsReadyByMode[modeToStart]) {
+          console.warn("[MapGame][start-flow] startGame blocked due to unmet readiness", {
+            modeToStart,
+            mapReady: state.mapReady,
+            questionsReady: state.questionsReadyByMode[modeToStart],
+          });
+          showSetupError("تعذر بدء اللعبة حالياً. اكتمل تحميل البيانات أولاً ثم أعد المحاولة.");
+          return false;
+        }
         setSelectedMode(modeToStart);
         clearPendingResultReveal();
         clearSavedGameState();
@@ -1434,7 +1460,8 @@
                 : CSV_LOAD_ERROR_AR;
           showOverlay("خطأ", modeSpecificError, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
           console.error(error);
-          return;
+          showSetupError(modeSpecificError);
+          return false;
         }
         state.phase = "active_pick";
         state.teamPicks = [null, null];
@@ -1450,52 +1477,108 @@
         updateMapHighlights();
         updateAudioUi();
         persistGameState();
+        showSetupError("");
+        return true;
       }
 
       el.startBtn.addEventListener("click", async () => {
+        console.debug("[MapGame][start-flow] start button click fired", {
+          startBtnDisabled: el.startBtn.disabled,
+          selectedMode: state.selectedMode,
+          mapReady: state.mapReady,
+          questionsReadyByMode: { ...state.questionsReadyByMode },
+        });
+        showSetupError("");
         const checkedMode = modeRadioInputs.find((radioInput) => radioInput.checked)?.value;
         const effectiveMode = state.selectedMode || checkedMode || MAP_GAME_MODE_MAP;
+        const team1Name = el.team1Name.value.trim();
+        const team2Name = el.team2Name.value.trim();
+        const hasValidTeamNames = Boolean(team1Name && team2Name);
+        console.debug("[MapGame][start-flow] computed start inputs", {
+          checkedMode,
+          effectiveMode,
+          hasValidTeamNames,
+          team1Provided: Boolean(team1Name),
+          team2Provided: Boolean(team2Name),
+          mapReady: state.mapReady,
+          questionsReadyForMode: state.questionsReadyByMode[effectiveMode],
+        });
+        if (!hasValidTeamNames) {
+          showSetupError("يرجى إدخال اسم الفريقين قبل البدء.");
+          console.warn("[MapGame][start-flow] blocked start due to missing team names", {
+            team1Provided: Boolean(team1Name),
+            team2Provided: Boolean(team2Name),
+          });
+          return;
+        }
         if (effectiveMode !== state.selectedMode) {
           handleModeSelection(effectiveMode);
         }
 
-        if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
-          el.startBtn.disabled = true;
-          el.startBtn.textContent = "جاري تحميل البيانات...";
-          const [questionsReady, mapReady] = await Promise.all([
-            ensureQuestionsForMode(effectiveMode, { forceReload: !state.questionsReadyByMode[effectiveMode] }),
-            state.mapReady ? Promise.resolve(true) : loadMap(),
-          ]);
-          const canStart = mapReady && questionsReady && state.questionsReadyByMode[effectiveMode];
-          if (!canStart) {
+        try {
+          if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
+            console.debug("[MapGame][start-flow] loading missing dependencies", {
+              effectiveMode,
+              mapReady: state.mapReady,
+              questionsReadyForMode: state.questionsReadyByMode[effectiveMode],
+            });
+            el.startBtn.disabled = true;
+            el.startBtn.textContent = "جاري تحميل البيانات...";
+            const [questionsReady, mapReady] = await Promise.all([
+              ensureQuestionsForMode(effectiveMode, { forceReload: !state.questionsReadyByMode[effectiveMode] }),
+              state.mapReady ? Promise.resolve(true) : loadMap(),
+            ]);
+            console.debug("[MapGame][start-flow] dependency load result", {
+              effectiveMode,
+              questionsReady,
+              mapReady,
+              questionsReadyByMode: state.questionsReadyByMode[effectiveMode],
+            });
+            const canStart = mapReady && questionsReady && state.questionsReadyByMode[effectiveMode];
+            if (!canStart) {
+              const modeLoadMessage =
+                effectiveMode === MAP_GAME_MODE_LANGUAGE
+                  ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
+                  : effectiveMode === MAP_GAME_MODE_IMAGE
+                    ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
+                    : CSV_LOAD_ERROR_AR;
+              if (!questionsReady || !state.questionsReadyByMode[effectiveMode]) {
+                showModeLoadMessage(modeLoadMessage);
+                showSetupError(modeLoadMessage);
+              } else if (!mapReady) {
+                const mapLoadMessage = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
+                showSetupError(mapLoadMessage);
+              }
+              el.startBtn.disabled = false;
+              el.startBtn.textContent = "إعادة المحاولة";
+              return;
+            }
+            el.startBtn.textContent = "ابدأ اللعبة";
+          }
+
+          if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
             const modeLoadMessage =
               effectiveMode === MAP_GAME_MODE_LANGUAGE
                 ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
                 : effectiveMode === MAP_GAME_MODE_IMAGE
                   ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
                   : CSV_LOAD_ERROR_AR;
-            if (!questionsReady || !state.questionsReadyByMode[effectiveMode]) {
-              showModeLoadMessage(modeLoadMessage);
-            }
+            showModeLoadMessage(modeLoadMessage);
+            showSetupError(modeLoadMessage);
             el.startBtn.disabled = false;
-            el.startBtn.textContent = "إعادة المحاولة";
             return;
           }
-          el.startBtn.textContent = "ابدأ اللعبة";
-        }
-
-        if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
-          const modeLoadMessage =
-            effectiveMode === MAP_GAME_MODE_LANGUAGE
-              ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
-              : effectiveMode === MAP_GAME_MODE_IMAGE
-                ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
-                : CSV_LOAD_ERROR_AR;
-          showModeLoadMessage(modeLoadMessage);
+          const started = startGame(effectiveMode);
+          if (!started) {
+            showSetupError("تعذر بدء اللعبة حالياً. حاول مرة أخرى بعد اكتمال التحميل.");
+            el.startBtn.disabled = false;
+          }
+        } catch (error) {
+          console.error("[MapGame][start-flow] unexpected start failure", error);
+          showSetupError("حدث خطأ غير متوقع أثناء بدء اللعبة. حاول مرة أخرى.");
+          el.startBtn.textContent = "إعادة المحاولة";
           el.startBtn.disabled = false;
-          return;
         }
-        startGame(effectiveMode);
       });
       el.enterSetupBtn.addEventListener("click", () => {
         el.introScreen.style.display = "none";
