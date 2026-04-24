@@ -362,7 +362,7 @@ function buildMapCountryCoordinatesLookup(rows) {
   const questions = buildMapGameQuestions(rows);
   const byCode = new Map();
   questions.forEach((question) => {
-    byCode.set(normalizeCell(question.countryCode).toUpperCase(), {
+    byCode.set(normalizeMapCountryCode(question.countryCode), {
       lat: question.lat,
       lng: question.lng,
     });
@@ -396,20 +396,19 @@ function buildMapLanguageModeQuestions(rows, countryCoordinates = new Map()) {
         raw[key] = normalizeCell(row[columnIndex]);
       });
 
-      if (normalizeCell(raw.status).toLowerCase() !== 'approved_v1') return null;
+      if (!isApprovedV1Status(raw.status)) return null;
 
-      const countryCode = normalizeCell(raw.target_country_code).toUpperCase();
+      const countryCode = normalizeMapCountryCode(raw.target_country_code);
       const countryNameAr = normalizeCell(raw.target_country_name_ar);
       const countryNameEn = normalizeCell(raw.target_country_name_en);
-      const difficulty = normalizeCell(raw.difficulty).toLowerCase();
-      const points = toInteger(raw.points);
+      const { difficulty, points } = resolveMapDifficultyAndPoints(raw.difficulty, raw.points);
       const audioUrl = normalizeCell(raw.audio_url);
       const id = firstNonEmpty(raw.source_id, raw.id, `language-row-${index + 1}`);
       const sourceLanguageAnswer = normalizeCell(raw.source_language_answer);
       const coords = countryCoordinates.get(countryCode);
 
       if (!countryCode || !countryNameAr || !countryNameEn) return null;
-      if (!audioUrl || !['easy', 'medium', 'hard'].includes(difficulty) || !Number.isFinite(points)) return null;
+      if (!audioUrl || !difficulty || !Number.isFinite(points)) return null;
 
       return {
         id,
@@ -465,21 +464,20 @@ function buildMapGeoguessModeQuestions(rows, countryCoordinates = new Map()) {
         raw[key] = normalizeCell(row[columnIndex]);
       });
 
-      if (normalizeCell(raw.status).toLowerCase() !== 'approved_v1') return null;
+      if (!isApprovedV1Status(raw.status)) return null;
 
       const sourceId = firstNonEmpty(raw.source_id, raw.id, `geoguess-row-${index + 1}`);
       const imageUrl = normalizeCell(raw.image_url);
-      const targetCountryCode = normalizeCell(raw.target_country_code).toUpperCase();
+      const targetCountryCode = normalizeMapCountryCode(raw.target_country_code);
       const targetCountryNameAr = normalizeCell(raw.target_country_name_ar);
       const targetCountryNameEn = normalizeCell(raw.target_country_name_en);
       const placeNameAr = normalizeCell(raw.place_name_ar);
       const placeNameEn = normalizeCell(raw.place_name_en);
-      const difficulty = normalizeCell(raw.difficulty).toLowerCase();
-      const points = toInteger(raw.points);
+      const { difficulty, points } = resolveMapDifficultyAndPoints(raw.difficulty, raw.points);
       const coords = countryCoordinates.get(targetCountryCode);
 
       if (!targetCountryCode || !targetCountryNameAr || !targetCountryNameEn) return null;
-      if (!['easy', 'medium', 'hard'].includes(difficulty) || !Number.isFinite(points)) return null;
+      if (!difficulty || !Number.isFinite(points)) return null;
 
       return {
         id: sourceId,
@@ -804,6 +802,46 @@ function parseCsv(text) {
 
 function normalizeHeader(header) {
   return normalizeCell(header).toLowerCase().replace(/\s+/g, '_');
+}
+
+function isApprovedV1Status(value) {
+  return normalizeCell(value).toLowerCase() === 'approved_v1';
+}
+
+function normalizeMapCountryCode(value) {
+  const code = normalizeCell(value).toUpperCase();
+  if (code === 'UK') return 'GB';
+  return code;
+}
+
+function resolveMapDifficultyAndPoints(rawDifficulty, rawPoints) {
+  const normalizedDifficulty = normalizeCell(rawDifficulty).toLowerCase();
+  const parsedPoints = toInteger(rawPoints);
+  const parsedDifficultyNumber = toInteger(rawDifficulty);
+
+  const difficultyFromPoints = (() => {
+    if (parsedPoints === 100) return 'easy';
+    if (parsedPoints === 300) return 'medium';
+    if (parsedPoints === 500) return 'hard';
+    return '';
+  })();
+
+  const difficultyFromNumericLevel = (() => {
+    if (parsedDifficultyNumber === 1) return 'easy';
+    if (parsedDifficultyNumber === 2) return 'medium';
+    if (parsedDifficultyNumber === 3) return 'hard';
+    return '';
+  })();
+
+  const difficulty = ['easy', 'medium', 'hard'].includes(normalizedDifficulty)
+    ? normalizedDifficulty
+    : (difficultyFromNumericLevel || difficultyFromPoints);
+
+  const points = Number.isFinite(parsedPoints)
+    ? parsedPoints
+    : (difficulty === 'easy' ? 100 : difficulty === 'medium' ? 300 : difficulty === 'hard' ? 500 : null);
+
+  return { difficulty, points };
 }
 
 function normalizeCell(value) {
