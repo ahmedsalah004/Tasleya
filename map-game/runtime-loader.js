@@ -206,6 +206,8 @@
         imageError: document.getElementById("imageError"),
         questionImage: document.getElementById("questionImage"),
       };
+      const modeOptions = Array.from(document.querySelectorAll(".mode-option[data-mode-option]"));
+      const modeRadioInputs = [el.modeMap, el.modeImage, el.modeLanguage].filter(Boolean);
 
 
       function normalizeCell(value) {
@@ -702,6 +704,24 @@
           el.modeLanguage.checked = nextMode === MAP_GAME_MODE_LANGUAGE;
         }
         applyModeUiState();
+      }
+
+      function handleModeSelection(mode) {
+        if (mode === MAP_GAME_MODE_MAP) {
+          setSelectedMode(MAP_GAME_MODE_MAP, { syncInput: false });
+          showModeLoadMessage("");
+          el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
+          return;
+        }
+        if (mode === MAP_GAME_MODE_IMAGE) {
+          setSelectedMode(MAP_GAME_MODE_IMAGE, { syncInput: false });
+          ensureQuestionsForMode(MAP_GAME_MODE_IMAGE);
+          return;
+        }
+        if (mode === MAP_GAME_MODE_LANGUAGE) {
+          setSelectedMode(MAP_GAME_MODE_LANGUAGE, { syncInput: false });
+          ensureQuestionsForMode(MAP_GAME_MODE_LANGUAGE);
+        }
       }
 
       function currentPoints() {
@@ -1454,21 +1474,20 @@
       el.playAudioBtn.addEventListener("click", () => {
         playCurrentAudio();
       });
-      el.modeMap.addEventListener("change", () => {
-        if (!el.modeMap.checked) return;
-        setSelectedMode(MAP_GAME_MODE_MAP, { syncInput: false });
-        showModeLoadMessage("");
-        el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
+      modeRadioInputs.forEach((radioInput) => {
+        radioInput.addEventListener("change", () => {
+          if (!radioInput.checked) return;
+          handleModeSelection(radioInput.value);
+        });
       });
-      el.modeImage.addEventListener("change", () => {
-        if (!el.modeImage.checked) return;
-        setSelectedMode(MAP_GAME_MODE_IMAGE, { syncInput: false });
-        ensureQuestionsForMode(MAP_GAME_MODE_IMAGE);
-      });
-      el.modeLanguage.addEventListener("change", () => {
-        if (!el.modeLanguage.checked) return;
-        setSelectedMode(MAP_GAME_MODE_LANGUAGE, { syncInput: false });
-        ensureQuestionsForMode(MAP_GAME_MODE_LANGUAGE);
+      modeOptions.forEach((option) => {
+        option.addEventListener("click", () => {
+          const mode = option.dataset.modeOption;
+          const radioInput = option.querySelector('input[type="radio"]');
+          if (!mode || !radioInput || radioInput.checked) return;
+          radioInput.checked = true;
+          radioInput.dispatchEvent(new Event("change", { bubbles: true }));
+        });
       });
       el.retryModeLoadBtn.addEventListener("click", () => {
         const mode = state.selectedMode;
