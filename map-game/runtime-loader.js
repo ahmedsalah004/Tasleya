@@ -133,8 +133,11 @@
         mapLoadPromise: null,
         mapLoadError: "",
         centroids: new Map(),
+        mapCentroids: new Map(),
+        mapFeaturesByCode: new Map(),
         questionByCountryCode: new Map(),
         countryCodeByNormalizedName: new Map(),
+        countryCodeByNormalizedNameAllModes: new Map(),
         pointerTapThreshold: 18,
         activePointer: null,
         unsupportedCountriesLogged: new Set(),
@@ -946,6 +949,26 @@
         return null;
       }
 
+      function refreshModeDerivedIndexes(modeQuestions) {
+        state.questionByCountryCode = new Map(modeQuestions.map((item) => [item.targetCountryCode, item]));
+        state.countryCodeByNormalizedName = new Map(modeQuestions.map((item) => [normalizeName(item.targetCountryNameEn), item.targetCountryCode]));
+        const questionCentroids = modeQuestions
+          .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
+          .map((item) => [item.targetCountryCode, [item.lng, item.lat]]);
+        state.centroids = new Map(questionCentroids);
+        state.mapCentroids.forEach((coords, countryCode) => {
+          if (!state.centroids.has(countryCode)) state.centroids.set(countryCode, coords);
+        });
+      }
+
+      function isCountrySelectableInCurrentMode(countryCode) {
+        if (!countryCode) return false;
+        if (isImageMode()) {
+          return state.mapFeaturesByCode.has(countryCode);
+        }
+        return state.questionByCountryCode.has(countryCode);
+      }
+
       function showOverlay(title, text, actions) {
         el.overlayTitle.parentElement.classList.remove("result-popup");
         el.overlay.classList.remove("result-overlay");
@@ -1334,14 +1357,17 @@
         updateMapHighlights();
       }
 
-      function handleCountrySelection(countryCode) {
+      function handleCountrySelection(countryCode, diagnostics = null) {
         if (el.overlay.classList.contains("active")) return;
         if (state.isRevealingAnswer) return;
         if (!["active_pick", "other_response"].includes(state.phase)) return;
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
         if (teamIdx === null) return;
-        if (!countryCode || !state.questionByCountryCode.has(countryCode)) {
+        if (diagnostics) {
+          console.info("[MapGame] Selection diagnostics", diagnostics);
+        }
+        if (!countryCode || !isCountrySelectableInCurrentMode(countryCode)) {
           showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
           return;
         }
@@ -1479,17 +1505,21 @@
               .map((value) => normalizeCountryCode(value))
               .filter(Boolean);
 
-            const directCode = candidateCodes.find((code) => state.questionByCountryCode.has(code));
+            const directCode = candidateCodes.find((code) => /^[A-Z]{2}$/.test(code));
             if (directCode) return directCode;
 
             if (rawCandidateCodes.some((value) => String(value).trim().toUpperCase() === "-99")) {
               const overrideCode = FEATURE_NAME_CODE_OVERRIDES.get(normalizedName);
-              if (overrideCode && state.questionByCountryCode.has(overrideCode)) {
+              if (overrideCode) {
                 return overrideCode;
               }
             }
 
-            return state.countryCodeByNormalizedName.get(normalizedName) || "";
+            return (
+              state.countryCodeByNormalizedNameAllModes.get(normalizedName) ||
+              state.countryCodeByNormalizedName.get(normalizedName) ||
+              ""
+            );
           };
 
           const logUnmappedCountry = (feature) => {
@@ -1509,11 +1539,28 @@
               targetPath ||
               document.elementFromPoint(event.clientX, event.clientY)?.closest?.(".country");
             if (!hitPath) return;
+            const feature = hitPath.__data__ || null;
             const code = hitPath.dataset.countryCode || "";
-            if (!code && hitPath.__data__) {
-              logUnmappedCountry(hitPath.__data__);
+            if (!code && feature) {
+              logUnmappedCountry(feature);
             }
-            handleCountrySelection(code);
+            const properties = feature?.properties || {};
+            const diagnostics = {
+              mode: state.selectedMode,
+              featureName: properties.name || "",
+              featureCodes: {
+                country_code: properties.country_code || "",
+                countryCode: properties.countryCode || "",
+                iso_a2: properties.iso_a2 || properties.ISO_A2 || "",
+                iso_a3: properties.iso_a3 || properties.ISO_A3 || "",
+                iso2: properties.iso2 || "",
+                id: properties.id || "",
+              },
+              resolvedCountryCode: code,
+              existsInMapFeaturesByCode: Boolean(code && state.mapFeaturesByCode.has(code)),
+              existsInCurrentQuestionPool: Boolean(code && state.questionByCountryCode.has(code)),
+            };
+            handleCountrySelection(code, diagnostics);
           };
 
           const isTapPointer = (event) => {
@@ -1525,14 +1572,32 @@
             return moved <= state.pointerTapThreshold && transformMoved <= state.pointerTapThreshold && !scaled;
           };
 
+          const mapFeaturesByCode = new Map();
+          const mapCentroids = new Map();
           geojson.features.forEach((feature) => {
             const normalized = normalizeName(feature.properties.name);
             feature.properties.normalizedName = normalized;
             feature.properties.countryCode = resolveCountryCodeFromFeature(feature);
             if (!feature.properties.countryCode) {
               logUnmappedCountry(feature);
+              return;
+            }
+            if (!mapFeaturesByCode.has(feature.properties.countryCode)) {
+              mapFeaturesByCode.set(feature.properties.countryCode, feature);
+            }
+            const featureCentroid = d3.geoCentroid(feature);
+            if (
+              Array.isArray(featureCentroid) &&
+              Number.isFinite(featureCentroid[0]) &&
+              Number.isFinite(featureCentroid[1]) &&
+              !mapCentroids.has(feature.properties.countryCode)
+            ) {
+              mapCentroids.set(feature.properties.countryCode, featureCentroid);
             }
           });
+          state.mapFeaturesByCode = mapFeaturesByCode;
+          state.mapCentroids = mapCentroids;
+          refreshModeDerivedIndexes(state.questionPool);
 
           logMapCoverageDiagnostics(geojson.features);
 
@@ -1938,11 +2003,15 @@
           state.questionPoolByMode[modeKey] = questions;
           state.questionsReadyByMode[modeKey] = true;
           state.modeLoadErrorByMode[modeKey] = "";
+          questions.forEach((item) => {
+            const normalizedName = normalizeName(item.targetCountryNameEn);
+            if (normalizedName && item.targetCountryCode && !state.countryCodeByNormalizedNameAllModes.has(normalizedName)) {
+              state.countryCodeByNormalizedNameAllModes.set(normalizedName, item.targetCountryCode);
+            }
+          });
           if (modeKey === state.selectedMode) {
             state.questionPool = questions;
-            state.questionByCountryCode = new Map(questions.map((item) => [item.targetCountryCode, item]));
-            state.countryCodeByNormalizedName = new Map(questions.map((item) => [normalizeName(item.targetCountryNameEn), item.targetCountryCode]));
-            state.centroids = new Map(questions.filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng)).map((item) => [item.targetCountryCode, [item.lng, item.lat]]));
+            refreshModeDerivedIndexes(questions);
             showModeLoadMessage("");
           }
           return true;
@@ -1971,13 +2040,7 @@
         if (ok) {
           if (mode === state.selectedMode) {
             state.questionPool = state.questionPoolByMode[mode];
-            state.questionByCountryCode = new Map(state.questionPool.map((item) => [item.targetCountryCode, item]));
-            state.countryCodeByNormalizedName = new Map(state.questionPool.map((item) => [normalizeName(item.targetCountryNameEn), item.targetCountryCode]));
-            state.centroids = new Map(
-              state.questionPool
-                .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
-                .map((item) => [item.targetCountryCode, [item.lng, item.lat]])
-            );
+            refreshModeDerivedIndexes(state.questionPool);
             showModeLoadMessage("");
           }
           el.startBtn.disabled = !state.mapReady || !state.questionsReadyByMode[state.selectedMode];
