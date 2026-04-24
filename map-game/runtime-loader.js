@@ -320,9 +320,31 @@
         ["GL", "GL"],
         ["DK", "DK"],
       ]);
+      const SELECTION_COUNTRY_CODE_ALIASES = new Map([
+        ["UK", "GB"],
+        ["USA", "US"],
+        ["ARE", "AE"],
+        ["CHN", "CN"],
+        ["GBR", "GB"],
+        ["JPN", "JP"],
+        ["ESP", "ES"],
+        ["IND", "IN"],
+        ["EGY", "EG"],
+        ["FRA", "FR"],
+        ["UAE", "AE"],
+      ]);
 
       function normalizeQuestionCountryCode(value) {
         const code = normalizeCountryCode(value);
+        return COUNTRY_CODE_ALIASES.get(code) || code;
+      }
+
+      function normalizeSelectionCountryCode(value) {
+        const code = normalizeCountryCode(value);
+        if (!code) return "";
+        if (SELECTION_COUNTRY_CODE_ALIASES.has(code)) {
+          return SELECTION_COUNTRY_CODE_ALIASES.get(code);
+        }
         return COUNTRY_CODE_ALIASES.get(code) || code;
       }
 
@@ -961,12 +983,52 @@
         });
       }
 
-      function isCountrySelectableInCurrentMode(countryCode) {
-        if (!countryCode) return false;
-        if (isImageMode()) {
-          return state.mapFeaturesByCode.has(countryCode);
-        }
-        return state.questionByCountryCode.has(countryCode);
+      function evaluateCountrySelection(countryCode, diagnostics = null) {
+        const question = getQuestion() || {};
+        const selectedMode = state.selectedMode;
+        const currentQuestionMode = normalizeCell(question.mode).toLowerCase();
+        const currentQuestionPromptType = normalizeCell(question.promptType).toLowerCase();
+        const imageModeActive =
+          selectedMode === MAP_GAME_MODE_IMAGE ||
+          currentQuestionMode === MAP_GAME_MODE_IMAGE ||
+          currentQuestionPromptType === MAP_GAME_MODE_IMAGE;
+
+        const candidateCodes = [
+          countryCode,
+          diagnostics?.featureCodes?.countryCode,
+          diagnostics?.featureCodes?.country_code,
+          diagnostics?.featureCodes?.iso_a2,
+          diagnostics?.featureCodes?.iso_a3,
+          diagnostics?.featureCodes?.iso2,
+          diagnostics?.featureCodes?.id,
+        ]
+          .map((value) => normalizeSelectionCountryCode(value))
+          .filter(Boolean);
+        const normalizedCountryCode = candidateCodes.find((code) => state.mapFeaturesByCode.has(code))
+          || candidateCodes.find((code) => state.mapCentroids.has(code))
+          || candidateCodes[0]
+          || "";
+
+        const hasMapFeature = Boolean(normalizedCountryCode && state.mapFeaturesByCode.has(normalizedCountryCode));
+        const hasMapCentroid = Boolean(normalizedCountryCode && state.mapCentroids.has(normalizedCountryCode));
+        const inQuestionPool = Boolean(normalizedCountryCode && state.questionByCountryCode.has(normalizedCountryCode));
+        const hasValidClickedFeature = Boolean(diagnostics?.hasClickedFeature);
+        const selectable = imageModeActive
+          ? Boolean(normalizedCountryCode && (hasMapFeature || hasMapCentroid || hasValidClickedFeature))
+          : inQuestionPool;
+
+        return {
+          selectedMode,
+          currentQuestionMode,
+          currentQuestionPromptType,
+          featureName: diagnostics?.featureName || "",
+          resolvedCountryCode: normalizeCountryCode(countryCode),
+          normalizedCountryCode,
+          hasMapFeature,
+          hasMapCentroid,
+          inQuestionPool,
+          selectable,
+        };
       }
 
       function showOverlay(title, text, actions) {
@@ -1364,13 +1426,16 @@
         const activeIdx = activeTeamIndex();
         const teamIdx = selectionTeamIndex();
         if (teamIdx === null) return;
+        const selectionValidation = evaluateCountrySelection(countryCode, diagnostics);
         if (diagnostics) {
-          console.info("[MapGame] Selection diagnostics", diagnostics);
+          console.info("[MapGame] Selection diagnostics", { ...diagnostics, ...selectionValidation });
         }
-        if (!countryCode || !isCountrySelectableInCurrentMode(countryCode)) {
+        if (!selectionValidation.selectable) {
+          console.info("[MapGame] Country rejected", selectionValidation);
           showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
           return;
         }
+        countryCode = selectionValidation.normalizedCountryCode;
 
         if (state.phase === "other_response" && state.teamPicks[activeIdx]?.countryCode === countryCode) {
           showOverlay("تنبيه", "لا يمكن اختيار نفس دولة الفريق الآخر", [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
@@ -1548,6 +1613,7 @@
             const diagnostics = {
               mode: state.selectedMode,
               featureName: properties.name || "",
+              hasClickedFeature: Boolean(feature),
               featureCodes: {
                 country_code: properties.country_code || "",
                 countryCode: properties.countryCode || "",
