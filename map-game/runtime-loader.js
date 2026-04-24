@@ -176,6 +176,7 @@
         audioPlayer: null,
         audioErrorByQuestionId: new Map(),
         imageLoadStateByQuestionId: new Map(),
+        imageLoadTimeoutId: null,
       };
 
       const el = {
@@ -686,6 +687,10 @@
       }
 
       function resetImageUi() {
+        if (state.imageLoadTimeoutId) {
+          clearTimeout(state.imageLoadTimeoutId);
+          state.imageLoadTimeoutId = null;
+        }
         el.imagePromptWrap.classList.add("hidden");
         el.imageLoading.classList.add("hidden");
         el.imageError.classList.add("hidden");
@@ -701,6 +706,10 @@
         if (!isImageMode()) {
           resetImageUi();
           return;
+        }
+        if (state.imageLoadTimeoutId) {
+          clearTimeout(state.imageLoadTimeoutId);
+          state.imageLoadTimeoutId = null;
         }
         const q = getQuestion();
         el.imagePromptWrap.classList.remove("hidden");
@@ -733,10 +742,16 @@
         el.imageLoading.classList.remove("hidden");
         el.imageError.classList.add("hidden");
         el.questionImage.classList.add("hidden");
+        el.questionImage.onload = null;
+        el.questionImage.onerror = null;
 
         el.questionImage.dataset.currentSrc = imageUrl;
         el.questionImage.onload = () => {
           if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          if (state.imageLoadTimeoutId) {
+            clearTimeout(state.imageLoadTimeoutId);
+            state.imageLoadTimeoutId = null;
+          }
           state.imageLoadStateByQuestionId.set(questionKey, "loaded");
           el.imageLoading.classList.add("hidden");
           el.imageError.classList.add("hidden");
@@ -744,12 +759,28 @@
         };
         el.questionImage.onerror = () => {
           if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          if (state.imageLoadTimeoutId) {
+            clearTimeout(state.imageLoadTimeoutId);
+            state.imageLoadTimeoutId = null;
+          }
           state.imageLoadStateByQuestionId.set(questionKey, "error");
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
           el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
           el.imageError.classList.remove("hidden");
+          const resolvedSrc = el.questionImage.currentSrc || imageUrl;
+          console.warn("Map image failed to load:", resolvedSrc);
         };
+        state.imageLoadTimeoutId = setTimeout(() => {
+          if (el.questionImage.dataset.currentSrc !== imageUrl) return;
+          state.imageLoadStateByQuestionId.set(questionKey, "error");
+          el.imageLoading.classList.add("hidden");
+          el.questionImage.classList.add("hidden");
+          el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
+          el.imageError.classList.remove("hidden");
+          const resolvedSrc = el.questionImage.currentSrc || imageUrl;
+          console.warn("Map image load timed out:", resolvedSrc);
+        }, 12000);
         if (el.questionImage.src !== imageUrl) {
           el.questionImage.src = imageUrl;
         }
