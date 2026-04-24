@@ -8,18 +8,18 @@
           <label for="team2Name">اسم الفريق الثاني</label>
           <input id="team2Name" type="text" maxlength="30" placeholder="الفريق الثاني" />
         </div>
-        <div class="mode-selector">
-          <label class="mode-option">
+        <div class="mode-selector" role="radiogroup" aria-label="أنماط اللعب">
+          <label class="mode-option" for="modeMap" data-mode-option="map">
             <input type="radio" name="mapGameMode" value="map" id="modeMap" checked />
-            خمن الدولة من الخريطة
+            <span>خمن الدولة من الخريطة</span>
           </label>
-          <label class="mode-option">
+          <label class="mode-option" for="modeImage" data-mode-option="image">
             <input type="radio" name="mapGameMode" value="image" id="modeImage" />
-            خمن الدولة من الصورة
+            <span>خمن الدولة من الصورة</span>
           </label>
-          <label class="mode-option">
+          <label class="mode-option" for="modeLanguage" data-mode-option="language">
             <input type="radio" name="mapGameMode" value="language" id="modeLanguage" />
-            خمن مكان الدولة من اللغة
+            <span>خمن مكان الدولة من اللغة</span>
           </label>
         </div>
         <div class="mode-status hidden" id="modeStatus">
