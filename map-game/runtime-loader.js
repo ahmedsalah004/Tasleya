@@ -1,4 +1,9 @@
 (function () {
+  const runtimeVersion =
+    (document.currentScript?.src
+      ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
+      : null) || "1.2.7";
+  const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
   const enterBtn = document.getElementById('enterSetupBtn');
@@ -29,7 +34,7 @@
     if (mounted || mounting) return;
     mounting = true;
     try {
-      const response = await fetch('/map-game/runtime-fragment.html', { cache: 'no-store' });
+      const response = await fetch(runtimeFragmentUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error(`MAP_RUNTIME_LOAD_FAILED_${response.status}`);
       host.innerHTML = await response.text();
       mounted = true;

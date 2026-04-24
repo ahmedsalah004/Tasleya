@@ -1,7 +1,7 @@
 // Manual update strategy:
 // 1) Bump CACHE_NAME (v1 -> v2) on every deployment.
 // 2) Bump ASSET_VERSION in index.html and here when CSS/JS files change.
-const DEPLOY_VERSION = "1.2.6";
+const DEPLOY_VERSION = "1.2.7";
 const CACHE_NAME = `tasleya-cache-${DEPLOY_VERSION}`;
 const ASSET_VERSION = DEPLOY_VERSION;
 
@@ -28,6 +28,11 @@ const RELIABLE_UPDATE_FILES = new Set([
   "game-config.js",
   "assets/site-header.css",
   "assets/site-header.js"
+]);
+
+const MAP_GAME_RUNTIME_FILES = new Set([
+  "map-game/runtime-loader.js",
+  "map-game/runtime-fragment.html"
 ]);
 
 function getPath(url) {
@@ -63,7 +68,7 @@ self.addEventListener("fetch", (event) => {
   const path = getPath(url);
 
   // Network-first for homepage/app-shell files + shared header assets to avoid stale shell mixes after deploys.
-  if (event.request.mode === "navigate" || RELIABLE_UPDATE_FILES.has(path)) {
+  if (event.request.mode === "navigate" || RELIABLE_UPDATE_FILES.has(path) || MAP_GAME_RUNTIME_FILES.has(path)) {
     event.respondWith(
       fetch(event.request, { cache: "no-store" })
         .then((networkResponse) => {
