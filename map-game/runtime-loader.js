@@ -120,6 +120,8 @@
         pendingTeamIndex: null,
         phase: "active_pick", // active_pick | other_response | ready_reveal | revealed | finished
         mapReady: false,
+        mapLoadPromise: null,
+        mapLoadError: "",
         centroids: new Map(),
         questionByCountryCode: new Map(),
         countryCodeByNormalizedName: new Map(),
@@ -155,6 +157,11 @@
           [MAP_GAME_MODE_MAP]: "",
           [MAP_GAME_MODE_IMAGE]: "",
           [MAP_GAME_MODE_LANGUAGE]: "",
+        },
+        questionsLoadPromiseByMode: {
+          [MAP_GAME_MODE_MAP]: null,
+          [MAP_GAME_MODE_IMAGE]: null,
+          [MAP_GAME_MODE_LANGUAGE]: null,
         },
         audioPlayer: null,
         audioErrorByQuestionId: new Map(),
@@ -1197,7 +1204,10 @@
       }
 
       async function loadMap() {
-        try {
+        if (state.mapReady) return true;
+        if (state.mapLoadPromise) return state.mapLoadPromise;
+        state.mapLoadPromise = (async () => {
+          try {
           const [d3] = await Promise.all([import("https://cdn.jsdelivr.net/npm/d3@7/+esm")]);
           const response = await fetch(WORLD_MAP_URL, { cache: "force-cache" });
           if (!response.ok) throw new Error("Map download failed");
@@ -1408,36 +1418,67 @@
 
           svg.call(zoomBehavior);
 
-          el.mapStage.appendChild(svg.node());
-          el.mapLoading.remove();
+          if (!el.mapStage.querySelector(".map-svg")) {
+            el.mapStage.appendChild(svg.node());
+          }
+          if (el.mapLoading && el.mapLoading.parentElement) {
+            el.mapLoading.remove();
+          }
           state.mapReady = true;
+          state.mapLoadError = "";
           updateMapHighlights();
           return true;
         } catch (error) {
-          el.mapLoading.className = "error";
-          el.mapLoading.textContent = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
+          state.mapReady = false;
+          state.mapLoadError = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
+          if (el.mapLoading) {
+            el.mapLoading.className = "error";
+            el.mapLoading.textContent = state.mapLoadError;
+          }
           console.error("[MapGame] Failed to load map data", {
             mapDataUrl: WORLD_MAP_URL,
             error,
           });
           return false;
+        } finally {
+          state.mapLoadPromise = null;
         }
+        })();
+        return state.mapLoadPromise;
       }
 
       function startGame(mode = state.selectedMode) {
         const modeToStart = [MAP_GAME_MODE_MAP, MAP_GAME_MODE_IMAGE, MAP_GAME_MODE_LANGUAGE].includes(mode) ? mode : MAP_GAME_MODE_MAP;
+        const modeQuestionCount = Array.isArray(state.questionPoolByMode[modeToStart]) ? state.questionPoolByMode[modeToStart].length : 0;
+        const lastModeError = normalizeCell(state.modeLoadErrorByMode[modeToStart]);
         console.debug("[MapGame][start-flow] startGame called", {
           modeToStart,
           mapReady: state.mapReady,
           questionsReady: state.questionsReadyByMode[modeToStart],
+          modeQuestionCount,
+          lastModeError,
         });
         if (!state.mapReady || !state.questionsReadyByMode[modeToStart]) {
           console.warn("[MapGame][start-flow] startGame blocked due to unmet readiness", {
             modeToStart,
             mapReady: state.mapReady,
             questionsReady: state.questionsReadyByMode[modeToStart],
+            modeQuestionCount,
+            lastModeError,
+            mapLoadError: state.mapLoadError,
           });
-          showSetupError("تعذر بدء اللعبة حالياً. اكتمل تحميل البيانات أولاً ثم أعد المحاولة.");
+          if (!state.mapReady) {
+            showSetupError(state.mapLoadError || "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.");
+          } else if (!state.questionsReadyByMode[modeToStart]) {
+            const modeError =
+              lastModeError ||
+              (modeToStart === MAP_GAME_MODE_LANGUAGE
+                ? "فشل تحميل أسئلة وضع اللغة."
+                : modeToStart === MAP_GAME_MODE_IMAGE
+                  ? "فشل تحميل أسئلة وضع الصورة."
+                  : "فشل تحميل أسئلة وضع الخريطة.");
+            showSetupError(modeError);
+          }
           return false;
         }
         setSelectedMode(modeToStart);
@@ -1516,63 +1557,65 @@
         }
 
         try {
-          if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
-            console.debug("[MapGame][start-flow] loading missing dependencies", {
-              effectiveMode,
-              mapReady: state.mapReady,
-              questionsReadyForMode: state.questionsReadyByMode[effectiveMode],
-            });
-            el.startBtn.disabled = true;
-            el.startBtn.textContent = "جاري تحميل البيانات...";
-            const [questionsReady, mapReady] = await Promise.all([
-              ensureQuestionsForMode(effectiveMode, { forceReload: !state.questionsReadyByMode[effectiveMode] }),
-              state.mapReady ? Promise.resolve(true) : loadMap(),
-            ]);
-            console.debug("[MapGame][start-flow] dependency load result", {
-              effectiveMode,
-              questionsReady,
-              mapReady,
-              questionsReadyByMode: state.questionsReadyByMode[effectiveMode],
-            });
-            const canStart = mapReady && questionsReady && state.questionsReadyByMode[effectiveMode];
-            if (!canStart) {
-              const modeLoadMessage =
-                effectiveMode === MAP_GAME_MODE_LANGUAGE
-                  ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
-                  : effectiveMode === MAP_GAME_MODE_IMAGE
-                    ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
-                    : CSV_LOAD_ERROR_AR;
-              if (!questionsReady || !state.questionsReadyByMode[effectiveMode]) {
-                showModeLoadMessage(modeLoadMessage);
-                showSetupError(modeLoadMessage);
-              } else if (!mapReady) {
-                const mapLoadMessage = "تعذر تحميل الخريطة التفاعلية. تأكد من الإنترنت ثم أعد المحاولة.";
-                showSetupError(mapLoadMessage);
-              }
-              el.startBtn.disabled = false;
-              el.startBtn.textContent = "إعادة المحاولة";
-              return;
-            }
-            el.startBtn.textContent = "ابدأ اللعبة";
-          }
+          el.startBtn.disabled = true;
+          el.startBtn.textContent = "جاري تحميل البيانات...";
+          const [questionsReady, mapReady] = await Promise.all([
+            ensureQuestionsForMode(effectiveMode, { forceReload: !state.questionsReadyByMode[effectiveMode] }),
+            loadMap(),
+          ]);
+          const questionCountForMode = Array.isArray(state.questionPoolByMode[effectiveMode])
+            ? state.questionPoolByMode[effectiveMode].length
+            : 0;
+          const lastModeError = normalizeCell(state.modeLoadErrorByMode[effectiveMode]);
+          const readinessSnapshot = {
+            mode: effectiveMode,
+            mapReady: state.mapReady,
+            mapLoadResult: mapReady,
+            mapLoadError: state.mapLoadError,
+            questionsReady: state.questionsReadyByMode[effectiveMode],
+            questionsLoadResult: questionsReady,
+            questionCountForMode,
+            lastModeError,
+          };
+          console.debug("[MapGame][start-flow] dependency load result", readinessSnapshot);
 
-          if (!state.mapReady || !state.questionsReadyByMode[effectiveMode]) {
-            const modeLoadMessage =
-              effectiveMode === MAP_GAME_MODE_LANGUAGE
-                ? "تعذر تحميل وضع اللغة. يمكنك إعادة المحاولة أو الرجوع لوضع الخريطة."
-                : effectiveMode === MAP_GAME_MODE_IMAGE
-                  ? "تعذر تحميل وضع الصورة. يمكنك إعادة المحاولة أو اختيار وضع آخر."
-                  : CSV_LOAD_ERROR_AR;
-            showModeLoadMessage(modeLoadMessage);
-            showSetupError(modeLoadMessage);
+          if (!state.mapReady || !state.questionsReadyByMode[effectiveMode] || questionCountForMode <= 0) {
+            let blockerMessage = "";
+            if (!state.mapReady) {
+              blockerMessage = state.mapLoadError || "فشل تحميل تفاعل الخريطة.";
+            } else if (!state.questionsReadyByMode[effectiveMode]) {
+              blockerMessage =
+                lastModeError ||
+                (effectiveMode === MAP_GAME_MODE_LANGUAGE
+                  ? "فشل تحميل أسئلة وضع اللغة."
+                  : effectiveMode === MAP_GAME_MODE_IMAGE
+                    ? "فشل تحميل أسئلة وضع الصورة."
+                    : "فشل تحميل أسئلة وضع الخريطة.");
+            } else {
+              blockerMessage =
+                effectiveMode === MAP_GAME_MODE_LANGUAGE
+                  ? "وضع اللغة لا يحتوي حالياً على أسئلة صالحة للاستخدام."
+                  : effectiveMode === MAP_GAME_MODE_IMAGE
+                    ? "وضع الصورة لا يحتوي حالياً على أسئلة صالحة للاستخدام."
+                    : "وضع الخريطة لا يحتوي حالياً على أسئلة صالحة للاستخدام.";
+            }
+            console.error("[MapGame][start-flow] blocked after awaiting dependencies", readinessSnapshot);
+            showModeLoadMessage(blockerMessage);
+            showSetupError(blockerMessage);
+            el.startBtn.textContent = "إعادة المحاولة";
             el.startBtn.disabled = false;
             return;
           }
+
           const started = startGame(effectiveMode);
           if (!started) {
-            showSetupError("تعذر بدء اللعبة حالياً. حاول مرة أخرى بعد اكتمال التحميل.");
+            const modeError = normalizeCell(state.modeLoadErrorByMode[effectiveMode]);
+            showSetupError(modeError || "تعذر بدء اللعبة بسبب عدم جاهزية البيانات المطلوبة.");
+            el.startBtn.textContent = "إعادة المحاولة";
             el.startBtn.disabled = false;
+            return;
           }
+          el.startBtn.textContent = "ابدأ اللعبة";
         } catch (error) {
           console.error("[MapGame][start-flow] unexpected start failure", error);
           showSetupError("حدث خطأ غير متوقع أثناء بدء اللعبة. حاول مرة أخرى.");
@@ -1664,7 +1707,11 @@
         if (!forceReload && state.questionsReadyByMode[modeKey] && state.questionPoolByMode[modeKey].length) {
           return true;
         }
-        try {
+        if (state.questionsLoadPromiseByMode[modeKey]) {
+          return state.questionsLoadPromiseByMode[modeKey];
+        }
+        const loadPromise = (async () => {
+          try {
           const endpoint =
             modeKey === MAP_GAME_MODE_LANGUAGE
               ? "/map-game/language-questions"
@@ -1732,7 +1779,12 @@
               : CSV_LOAD_ERROR_AR);
           }
           return false;
+        } finally {
+          state.questionsLoadPromiseByMode[modeKey] = null;
         }
+        })();
+        state.questionsLoadPromiseByMode[modeKey] = loadPromise;
+        return loadPromise;
       }
 
       async function ensureQuestionsForMode(mode, { forceReload = false } = {}) {
