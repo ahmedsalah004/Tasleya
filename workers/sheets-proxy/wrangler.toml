@@ -15,7 +15,7 @@ EMOJI_MOVIES_SHEET_CSV_URL = ""
 MAZAD_SHEET_CSV_URL = ""
 XO_INTERSECTION_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vST0HDmGhMcWq07D68Wj9XK_Kd3gdEFIvE_BdjACc1dNtwFjPGbpvdOJbi4EI7Dj19LYjN6kPxFJrmP/pub?output=csv"
 
-ALLOWED_ORIGIN = "https://tasleya.online"
+ALLOWED_ORIGIN = "https://tasleya.online,https://tasleya-preview.pages.dev"
 CACHE_TTL_SECONDS = "300"
 
 [observability]
