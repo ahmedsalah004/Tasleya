@@ -67,6 +67,7 @@
       const MAP_GAME_MODE_LANGUAGE = "language";
       const LANGUAGE_MODE_INSTRUCTION = "استمع إلى اللغة ثم اختر الدولة على الخريطة";
       const IMAGE_MODE_INSTRUCTION = "شاهد الصورة وحدد الدولة على الخريطة.";
+      const IMAGE_LOAD_ERROR_AR = "تعذر تحميل الصورة.";
       const ROUND_REQUIREMENTS = [
         { difficulty: "easy", points: 100, count: 4 },
         { difficulty: "medium", points: 300, count: 8 },
@@ -234,6 +235,15 @@
 
       function normalizeCell(value) {
         return String(value || "").replace(/^\uFEFF/, "").trim();
+      }
+
+      function normalizeImageUrl(value) {
+        const raw = normalizeCell(value);
+        if (!raw) return "";
+        if (/^https?:\/\//i.test(raw)) return raw;
+        if (raw.startsWith("/")) return raw;
+        if (raw.startsWith("assets/")) return `/${raw}`;
+        return "";
       }
 
       function getConfiguredApiBaseUrl() {
@@ -679,7 +689,11 @@
         el.imagePromptWrap.classList.add("hidden");
         el.imageLoading.classList.add("hidden");
         el.imageError.classList.add("hidden");
+        el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
         el.questionImage.classList.add("hidden");
+        el.questionImage.onload = null;
+        el.questionImage.onerror = null;
+        delete el.questionImage.dataset.currentSrc;
         el.questionImage.removeAttribute("src");
       }
 
@@ -692,10 +706,11 @@
         el.imagePromptWrap.classList.remove("hidden");
         el.imageQuestionText.textContent = "ما هي الدولة التي تظهر في الصورة؟";
 
-        const imageUrl = normalizeCell(q?.imageUrl);
+        const imageUrl = normalizeImageUrl(q?.imageUrl);
         if (!imageUrl) {
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
+          el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
           el.imageError.classList.remove("hidden");
           return;
         }
@@ -732,6 +747,7 @@
           state.imageLoadStateByQuestionId.set(questionKey, "error");
           el.imageLoading.classList.add("hidden");
           el.questionImage.classList.add("hidden");
+          el.imageError.textContent = IMAGE_LOAD_ERROR_AR;
           el.imageError.classList.remove("hidden");
         };
         if (el.questionImage.src !== imageUrl) {
@@ -1841,7 +1857,7 @@
                   countryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
                   difficulty: normalizeQuestionDifficulty(question.difficulty),
                   points: Number.isFinite(Number(question.points)) ? Number(question.points) : POINTS[normalizeQuestionDifficulty(question.difficulty)] || 0,
-                  imageUrl: question.imageUrl || "",
+                  imageUrl: normalizeImageUrl(question.imageUrl),
                   audioUrl: question.audioUrl || "",
                   placeNameAr: question.placeNameAr || "",
                   placeNameEn: question.placeNameEn || "",
