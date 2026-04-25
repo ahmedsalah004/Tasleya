@@ -3497,13 +3497,14 @@ body.local-three-teams .category-team-inputs {
 }
 
 .info-page-content {
-  width: min(94vw, 1120px);
+  width: min(94vw, 1160px);
+  margin-inline: auto;
   margin-top: 0;
 }
 
 .info-page-header,
 .info-page-card {
-  max-inline-size: min(100%, 920px);
+  inline-size: min(100%, 920px);
   margin-inline: auto;
 }
 
@@ -3520,7 +3521,7 @@ body.local-three-teams .category-team-inputs {
 }
 
 .info-page-header {
-  max-inline-size: min(100%, 800px);
+  inline-size: min(100%, 800px);
 }
 
 .info-page-card .section-body-text {
@@ -3584,32 +3585,35 @@ body.local-three-teams .category-team-inputs {
   }
 
   .info-page-shell .home-footer {
-    width: min(94vw, 1120px);
+    width: min(94vw, 1160px);
+    margin-inline: auto;
     margin-top: clamp(1.1rem, 2.4vw, 1.6rem);
   }
 
   .info-page-content {
-    width: min(94vw, 1120px);
+    width: min(94vw, 1160px);
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: clamp(0.9rem, 1.6vw, 1.3rem);
     align-items: start;
+    justify-items: center;
   }
 
   .info-page-content > .info-page-header {
     grid-column: auto;
-    max-inline-size: min(100%, 800px);
+    inline-size: min(100%, 800px);
   }
 
   .info-page-content > .info-page-card {
-    max-inline-size: min(100%, 920px);
+    inline-size: min(100%, 940px);
     height: 100%;
   }
 
   .info-page-content .section-body-text,
   .info-page-content .section-body-note,
   .info-page-content .info-list {
-    max-inline-size: 74ch;
+    inline-size: min(100%, 78ch);
+    margin-inline: auto;
   }
 
   .info-page-content .card-grid.mode-grid {
@@ -3618,12 +3622,12 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-content.contact-page-content {
     grid-template-columns: minmax(0, 1fr);
-    width: min(93vw, 1240px);
+    width: min(94vw, 1160px);
   }
 
   .info-page-content.contact-page-content > .info-page-header,
   .info-page-content.contact-page-content > .contact-page-card {
-    max-inline-size: min(100%, 1120px);
+    inline-size: min(100%, 940px);
   }
 
   .info-page-content.contact-page-content .contact-layout-columns {
