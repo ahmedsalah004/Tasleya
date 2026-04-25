@@ -557,6 +557,16 @@ html {
   color: #ffe9ab;
 }
 
+.play-lobby-actions {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .info-page-content .play-lobby-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .chips-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -1029,6 +1039,10 @@ html {
 
   .chips-wrap {
     margin-top: 0.34rem;
+  }
+
+  .play-lobby-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .section-body-note {
