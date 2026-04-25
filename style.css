@@ -3524,35 +3524,43 @@ body.local-three-teams .category-team-inputs {
   inline-size: min(100%, 800px);
 }
 
-.info-page-content.faq-page-content > .info-page-header {
-  inline-size: min(100%, 820px);
-  text-align: center;
-  padding: clamp(1.2rem, 2.4vw, 1.7rem) clamp(1rem, 2.8vw, 1.9rem);
-  border-color: rgba(255, 215, 120, 0.5);
+.info-page-hero {
+  inline-size: min(100%, 860px);
+  padding: clamp(1.25rem, 2.6vw, 1.7rem) clamp(1.05rem, 2.4vw, 1.55rem);
+  border: 1px solid rgba(255, 215, 120, 0.52);
   background:
-    linear-gradient(180deg, rgba(31, 47, 103, 0.42), rgba(9, 15, 39, 0.72)),
-    rgba(8, 14, 36, 0.74);
+    radial-gradient(120% 120% at 88% 0%, rgba(255, 217, 133, 0.1), transparent 58%),
+    linear-gradient(150deg, rgba(14, 27, 66, 0.88) 0%, rgba(10, 20, 52, 0.94) 58%, rgba(12, 24, 58, 0.9) 100%);
   box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.38),
-    0 0 22px rgba(255, 193, 67, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    0 16px 34px rgba(0, 0, 0, 0.36),
+    0 0 24px rgba(255, 205, 96, 0.14),
+    inset 0 1px 0 rgba(255, 243, 206, 0.2);
 }
 
-.info-page-content.faq-page-content > .info-page-header .info-home-link {
-  margin-inline: auto;
+.info-page-hero h1 {
+  font-size: clamp(1.6rem, 3.15vw, 2.25rem);
+  margin-bottom: 0.76rem;
+}
+
+.info-page-hero .section-body-text {
+  max-inline-size: 70ch;
+}
+
+.info-page-content.faq-page-content > .info-page-header {
+  inline-size: min(100%, 840px);
+  padding: clamp(1.08rem, 2.2vw, 1.4rem) clamp(0.95rem, 2.1vw, 1.3rem);
+  border: 1px solid rgba(255, 215, 120, 0.44);
+  background:
+    radial-gradient(120% 120% at 16% 0%, rgba(255, 217, 133, 0.08), transparent 56%),
+    linear-gradient(154deg, rgba(13, 24, 59, 0.86) 0%, rgba(10, 21, 50, 0.92) 100%);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.33),
+    0 0 18px rgba(255, 205, 96, 0.1),
+    inset 0 1px 0 rgba(255, 243, 206, 0.17);
 }
 
 .info-page-content.faq-page-content > .info-page-header h1 {
-  margin-top: 0.55rem;
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-}
-
-.info-page-content.faq-page-content > .info-page-card {
-  background: rgba(8, 14, 36, 0.58);
-  border-color: rgba(255, 215, 120, 0.26);
-  box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-size: clamp(1.52rem, 2.95vw, 2.12rem);
 }
 
 .info-page-card .section-body-text {
@@ -3635,8 +3643,12 @@ body.local-three-teams .category-team-inputs {
     inline-size: min(100%, 800px);
   }
 
+  .info-page-content > .info-page-header.info-page-hero {
+    inline-size: min(100%, 860px);
+  }
+
   .info-page-content.faq-page-content > .info-page-header {
-    inline-size: min(100%, 820px);
+    inline-size: min(100%, 840px);
   }
 
   .info-page-content > .info-page-card {
@@ -3680,13 +3692,29 @@ body.local-three-teams .category-team-inputs {
     font-size: clamp(1.28rem, 5.6vw, 1.7rem);
   }
 
+  .info-page-hero {
+    inline-size: min(100%, 880px);
+    padding: clamp(1.05rem, 4.8vw, 1.35rem) clamp(0.9rem, 4.2vw, 1.1rem);
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.32),
+      0 0 14px rgba(255, 205, 96, 0.12),
+      inset 0 1px 0 rgba(255, 243, 206, 0.16);
+  }
+
+  .info-page-hero h1 {
+    font-size: clamp(1.34rem, 5.9vw, 1.86rem);
+  }
+
   .info-page-content.faq-page-content > .info-page-header {
-    inline-size: min(100%, 840px);
-    padding: clamp(1rem, 5vw, 1.35rem) clamp(0.88rem, 4vw, 1.12rem);
+    padding: clamp(0.94rem, 4.2vw, 1.18rem) clamp(0.86rem, 4vw, 1.04rem);
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.29),
+      0 0 12px rgba(255, 205, 96, 0.09),
+      inset 0 1px 0 rgba(255, 243, 206, 0.15);
   }
 
   .info-page-content.faq-page-content > .info-page-header h1 {
-    font-size: clamp(1.38rem, 6.4vw, 1.88rem);
+    font-size: clamp(1.3rem, 5.4vw, 1.78rem);
   }
 
   .info-home-link {
