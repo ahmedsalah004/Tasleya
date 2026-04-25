@@ -4061,6 +4061,22 @@ body.local-three-teams .category-team-inputs {
   justify-self: stretch;
 }
 
+/* Override global desktop CTA sizing for quick-help buttons inside the homepage help panel only. */
+#startScreen .home-sections:not(.info-page-content) .panel-help #instructionsBtn,
+#startScreen .home-sections:not(.info-page-content) .panel-help #installGuideBtn,
+#startScreen .home-sections:not(.info-page-content) .panel-help #contactBtn {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: clamp(0.96rem, 0.98vw, 1.1rem);
+  line-height: 1.35;
+  letter-spacing: 0;
+  white-space: normal;
+}
+
 @media (min-width: 1024px) {
   #startScreen .home-sections:not(.info-page-content) .panel-help .home-secondary-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
