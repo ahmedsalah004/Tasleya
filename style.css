@@ -3897,6 +3897,10 @@ body.local-three-teams .category-team-inputs {
     inline-size: min(100%, 940px);
   }
 
+  .info-page-content.contact-page-content > .info-page-header.info-page-hero {
+    inline-size: min(100%, 980px);
+  }
+
   .info-page-content.contact-page-content .contact-layout-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
