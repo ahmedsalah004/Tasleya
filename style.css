@@ -3498,10 +3498,20 @@ body.local-three-teams .category-team-inputs {
 
 .info-page-content {
   width: min(94vw, 1160px);
+  margin-inline: auto;
   margin-top: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(0.9rem, 1.6vw, 1.3rem);
+  justify-items: center;
+  align-items: start;
 }
 
-.info-page-header,
+.info-page-header {
+  inline-size: min(100%, 820px);
+  margin-inline: auto;
+}
+
 .info-page-card {
   inline-size: min(100%, 920px);
   margin-inline: auto;
@@ -3581,13 +3591,6 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-shell .home-footer {
     width: min(94vw, 1160px);
-  }
-
-  .info-page-content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: clamp(0.9rem, 1.4vw, 1.22rem);
-    justify-items: center;
   }
 
   .info-page-content > .info-page-header {
