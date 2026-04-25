@@ -3525,42 +3525,26 @@ body.local-three-teams .category-team-inputs {
 }
 
 .info-page-hero {
-  inline-size: min(100%, 860px);
-  padding: clamp(1.25rem, 2.6vw, 1.7rem) clamp(1.05rem, 2.4vw, 1.55rem);
-  border: 1px solid rgba(255, 215, 120, 0.52);
+  inline-size: min(100%, 980px);
+  padding: clamp(1.4rem, 3vw, 2rem) clamp(1.15rem, 2.8vw, 1.9rem);
+  border: 1px solid rgba(255, 215, 120, 0.68);
   background:
-    radial-gradient(120% 120% at 88% 0%, rgba(255, 217, 133, 0.1), transparent 58%),
-    linear-gradient(150deg, rgba(14, 27, 66, 0.88) 0%, rgba(10, 20, 52, 0.94) 58%, rgba(12, 24, 58, 0.9) 100%);
+    radial-gradient(140% 120% at 88% -4%, rgba(255, 221, 138, 0.17), transparent 58%),
+    radial-gradient(120% 120% at 8% 120%, rgba(255, 197, 87, 0.09), transparent 64%),
+    linear-gradient(152deg, rgba(17, 33, 78, 0.93) 0%, rgba(10, 20, 52, 0.95) 54%, rgba(15, 31, 70, 0.92) 100%);
   box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.36),
-    0 0 24px rgba(255, 205, 96, 0.14),
-    inset 0 1px 0 rgba(255, 243, 206, 0.2);
+    0 14px 30px rgba(0, 0, 0, 0.28),
+    0 0 28px rgba(255, 209, 103, 0.22),
+    inset 0 1px 0 rgba(255, 243, 206, 0.24);
 }
 
 .info-page-hero h1 {
-  font-size: clamp(1.6rem, 3.15vw, 2.25rem);
+  font-size: clamp(1.72rem, 3.3vw, 2.42rem);
   margin-bottom: 0.76rem;
 }
 
 .info-page-hero .section-body-text {
   max-inline-size: 70ch;
-}
-
-.info-page-content.faq-page-content > .info-page-header {
-  inline-size: min(100%, 840px);
-  padding: clamp(1.08rem, 2.2vw, 1.4rem) clamp(0.95rem, 2.1vw, 1.3rem);
-  border: 1px solid rgba(255, 215, 120, 0.44);
-  background:
-    radial-gradient(120% 120% at 16% 0%, rgba(255, 217, 133, 0.08), transparent 56%),
-    linear-gradient(154deg, rgba(13, 24, 59, 0.86) 0%, rgba(10, 21, 50, 0.92) 100%);
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.33),
-    0 0 18px rgba(255, 205, 96, 0.1),
-    inset 0 1px 0 rgba(255, 243, 206, 0.17);
-}
-
-.info-page-content.faq-page-content > .info-page-header h1 {
-  font-size: clamp(1.52rem, 2.95vw, 2.12rem);
 }
 
 .info-page-card .section-body-text {
@@ -3644,15 +3628,11 @@ body.local-three-teams .category-team-inputs {
   }
 
   .info-page-content > .info-page-header.info-page-hero {
-    inline-size: min(100%, 860px);
-  }
-
-  .info-page-content.faq-page-content > .info-page-header {
-    inline-size: min(100%, 840px);
+    inline-size: min(100%, 980px);
   }
 
   .info-page-content > .info-page-card {
-    inline-size: min(100%, 940px);
+    inline-size: min(100%, 920px);
     height: 100%;
   }
 
@@ -3694,27 +3674,16 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-hero {
     inline-size: min(100%, 880px);
-    padding: clamp(1.05rem, 4.8vw, 1.35rem) clamp(0.9rem, 4.2vw, 1.1rem);
+    padding: clamp(1.15rem, 5.2vw, 1.55rem) clamp(0.95rem, 4.4vw, 1.22rem);
+    border-color: rgba(255, 215, 120, 0.64);
     box-shadow:
-      0 12px 24px rgba(0, 0, 0, 0.32),
-      0 0 14px rgba(255, 205, 96, 0.12),
-      inset 0 1px 0 rgba(255, 243, 206, 0.16);
+      0 10px 22px rgba(0, 0, 0, 0.26),
+      0 0 16px rgba(255, 205, 96, 0.18),
+      inset 0 1px 0 rgba(255, 243, 206, 0.18);
   }
 
   .info-page-hero h1 {
-    font-size: clamp(1.34rem, 5.9vw, 1.86rem);
-  }
-
-  .info-page-content.faq-page-content > .info-page-header {
-    padding: clamp(0.94rem, 4.2vw, 1.18rem) clamp(0.86rem, 4vw, 1.04rem);
-    box-shadow:
-      0 10px 22px rgba(0, 0, 0, 0.29),
-      0 0 12px rgba(255, 205, 96, 0.09),
-      inset 0 1px 0 rgba(255, 243, 206, 0.15);
-  }
-
-  .info-page-content.faq-page-content > .info-page-header h1 {
-    font-size: clamp(1.3rem, 5.4vw, 1.78rem);
+    font-size: clamp(1.4rem, 6vw, 1.98rem);
   }
 
   .info-home-link {
