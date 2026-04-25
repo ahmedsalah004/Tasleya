@@ -3637,3 +3637,40 @@ body.local-three-teams .category-team-inputs {
     padding: 0.32rem 0.62rem;
   }
 }
+
+/* Homepage quick-help card hardening: prevent action overlap across breakpoints. */
+#startScreen .home-sections:not(.info-page-content) .panel-help .home-secondary-actions {
+  width: 100%;
+  max-width: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+#startScreen .home-sections:not(.info-page-content) .panel-help .home-secondary-actions .secondary-button {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 56px;
+  padding: 12px 16px;
+  margin: 0;
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  line-height: 1.35;
+  text-align: center;
+  justify-self: stretch;
+}
+
+@media (min-width: 1024px) {
+  #startScreen .home-sections:not(.info-page-content) .panel-help .home-secondary-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  #startScreen .home-sections:not(.info-page-content) .panel-help #installGuideBtn {
+    grid-column: 1 / -1;
+  }
+}
