@@ -3524,6 +3524,28 @@ body.local-three-teams .category-team-inputs {
   inline-size: min(100%, 800px);
 }
 
+.info-page-hero {
+  inline-size: min(100%, 860px);
+  padding: clamp(1.25rem, 2.6vw, 1.7rem) clamp(1.05rem, 2.4vw, 1.55rem);
+  border: 1px solid rgba(255, 215, 120, 0.52);
+  background:
+    radial-gradient(120% 120% at 88% 0%, rgba(255, 217, 133, 0.1), transparent 58%),
+    linear-gradient(150deg, rgba(14, 27, 66, 0.88) 0%, rgba(10, 20, 52, 0.94) 58%, rgba(12, 24, 58, 0.9) 100%);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.36),
+    0 0 24px rgba(255, 205, 96, 0.14),
+    inset 0 1px 0 rgba(255, 243, 206, 0.2);
+}
+
+.info-page-hero h1 {
+  font-size: clamp(1.6rem, 3.15vw, 2.25rem);
+  margin-bottom: 0.76rem;
+}
+
+.info-page-hero .section-body-text {
+  max-inline-size: 70ch;
+}
+
 .info-page-card .section-body-text {
   font-size: clamp(0.96rem, 0.45vw + 0.9rem, 1.08rem);
 }
@@ -3604,6 +3626,10 @@ body.local-three-teams .category-team-inputs {
     inline-size: min(100%, 800px);
   }
 
+  .info-page-content > .info-page-header.info-page-hero {
+    inline-size: min(100%, 860px);
+  }
+
   .info-page-content > .info-page-card {
     inline-size: min(100%, 940px);
     height: 100%;
@@ -3643,6 +3669,19 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-header h1 {
     font-size: clamp(1.28rem, 5.6vw, 1.7rem);
+  }
+
+  .info-page-hero {
+    inline-size: min(100%, 880px);
+    padding: clamp(1.05rem, 4.8vw, 1.35rem) clamp(0.9rem, 4.2vw, 1.1rem);
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.32),
+      0 0 14px rgba(255, 205, 96, 0.12),
+      inset 0 1px 0 rgba(255, 243, 206, 0.16);
+  }
+
+  .info-page-hero h1 {
+    font-size: clamp(1.34rem, 5.9vw, 1.86rem);
   }
 
   .info-home-link {
