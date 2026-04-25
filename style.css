@@ -3497,13 +3497,13 @@ body.local-three-teams .category-team-inputs {
 }
 
 .info-page-content {
-  width: min(94vw, 1040px);
+  width: min(94vw, 1120px);
   margin-top: 0;
 }
 
 .info-page-header,
 .info-page-card {
-  max-inline-size: min(100%, 820px);
+  max-inline-size: min(100%, 920px);
   margin-inline: auto;
 }
 
@@ -3517,6 +3517,10 @@ body.local-three-teams .category-team-inputs {
 .info-page-card {
   display: grid;
   gap: 0.72rem;
+}
+
+.info-page-header {
+  max-inline-size: min(100%, 800px);
 }
 
 .info-page-card .section-body-text {
@@ -3576,31 +3580,36 @@ body.local-three-teams .category-team-inputs {
 @media (min-width: 1200px) {
   .info-page-shell {
     padding-top: clamp(1.2rem, 2.6vw, 2rem);
-    gap: clamp(0.95rem, 1.8vw, 1.3rem);
+    gap: clamp(0.95rem, 1.9vw, 1.45rem);
+  }
+
+  .info-page-shell .home-footer {
+    width: min(94vw, 1120px);
+    margin-top: clamp(1.1rem, 2.4vw, 1.6rem);
   }
 
   .info-page-content {
-    width: min(93vw, 1320px);
+    width: min(94vw, 1120px);
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(0.9rem, 1.4vw, 1.22rem);
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(0.9rem, 1.6vw, 1.3rem);
     align-items: start;
   }
 
   .info-page-content > .info-page-header {
-    grid-column: 1 / -1;
-    max-inline-size: min(100%, 1080px);
+    grid-column: auto;
+    max-inline-size: min(100%, 800px);
   }
 
   .info-page-content > .info-page-card {
-    max-inline-size: 100%;
+    max-inline-size: min(100%, 920px);
     height: 100%;
   }
 
   .info-page-content .section-body-text,
   .info-page-content .section-body-note,
   .info-page-content .info-list {
-    max-inline-size: 64ch;
+    max-inline-size: 74ch;
   }
 
   .info-page-content .card-grid.mode-grid {
