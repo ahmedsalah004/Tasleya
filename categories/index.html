@@ -15,6 +15,31 @@
     <link rel="stylesheet" href="/style.css?v=1.2.6" />
     <link rel="stylesheet" href="/mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
       <link rel="stylesheet" href="/assets/site-header.css?v=1.2.7" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {"@type": "ListItem", "position": 1, "name": "الرئيسية", "item": "https://tasleya.online/"},
+              {"@type": "ListItem", "position": 2, "name": "الفئات", "item": "https://tasleya.online/categories/"}
+            ]
+          },
+          {
+            "@type": "ItemList",
+            "itemListElement": [
+              {"@type": "ListItem", "position": 1, "name": "الجغرافيا", "url": "https://tasleya.online/categories/geography/"},
+              {"@type": "ListItem", "position": 2, "name": "كرة القدم", "url": "https://tasleya.online/categories/football/"},
+              {"@type": "ListItem", "position": 3, "name": "المعلومات العامة", "url": "https://tasleya.online/categories/general-knowledge/"},
+              {"@type": "ListItem", "position": 4, "name": "التاريخ", "url": "https://tasleya.online/categories/history/"},
+              {"@type": "ListItem", "position": 5, "name": "الأفلام", "url": "https://tasleya.online/categories/films/"},
+              {"@type": "ListItem", "position": 6, "name": "العلوم الإسلامية", "url": "https://tasleya.online/categories/islamic-sciences/"}
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="startScreen" class="info-page-shell">
@@ -34,23 +59,33 @@
 
         <section class="categories-main-grid" aria-label="بطاقات فئات اللعب الأساسية">
         <section class="home-panel info-page-card category-card" aria-labelledby="generalKnowledgeTitle">
-          <h2 id="generalKnowledgeTitle">فئات المعلومات العامة</h2>
-          <p class="section-body-text">مناسبة لبداية أي جولة لأنها لا تتطلب تخصصًا عميقًا وتمنح الجميع فرصة متقاربة.</p>
+          <h2 id="generalKnowledgeTitle"><a href="/categories/general-knowledge/" class="inline-email-link">فئات المعلومات العامة</a></h2>
+          <p class="section-body-text">مناسبة لبداية أي جولة لأنها لا تتطلب تخصصًا عميقًا وتمنح الجميع فرصة متقاربة. <a href="/categories/general-knowledge/" class="inline-email-link">تفاصيل الفئة</a>.</p>
         </section>
 
         <section class="home-panel info-page-card category-card" aria-labelledby="sportsTitle">
-          <h2 id="sportsTitle">فئات الرياضة</h2>
-          <p class="section-body-text">تشمل أسئلة عن البطولات والأندية واللاعبين والقوانين، وتناسب محبي المنافسة السريعة.</p>
+          <h2 id="sportsTitle"><a href="/categories/football/" class="inline-email-link">فئات الرياضة</a></h2>
+          <p class="section-body-text">تشمل أسئلة عن البطولات والأندية واللاعبين والقوانين، وتناسب محبي المنافسة السريعة. <a href="/categories/football/" class="inline-email-link">تفاصيل الفئة</a>.</p>
         </section>
 
         <section class="home-panel info-page-card category-card" aria-labelledby="geographyTitle">
-          <h2 id="geographyTitle">فئات الجغرافيا</h2>
-          <p class="section-body-text">تركز على الدول والعواصم والأعلام والمواقع الجغرافية، ويمكن اختيارها بدرجات صعوبة مختلفة.</p>
+          <h2 id="geographyTitle"><a href="/categories/geography/" class="inline-email-link">فئات الجغرافيا</a></h2>
+          <p class="section-body-text">تركز على الدول والعواصم والأعلام والمواقع الجغرافية، ويمكن اختيارها بدرجات صعوبة مختلفة. <a href="/categories/geography/" class="inline-email-link">تفاصيل الفئة</a>.</p>
+        </section>
+
+        <section class="home-panel info-page-card category-card" aria-labelledby="historyTitle">
+          <h2 id="historyTitle"><a href="/categories/history/" class="inline-email-link">فئات التاريخ</a></h2>
+          <p class="section-body-text">أسئلة تربط الأحداث بالشخصيات والتحولات الزمنية بأسلوب تدريجي يناسب المنافسة الجماعية. <a href="/categories/history/" class="inline-email-link">تفاصيل الفئة</a>.</p>
+        </section>
+
+        <section class="home-panel info-page-card category-card" aria-labelledby="filmsTitle">
+          <h2 id="filmsTitle"><a href="/categories/films/" class="inline-email-link">فئات الأفلام</a></h2>
+          <p class="section-body-text">فئة ترفيهية تعتمد على التمثيل والتلميح وتناسب الجلسات السريعة بين الأصدقاء والعائلة. <a href="/categories/films/" class="inline-email-link">تفاصيل الفئة</a>.</p>
         </section>
 
         <section class="home-panel info-page-card category-card" aria-labelledby="islamicStudiesTitle">
-          <h2 id="islamicStudiesTitle">فئات العلوم الإسلامية</h2>
-          <p class="section-body-text">تضم أسئلة في السيرة والثقافة الإسلامية والمصطلحات والأحداث التاريخية المرتبطة بالحضارة الإسلامية.</p>
+          <h2 id="islamicStudiesTitle"><a href="/categories/islamic-sciences/" class="inline-email-link">فئات العلوم الإسلامية</a></h2>
+          <p class="section-body-text">تضم أسئلة في السيرة والثقافة الإسلامية والمصطلحات والأحداث التاريخية المرتبطة بالحضارة الإسلامية. <a href="/categories/islamic-sciences/" class="inline-email-link">تفاصيل الفئة</a>.</p>
         </section>
 
         <section class="home-panel info-page-card category-card" aria-labelledby="arabCountriesTitle">
