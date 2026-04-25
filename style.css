@@ -3546,6 +3546,23 @@ body.local-three-teams .category-team-inputs {
   max-inline-size: 70ch;
 }
 
+.info-page-content.faq-page-content > .info-page-header {
+  inline-size: min(100%, 840px);
+  padding: clamp(1.08rem, 2.2vw, 1.4rem) clamp(0.95rem, 2.1vw, 1.3rem);
+  border: 1px solid rgba(255, 215, 120, 0.44);
+  background:
+    radial-gradient(120% 120% at 16% 0%, rgba(255, 217, 133, 0.08), transparent 56%),
+    linear-gradient(154deg, rgba(13, 24, 59, 0.86) 0%, rgba(10, 21, 50, 0.92) 100%);
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.33),
+    0 0 18px rgba(255, 205, 96, 0.1),
+    inset 0 1px 0 rgba(255, 243, 206, 0.17);
+}
+
+.info-page-content.faq-page-content > .info-page-header h1 {
+  font-size: clamp(1.52rem, 2.95vw, 2.12rem);
+}
+
 .info-page-card .section-body-text {
   font-size: clamp(0.96rem, 0.45vw + 0.9rem, 1.08rem);
 }
@@ -3630,6 +3647,10 @@ body.local-three-teams .category-team-inputs {
     inline-size: min(100%, 860px);
   }
 
+  .info-page-content.faq-page-content > .info-page-header {
+    inline-size: min(100%, 840px);
+  }
+
   .info-page-content > .info-page-card {
     inline-size: min(100%, 940px);
     height: 100%;
@@ -3682,6 +3703,18 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-hero h1 {
     font-size: clamp(1.34rem, 5.9vw, 1.86rem);
+  }
+
+  .info-page-content.faq-page-content > .info-page-header {
+    padding: clamp(0.94rem, 4.2vw, 1.18rem) clamp(0.86rem, 4vw, 1.04rem);
+    box-shadow:
+      0 10px 22px rgba(0, 0, 0, 0.29),
+      0 0 12px rgba(255, 205, 96, 0.09),
+      inset 0 1px 0 rgba(255, 243, 206, 0.15);
+  }
+
+  .info-page-content.faq-page-content > .info-page-header h1 {
+    font-size: clamp(1.3rem, 5.4vw, 1.78rem);
   }
 
   .info-home-link {
