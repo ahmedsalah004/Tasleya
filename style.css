@@ -3526,21 +3526,21 @@ body.local-three-teams .category-team-inputs {
 
 .info-page-hero {
   inline-size: min(100%, 980px);
-  padding: clamp(1.4rem, 3vw, 2rem) clamp(1.15rem, 2.8vw, 1.9rem);
-  border: 1px solid rgba(255, 215, 120, 0.68);
+  padding: clamp(1.55rem, 3.35vw, 2.2rem) clamp(1.25rem, 3.1vw, 2.1rem);
+  border: 1px solid rgba(255, 220, 132, 0.84);
   background:
-    radial-gradient(140% 120% at 88% -4%, rgba(255, 221, 138, 0.17), transparent 58%),
-    radial-gradient(120% 120% at 8% 120%, rgba(255, 197, 87, 0.09), transparent 64%),
-    linear-gradient(152deg, rgba(17, 33, 78, 0.93) 0%, rgba(10, 20, 52, 0.95) 54%, rgba(15, 31, 70, 0.92) 100%);
+    radial-gradient(145% 125% at 88% -6%, rgba(255, 226, 146, 0.19), transparent 58%),
+    radial-gradient(124% 124% at 8% 118%, rgba(255, 198, 92, 0.12), transparent 63%),
+    linear-gradient(150deg, rgba(20, 37, 86, 0.95) 0%, rgba(12, 24, 58, 0.96) 52%, rgba(17, 34, 77, 0.95) 100%);
   box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.28),
-    0 0 28px rgba(255, 209, 103, 0.22),
-    inset 0 1px 0 rgba(255, 243, 206, 0.24);
+    0 12px 24px rgba(0, 0, 0, 0.24),
+    0 0 34px rgba(255, 212, 110, 0.24),
+    inset 0 1px 0 rgba(255, 244, 210, 0.25);
 }
 
 .info-page-hero h1 {
-  font-size: clamp(1.72rem, 3.3vw, 2.42rem);
-  margin-bottom: 0.76rem;
+  font-size: clamp(1.8rem, 3.45vw, 2.54rem);
+  margin-bottom: 0.8rem;
 }
 
 .info-page-hero .section-body-text {
@@ -3674,16 +3674,16 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-hero {
     inline-size: min(100%, 880px);
-    padding: clamp(1.15rem, 5.2vw, 1.55rem) clamp(0.95rem, 4.4vw, 1.22rem);
-    border-color: rgba(255, 215, 120, 0.64);
+    padding: clamp(1.22rem, 5.5vw, 1.68rem) clamp(1rem, 4.6vw, 1.3rem);
+    border-color: rgba(255, 220, 134, 0.78);
     box-shadow:
-      0 10px 22px rgba(0, 0, 0, 0.26),
-      0 0 16px rgba(255, 205, 96, 0.18),
-      inset 0 1px 0 rgba(255, 243, 206, 0.18);
+      0 9px 19px rgba(0, 0, 0, 0.22),
+      0 0 20px rgba(255, 207, 100, 0.2),
+      inset 0 1px 0 rgba(255, 243, 206, 0.2);
   }
 
   .info-page-hero h1 {
-    font-size: clamp(1.4rem, 6vw, 1.98rem);
+    font-size: clamp(1.46rem, 6.2vw, 2.08rem);
   }
 
   .info-home-link {
