@@ -9,6 +9,7 @@
     <link rel="canonical" href="https://tasleya.online/categories/general-knowledge/" />
     <link rel="stylesheet" href="/style.css?v=1.2.6" />
     <link rel="stylesheet" href="/mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
+    <link rel="stylesheet" href="/assets/site-header.css?v=1.2.7" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -46,9 +47,9 @@
     </script>
   </head>
   <body>
-    <div class="info-page-shell">
+    <div id="startScreen" class="info-page-shell">
       <div class="home-page-overlay" aria-hidden="true"></div>
-      <main class="home-sections info-page-content" aria-label="محتوى صفحة الفئة">
+      <main class="home-sections info-page-content category-detail-page-content" aria-label="محتوى صفحة الفئة">
         <section class="home-panel info-page-header">
           <nav aria-label="مسار التنقل" class="section-body-text">
             <a href="/" class="inline-email-link">الرئيسية</a> ←
@@ -61,7 +62,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="gkUseTitle">
           <h2 id="gkUseTitle">متى تستخدم هذه الفئة؟</h2>
-          <p class='section-body-text'>فئة المعلومات العامة هي العمود الفقري لمعظم جولات تسلية، لأنها تمنح نقطة انطلاق عادلة لكل اللاعبين مهما كانت خلفياتهم. اللاعب المتابع للأخبار يجد أسئلة مناسبة، واللاعب الذي يفضّل الثقافة العامة أو الحقائق اليومية يستطيع المشاركة من دون شعور بالإقصاء. هذا يجعلها الفئة الأكثر مرونة لبداية الجلسة، خصوصًا عندما تكون المجموعة جديدة أو عندما لا تعرف مستوى كل لاعب بعد.</p>
+          <p class='section-body-text'>فئة المعلومات العامة هي العمود الفقري لمعظم جولات تسلية، لأنها تمنح نقطة انطلاق عادلة لكل اللاعبين مهما كانت خلفياتهم. اللاعب المتابع للأخبار يجد أسئلة مناسبة، واللاعب الذي يفضّل الثقافة العامة أو الحقائق اليومية يستطيع المشاركة من دون شعور بالإقصاء.</p>
+          <p class='section-body-text'>هذا يجعلها الفئة الأكثر مرونة لبداية الجلسة، خصوصًا عندما تكون المجموعة جديدة أو عندما لا تعرف مستوى كل لاعب بعد.</p>
           <p class='section-body-text'>فئة المعلومات العامة ممتازة أيضًا للتعلم غير المباشر. عندما يخطئ لاعب في إجابة سؤال، غالبًا يتذكر المعلومة لاحقًا بسبب سياق المنافسة. لذلك يُفضّل بعد كل جولة قصيرة أن يقرأ المنظم الإجابة الصحيحة بجملة توضيحية واحدة. هذه الخطوة البسيطة تضيف قيمة معرفية حقيقية دون إبطاء اللعب، وتُشعر المجموعة أن الجولة ليست مجرد نقاط، بل تجربة مفيدة وممتعة معًا.</p>
         </section>
 
@@ -84,7 +86,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="gkGamesTitle">
           <h2 id="gkGamesTitle">ألعاب مرتبطة ونصائح قبل اللعب</h2>
-          <p class='section-body-text'>المعلومات العامة مناسبة جدًا للانتقال بين أنماط لعب مختلفة. يمكنك بدء الجولة من <a href='/play/' class='inline-email-link'>لوبي اللعب</a> ثم إدخال جولة سريعة بصيغة «تلميح ثم إجابة» عبر لعبة <a href='/games/guess-from-hint/' class='inline-email-link'>خمنها من التلميح</a>. هذا النمط ممتاز لكسر الجمود لأنه لا يعتمد على سؤال مباشر فقط، بل يعطي اللاعب فرصة لبناء التخمين خطوة بخطوة. بعدها يمكن رفع التحدي بلعبة <a href='/games/auction/' class='inline-email-link'>المزاد</a> لمنح الفريق الأكثر ثقة مساحة للمخاطرة.</p>
+          <p class='section-body-text'>المعلومات العامة مناسبة جدًا للانتقال بين أنماط لعب مختلفة. يمكنك بدء الجولة من <a href='/play/' class='inline-email-link'>لوبي اللعب</a> ثم إدخال جولة سريعة بصيغة «تلميح ثم إجابة» عبر لعبة <a href='/games/guess-from-hint/' class='inline-email-link'>خمنها من التلميح</a>.</p>
+          <p class='section-body-text'>هذا النمط ممتاز لكسر الجمود لأنه لا يعتمد على سؤال مباشر فقط، بل يعطي اللاعب فرصة لبناء التخمين خطوة بخطوة. بعدها يمكن رفع التحدي بلعبة <a href='/games/auction/' class='inline-email-link'>المزاد</a> لمنح الفريق الأكثر ثقة مساحة للمخاطرة.</p>
           <p class='section-body-text'>إذا أردت خطة جاهزة وسهلة: ابدأ بجولة معلومات عامة قصيرة، انتقل إلى <a href='/games/guess-from-hint/' class='inline-email-link'>خمنها من التلميح</a>، ثم اختم بجولة <a href='/games/auction/' class='inline-email-link'>المزاد</a> للمنافسة العالية. هذا التدرج مناسب للمبتدئ والمتمرس ويمنح الجلسة تصاعدًا طبيعيًا في الحماس. ولمراجعة إعدادات الوقت والأدوار، يمكنك دائمًا الرجوع إلى صفحة <a href='/how-to-play/' class='inline-email-link'>كيف تلعب؟</a>.</p>
           <p class="section-body-text">روابط ذات صلة: <a href="/play/" class="inline-email-link">لوبي اللعب</a>، <a href="/games/guess-from-hint/" class="inline-email-link">خمنها من التلميح</a>، <a href="/games/auction/" class="inline-email-link">المزاد</a>.</p>
         </section>
@@ -97,6 +100,23 @@
           </div>
         </section>
       </main>
+      <footer class="home-footer" aria-label="ختام الصفحة وروابط إضافية">
+        <div class="footer-closure">
+          <p class="footer-brand">تسلية</p>
+          <p class="footer-meta">© 2026 Tasleya. جميع الحقوق محفوظة.</p>
+          <a href="mailto:contact@tasleya.online" class="footer-email">contact@tasleya.online</a>
+        </div>
+        <nav class="footer-nav" aria-label="روابط نهاية الصفحة">
+          <a href="/how-to-play/" class="footer-link">كيف تلعب؟</a>
+          <a href="/categories/" class="footer-link">الفئات</a>
+          <a href="/faq/" class="footer-link">الأسئلة الشائعة</a>
+          <a href="/about/" class="footer-link">من نحن</a>
+          <a href="/privacy/" class="footer-link">سياسة الخصوصية</a>
+          <a href="/contact/" class="footer-link">تواصل معنا</a>
+          <a href="/terms/" class="footer-link">شروط الاستخدام</a>
+        </nav>
+      </footer>
     </div>
+    <script src="/assets/site-header.js?v=1.2.7" defer></script>
   </body>
 </html>

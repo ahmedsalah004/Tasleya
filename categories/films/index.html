@@ -9,6 +9,7 @@
     <link rel="canonical" href="https://tasleya.online/categories/films/" />
     <link rel="stylesheet" href="/style.css?v=1.2.6" />
     <link rel="stylesheet" href="/mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
+    <link rel="stylesheet" href="/assets/site-header.css?v=1.2.7" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -46,9 +47,9 @@
     </script>
   </head>
   <body>
-    <div class="info-page-shell">
+    <div id="startScreen" class="info-page-shell">
       <div class="home-page-overlay" aria-hidden="true"></div>
-      <main class="home-sections info-page-content" aria-label="محتوى صفحة الفئة">
+      <main class="home-sections info-page-content category-detail-page-content" aria-label="محتوى صفحة الفئة">
         <section class="home-panel info-page-header">
           <nav aria-label="مسار التنقل" class="section-body-text">
             <a href="/" class="inline-email-link">الرئيسية</a> ←
@@ -61,7 +62,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="filmsUseTitle">
           <h2 id="filmsUseTitle">متى تستخدم هذه الفئة؟</h2>
-          <p class='section-body-text'>فئة الأفلام من أكثر الفئات التي تحقق تفاعلًا فوريًا في تسلية، لأنها تجمع بين المعرفة والمتعة والتمثيل السريع. حتى اللاعب الذي لا يحفظ أسماء كثيرة يمكنه المشاركة عبر الربط بين الإيموجي، الحبكة، أو أداء زميله في الفريق. هذا يجعل الفئة مثالية للجلسات الاجتماعية حيث الهدف الأساسي هو رفع الحماس وبناء لحظات ضحك وتحدٍ في الوقت نفسه.</p>
+          <p class='section-body-text'>فئة الأفلام من أكثر الفئات التي تحقق تفاعلًا فوريًا في تسلية، لأنها تجمع بين المعرفة والمتعة والتمثيل السريع. حتى اللاعب الذي لا يحفظ أسماء كثيرة يمكنه المشاركة عبر الربط بين الإيموجي، الحبكة، أو أداء زميله في الفريق.</p>
+          <p class='section-body-text'>هذا يجعل الفئة مثالية للجلسات الاجتماعية حيث الهدف الأساسي هو رفع الحماس وبناء لحظات ضحك وتحدٍ في الوقت نفسه.</p>
           <p class='section-body-text'>فئة الأفلام ليست مجرد ترفيه؛ هي أيضًا وسيلة ممتازة للتواصل بين اللاعبين. كثير من الجلسات تنجح لأن السؤال يفتح نقاشًا قصيرًا حول فيلم مفضل أو مشهد شهير، ثم يعود الجميع للمنافسة. لذلك لا مانع من ترك مساحة صغيرة للتعليق بعد الإجابة، بشرط ألا تطول حتى لا يهبط الإيقاع. التوازن بين الحوار واللعب هو السر الحقيقي لنجاح هذه الفئة.</p>
         </section>
 
@@ -86,7 +88,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="filmsGamesTitle">
           <h2 id="filmsGamesTitle">ألعاب مرتبطة ونصائح قبل اللعب</h2>
-          <p class='section-body-text'>إذا كنت تريد تجربة تمثيل كلاسيكية، فانتقل مباشرة إلى <a href='/films/' class='inline-email-link'>لعبة أفلام</a> حيث يعتمد الفريق على الأداء غير اللفظي وسرعة التخمين. أما إذا أردت جولات أخف وأسرع، فخيار <a href='/games/emoji-movies/' class='inline-email-link'>خمن العمل من الإيموجي</a> ممتاز لأنه يختصر الجولة ويعطي نتائج سريعة. الجمع بين اللعبتين داخل نفس الجلسة يخلق إيقاعًا رائعًا: جولة تمثيل أطول ثم جولة إيموجي قصيرة لكسر الضغط.</p>
+          <p class='section-body-text'>إذا كنت تريد تجربة تمثيل كلاسيكية، فانتقل مباشرة إلى <a href='/films/' class='inline-email-link'>لعبة أفلام</a> حيث يعتمد الفريق على الأداء غير اللفظي وسرعة التخمين. أما إذا أردت جولات أخف وأسرع، فخيار <a href='/games/emoji-movies/' class='inline-email-link'>خمن العمل من الإيموجي</a> ممتاز لأنه يختصر الجولة ويعطي نتائج سريعة.</p>
+          <p class='section-body-text'>الجمع بين اللعبتين داخل نفس الجلسة يخلق إيقاعًا رائعًا: جولة تمثيل أطول ثم جولة إيموجي قصيرة لكسر الضغط.</p>
           <p class='section-body-text'>إذا أردت بداية منظمة، راجع أولًا <a href='/how-to-play/' class='inline-email-link'>كيف تلعب؟</a> ثم اختر بين <a href='/films/' class='inline-email-link'>لعبة أفلام</a> و<a href='/games/emoji-movies/' class='inline-email-link'>خمن العمل من الإيموجي</a> حسب مدة الجلسة وعدد اللاعبين. بهذه الطريقة تتحول فئة الأفلام إلى تجربة مرنة: سهلة البدء، غنية بالتفاعل، ومناسبة لمختلف الأعمار وأنماط اللعب.</p>
           <p class="section-body-text">روابط ذات صلة: <a href="/films/" class="inline-email-link">لعبة أفلام</a> و<a href="/games/emoji-movies/" class="inline-email-link">خمن العمل من الإيموجي</a>.</p>
         </section>
@@ -99,6 +102,23 @@
           </div>
         </section>
       </main>
+      <footer class="home-footer" aria-label="ختام الصفحة وروابط إضافية">
+        <div class="footer-closure">
+          <p class="footer-brand">تسلية</p>
+          <p class="footer-meta">© 2026 Tasleya. جميع الحقوق محفوظة.</p>
+          <a href="mailto:contact@tasleya.online" class="footer-email">contact@tasleya.online</a>
+        </div>
+        <nav class="footer-nav" aria-label="روابط نهاية الصفحة">
+          <a href="/how-to-play/" class="footer-link">كيف تلعب؟</a>
+          <a href="/categories/" class="footer-link">الفئات</a>
+          <a href="/faq/" class="footer-link">الأسئلة الشائعة</a>
+          <a href="/about/" class="footer-link">من نحن</a>
+          <a href="/privacy/" class="footer-link">سياسة الخصوصية</a>
+          <a href="/contact/" class="footer-link">تواصل معنا</a>
+          <a href="/terms/" class="footer-link">شروط الاستخدام</a>
+        </nav>
+      </footer>
     </div>
+    <script src="/assets/site-header.js?v=1.2.7" defer></script>
   </body>
 </html>

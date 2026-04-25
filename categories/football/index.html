@@ -9,6 +9,7 @@
     <link rel="canonical" href="https://tasleya.online/categories/football/" />
     <link rel="stylesheet" href="/style.css?v=1.2.6" />
     <link rel="stylesheet" href="/mobile.css?v=1.2.6" media="screen and (max-width: 700px)" />
+    <link rel="stylesheet" href="/assets/site-header.css?v=1.2.7" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -46,9 +47,9 @@
     </script>
   </head>
   <body>
-    <div class="info-page-shell">
+    <div id="startScreen" class="info-page-shell">
       <div class="home-page-overlay" aria-hidden="true"></div>
-      <main class="home-sections info-page-content" aria-label="محتوى صفحة الفئة">
+      <main class="home-sections info-page-content category-detail-page-content" aria-label="محتوى صفحة الفئة">
         <section class="home-panel info-page-header">
           <nav aria-label="مسار التنقل" class="section-body-text">
             <a href="/" class="inline-email-link">الرئيسية</a> ←
@@ -61,7 +62,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="footballUseTitle">
           <h2 id="footballUseTitle">متى تستخدم هذه الفئة؟</h2>
-          <p class='section-body-text'>فئة كرة القدم غالبًا تكون الأسرع في إشعال الحماس داخل أي جلسة. السبب بسيط: كثير من اللاعبين لديهم خلفية عامة عن الفرق والبطولات حتى لو لم يكونوا متابعين يوميين. لذلك تعتبر هذه الفئة خيارًا ممتازًا للجولات الجماعية، لأنها تجمع بين الحماس العاطفي والمعرفة السريعة. في تسلية، يمكن تصميم جولة كرة القدم بطريقة متوازنة تمنع احتكار النقاط من لاعب واحد، وتبقي بقية المجموعة في قلب المنافسة من البداية حتى النهاية.</p>
+          <p class='section-body-text'>فئة كرة القدم غالبًا تكون الأسرع في إشعال الحماس داخل أي جلسة. السبب بسيط: كثير من اللاعبين لديهم خلفية عامة عن الفرق والبطولات حتى لو لم يكونوا متابعين يوميين. لذلك تعتبر هذه الفئة خيارًا ممتازًا للجولات الجماعية، لأنها تجمع بين الحماس العاطفي والمعرفة السريعة.</p>
+          <p class='section-body-text'>في تسلية، يمكن تصميم جولة كرة القدم بطريقة متوازنة تمنع احتكار النقاط من لاعب واحد، وتبقي بقية المجموعة في قلب المنافسة من البداية حتى النهاية.</p>
           <p class='section-body-text'>في الجلسات العائلية، يفضل التركيز على الجانب الثقافي لكرة القدم: المنتخبات، شعارات الأندية، الدول المستضيفة، وأشهر اللحظات. أما في جلسات الأصدقاء، يمكن إدخال أسئلة تكتيكية أو تاريخية أدق لأن النقاش فيها يكون أكثر تفصيلاً. المهم أن يتم إعلان مستوى الجولة قبل البدء، حتى لا تتضارب توقعات اللاعبين. هذا التفصيل الصغير يحافظ على جودة التجربة ويقلل الجدل أثناء احتساب النقاط.</p>
         </section>
 
@@ -85,7 +87,8 @@
 
         <section class="home-panel info-page-card" aria-labelledby="footballGamesTitle">
           <h2 id="footballGamesTitle">ألعاب مرتبطة ونصائح قبل اللعب</h2>
-          <p class='section-body-text'>لرفع جودة التنظيم، ننصح ببدء الجولة عبر <a href='/play/' class='inline-email-link'>لوبي اللعب</a> ثم اختيار النمط المناسب: جهاز واحد أو أجهزة متعددة. عندما تتضح آلية المشاركة، يصبح توزيع الأدوار أسهل بكثير. بعد ذلك، يمكنك استخدام صفحة <a href='/categories/' class='inline-email-link'>الفئات</a> للانتقال إلى فئة كرة القدم ضمن مسار متنوع يشمل فئات أخرى بين الجولات. هذا الانتقال المنظم يخلق إيقاعًا جيدًا ويحمي الجلسة من التكرار المفرط.</p>
+          <p class='section-body-text'>لرفع جودة التنظيم، ننصح ببدء الجولة عبر <a href='/play/' class='inline-email-link'>لوبي اللعب</a> ثم اختيار النمط المناسب: جهاز واحد أو أجهزة متعددة. عندما تتضح آلية المشاركة، يصبح توزيع الأدوار أسهل بكثير.</p>
+          <p class='section-body-text'>بعد ذلك، يمكنك استخدام صفحة <a href='/categories/' class='inline-email-link'>الفئات</a> للانتقال إلى فئة كرة القدم ضمن مسار متنوع يشمل فئات أخرى بين الجولات. هذا الانتقال المنظم يخلق إيقاعًا جيدًا ويحمي الجلسة من التكرار المفرط.</p>
           <p class="section-body-text">روابط ذات صلة: <a href="/play/" class="inline-email-link">لوبي اللعب</a> و<a href="/categories/" class="inline-email-link">صفحة الفئات</a>.</p>
         </section>
         <section class="home-panel info-page-card" aria-labelledby="faqTitle">
@@ -97,6 +100,23 @@
           </div>
         </section>
       </main>
+      <footer class="home-footer" aria-label="ختام الصفحة وروابط إضافية">
+        <div class="footer-closure">
+          <p class="footer-brand">تسلية</p>
+          <p class="footer-meta">© 2026 Tasleya. جميع الحقوق محفوظة.</p>
+          <a href="mailto:contact@tasleya.online" class="footer-email">contact@tasleya.online</a>
+        </div>
+        <nav class="footer-nav" aria-label="روابط نهاية الصفحة">
+          <a href="/how-to-play/" class="footer-link">كيف تلعب؟</a>
+          <a href="/categories/" class="footer-link">الفئات</a>
+          <a href="/faq/" class="footer-link">الأسئلة الشائعة</a>
+          <a href="/about/" class="footer-link">من نحن</a>
+          <a href="/privacy/" class="footer-link">سياسة الخصوصية</a>
+          <a href="/contact/" class="footer-link">تواصل معنا</a>
+          <a href="/terms/" class="footer-link">شروط الاستخدام</a>
+        </nav>
+      </footer>
     </div>
+    <script src="/assets/site-header.js?v=1.2.7" defer></script>
   </body>
 </html>
