@@ -3497,7 +3497,7 @@ body.local-three-teams .category-team-inputs {
 }
 
 .info-page-content {
-  width: min(94vw, 1160px);
+  width: min(94vw, 1120px);
   margin-inline: auto;
   margin-top: 0;
   display: grid;
@@ -3515,6 +3515,23 @@ body.local-three-teams .category-team-inputs {
 .info-page-card {
   inline-size: min(100%, 920px);
   margin-inline: auto;
+}
+
+.info-page-content > .info-page-header {
+  grid-column: auto;
+  inline-size: min(100%, 820px);
+  margin-inline: auto;
+}
+
+.info-page-content > .info-page-card {
+  inline-size: min(100%, 920px);
+  margin-inline: auto;
+}
+
+.info-page-content .section-body-text,
+.info-page-content .section-body-note,
+.info-page-content .info-list {
+  max-inline-size: 74ch;
 }
 
 .info-page-header h1 {
@@ -3591,20 +3608,6 @@ body.local-three-teams .category-team-inputs {
 
   .info-page-shell .home-footer {
     width: min(94vw, 1160px);
-  }
-
-  .info-page-content > .info-page-header {
-    inline-size: min(100%, 820px);
-  }
-
-  .info-page-content > .info-page-card {
-    inline-size: min(100%, 920px);
-  }
-
-  .info-page-content .section-body-text,
-  .info-page-content .section-body-note,
-  .info-page-content .info-list {
-    max-inline-size: 72ch;
   }
 
   .info-page-content .card-grid.mode-grid {
