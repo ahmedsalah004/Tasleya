@@ -3605,6 +3605,36 @@ body.local-three-teams .category-team-inputs {
   inline-size: min(100%, 860px);
 }
 
+.legal-page-content > .legal-page-hero {
+  inline-size: min(100%, 900px);
+  padding: clamp(1.7rem, 3.6vw, 2.45rem) clamp(1.35rem, 3.2vw, 2.25rem);
+  margin-bottom: clamp(0.38rem, 1.2vw, 0.74rem);
+  border: 1px solid rgba(255, 222, 140, 0.9);
+  background:
+    radial-gradient(150% 130% at 88% -8%, rgba(255, 228, 152, 0.22), transparent 58%),
+    radial-gradient(128% 128% at 10% 116%, rgba(255, 195, 86, 0.15), transparent 66%),
+    linear-gradient(154deg, rgba(17, 33, 84, 0.97) 0%, rgba(10, 22, 56, 0.97) 54%, rgba(13, 30, 74, 0.96) 100%);
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.34),
+    0 0 36px rgba(255, 208, 104, 0.22),
+    inset 0 1px 0 rgba(255, 243, 206, 0.28);
+}
+
+.legal-page-content > .legal-page-hero h1 {
+  font-size: clamp(1.9rem, 3.7vw, 2.66rem);
+  margin-bottom: 0.85rem;
+}
+
+.legal-page-content > .legal-page-body-card {
+  inline-size: min(100%, 860px);
+  gap: 0.95rem;
+  border: 1px solid rgba(160, 182, 226, 0.34);
+  background: linear-gradient(164deg, rgba(14, 21, 46, 0.93) 0%, rgba(11, 18, 40, 0.94) 100%);
+  box-shadow:
+    0 9px 20px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(223, 233, 255, 0.1);
+}
+
 .legal-page-content > .info-page-card {
   gap: 0.95rem;
 }
@@ -3660,17 +3690,6 @@ body.local-three-teams .category-team-inputs {
   font-size: 0.9rem;
   line-height: 1.6;
   color: rgba(205, 221, 251, 0.82);
-}
-
-.privacy-page-content > .info-page-header,
-.privacy-page-content > .info-page-card {
-  border-color: rgba(255, 215, 120, 0.3);
-  background:
-    radial-gradient(140% 125% at 94% -8%, rgba(255, 224, 144, 0.08), transparent 60%),
-    linear-gradient(156deg, rgba(18, 33, 75, 0.92) 0%, rgba(13, 25, 60, 0.94) 55%, rgba(15, 29, 67, 0.92) 100%);
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 240, 200, 0.18);
 }
 
 .privacy-page-content > .info-page-header {
@@ -3938,6 +3957,25 @@ body.local-three-teams .category-team-inputs {
   .privacy-page-content > .info-page-header,
   .privacy-page-content > .info-page-card {
     inline-size: min(100%, 92vw);
+  }
+
+  .legal-page-content > .legal-page-hero {
+    margin-bottom: clamp(0.3rem, 1.8vw, 0.58rem);
+    padding: clamp(1.28rem, 5.4vw, 1.8rem) clamp(1rem, 4.6vw, 1.32rem);
+    box-shadow:
+      0 11px 22px rgba(0, 0, 0, 0.26),
+      0 0 20px rgba(255, 207, 100, 0.18),
+      inset 0 1px 0 rgba(255, 243, 206, 0.22);
+  }
+
+  .legal-page-content > .legal-page-hero h1 {
+    font-size: clamp(1.52rem, 6.5vw, 2.16rem);
+  }
+
+  .legal-page-content > .legal-page-body-card {
+    box-shadow:
+      0 8px 17px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(223, 233, 255, 0.09);
   }
 
   .faq-page-content > .info-page-header,
