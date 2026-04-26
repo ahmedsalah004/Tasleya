@@ -1,6 +1,17 @@
       const auctionIntro = document.getElementById("auctionIntro");
       const auctionRuntimeHost = document.getElementById("auctionRuntimeHost");
       const AUCTION_RUNTIME_FRAGMENT_URL = "/games/auction/runtime-fragment.html";
+      const AUCTION_DEPENDENCY_LOAD_ERROR = "تعذر تجهيز اللعبة. حاول تحديث الصفحة أو فتحها مرة أخرى.";
+      const AUCTION_DEPENDENCY_SCRIPTS = [
+        "/games/auction/data.js",
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js",
+        "https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js",
+        "/firebase-config.js",
+        "/games/shared/game-rooms.js",
+        "/games/shared/recent-history.js",
+      ];
+      const scriptLoadPromises = new Map();
       let auctionRuntimeMounted = false;
       let auctionRuntimeMounting = false;
       let auctionAppInitialized = false;
@@ -18,19 +29,61 @@
         }
       }
 
+      function loadScriptOnce(src) {
+        if (scriptLoadPromises.has(src)) return scriptLoadPromises.get(src);
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing && existing.dataset.loaded === "true") return Promise.resolve();
+        if (existing && !existing.dataset.auctionLoaderManaged) return Promise.resolve();
+
+        const script = existing || document.createElement("script");
+        const promise = new Promise((resolve, reject) => {
+          const done = () => {
+            script.dataset.loaded = "true";
+            scriptLoadPromises.delete(src);
+            resolve();
+          };
+          const fail = () => {
+            script.dataset.loaded = "false";
+            scriptLoadPromises.delete(src);
+            reject(new Error(`AUCTION_SCRIPT_LOAD_FAILED: ${src}`));
+          };
+
+          script.addEventListener("load", done, { once: true });
+          script.addEventListener("error", fail, { once: true });
+
+          if (!existing) {
+            script.src = src;
+            script.async = false;
+            script.dataset.auctionLoaderManaged = "true";
+            document.head.appendChild(script);
+          }
+        });
+
+        scriptLoadPromises.set(src, promise);
+        return promise;
+      }
+
+      async function loadAuctionDependencies() {
+        for (const src of AUCTION_DEPENDENCY_SCRIPTS) {
+          await loadScriptOnce(src);
+        }
+      }
+
       document.getElementById("enterAuctionSetupBtn").addEventListener("click", async () => {
         const cta = document.getElementById("enterAuctionSetupBtn");
         cta.disabled = true;
         try {
           await mountAuctionRuntime();
           if (!auctionRuntimeMounted) throw new Error("AUCTION_RUNTIME_MOUNT_ABORTED");
+          await loadAuctionDependencies();
           auctionIntro.classList.add("hidden");
           const runtimeRoot = document.getElementById("auctionRuntime");
           if (!runtimeRoot) throw new Error("AUCTION_RUNTIME_ROOT_MISSING");
           runtimeRoot.classList.remove("hidden");
           initAuctionApp();
         } catch (error) {
-          console.error("[auction] Failed to mount runtime UI", error);
+          console.error("[auction] Failed to prepare auction runtime", error);
+          window.alert(AUCTION_DEPENDENCY_LOAD_ERROR);
           cta.disabled = false;
         }
       });
