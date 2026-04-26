@@ -12,6 +12,7 @@
     "https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js",
     "/firebase-config.js",
     "/games/shared/game-rooms.js",
+    "/games/shared/recent-history.js",
     "/games/guess-from-hint/data.js",
   ];
   let mounted = false;
@@ -72,7 +73,10 @@
         const GAME_KEY = "guess-from-hint";
         const LOCAL_RESUME_KEY = "tasleya_guess_from_hint_local_state_v1";
         const LOCAL_RESUME_VERSION = 1;
+        const RECENT_LIMIT = 200;
+        const EXHAUSTION_NOTICE_TEXT = "أعدنا خلط الأسئلة بعد استخدام معظم الأسئلة المتاحة، وقد تظهر بعض الأسئلة مرة أخرى.";
         const gameRooms = window.TasleyaGameRooms || null;
+        const recentHistory = window.TasleyaRecentHistory || null;
 
         const modeScreen = document.getElementById("modeScreen");
         const singleDeviceModeBtn = document.getElementById("singleDeviceModeBtn");
@@ -273,12 +277,27 @@
           if (!answer || hints.some((hint) => !hint)) return null;
           if (!isRowActive(raw.active)) return null;
           return {
-            id: raw.id || String(index + 1),
+            id: normalizeCell(raw.id) || `row-${index + 1}`,
             category: (raw.category || "").trim(),
             answer,
             aliases: parseAliases(raw.aliases),
             hints
           };
+        }
+
+        function buildRecentScopeKey() {
+          if (!recentHistory || typeof recentHistory.buildScopeKey !== "function") return "";
+          return recentHistory.buildScopeKey("guess-from-hint", { mode: "default" });
+        }
+
+        function showExhaustionNotice() {
+          if (!roundMessage) return;
+          setMessage(roundMessage, EXHAUSTION_NOTICE_TEXT, "");
+          window.setTimeout(() => {
+            if (roundMessage.textContent === EXHAUSTION_NOTICE_TEXT) {
+              setMessage(roundMessage, "", "");
+            }
+          }, 3200);
         }
 
         function shuffle(items) {
@@ -308,7 +327,19 @@
             }
             if (valid.length < 1) throw new Error("No valid rows");
             state.usingFallback = false;
-            return shuffle(valid).slice(0, 10);
+            const scopeKey = buildRecentScopeKey();
+            const recentIds = scopeKey && recentHistory ? new Set(recentHistory.getRecentIds(scopeKey)) : new Set();
+            let available = valid.filter((row) => !recentIds.has(row.id));
+            if (!available.length) {
+              if (scopeKey && recentHistory) recentHistory.clearRecentIds(scopeKey);
+              available = valid.slice();
+              showExhaustionNotice();
+            }
+            const selected = shuffle(available).slice(0, 10);
+            if (scopeKey && recentHistory) {
+              selected.forEach((row) => recentHistory.markRecentId(scopeKey, row.id, RECENT_LIMIT));
+            }
+            return selected;
           } catch (error) {
             const fallback = Array.isArray(window.GUESS_FROM_HINT_FALLBACK_DATA)
               ? window.GUESS_FROM_HINT_FALLBACK_DATA
@@ -339,7 +370,19 @@
             }
             state.usingFallback = true;
             fallbackNotice.classList.remove("hidden");
-            return shuffle(validFallback).slice(0, 10);
+            const scopeKey = buildRecentScopeKey();
+            const recentIds = scopeKey && recentHistory ? new Set(recentHistory.getRecentIds(scopeKey)) : new Set();
+            let available = validFallback.filter((row) => !recentIds.has(row.id));
+            if (!available.length) {
+              if (scopeKey && recentHistory) recentHistory.clearRecentIds(scopeKey);
+              available = validFallback.slice();
+              showExhaustionNotice();
+            }
+            const selected = shuffle(available).slice(0, 10);
+            if (scopeKey && recentHistory) {
+              selected.forEach((row) => recentHistory.markRecentId(scopeKey, row.id, RECENT_LIMIT));
+            }
+            return selected;
           }
         }
 

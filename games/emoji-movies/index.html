@@ -578,6 +578,15 @@
       }
 
       async function loadRuntimeScript() {
+        if (!window.TasleyaRecentHistory) {
+          await new Promise((resolve) => {
+            const script = document.createElement("script");
+            script.src = "/games/shared/recent-history.js";
+            script.onload = resolve;
+            script.onerror = resolve;
+            document.body.appendChild(script);
+          });
+        }
         if (window.initEmojiMoviesRuntime) return;
         await new Promise((resolve, reject) => {
           const script = document.createElement("script");

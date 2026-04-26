@@ -44,9 +44,12 @@
       const GAME_KEY = "auction";
       const AUCTION_LOCAL_RESUME_KEY = "tasleya_auction_local_state_v1";
       const AUCTION_LOCAL_RESUME_VERSION = 1;
+      const RECENT_LIMIT = 200;
+      const EXHAUSTION_NOTICE_TEXT = "أعدنا خلط الأسئلة بعد استخدام معظم الأسئلة المتاحة، وقد تظهر بعض الأسئلة مرة أخرى.";
       const BID_WINDOW_MS = 5000;
       const ATTEMPT_WINDOW_MS = 60000;
       const gameRooms = window.TasleyaGameRooms || null;
+      const recentHistory = window.TasleyaRecentHistory || null;
 
       const state = {
         mode: null,
@@ -332,6 +335,50 @@
         return false;
       }
 
+      function buildRecentScopeKey(question) {
+        if (!recentHistory || typeof recentHistory.buildScopeKey !== "function") return "";
+        return recentHistory.buildScopeKey("auction", {
+          category: normalizeText(question?.category || "all"),
+          difficulty: question?.difficulty == null ? "all" : String(question.difficulty),
+        });
+      }
+
+      function isQuestionRecentlyUsed(question) {
+        const questionKey = getQuestionUniqueKey(question);
+        const scopeKey = buildRecentScopeKey(question);
+        if (!questionKey || !scopeKey || !recentHistory) return false;
+        return recentHistory.getRecentIds(scopeKey).includes(questionKey);
+      }
+
+      function markQuestionAsRecent(question) {
+        const questionKey = getQuestionUniqueKey(question);
+        const scopeKey = buildRecentScopeKey(question);
+        if (!questionKey || !scopeKey || !recentHistory) return;
+        recentHistory.markRecentId(scopeKey, questionKey, RECENT_LIMIT);
+      }
+
+      function clearQuestionScopes(questions) {
+        if (!recentHistory || typeof recentHistory.clearRecentIds !== "function") return;
+        const uniqueScopes = new Set((questions || []).map((question) => buildRecentScopeKey(question)).filter(Boolean));
+        uniqueScopes.forEach((scopeKey) => recentHistory.clearRecentIds(scopeKey));
+      }
+
+      function showExhaustionNotice() {
+        let node = document.getElementById("auctionNoRepeatNotice");
+        if (!node) {
+          node = document.createElement("div");
+          node.id = "auctionNoRepeatNotice";
+          node.style.cssText = "position:fixed;bottom:16px;left:16px;right:16px;z-index:60;padding:10px 12px;border-radius:10px;background:rgba(9,22,54,.92);border:1px solid rgba(255,225,140,.42);color:#fff2c3;font-size:.92rem;text-align:center;box-shadow:0 8px 22px rgba(0,0,0,.35);";
+          document.body.appendChild(node);
+        }
+        node.textContent = EXHAUSTION_NOTICE_TEXT;
+        node.classList.remove("hidden");
+        window.clearTimeout(showExhaustionNotice._timerId);
+        showExhaustionNotice._timerId = window.setTimeout(() => {
+          node.classList.add("hidden");
+        }, 3200);
+      }
+
       function clearLocalResume() {
         try { localStorage.removeItem(AUCTION_LOCAL_RESUME_KEY); } catch (_) {}
       }
@@ -600,7 +647,13 @@
           return;
         }
         const uniqueSource = buildUniqueQuestionPool(source);
-        state.questions = shuffle(uniqueSource).slice(0, TOTAL_QUESTIONS);
+        let available = uniqueSource.filter((question) => !isQuestionRecentlyUsed(question));
+        if (!available.length) {
+          clearQuestionScopes(uniqueSource);
+          available = uniqueSource.slice();
+          if (available.length) showExhaustionNotice();
+        }
+        state.questions = shuffle(available).slice(0, TOTAL_QUESTIONS);
         if (!state.questions.length) {
           setDataState({
             title: "لا توجد أسئلة فريدة كافية",
@@ -611,6 +664,7 @@
         }
         state.questionIndex = 0;
         state.scores = [0, 0];
+        state.questions.forEach((question) => markQuestionAsRecent(question));
         clearInterval(state.timerId);
         state.timerId = null;
         clearLocalResume();
@@ -744,6 +798,19 @@
           winnerText: "",
           updatedAt: now(),
         };
+      }
+
+      function buildFreshQuestionOrderFromBank() {
+        const indices = [...Array(state.questionBank.length).keys()];
+        let availableIndices = indices.filter((index) => !isQuestionRecentlyUsed(state.questionBank[index]));
+        if (!availableIndices.length) {
+          clearQuestionScopes(state.questionBank);
+          availableIndices = indices;
+          if (availableIndices.length) showExhaustionNotice();
+        }
+        const chosen = shuffle(availableIndices).slice(0, TOTAL_QUESTIONS);
+        chosen.forEach((index) => markQuestionAsRecent(state.questionBank[index]));
+        return chosen;
       }
 
       async function submitOnlineAction(type, payload = {}) {
@@ -897,7 +964,7 @@
           return next;
         }
         if (action.type === "RESET_GAME" && action.fromUid === onlineState.session.uid) {
-          return makeOnlineState(shuffle([...Array(state.questionBank.length).keys()]).slice(0, TOTAL_QUESTIONS));
+          return makeOnlineState(buildFreshQuestionOrderFromBank());
         }
         return next;
       }
@@ -1080,7 +1147,7 @@
           const session = await gameRooms.createGameRoom({ gameType: GAME_KEY, hostName, maxTeams: 2 });
           onlineState.enabled = true;
           onlineState.session = session;
-          const order = shuffle([...Array(state.questionBank.length).keys()]).slice(0, TOTAL_QUESTIONS);
+          const order = buildFreshQuestionOrderFromBank();
           await gameRooms.updateGameRoomPublicState(session.roomCode, { gameState: makeOnlineState(order) });
           await startRoomListeners(session);
           showScreen("onlineLobby");

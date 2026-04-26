@@ -10,6 +10,9 @@
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const EMOJI_MOVIES_STORAGE_KEY = "tasleya_emoji_movies_state_v1";
       const EMOJI_MOVIES_STORAGE_VERSION = 1;
+      const RECENT_LIMIT = 200;
+      const EXHAUSTION_NOTICE_TEXT = "أعدنا خلط الأسئلة بعد استخدام معظم الأسئلة المتاحة، وقد تظهر بعض الأسئلة مرة أخرى.";
+      const recentHistory = window.TasleyaRecentHistory || null;
 
       const elements = {
         team1Score: document.getElementById("team1Score"),
@@ -165,6 +168,28 @@
         return deduped;
       }
 
+      function getRecentScopeKey() {
+        if (!recentHistory || typeof recentHistory.buildScopeKey !== "function") return "";
+        return recentHistory.buildScopeKey("emoji-movies", { level: "all" });
+      }
+
+      function setTurnStatus(text, tone) {
+        state.statusText = text || "";
+        state.statusTone = tone || "";
+        elements.turnStatus.textContent = state.statusText;
+        elements.turnStatus.className = `status${state.statusTone ? ` ${state.statusTone}` : ""}`;
+      }
+
+      function showExhaustionNotice() {
+        setTurnStatus(EXHAUSTION_NOTICE_TEXT, "");
+        window.setTimeout(() => {
+          if (state.statusText === EXHAUSTION_NOTICE_TEXT) {
+            setTurnStatus("", "");
+            saveGameSnapshot();
+          }
+        }, 3200);
+      }
+
       function isCorrectAnswer(submittedAnswer, card) {
         const normalizedSubmitted = normalizeArabicAnswer(submittedAnswer);
         if (!normalizedSubmitted) return false;
@@ -291,10 +316,7 @@
         elements.turnTitle.textContent = teamIndex === 0 ? "دور الفريق 1" : "دور الفريق 2";
         elements.emojiText.textContent = card.emoji;
         elements.timerLabel.textContent = `${state.timerValue} ثانية`;
-        elements.turnStatus.textContent = "";
-        elements.turnStatus.className = "status";
-        state.statusText = "";
-        state.statusTone = "";
+        setTurnStatus("", "");
         elements.hintBox.classList.add("hidden");
         elements.hintText.textContent = "";
         state.hintVisible = false;
@@ -396,7 +418,22 @@
       function startNewGame(cards) {
         clearSavedGame();
         clearTimer();
-        state.cards = shuffleArray(cards);
+        const source = Array.isArray(cards) ? cards : [];
+        const scopeKey = getRecentScopeKey();
+        const recentIds = scopeKey && recentHistory ? new Set(recentHistory.getRecentIds(scopeKey)) : new Set();
+        let available = source.filter((card) => {
+          const cardId = normalizeCell(card && card.id);
+          return cardId && !recentIds.has(cardId);
+        });
+        if (!available.length) {
+          if (scopeKey && recentHistory) recentHistory.clearRecentIds(scopeKey);
+          available = source.slice();
+          if (available.length) showExhaustionNotice();
+        }
+        state.cards = shuffleArray(available);
+        if (scopeKey && recentHistory) {
+          state.cards.forEach((card) => recentHistory.markRecentId(scopeKey, normalizeCell(card.id), RECENT_LIMIT));
+        }
         state.currentIndex = 0;
         state.scores = [0, 0];
         state.teamCorrect = [false, false];

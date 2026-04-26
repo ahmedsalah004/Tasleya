@@ -43,12 +43,18 @@ export default {
         }
 
         const available = candidates.filter((question) => !excludeIds.has(question.id));
+        const questionMeta = {
+          pool_size: candidates.length,
+          excluded_count: excludeIds.size,
+          remaining_after_exclude: available.length,
+          exhausted: available.length === 0,
+        };
         if (!available.length) {
-          return error('تم استهلاك جميع الأسئلة المطابقة لهذه الخانة.', 'QUESTION_POOL_EXHAUSTED', 404, request, env);
+          return error('تم استهلاك جميع الأسئلة المطابقة لهذه الخانة.', 'QUESTION_POOL_EXHAUSTED', 404, request, env, { meta: questionMeta });
         }
 
         const chosen = available[Math.floor(Math.random() * available.length)];
-        return json({ question: sanitizeQuestion(chosen, bank.questions) }, 200, request, env);
+        return json({ question: sanitizeQuestion(chosen, bank.questions), meta: questionMeta }, 200, request, env);
       }
 
       if (url.pathname === '/validate-answer' && request.method === 'POST') {
@@ -75,7 +81,7 @@ export default {
           cacheKeyPrefix: 'films-questions',
         });
         const films = buildFilms(rows);
-        return json({ films }, 200, request, env);
+        return json({ films, diagnostics: buildIdDiagnostics(films, (item) => item.id, 'films') }, 200, request, env);
       }
 
       if (url.pathname === '/map-game/questions' && request.method === 'GET') {
@@ -84,7 +90,7 @@ export default {
           cacheKeyPrefix: 'map-game-questions',
         });
         const questions = buildMapGameQuestions(rows);
-        return json({ questions }, 200, request, env);
+        return json({ questions, diagnostics: buildIdDiagnostics(questions, (item) => item.id, 'map-game') }, 200, request, env);
       }
 
       if (url.pathname === '/map-game/language-questions' && request.method === 'GET') {
@@ -97,7 +103,7 @@ export default {
           cacheKeyPrefix: 'map-language-mode-questions',
         });
         const questions = buildMapLanguageModeQuestions(rows, buildMapCountryCoordinatesLookup(mapRows));
-        return json({ questions }, 200, request, env);
+        return json({ questions, diagnostics: buildIdDiagnostics(questions, (item) => item.id, 'map-game-language') }, 200, request, env);
       }
 
       if (url.pathname === '/map-game/image-questions' && request.method === 'GET') {
@@ -110,7 +116,7 @@ export default {
           cacheKeyPrefix: 'map-geoguess-mode-questions',
         });
         const questions = buildMapGeoguessModeQuestions(rows, buildMapCountryCoordinatesLookup(mapRows));
-        return json({ questions }, 200, request, env);
+        return json({ questions, diagnostics: buildIdDiagnostics(questions, (item) => item.id, 'map-game-image') }, 200, request, env);
       }
 
       if (url.pathname === '/guess-from-hint/questions' && request.method === 'GET') {
@@ -119,7 +125,7 @@ export default {
           cacheKeyPrefix: 'guess-from-hint-questions',
         });
         const questions = buildGuessFromHintQuestions(rows);
-        return json({ questions }, 200, request, env);
+        return json({ questions, diagnostics: buildIdDiagnostics(questions, (item) => item.id, 'guess-from-hint') }, 200, request, env);
       }
 
       if (url.pathname === '/forbidden-words/cards' && request.method === 'GET') {
@@ -128,7 +134,7 @@ export default {
           cacheKeyPrefix: 'forbidden-words-cards',
         });
         const cards = buildForbiddenWordsCards(rows);
-        return json({ cards }, 200, request, env);
+        return json({ cards, diagnostics: buildIdDiagnostics(cards, (item) => item.id, 'forbidden-words') }, 200, request, env);
       }
 
       if (url.pathname === '/emoji-movies/cards' && request.method === 'GET') {
@@ -137,7 +143,7 @@ export default {
           cacheKeyPrefix: 'emoji-movies-cards',
         });
         const cards = buildEmojiMoviesCards(rows);
-        return json({ cards }, 200, request, env);
+        return json({ cards, diagnostics: buildIdDiagnostics(cards, (item) => item.id, 'emoji-movies') }, 200, request, env);
       }
 
       if (url.pathname === '/mazad/questions' && request.method === 'GET') {
@@ -146,7 +152,7 @@ export default {
           cacheKeyPrefix: 'mazad-questions',
         });
         const questions = buildMazadQuestions(rows);
-        return json({ questions }, 200, request, env);
+        return json({ questions, diagnostics: buildIdDiagnostics(questions, (item) => item.id, 'auction') }, 200, request, env);
       }
 
       if (url.pathname === '/xo-intersection/boards' && request.method === 'GET') {
@@ -155,7 +161,7 @@ export default {
           cacheKeyPrefix: 'xo-intersection-boards',
         });
         const boards = buildXoIntersectionBoards(rows);
-        return json({ boards }, 200, request, env);
+        return json({ boards, diagnostics: buildIdDiagnostics(boards, (item) => item.board_id, 'xo-intersection') }, 200, request, env);
       }
 
       return error('المسار غير موجود.', 'NOT_FOUND', 404, request, env);
@@ -891,6 +897,41 @@ function uniqueByText(items) {
   });
 }
 
+function buildIdDiagnostics(items, pickId, scope) {
+  const diagnostics = {
+    scope: normalizeCell(scope) || 'unknown',
+    total_rows: Array.isArray(items) ? items.length : 0,
+    missing_id_count: 0,
+    duplicate_id_count: 0,
+    duplicate_ids: [],
+    warnings: [],
+  };
+  if (!Array.isArray(items) || typeof pickId !== 'function') {
+    diagnostics.warnings.push('id_diagnostics_unavailable');
+    return diagnostics;
+  }
+
+  const seen = new Set();
+  const duplicates = new Set();
+  items.forEach((item) => {
+    const id = normalizeCell(pickId(item));
+    if (!id) {
+      diagnostics.missing_id_count += 1;
+      return;
+    }
+    if (seen.has(id)) {
+      diagnostics.duplicate_id_count += 1;
+      duplicates.add(id);
+      return;
+    }
+    seen.add(id);
+  });
+  diagnostics.duplicate_ids = Array.from(duplicates).slice(0, 20);
+  if (diagnostics.missing_id_count > 0) diagnostics.warnings.push('missing_ids_detected');
+  if (diagnostics.duplicate_id_count > 0) diagnostics.warnings.push('duplicate_ids_detected');
+  return diagnostics;
+}
+
 function firstMatchedHeaderIndex(headers, aliases) {
   for (const alias of aliases) {
     const index = headers.indexOf(alias);
@@ -936,8 +977,8 @@ function json(payload, status, request, env) {
   });
 }
 
-function error(message, code, status, request, env) {
-  return json({ error: message, code }, status, request, env);
+function error(message, code, status, request, env, extra = null) {
+  return json({ error: message, code, ...(extra && typeof extra === 'object' ? extra : {}) }, status, request, env);
 }
 
 async function readJsonBody(request) {
