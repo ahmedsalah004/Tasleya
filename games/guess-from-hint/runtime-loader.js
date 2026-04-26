@@ -701,7 +701,7 @@
             state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
             uiState.pendingWaitTeams.delete(teamIndex);
             triggerStatusPulse(teamIndex);
-            setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
+            setMessage(roundMessage, `تم تسجيل الانتظار لـ ${state.teams[teamIndex]?.name || "هذا الفريق"}.`);
             progressHintIfAllowed();
           }
         }
@@ -1156,7 +1156,7 @@
               uiState.pendingWaitTeams.delete(teamIndex);
               state.teams[teamIndex].waitedHintIndex = state.currentHintIndex;
               triggerStatusPulse(teamIndex);
-              setMessage(roundMessage, "تم تسجيل الانتظار لهذا الفريق.");
+              setMessage(roundMessage, `تم تسجيل الانتظار لـ ${state.teams[teamIndex]?.name || "هذا الفريق"}.`);
               progressHintIfAllowed();
               renderRound();
               return;
