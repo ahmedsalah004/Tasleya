@@ -745,12 +745,14 @@
         saveLocalResume();
       }
 
-      function advanceToNextPromptLocal() {
+      function skipPreAuctionQuestionLocal() {
         if (state.questionIndex >= state.questions.length - 1) return;
         clearInterval(state.timerId);
         state.timerId = null;
         state.attempt.endsAt = null;
-        state.questionIndex += 1;
+        const currentQuestion = state.questions[state.questionIndex];
+        state.questions.splice(state.questionIndex, 1);
+        state.questions.push(currentQuestion);
         startRound();
         saveLocalResume();
       }
@@ -939,28 +941,14 @@
           next.roundFinished = false;
           return next;
         }
-        if (action.type === "ADVANCE_PROMPT" && ["attempt_ready", "attempt", "judging", "result"].includes(gs.phase) && action.fromUid === onlineState.session.uid) {
-          const qIndex = toInt(gs.questionIndex, 0) + 1;
-          const totalQuestions = getOnlineQuestionTarget(gs);
-          if (qIndex >= totalQuestions) {
-            next.phase = "finished";
-            const s0 = toInt(next.scores?.[0], 0); const s1 = toInt(next.scores?.[1], 0);
-            next.winnerText = s0 === s1 ? `تعادل! ${s0} - ${s1}` : `${s0 > s1 ? DEFAULT_TEAMS[0] : DEFAULT_TEAMS[1]} فاز! ${s0} - ${s1}`;
-            return next;
+        if (action.type === "ADVANCE_PROMPT" && gs.phase === "question_reveal" && action.fromUid === onlineState.session.uid) {
+          const currentIndex = toInt(gs.questionIndex, 0);
+          const order = Array.isArray(gs.questionOrder) ? [...gs.questionOrder] : [];
+          if (currentIndex >= 0 && currentIndex < order.length - 1) {
+            const [currentQuestionId] = order.splice(currentIndex, 1);
+            order.push(currentQuestionId);
+            next.questionOrder = order;
           }
-          next.questionIndex = qIndex;
-          next.phase = "role_selection";
-          next.categoryRevealed = false;
-          next.questionReadiness = { 0: false, 1: false };
-          next.currentQuestion = null;
-          next.currentBid = 0;
-          next.leadingTeam = null;
-          next.activeBidderTeam = 0;
-          next.bidWindowEndsAt = null;
-          next.attemptingTeam = null;
-          next.targetNumber = 0;
-          next.attemptEndsAt = null;
-          next.roundFinished = false;
           return next;
         }
         if (action.type === "RESET_GAME" && action.fromUid === onlineState.session.uid) {
@@ -1341,8 +1329,8 @@
           submitOnlineAction("ADVANCE_PROMPT");
           return;
         }
-        if (!["attemptReady", "attempt", "judge", "between"].includes(state.phase)) return;
-        advanceToNextPromptLocal();
+        if (state.phase !== "reveal") return;
+        skipPreAuctionQuestionLocal();
       });
       el.correctBtn.addEventListener("click", () => {
         if (onlineState.enabled) {
