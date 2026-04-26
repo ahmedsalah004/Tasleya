@@ -295,6 +295,13 @@
         state.isAdvancing = true;
         updateSkipTurnButtonVisibility();
         clearTimer();
+
+        if (state.showAnswerVisible) {
+          const nextTeam = state.currentTeam === 0 ? 1 : 0;
+          advanceToTeamTurnWithFreshCard(nextTeam);
+          return;
+        }
+
         if (state.currentTeam === 0) {
           startTeamTurn(1);
         } else {
@@ -382,7 +389,7 @@
         saveGameSnapshot();
       }
 
-      function goToNextCard() {
+      function advanceToTeamTurnWithFreshCard(nextTeamIndex) {
         state.currentIndex += 1;
         state.teamCorrect = [false, false];
 
@@ -391,7 +398,11 @@
           return;
         }
 
-        startTeamTurn(0);
+        startTeamTurn(nextTeamIndex);
+      }
+
+      function goToNextCard() {
+        advanceToTeamTurnWithFreshCard(0);
       }
 
       function showFinalScreen() {
