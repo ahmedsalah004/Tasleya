@@ -180,6 +180,16 @@
         elements.turnStatus.className = `status${state.statusTone ? ` ${state.statusTone}` : ""}`;
       }
 
+      function showBriefStatus(text, tone = "") {
+        setTurnStatus(text, tone);
+        window.setTimeout(() => {
+          if (state.statusText === text) {
+            setTurnStatus("", "");
+            saveGameSnapshot();
+          }
+        }, 1800);
+      }
+
       function showExhaustionNotice() {
         setTurnStatus(EXHAUSTION_NOTICE_TEXT, "");
         window.setTimeout(() => {
@@ -561,6 +571,7 @@
         elements.hintText.textContent = hint || "لا يوجد تلميح متاح لهذه البطاقة.";
         elements.hintBox.classList.remove("hidden");
         state.hintVisible = true;
+        showBriefStatus("تم إظهار التلميح.");
         saveGameSnapshot();
       });
 
@@ -571,6 +582,7 @@
         elements.showAnswerText.textContent = card.answer;
         elements.showAnswerBox.classList.remove("hidden");
         state.showAnswerVisible = true;
+        showBriefStatus("تم إظهار الإجابة.");
         updateSkipTurnButtonVisibility();
         saveGameSnapshot();
       });
