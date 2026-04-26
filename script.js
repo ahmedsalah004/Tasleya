@@ -69,6 +69,25 @@ const QUESTION_TIMEOUT_MS = 75000;
 const QUESTION_FETCH_TIMEOUT_MS = 12000;
 const DEFAULT_CATEGORY_GROUP = "معلومات عامة";
 const MAP_QUESTION_CATEGORY = "ما هي الدولة بالخريطة";
+const REQUIRED_CATEGORY_GROUP_ORDER = [
+  "علوم إسلامية",
+  "جغرافيا",
+  "كرة قدم",
+  "معلومات عامة",
+  "ثقافة و فن",
+  "تخصصات الجامعة",
+  "رياضة",
+  "الدول",
+];
+const FOOTBALL_CATEGORY_NAMES = new Set([
+  "كرة قدم",
+  "مسيرة لاعب",
+  "خمن اللاعب",
+  "خمن اللاعب (فرق فقط)",
+  "لاعبين صغار",
+  "من هو المعلق من الصوت؟",
+  "من هو المعلق (من الصوت)؟",
+]);
 const CATEGORY_DISPLAY_GROUPS = [
   {
     name: "علوم إسلامية",
@@ -79,15 +98,15 @@ const CATEGORY_DISPLAY_GROUPS = [
     categories: ["ما هي الدولة بالعلم", "ما هي الدولة بالخريطة", "خمن الدولة من المكان GeoGuessr", "خمن اللغة من الصوت", "خمن اللغة من الكلمة", "عواصم", "لون العلم", "عملات"],
   },
   {
-    name: "الدول",
-    categories: ["مصر", "المغرب", "السعودية", "الإمارات", "الكويت", "فلسطين", "لبنان", "سوريا", "الأردن", "اليمن", "قطر", "العراق", "الجزائر", "تونس", "السودان", "الصومال", "ليبيا", "البحرين", "عُمان", "موريتانيا", "جيبوتي"],
+    name: "كرة قدم",
+    categories: ["كرة قدم", "مسيرة لاعب", "خمن اللاعب", "خمن اللاعب (فرق فقط)", "لاعبين صغار", "من هو المعلق من الصوت؟", "من هو المعلق (من الصوت)؟"],
   },
   {
     name: "رياضة",
-    categories: ["رياضة", "كرة قدم", "UFC", "مسيرة لاعب", "خمن اللاعب (فرق فقط)", "من هو المعلق من الصوت؟", "من هو المعلق (من الصوت)؟", "لاعبين صغار", "فورملا 1"],
+    categories: ["رياضة", "UFC", "فورمولا 1", "فورملا 1"],
   },
   {
-    name: "ثقافة وفن",
+    name: "ثقافة و فن",
     categories: ["فن عربي", "من هو المشهور (جزء من وجه)", "خمن القائل من الصوت", "خمن الفيلم بالتمثيل (فرق فقط)"],
   },
   {
@@ -99,30 +118,32 @@ const CATEGORY_DISPLAY_GROUPS = [
     categories: ["طب", "هندسة", "صيدلة", "بزنس", "حقوق", "إقتصاد", "حاسبات و معلومات"],
   },
   {
-    name: "مدن",
-    categories: ["الإسكندرية"],
+    name: "الدول",
+    categories: ["مصر", "المغرب", "السعودية", "الإمارات", "الكويت", "فلسطين", "لبنان", "سوريا", "الأردن", "اليمن", "قطر", "العراق", "الجزائر", "تونس", "السودان", "الصومال", "ليبيا", "البحرين", "عُمان", "موريتانيا", "جيبوتي"],
   },
 ];
 const CATEGORY_GROUP_ICON_SVGS = {
   "علوم إسلامية": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15.8 5.2a7.7 7.7 0 1 0 0 13.6 6.1 6.1 0 1 1 0-13.6Z"/></svg>',
   "جغرافيا": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.2 2.4 3.4 5.4 3.4 8.5s-1.2 6.1-3.4 8.5M12 3.5c-2.2 2.4-3.4 5.4-3.4 8.5s1.2 6.1 3.4 8.5"/></svg>',
+  "كرة قدم": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="m12 5.7 2.5 1.9-1 3h-3l-1-3Z"/><path d="m8.3 9.7 2.2 1.6-.9 2.8-3-.1-.9-2.6Z"/><path d="m15.7 9.7 2.7 1.7-.9 2.6-3 .1-.9-2.8Z"/><path d="m9.4 15.4 2.6-.1 2.6.1-2 2.9Z"/></svg>',
   "رياضة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5h8v3.2a4 4 0 0 1-8 0Z"/><path d="M6 7.2h2v1.2a2.4 2.4 0 0 1-2.4 2.4H5.2"/><path d="M18 7.2h-2v1.2a2.4 2.4 0 0 0 2.4 2.4h.4"/><path d="M12 12.7v2.3"/><path d="M9.2 18.5h5.6"/><path d="M10.2 15h3.6v3.5h-3.6Z"/></svg>',
+  "ثقافة و فن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.2" y="4.5" width="7.6" height="10.2" rx="3.8"/><path d="M12 14.7v3.1"/><path d="M9.3 18h5.4"/></svg>',
   "ثقافة وفن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="8.2" y="4.5" width="7.6" height="10.2" rx="3.8"/><path d="M12 14.7v3.1"/><path d="M9.3 18h5.4"/></svg>',
   "معلومات عامة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8.5"/><path d="M12 10.1v5.1"/><circle cx="12" cy="7.3" r=".55" fill="currentColor" stroke="none"/></svg>',
   "تخصصات الجامعة": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m3.8 9.2 8.2-3.7 8.2 3.7-8.2 3.7Z"/><path d="M7.3 10.8v3.2c0 1.3 2.1 2.4 4.7 2.4s4.7-1.1 4.7-2.4v-3.2"/><path d="M20.2 9.3v4.6"/></svg>',
   "الدول": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4.5v15"/><path d="M6 5.8h9.3l-1.6 2.7 1.6 2.7H6"/></svg>',
-  "مدن": '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="4" y="10.2" width="6.4" height="8.8" rx="1.1"/><rect x="11.2" y="6" width="8.8" height="13" rx="1.1"/><path d="M6.2 12.7h2M6.2 15.1h2M13.6 8.8h3.8M13.6 11.6h3.8M13.6 14.4h3.8"/></svg>',
 };
 const DEFAULT_CATEGORY_GROUP_ICON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 8.3h12M6 12h12M6 15.7h8"/><rect x="3.5" y="4.5" width="17" height="15" rx="3"/></svg>';
 const CATEGORY_GROUP_GRADIENTS = {
   "علوم إسلامية": "linear-gradient(145deg, rgba(42, 72, 140, 0.92), rgba(20, 38, 90, 0.96))",
   "جغرافيا": "linear-gradient(145deg, rgba(30, 90, 150, 0.9), rgba(16, 50, 110, 0.96))",
-  "الدول": "linear-gradient(145deg, rgba(34, 64, 130, 0.9), rgba(18, 40, 92, 0.96))",
+  "كرة قدم": "linear-gradient(145deg, rgba(44, 90, 138, 0.9), rgba(18, 56, 102, 0.96))",
   "رياضة": "linear-gradient(145deg, rgba(54, 82, 148, 0.9), rgba(24, 48, 108, 0.96))",
-  "ثقافة وفن": "linear-gradient(145deg, rgba(74, 76, 144, 0.9), rgba(31, 39, 103, 0.96))",
   "معلومات عامة": "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
+  "ثقافة و فن": "linear-gradient(145deg, rgba(74, 76, 144, 0.9), rgba(31, 39, 103, 0.96))",
+  "ثقافة وفن": "linear-gradient(145deg, rgba(74, 76, 144, 0.9), rgba(31, 39, 103, 0.96))",
   "تخصصات الجامعة": "linear-gradient(145deg, rgba(36, 86, 136, 0.9), rgba(18, 56, 108, 0.96))",
-  "مدن": "linear-gradient(145deg, rgba(42, 74, 142, 0.9), rgba(18, 48, 103, 0.96))",
+  "الدول": "linear-gradient(145deg, rgba(34, 64, 130, 0.9), rgba(18, 40, 92, 0.96))",
   [DEFAULT_CATEGORY_GROUP]: "linear-gradient(145deg, rgba(44, 74, 134, 0.92), rgba(18, 44, 102, 0.97))",
 };
 const CATEGORY_HELP_TEXTS = {
@@ -387,6 +408,7 @@ function ensureHomepageFlowModals() {
 
 const state = {
   allCategories: [],
+  categoryGroupByName: {},
   selectedCategories: [],
   boardTiles: [],
   pointLevels: [],
@@ -600,6 +622,7 @@ const analyticsState = {
 
 const questionBankCache = {
   categories: null,
+  categoryGroupByName: null,
   questionsById: new Map(),
   answersById: new Map(),
   answerPrefetchPromises: new Map(),
@@ -1847,37 +1870,64 @@ function prefetchLikelyNextQuestion({ excludeTileId = "" } = {}) {
 
 async function fetchQuestions() {
   const response = await apiFetchJson("/categories");
-  return Array.isArray(response.categories) ? response.categories.map(normalizeCell).filter(Boolean) : [];
+  const categoriesRaw = Array.isArray(response.categories) ? response.categories : [];
+  const categories = [];
+  const categoryGroupByName = {};
+
+  categoriesRaw.forEach((entry) => {
+    if (typeof entry === "string") {
+      const categoryName = normalizeCell(entry);
+      if (!categoryName) return;
+      if (!categories.includes(categoryName)) categories.push(categoryName);
+      return;
+    }
+
+    if (entry && typeof entry === "object") {
+      const categoryName = normalizeCell(entry.category || entry.name || entry.title);
+      if (!categoryName) return;
+      const normalizedGroup = normalizeCell(entry.group || entry.groupName || entry.section);
+      if (!categories.includes(categoryName)) categories.push(categoryName);
+      if (normalizedGroup) categoryGroupByName[categoryName] = normalizedGroup;
+    }
+  });
+
+  return { categories, categoryGroupByName };
 }
 
 async function preloadQuestionBank() {
   if (questionBankCache.categories) {
-    return { categories: questionBankCache.categories };
+    return {
+      categories: questionBankCache.categories,
+      categoryGroupByName: questionBankCache.categoryGroupByName || {},
+    };
   }
 
   if (questionBankCache.loadPromise) return questionBankCache.loadPromise;
 
   questionBankCache.loadPromise = (async () => {
-    const categories = await fetchQuestions();
+    const { categories, categoryGroupByName } = await fetchQuestions();
     if (categories.length === 0) throw new Error("لا توجد فئات صالحة في مصدر الأسئلة.");
     if (categories.length < DEFAULT_CATEGORIES_TO_SELECT) throw new Error(`يلزم وجود ${DEFAULT_CATEGORIES_TO_SELECT} فئات مختلفة على الأقل في ملف CSV.`);
 
     questionBankCache.categories = categories;
-    return { categories };
+    questionBankCache.categoryGroupByName = categoryGroupByName;
+    return { categories, categoryGroupByName };
   })();
 
   try {
     return await questionBankCache.loadPromise;
   } catch (error) {
     questionBankCache.categories = null;
+    questionBankCache.categoryGroupByName = null;
     throw error;
   } finally {
     questionBankCache.loadPromise = null;
   }
 }
 async function ensureQuestionBankStateLoaded() {
-  const { categories } = await preloadQuestionBank();
+  const { categories, categoryGroupByName } = await preloadQuestionBank();
   state.allCategories = categories;
+  state.categoryGroupByName = categoryGroupByName || {};
   if (!Array.isArray(state.pointLevels) || state.pointLevels.length === 0) {
     state.pointLevels = [...POINT_LEVELS];
   }
@@ -1887,7 +1937,7 @@ async function ensureQuestionBankStateLoaded() {
   if (!el.categoryModal.classList.contains("hidden")) {
     renderCategoryOptions();
   }
-  return { categories };
+  return { categories, categoryGroupByName: state.categoryGroupByName };
 }
 function getUniqueCategories(questions) {
   const unique = [];
@@ -3831,34 +3881,52 @@ function renderCategoryOptions() {
 }
 
 function getGroupedCategoryDisplay(categories) {
-  const grouped = CATEGORY_DISPLAY_GROUPS.map((group) => ({ groupName: group.name, categories: [] }));
-  const indexByName = new Map(CATEGORY_DISPLAY_GROUPS.map((group, index) => [group.name, index]));
   const categoryToGroup = new Map();
   const categoryOrderByGroup = new Map();
+  const normalizedGroupDisplayName = new Map();
+  const groupedMap = new Map();
 
   CATEGORY_DISPLAY_GROUPS.forEach((group) => {
     categoryOrderByGroup.set(group.name, new Map(group.categories.map((category, index) => [category, index])));
     group.categories.forEach((category) => categoryToGroup.set(category, group.name));
   });
 
+  REQUIRED_CATEGORY_GROUP_ORDER.forEach((groupName) => {
+    groupedMap.set(groupName, []);
+    normalizedGroupDisplayName.set(normalizeCell(groupName), groupName);
+  });
+  normalizedGroupDisplayName.set("ثقافة وفن", "ثقافة و فن");
+
   categories.forEach((category) => {
-    const targetGroupName = categoryToGroup.get(category) || DEFAULT_CATEGORY_GROUP;
-    const groupIndex = indexByName.get(targetGroupName);
-    if (groupIndex === undefined) return;
-    grouped[groupIndex].categories.push(category);
+    const forcedFootballGroup = FOOTBALL_CATEGORY_NAMES.has(category) ? "كرة قدم" : "";
+    const rawKnownGroup = normalizeCell(state.categoryGroupByName?.[category]);
+    const resolvedKnownGroup = normalizedGroupDisplayName.get(rawKnownGroup) || rawKnownGroup;
+    const targetGroupName = forcedFootballGroup || categoryToGroup.get(category) || resolvedKnownGroup || DEFAULT_CATEGORY_GROUP;
+    if (!groupedMap.has(targetGroupName)) groupedMap.set(targetGroupName, []);
+    groupedMap.get(targetGroupName).push(category);
   });
 
-  grouped.forEach((group) => {
+  const knownGrouped = REQUIRED_CATEGORY_GROUP_ORDER.map((groupName) => ({ groupName, categories: groupedMap.get(groupName) || [] }));
+  const unknownGroupNames = [...groupedMap.keys()]
+    .filter((groupName) => !REQUIRED_CATEGORY_GROUP_ORDER.includes(groupName))
+    .sort((a, b) => a.localeCompare(b, "ar"));
+  const unknownGrouped = unknownGroupNames.map((groupName) => ({ groupName, categories: groupedMap.get(groupName) || [] }));
+
+  [...knownGrouped, ...unknownGrouped].forEach((group) => {
     const orderMap = categoryOrderByGroup.get(group.groupName);
-    if (!orderMap) return;
-    group.categories.sort((a, b) => {
-      const aIndex = orderMap.has(a) ? orderMap.get(a) : Number.POSITIVE_INFINITY;
-      const bIndex = orderMap.has(b) ? orderMap.get(b) : Number.POSITIVE_INFINITY;
-      return aIndex - bIndex;
-    });
+    if (orderMap) {
+      group.categories.sort((a, b) => {
+        const aIndex = orderMap.has(a) ? orderMap.get(a) : Number.POSITIVE_INFINITY;
+        const bIndex = orderMap.has(b) ? orderMap.get(b) : Number.POSITIVE_INFINITY;
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        return a.localeCompare(b, "ar");
+      });
+      return;
+    }
+    group.categories.sort((a, b) => a.localeCompare(b, "ar"));
   });
 
-  return grouped;
+  return [...knownGrouped, ...unknownGrouped].filter((group) => group.categories.length > 0);
 }
 function openCategoryPicker({ resetSelection = false } = {}) {
   if (resetSelection) state.selectedCategories = [];
