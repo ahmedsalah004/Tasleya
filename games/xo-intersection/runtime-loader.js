@@ -44,6 +44,7 @@
       const DEFAULT_WORKER_API_BASE_URL = "https://tasleya-sheets-proxy.tasleya-worker.workers.dev";
       const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
       const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
+      const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
 
       const state = {
         currentScreen: "setup",
@@ -349,6 +350,66 @@
         return sanitized;
       }
 
+      function getRecentHistoryHelper() {
+        const helper = window.TasleyaRecentHistory;
+        if (!helper || typeof helper !== "object") return null;
+        if (
+          typeof helper.buildScopeKey !== "function" ||
+          typeof helper.getRecentIds !== "function" ||
+          typeof helper.markRecentId !== "function" ||
+          typeof helper.clearRecentIds !== "function"
+        ) {
+          return null;
+        }
+        return helper;
+      }
+
+      function getRecentHistoryScopeKey() {
+        const helper = getRecentHistoryHelper();
+        if (!helper) return "";
+        try {
+          return helper.buildScopeKey("xo-intersection", {
+            category: state.selectedCategoryKey || "all",
+            mode: state.selectedModeKey || "all"
+          });
+        } catch (error) {
+          return "";
+        }
+      }
+
+      function getRecentUsedBoardIdsForScope() {
+        const helper = getRecentHistoryHelper();
+        const scopeKey = getRecentHistoryScopeKey();
+        if (!helper || !scopeKey) return [];
+        try {
+          return sanitizeUsedBoardHistory(helper.getRecentIds(scopeKey));
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function markBoardIdAsRecent(boardId) {
+        const helper = getRecentHistoryHelper();
+        const scopeKey = getRecentHistoryScopeKey();
+        if (!helper || !scopeKey || !boardId) return;
+        try {
+          helper.markRecentId(scopeKey, boardId);
+        } catch (error) {
+          // Keep gameplay running if recent-history persistence fails.
+        }
+      }
+
+      function clearRecentBoardScope() {
+        const helper = getRecentHistoryHelper();
+        const scopeKey = getRecentHistoryScopeKey();
+        if (!helper || !scopeKey) return;
+        try {
+          helper.clearRecentIds(scopeKey);
+        } catch (error) {
+          // Keep gameplay running if recent-history persistence fails.
+        }
+      }
+
       function shuffleInPlace(list) {
         for (let i = list.length - 1; i > 0; i -= 1) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -365,13 +426,14 @@
           return;
         }
         const allBoardIds = boards.map((row) => row.board_id).filter(Boolean);
-        const normalizedHistory = sanitizeUsedBoardHistory(state.usedBoardIdsHistory);
+        const normalizedHistory = getRecentUsedBoardIdsForScope();
         const usedSet = new Set(normalizedHistory);
         let remainingBoardIds = allBoardIds.filter((boardId) => !usedSet.has(boardId));
         let shouldStartNewCycle = false;
 
         if (!remainingBoardIds.length) {
           shouldStartNewCycle = true;
+          clearRecentBoardScope();
           state.usedBoardIdsHistory = [];
           remainingBoardIds = [...allBoardIds];
         } else {
@@ -409,6 +471,7 @@
         if (boardId && !state.usedBoardIdsHistory.includes(boardId)) {
           state.usedBoardIdsHistory.push(boardId);
         }
+        markBoardIdAsRecent(boardId);
         resetBoardStateOnly();
       }
 
@@ -424,6 +487,9 @@
       }
 
       function showCycleNotice() {
+        if (elements.cycleNotice) {
+          elements.cycleNotice.textContent = XO_CYCLE_RESET_NOTICE_TEXT;
+        }
         elements.cycleNotice.classList.remove("hidden");
         window.clearTimeout(showCycleNotice.hideTimeoutId);
         showCycleNotice.hideTimeoutId = window.setTimeout(() => {
