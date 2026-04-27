@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.14";
+      : null) || "1.2.16";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -2037,7 +2037,11 @@
             .filter((event) => {
               if (event.type === "dblclick") return false;
               if (state.isRevealingAnswer) return false;
-              return !el.overlay.classList.contains("active");
+              if (el.overlay.classList.contains("active")) return false;
+              if (event.type === "wheel" && !window.matchMedia(MOBILE_VIEWPORT_QUERY).matches) {
+                return Boolean(event.ctrlKey);
+              }
+              return true;
             })
             .on("zoom", (event) => {
               mapLayer.attr("transform", event.transform);
