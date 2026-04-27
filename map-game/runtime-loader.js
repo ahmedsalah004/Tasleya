@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.13";
+      : null) || "1.2.14";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -66,6 +66,9 @@
       const MAP_GAME_MODE_IMAGE = "image";
       const MAP_GAME_MODE_LANGUAGE = "language";
       const LANGUAGE_MODE_INSTRUCTION = "استمع إلى اللغة ثم اختر الدولة على الخريطة";
+      const LANGUAGE_AUDIO_HELPER_TEXT = "استمع إلى المقطع ثم اختر الدولة على الخريطة";
+      const AUDIO_PLAY_LABEL = "🔊 تشغيل الصوت";
+      const AUDIO_REPLAY_LABEL = "🔊 إعادة تشغيل الصوت";
       const IMAGE_MODE_INSTRUCTION = "شاهد الصورة وحدد الدولة على الخريطة.";
       const IMAGE_LOAD_ERROR_AR = "تعذر تحميل الصورة.";
       const ROUND_REQUIREMENTS = [
@@ -178,6 +181,7 @@
         },
         audioPlayer: null,
         audioErrorByQuestionId: new Map(),
+        audioPlayedByQuestionId: new Set(),
         imageLoadStateByQuestionId: new Map(),
         imageLoadTimeoutId: null,
         currentImageRequestId: 0,
@@ -228,6 +232,7 @@
         targetHintText: document.getElementById("targetHintText"),
         audioControls: document.getElementById("audioControls"),
         playAudioBtn: document.getElementById("playAudioBtn"),
+        audioHelperText: document.getElementById("audioHelperText"),
         audioStatusText: document.getElementById("audioStatusText"),
         imagePromptWrap: document.getElementById("imagePromptWrap"),
         imageQuestionText: document.getElementById("imageQuestionText"),
@@ -987,10 +992,19 @@
         if (!isLanguageMode()) {
           stopCurrentAudio();
           el.audioControls.classList.remove("active");
+          if (el.playAudioBtn) el.playAudioBtn.textContent = AUDIO_PLAY_LABEL;
+          if (el.audioHelperText) el.audioHelperText.textContent = "";
           setAudioStatus("");
           return;
         }
         const q = getQuestion();
+        const key = String(q?.id || q?.audioUrl || "");
+        if (el.playAudioBtn) {
+          el.playAudioBtn.textContent = state.audioPlayedByQuestionId.has(key) ? AUDIO_REPLAY_LABEL : AUDIO_PLAY_LABEL;
+        }
+        if (el.audioHelperText) {
+          el.audioHelperText.textContent = LANGUAGE_AUDIO_HELPER_TEXT;
+        }
         el.audioControls.classList.add("active");
         const hasError = q && state.audioErrorByQuestionId.has(String(q.id || q.audioUrl || ""));
         setAudioStatus(hasError ? "تعذر تحميل الصوت. اضغط لإعادة المحاولة." : "");
@@ -1125,7 +1139,7 @@
           state.audioPlayer.preload = "none";
           state.audioPlayer.addEventListener("ended", () => {
             if (!isLanguageMode()) return;
-            el.playAudioBtn.textContent = "↻ إعادة تشغيل الصوت";
+            el.playAudioBtn.textContent = AUDIO_REPLAY_LABEL;
           });
           state.audioPlayer.addEventListener("error", () => {
             const q = getQuestion();
@@ -1157,7 +1171,8 @@
           }
           player.currentTime = 0;
           await player.play();
-          el.playAudioBtn.textContent = "↻ إعادة تشغيل الصوت";
+          state.audioPlayedByQuestionId.add(key);
+          el.playAudioBtn.textContent = AUDIO_REPLAY_LABEL;
         } catch (error) {
           state.audioErrorByQuestionId.set(key, true);
           setAudioStatus("تعذر تشغيل الصوت. حاول مرة أخرى.");
@@ -1271,6 +1286,10 @@
         const selectedMode = state.selectedMode;
         const currentQuestionMode = normalizeCell(question.mode).toLowerCase();
         const currentQuestionPromptType = normalizeCell(question.promptType).toLowerCase();
+        const languageModeActive =
+          selectedMode === MAP_GAME_MODE_LANGUAGE ||
+          currentQuestionMode === MAP_GAME_MODE_LANGUAGE ||
+          currentQuestionPromptType === "audio";
         const imageModeActive =
           selectedMode === MAP_GAME_MODE_IMAGE ||
           currentQuestionMode === MAP_GAME_MODE_IMAGE ||
@@ -1298,7 +1317,9 @@
         const hasValidClickedFeature = Boolean(diagnostics?.hasClickedFeature);
         const selectable = imageModeActive
           ? Boolean(normalizedCountryCode && (hasMapFeature || hasMapCentroid || hasValidClickedFeature))
-          : inQuestionPool;
+          : languageModeActive
+            ? Boolean(normalizedCountryCode && (hasMapFeature || hasMapCentroid || hasValidClickedFeature))
+            : inQuestionPool;
 
         return {
           selectedMode,
@@ -1442,6 +1463,7 @@
         if (!state.mapReady) return;
         const countryNodes = el.mapStage.querySelectorAll(".country");
         const target = getQuestion();
+        const targetCode = normalizeQuestionCountryCode(target?.targetCountryCode || target?.countryCode);
         countryNodes.forEach((node) => {
           const code = node.dataset.countryCode;
           node.classList.remove("team1", "team2", "correct");
@@ -1451,7 +1473,7 @@
             if (state.pendingTeamIndex === 0) node.classList.add("team1");
             if (state.pendingTeamIndex === 1) node.classList.add("team2");
           }
-          if (state.phase === "revealed" && (target.targetCountryCode || target.countryCode) === code) node.classList.add("correct");
+          if (state.phase === "revealed" && targetCode === code) node.classList.add("correct");
         });
       }
 
@@ -1514,7 +1536,7 @@
         const half = Math.floor(points / 2);
         const activeIdx = activeTeamIndex();
         const otherIdx = otherTeamIndex();
-        const targetCode = q.targetCountryCode || q.countryCode;
+        const targetCode = normalizeQuestionCountryCode(q.targetCountryCode || q.countryCode);
         const targetCountryAr = q.targetCountryNameAr || q.countryNameAr;
         const pickedCorrect = [state.teamPicks[0]?.countryCode === targetCode, state.teamPicks[1]?.countryCode === targetCode];
 
@@ -1669,10 +1691,11 @@
         const q = getQuestion();
         const teamIdx = state.pendingTeamIndex;
         if (teamIdx === null) return;
+        const targetCode = normalizeQuestionCountryCode(q.targetCountryCode || q.countryCode);
 
         state.teamPicks[teamIdx] = {
           countryCode: state.pendingPick,
-          isCorrect: state.pendingPick === (q.targetCountryCode || q.countryCode),
+          isCorrect: state.pendingPick === targetCode,
         };
 
         state.pendingPick = null;
@@ -1719,6 +1742,18 @@
           return;
         }
         countryCode = selectionValidation.normalizedCountryCode;
+        const q = getQuestion();
+        const targetCountryCode = normalizeQuestionCountryCode(q?.targetCountryCode || q?.countryCode);
+        const isCorrect = countryCode === targetCountryCode;
+        if (isLanguageMode()) {
+          console.info("[MapGame][language-click]", {
+            clickedCountryCode: countryCode,
+            targetCountryCode,
+            isCorrect,
+            currentQuestionId: q?.id || "",
+            clickedFeatureName: diagnostics?.featureName || "",
+          });
+        }
 
         if (state.phase === "other_response" && state.teamPicks[activeIdx]?.countryCode === countryCode) {
           showOverlay("تنبيه", "لا يمكن اختيار نفس دولة الفريق الآخر", [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
