@@ -4,16 +4,9 @@ compatibility_date = "2026-03-23"
 workers_dev = true
 
 [vars]
-SHEET_CSV_URL = ""
-FILMS_SHEET_CSV_URL = ""
-MAP_GAME_SHEET_CSV_URL = ""
-MAP_LANGUAGE_MODE_SHEET_CSV_URL = ""
-MAP_GEOGUESS_MODE_SHEET_CSV_URL = ""
-GUESS_FROM_HINT_SHEET_CSV_URL = ""
-FORBIDDEN_WORDS_SHEET_CSV_URL = ""
-EMOJI_MOVIES_SHEET_CSV_URL = ""
-MAZAD_SHEET_CSV_URL = ""
-XO_INTERSECTION_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vST0HDmGhMcWq07D68Wj9XK_Kd3gdEFIvE_BdjACc1dNtwFjPGbpvdOJbi4EI7Dj19LYjN6kPxFJrmP/pub?output=csv"
+# NOTE: Sheet CSV URLs are configured as Worker secrets in Cloudflare.
+# Do not add *_SHEET_CSV_URL or SHEET_CSV_URL here, or local deploys will
+# overwrite remote secret/var values.
 
 ALLOWED_ORIGIN = "https://tasleya.online,https://tasleya-preview.pages.dev"
 CACHE_TTL_SECONDS = "300"
