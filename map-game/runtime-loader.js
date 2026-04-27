@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.12";
+      : null) || "1.2.13";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -655,13 +655,6 @@
           };
         });
 
-        const roundUsedKeys = new Set();
-        const roundUsedRowIds = new Set();
-        const roundUsedCountryCodes = new Set();
-        const questions = [];
-        let historyUpdatedByReset = false;
-        let fillFromFallbackCount = 0;
-
         const getRowId = (item) => {
           const stableId = normalizeCell(item?.id || item?.sourceId);
           if (stableId) return `id:${stableId}`;
@@ -671,6 +664,129 @@
           const audioKey = normalizeCell(item?.audioUrl || item?.audio_url);
           return `fallback:${targetCode || "unknown"}:${audioKey || "unknown"}`;
         };
+
+        const buildPlayableQuestion = (item) => {
+          if (!item || typeof item !== "object") {
+            trackBuildFailure(item, "invalidRowObject");
+            return null;
+          }
+          if (modeKey !== MAP_GAME_MODE_LANGUAGE) {
+            return item;
+          }
+          const targetCountryCode = normalizeQuestionCountryCode(item.targetCountryCode || item.countryCode);
+          const targetCountryNameAr = normalizeCell(item.targetCountryNameAr || item.countryNameAr);
+          const audioUrl = normalizeAudioUrl(item.audioUrl || item.audio_url);
+          const lat = Number(item.lat);
+          const lng = Number(item.lng);
+          const difficulty = normalizeQuestionDifficulty(item.difficulty);
+          const points = Number(item.points);
+          const id = String(item.id || item.sourceId || item.questionKey || targetCountryCode || "").trim();
+
+          if (!targetCountryCode) {
+            trackBuildFailure(item, "missingTargetCountryCode");
+            return null;
+          }
+          if (!targetCountryNameAr) {
+            trackBuildFailure(item, "missingTargetCountryNameAr");
+            return null;
+          }
+          if (!audioUrl) {
+            trackBuildFailure(item, "missingAudioUrl");
+            return null;
+          }
+          if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+            trackBuildFailure(item, "missingLatLng");
+            return null;
+          }
+          if (!difficulty) {
+            trackBuildFailure(item, "invalidDifficulty");
+            return null;
+          }
+          if (!Number.isFinite(points)) {
+            trackBuildFailure(item, "invalidPoints");
+            return null;
+          }
+
+          return {
+            ...item,
+            mode: MAP_GAME_MODE_LANGUAGE,
+            promptType: "audio",
+            id: id || item.questionKey,
+            targetCountryCode,
+            targetCountryNameAr,
+            audioUrl,
+            lat,
+            lng,
+            points,
+            difficulty,
+          };
+        };
+
+        if (modeKey === MAP_GAME_MODE_LANGUAGE) {
+          if (allRowsWithCountryCode.length < 20) {
+            console.error("[MapGame] Final build pool", {
+              mode: modeKey,
+              totalRows: diagnostics.totalRows,
+              finalPoolLength: allRowsWithCountryCode.length,
+              firstRejectedRows: rejectedRowSamples,
+              rejectedReasonCounts: diagnostics.rejectedReasons,
+            });
+            console.error("[MapGame] Question build diagnostics", diagnostics);
+            throw new Error("Not enough valid rows in CSV to build 20 questions");
+          }
+
+          const shuffledPool = shuffle(allRowsWithCountryCode);
+          const selectedRows = [];
+          const selectedRowIds = new Set();
+
+          for (const item of shuffledPool) {
+            if (selectedRows.length >= 20) break;
+            const rowId = getRowId(item);
+            if (selectedRowIds.has(rowId)) continue;
+            selectedRowIds.add(rowId);
+            selectedRows.push(item);
+          }
+
+          if (selectedRows.length < 20) {
+            for (const item of shuffledPool) {
+              if (selectedRows.length >= 20) break;
+              selectedRows.push(item);
+            }
+          }
+
+          const builtQuestions = selectedRows
+            .slice(0, 20)
+            .map((item) => buildPlayableQuestion(item))
+            .filter(Boolean);
+
+          console.info("[MapGame] Language direct build", {
+            finalPoolLength: allRowsWithCountryCode.length,
+            selectedRowsLength: selectedRows.length,
+            builtQuestionsLength: builtQuestions.length,
+            firstQuestionPreview: builtQuestions[0]
+              ? {
+                  id: builtQuestions[0].id,
+                  questionKey: builtQuestions[0].questionKey,
+                  targetCountryCode: builtQuestions[0].targetCountryCode,
+                  targetCountryNameAr: builtQuestions[0].targetCountryNameAr,
+                  audioUrl: builtQuestions[0].audioUrl,
+                }
+              : null,
+          });
+
+          if (builtQuestions.length < 20) {
+            throw new Error("Not enough valid rows in CSV to build 20 questions");
+          }
+          console.info("[MapGame] Question build diagnostics", diagnostics);
+          return builtQuestions;
+        }
+
+        const roundUsedKeys = new Set();
+        const roundUsedRowIds = new Set();
+        const roundUsedCountryCodes = new Set();
+        const questions = [];
+        let historyUpdatedByReset = false;
+        let fillFromFallbackCount = 0;
 
         const pickWithDiagnostics = (candidates, count, { avoidCountries = true, avoidQuestionKeys = true, avoidRowIds = true } = {}) => {
           const picked = [];
@@ -743,63 +859,6 @@
 
           questions.push(...selected);
         }
-
-        const buildPlayableQuestion = (item) => {
-          if (!item || typeof item !== "object") {
-            trackBuildFailure(item, "invalidRowObject");
-            return null;
-          }
-          if (modeKey !== MAP_GAME_MODE_LANGUAGE) {
-            return item;
-          }
-          const targetCountryCode = normalizeQuestionCountryCode(item.targetCountryCode || item.countryCode);
-          const targetCountryNameAr = normalizeCell(item.targetCountryNameAr || item.countryNameAr);
-          const audioUrl = normalizeAudioUrl(item.audioUrl || item.audio_url);
-          const lat = Number(item.lat);
-          const lng = Number(item.lng);
-          const difficulty = normalizeQuestionDifficulty(item.difficulty);
-          const points = Number(item.points);
-          const id = String(item.id || item.sourceId || item.questionKey || targetCountryCode || "").trim();
-
-          if (!targetCountryCode) {
-            trackBuildFailure(item, "missingTargetCountryCode");
-            return null;
-          }
-          if (!targetCountryNameAr) {
-            trackBuildFailure(item, "missingTargetCountryNameAr");
-            return null;
-          }
-          if (!audioUrl) {
-            trackBuildFailure(item, "missingAudioUrl");
-            return null;
-          }
-          if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
-            trackBuildFailure(item, "missingLatLng");
-            return null;
-          }
-          if (!difficulty) {
-            trackBuildFailure(item, "invalidDifficulty");
-            return null;
-          }
-          if (!Number.isFinite(points)) {
-            trackBuildFailure(item, "invalidPoints");
-            return null;
-          }
-
-          return {
-            ...item,
-            mode: MAP_GAME_MODE_LANGUAGE,
-            promptType: "audio",
-            id: id || item.questionKey,
-            targetCountryCode,
-            targetCountryNameAr,
-            audioUrl,
-            lat,
-            lng,
-            points,
-            difficulty,
-          };
-        };
 
         if (questions.length < 20) {
           const needed = 20 - questions.length;
