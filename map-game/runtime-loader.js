@@ -252,6 +252,15 @@
         return "";
       }
 
+      function normalizeAudioUrl(value) {
+        const raw = normalizeCell(value);
+        if (!raw) return "";
+        if (/^https?:\/\//i.test(raw)) return raw;
+        if (raw.startsWith("/")) return raw;
+        if (raw.startsWith("assets/")) return `/${raw}`;
+        return "";
+      }
+
       function getConfiguredApiBaseUrl() {
         const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
         if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
@@ -858,7 +867,7 @@
       async function playCurrentAudio() {
         const q = getQuestion();
         if (!q || !isLanguageMode()) return;
-        const audioUrl = normalizeCell(q.audioUrl);
+        const audioUrl = normalizeAudioUrl(q.audioUrl);
         if (!audioUrl) {
           setAudioStatus("ملف الصوت غير متوفر لهذا السؤال.");
           return;
@@ -2029,34 +2038,95 @@
                 ? "/map-game/image-questions"
                 : "/map-game/questions";
           const payload = await apiFetchJson(endpoint);
-          const questions = Array.isArray(payload?.questions)
-            ? payload.questions.map((question) => {
-                const normalizedQuestion = {
-                  id: String(question.sourceId || question.id || "").trim(),
+          const rawQuestions = Array.isArray(payload?.questions) ? payload.questions : [];
+          const mapFeatureCodes = new Set(
+            Array.from(el.mapStage?.querySelectorAll?.(".country[data-country-code]") || [])
+              .map((node) => normalizeQuestionCountryCode(node.dataset.countryCode))
+              .filter(Boolean)
+          );
+          const loadDiagnostics = {
+            mode: modeKey,
+            endpoint,
+            receivedRows: rawQuestions.length,
+            normalizedRows: 0,
+            filteredOut: {
+              missingCountryCode: 0,
+              missingRequiredField: 0,
+              missingAudioUrl: 0,
+              countryCodeNotOnMap: 0,
+            },
+          };
+          const questions = rawQuestions
+            .map((question, index) => {
+              const sourceId = String(
+                question.sourceId ||
+                question.source_id ||
+                question.id ||
+                question.ID ||
+                ""
+              ).trim();
+              const targetCountryCode = normalizeQuestionCountryCode(
+                question.targetCountryCode ||
+                question.target_country_code ||
+                question.countryCode ||
+                question.country_code
+              );
+              const targetCountryNameAr = question.targetCountryNameAr || question.target_country_name_ar || question.countryNameAr || question.country_name_ar || "";
+              const targetCountryNameEn = question.targetCountryNameEn || question.target_country_name_en || question.countryNameEn || question.country_name_en || "";
+              const audioUrl = normalizeAudioUrl(question.audioUrl || question.audio_url);
+              const imageUrl = normalizeImageUrl(question.imageUrl || question.image_url);
+              const normalizedQuestion = {
+                id: sourceId,
+                mode: modeKey,
+                promptType: question.promptType || question.prompt_type || (modeKey === MAP_GAME_MODE_LANGUAGE ? "audio" : modeKey === MAP_GAME_MODE_IMAGE ? "image" : "map"),
+                sourceId,
+                targetCountryCode,
+                targetCountryNameAr,
+                targetCountryNameEn,
+                countryCode: targetCountryCode,
+                countryNameAr: targetCountryNameAr,
+                countryNameEn: targetCountryNameEn,
+                difficulty: normalizeQuestionDifficulty(question.difficulty),
+                points: Number.isFinite(Number(question.points)) ? Number(question.points) : POINTS[normalizeQuestionDifficulty(question.difficulty)] || 0,
+                imageUrl,
+                audioUrl,
+                placeNameAr: question.placeNameAr || question.place_name_ar || "",
+                placeNameEn: question.placeNameEn || question.place_name_en || "",
+                sourceLanguageAnswer: question.sourceLanguageAnswer || question.source_language_answer || "",
+                status: question.status || "",
+                lat: Number(question.lat),
+                lng: Number(question.lng),
+              };
+              normalizedQuestion.questionKey = buildQuestionKey(normalizedQuestion);
+
+              if (!normalizedQuestion.targetCountryCode) {
+                loadDiagnostics.filteredOut.missingCountryCode += 1;
+                return null;
+              }
+              if (!normalizedQuestion.targetCountryNameAr || !normalizedQuestion.targetCountryNameEn) {
+                loadDiagnostics.filteredOut.missingRequiredField += 1;
+                return null;
+              }
+              if (modeKey === MAP_GAME_MODE_LANGUAGE && !normalizedQuestion.audioUrl) {
+                loadDiagnostics.filteredOut.missingAudioUrl += 1;
+                return null;
+              }
+              if (mapFeatureCodes.size && !mapFeatureCodes.has(normalizedQuestion.targetCountryCode)) {
+                loadDiagnostics.filteredOut.countryCodeNotOnMap += 1;
+                console.warn("[MapGame][mode-load] question country code is not present on map", {
                   mode: modeKey,
-                  promptType: question.promptType || (modeKey === MAP_GAME_MODE_LANGUAGE ? "audio" : modeKey === MAP_GAME_MODE_IMAGE ? "image" : "map"),
-                  sourceId: question.sourceId || question.id || "",
-                  targetCountryCode: normalizeQuestionCountryCode(question.targetCountryCode || question.countryCode),
-                  targetCountryNameAr: question.targetCountryNameAr || question.countryNameAr || "",
-                  targetCountryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
-                  countryCode: normalizeQuestionCountryCode(question.targetCountryCode || question.countryCode),
-                  countryNameAr: question.targetCountryNameAr || question.countryNameAr || "",
-                  countryNameEn: question.targetCountryNameEn || question.countryNameEn || "",
-                  difficulty: normalizeQuestionDifficulty(question.difficulty),
-                  points: Number.isFinite(Number(question.points)) ? Number(question.points) : POINTS[normalizeQuestionDifficulty(question.difficulty)] || 0,
-                  imageUrl: normalizeImageUrl(question.imageUrl),
-                  audioUrl: question.audioUrl || "",
-                  placeNameAr: question.placeNameAr || "",
-                  placeNameEn: question.placeNameEn || "",
-                  status: question.status || "",
-                  lat: Number(question.lat),
-                  lng: Number(question.lng),
-                };
-                normalizedQuestion.questionKey = buildQuestionKey(normalizedQuestion);
-                return normalizedQuestion;
-              }).filter((question) => question.targetCountryCode)
-            : [];
+                  index,
+                  sourceId,
+                  targetCountryCode: normalizedQuestion.targetCountryCode,
+                });
+                return null;
+              }
+              loadDiagnostics.normalizedRows += 1;
+              return normalizedQuestion;
+            })
+            .filter(Boolean);
           if (!questions.length) {
+            console.error("[MapGame][mode-load] no usable rows after normalization", loadDiagnostics);
             throw new Error(
               modeKey === MAP_GAME_MODE_LANGUAGE
                 ? "بيانات وضع اللغة غير متوفرة حالياً."
@@ -2065,6 +2135,7 @@
                   : "No valid map-game rows in API response"
             );
           }
+          console.info("[MapGame][mode-load] mode questions loaded", loadDiagnostics);
 
           state.questionPoolByMode[modeKey] = questions;
           state.questionsReadyByMode[modeKey] = true;
@@ -2082,7 +2153,7 @@
           }
           return true;
         } catch (error) {
-          console.error(error);
+          console.error("[MapGame][mode-load] endpoint failed", { mode: modeKey, error });
           state.questionsReadyByMode[modeKey] = false;
           state.modeLoadErrorByMode[modeKey] = error instanceof Error ? error.message : CSV_LOAD_ERROR_AR;
           if (modeKey === state.selectedMode) {
