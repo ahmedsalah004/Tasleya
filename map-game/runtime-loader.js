@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.9";
+      : null) || "1.2.10";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -360,6 +360,12 @@
       function normalizeQuestionDifficulty(value) {
         const normalized = String(value || "").trim().toLowerCase();
         if (["easy", "medium", "hard"].includes(normalized)) return normalized;
+        const numeric = Number(normalized);
+        if (Number.isFinite(numeric)) {
+          if (numeric <= 2) return "easy";
+          if (numeric === 3) return "medium";
+          if (numeric >= 4) return "hard";
+        }
         return "";
       }
 
@@ -561,6 +567,7 @@
           duplicateCountrySkipped: 0,
           duplicateQuestionKeySkipped: 0,
         };
+        const rejectedRowSamples = [];
 
         const allRowsWithCountryCode = state.questionPool.filter((item) => {
           const hasCountryCode = Boolean(item.targetCountryCode || item.countryCode);
@@ -573,9 +580,9 @@
           diagnostics.withCountryCode += 1;
           const targetCode = item.targetCountryCode || item.countryCode;
           const hasMapFeature = !mapFeatureCodes.size || mapFeatureCodes.has(targetCode);
-          const hasLatLng = Number.isFinite(item.lat) && Number.isFinite(item.lng);
+          const hasLatLng = Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng));
           const hasCountryNameAr = Boolean(normalizeCell(item.targetCountryNameAr || item.countryNameAr));
-          const hasAudioUrl = Boolean(normalizeCell(item.audioUrl));
+          const hasAudioUrl = Boolean(normalizeCell(item.audioUrl || item.audio_url));
           const hasValidPoints = Number.isFinite(Number(item.points));
           const hasDifficulty = Boolean(normalizeQuestionDifficulty(item.difficulty));
 
@@ -593,21 +600,34 @@
           const isLanguageMode = modeKey === MAP_GAME_MODE_LANGUAGE;
           const languageRowValid = hasCountryCode && hasCountryNameAr && hasAudioUrl && hasLatLng && hasValidPoints && hasDifficulty;
           const nonLanguageRowValid = hasCountryCode && hasMapFeature;
+          const rowId = String(item.id || item.sourceId || item.questionKey || targetCode || "").trim();
 
           if (isLanguageMode) {
             if (!languageRowValid) {
               diagnostics.rejectedRows += 1;
+              const missingFields = [];
               if (!hasCountryNameAr) diagnostics.rejectedReasons.missingCountryNameAr += 1;
+              if (!hasCountryNameAr) missingFields.push("targetCountryNameAr|countryNameAr");
               if (!hasAudioUrl) diagnostics.rejectedReasons.missingAudioUrl += 1;
+              if (!hasAudioUrl) missingFields.push("audioUrl|audio_url");
               if (!hasLatLng) diagnostics.rejectedReasons.missingLatLng += 1;
+              if (!hasLatLng) missingFields.push("lat|lng");
               if (!hasValidPoints) diagnostics.rejectedReasons.invalidPoints += 1;
+              if (!hasValidPoints) missingFields.push("points");
               if (!hasDifficulty) diagnostics.rejectedReasons.invalidDifficulty += 1;
+              if (!hasDifficulty) missingFields.push("difficulty");
+              if (rejectedRowSamples.length < 8) {
+                rejectedRowSamples.push({ rowId, missingFields });
+              }
               return false;
             }
           } else {
             if (!nonLanguageRowValid) {
               diagnostics.rejectedRows += 1;
               diagnostics.rejectedReasons.missingMapFeature += 1;
+              if (rejectedRowSamples.length < 8) {
+                rejectedRowSamples.push({ rowId, missingFields: ["mapFeature"] });
+              }
               return false;
             }
           }
@@ -700,6 +720,13 @@
           questions.push(...fillAny);
         }
         if (questions.length < 20) {
+          console.error("[MapGame] Final build pool", {
+            mode: modeKey,
+            totalRows: diagnostics.totalRows,
+            finalPoolLength: allRowsWithCountryCode.length,
+            firstRejectedRows: rejectedRowSamples,
+            rejectedReasonCounts: diagnostics.rejectedReasons,
+          });
           console.error("[MapGame] Question build diagnostics", diagnostics);
           throw new Error("Not enough valid rows in CSV to build 20 questions");
         }
