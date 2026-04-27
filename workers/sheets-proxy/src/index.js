@@ -410,7 +410,7 @@ function buildMapLanguageModeQuestions(rows, countryCoordinates = new Map()) {
       const countryNameAr = normalizeCell(firstNonEmpty(raw.target_country_name_ar, raw.targetcountrynamear, raw.country_name_ar, raw.countrynamear));
       const countryNameEn = normalizeCell(firstNonEmpty(raw.target_country_name_en, raw.targetcountrynameen, raw.country_name_en, raw.countrynameen));
       const { difficulty, points } = resolveMapDifficultyAndPoints(raw.difficulty, raw.points);
-      const audioUrl = normalizeCell(firstNonEmpty(raw.audio_url, raw.audiourl));
+      const audioUrl = normalizeAssetPathUrl(firstNonEmpty(raw.audio_url, raw.audiourl));
       const id = firstNonEmpty(raw.source_id, raw.sourceid, raw.id, `language-row-${index + 1}`);
       const sourceLanguageAnswer = normalizeCell(firstNonEmpty(raw.source_language_answer, raw.sourcelanguageanswer));
       const coords = countryCoordinates.get(countryCode);
@@ -820,6 +820,13 @@ function normalizeMapCountryCode(value) {
   const code = normalizeCell(value).toUpperCase();
   if (code === 'UK') return 'GB';
   return code;
+}
+
+function normalizeAssetPathUrl(value) {
+  const normalized = normalizeCell(value);
+  if (!normalized) return '';
+  if (/^(https?:)?\/\//i.test(normalized) || normalized.startsWith('/')) return normalized;
+  return `/${normalized.replace(/^\/+/, '')}`;
 }
 
 function resolveMapDifficultyAndPoints(rawDifficulty, rawPoints) {
