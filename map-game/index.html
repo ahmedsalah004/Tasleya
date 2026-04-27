@@ -522,6 +522,13 @@
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
 
+      @media (min-width: 841px) and (pointer: fine) {
+        .map-stage {
+          min-height: clamp(340px, 54vh, 560px);
+          overscroll-behavior-y: auto;
+        }
+      }
+
       .image-prompt {
         display: grid;
         justify-items: center;
@@ -1390,7 +1397,7 @@
         }
       })();
     </script>
-    <script src="/map-game/runtime-loader.js?v=1.2.15"></script>
+    <script src="/map-game/runtime-loader.js?v=1.2.16"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
 </html>
