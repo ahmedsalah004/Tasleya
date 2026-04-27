@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.10";
+      : null) || "1.2.11";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -568,6 +568,17 @@
           duplicateQuestionKeySkipped: 0,
         };
         const rejectedRowSamples = [];
+        const buildFailureSamples = [];
+        const buildFailureReasonCounts = {};
+        const trackBuildFailure = (item, reason) => {
+          const safeReason = normalizeCell(reason) || "unknown";
+          buildFailureReasonCounts[safeReason] = (buildFailureReasonCounts[safeReason] || 0) + 1;
+          if (buildFailureSamples.length < 12) {
+            const targetCode = item?.targetCountryCode || item?.countryCode || "";
+            const rowId = String(item?.id || item?.sourceId || item?.questionKey || targetCode || "").trim() || "(unknown)";
+            buildFailureSamples.push({ rowId, reason: safeReason });
+          }
+        };
 
         const allRowsWithCountryCode = state.questionPool.filter((item) => {
           const hasCountryCode = Boolean(item.targetCountryCode || item.countryCode);
@@ -634,6 +645,14 @@
 
           diagnostics.validRows += 1;
           return true;
+        }).map((item, index) => {
+          const existingQuestionKey = normalizeCell(item.questionKey);
+          if (existingQuestionKey) return item;
+          const fallbackId = String(item.id || item.sourceId || item.targetCountryCode || item.countryCode || `row-${index + 1}`).trim();
+          return {
+            ...item,
+            questionKey: `mode:${modeKey}:row:${index + 1}:${fallbackId}`,
+          };
         });
 
         const roundUsedKeys = new Set();
@@ -648,11 +667,13 @@
             if (picked.length >= count) break;
             if (roundUsedKeys.has(item.questionKey)) {
               diagnostics.duplicateQuestionKeySkipped += 1;
+              trackBuildFailure(item, "duplicateQuestionKey");
               continue;
             }
             const targetCode = item.targetCountryCode || item.countryCode;
             if (avoidCountries && targetCode && roundUsedCountryCodes.has(targetCode)) {
               diagnostics.duplicateCountrySkipped += 1;
+              trackBuildFailure(item, "duplicateCountryCode");
               continue;
             }
             roundUsedKeys.add(item.questionKey);
@@ -705,6 +726,63 @@
           questions.push(...selected);
         }
 
+        const buildPlayableQuestion = (item) => {
+          if (!item || typeof item !== "object") {
+            trackBuildFailure(item, "invalidRowObject");
+            return null;
+          }
+          if (modeKey !== MAP_GAME_MODE_LANGUAGE) {
+            return item;
+          }
+          const targetCountryCode = normalizeQuestionCountryCode(item.targetCountryCode || item.countryCode);
+          const targetCountryNameAr = normalizeCell(item.targetCountryNameAr || item.countryNameAr);
+          const audioUrl = normalizeAudioUrl(item.audioUrl || item.audio_url);
+          const lat = Number(item.lat);
+          const lng = Number(item.lng);
+          const difficulty = normalizeQuestionDifficulty(item.difficulty);
+          const points = Number(item.points);
+          const id = String(item.id || item.sourceId || item.questionKey || targetCountryCode || "").trim();
+
+          if (!targetCountryCode) {
+            trackBuildFailure(item, "missingTargetCountryCode");
+            return null;
+          }
+          if (!targetCountryNameAr) {
+            trackBuildFailure(item, "missingTargetCountryNameAr");
+            return null;
+          }
+          if (!audioUrl) {
+            trackBuildFailure(item, "missingAudioUrl");
+            return null;
+          }
+          if (!(Number.isFinite(lat) && Number.isFinite(lng))) {
+            trackBuildFailure(item, "missingLatLng");
+            return null;
+          }
+          if (!difficulty) {
+            trackBuildFailure(item, "invalidDifficulty");
+            return null;
+          }
+          if (!Number.isFinite(points)) {
+            trackBuildFailure(item, "invalidPoints");
+            return null;
+          }
+
+          return {
+            ...item,
+            mode: MAP_GAME_MODE_LANGUAGE,
+            promptType: "audio",
+            id: id || item.questionKey,
+            targetCountryCode,
+            targetCountryNameAr,
+            audioUrl,
+            lat,
+            lng,
+            points,
+            difficulty,
+          };
+        };
+
         if (questions.length < 20) {
           const needed = 20 - questions.length;
           const globalUnused = allRowsWithCountryCode.filter(
@@ -719,7 +797,24 @@
           const fillAny = pickWithDiagnostics(globalPool, needed, { avoidCountries: false });
           questions.push(...fillAny);
         }
-        if (questions.length < 20) {
+        const builtQuestions = questions
+          .map((item) => buildPlayableQuestion(item))
+          .filter(Boolean);
+
+        if (builtQuestions.length < 20) {
+          const selectedKeys = new Set(builtQuestions.map((item) => item.questionKey).filter(Boolean));
+          allRowsWithCountryCode.forEach((item) => {
+            if (!selectedKeys.has(item.questionKey) && !buildFailureSamples.some((entry) => entry.rowId === String(item.id || item.sourceId || item.questionKey || item.targetCountryCode || "").trim())) {
+              trackBuildFailure(item, "notSelectedByDistribution");
+            }
+          });
+          console.error("[MapGame] Built questions count", {
+            mode: modeKey,
+            finalPoolLength: allRowsWithCountryCode.length,
+            builtQuestionsLength: builtQuestions.length,
+            firstFailedBuildRows: buildFailureSamples,
+            failureReasonCounts: buildFailureReasonCounts,
+          });
           console.error("[MapGame] Final build pool", {
             mode: modeKey,
             totalRows: diagnostics.totalRows,
@@ -735,7 +830,7 @@
           saveUsedQuestionHistory();
         }
         console.info("[MapGame] Question build diagnostics", diagnostics);
-        return questions;
+        return builtQuestions;
       }
 
       function markQuestionAsUsed(question) {
