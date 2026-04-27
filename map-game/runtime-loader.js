@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.11";
+      : null) || "1.2.12";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -656,16 +656,33 @@
         });
 
         const roundUsedKeys = new Set();
+        const roundUsedRowIds = new Set();
         const roundUsedCountryCodes = new Set();
         const questions = [];
         let historyUpdatedByReset = false;
+        let fillFromFallbackCount = 0;
 
-        const pickWithDiagnostics = (candidates, count, { avoidCountries = true } = {}) => {
+        const getRowId = (item) => {
+          const stableId = normalizeCell(item?.id || item?.sourceId);
+          if (stableId) return `id:${stableId}`;
+          const fallbackKey = normalizeCell(item?.questionKey);
+          if (fallbackKey) return `qk:${fallbackKey}`;
+          const targetCode = normalizeCell(item?.targetCountryCode || item?.countryCode);
+          const audioKey = normalizeCell(item?.audioUrl || item?.audio_url);
+          return `fallback:${targetCode || "unknown"}:${audioKey || "unknown"}`;
+        };
+
+        const pickWithDiagnostics = (candidates, count, { avoidCountries = true, avoidQuestionKeys = true, avoidRowIds = true } = {}) => {
           const picked = [];
           const shuffled = shuffle(candidates);
           for (const item of shuffled) {
             if (picked.length >= count) break;
-            if (roundUsedKeys.has(item.questionKey)) {
+            const rowId = getRowId(item);
+            if (avoidRowIds && roundUsedRowIds.has(rowId)) {
+              trackBuildFailure(item, "duplicateRowId");
+              continue;
+            }
+            if (avoidQuestionKeys && roundUsedKeys.has(item.questionKey)) {
               diagnostics.duplicateQuestionKeySkipped += 1;
               trackBuildFailure(item, "duplicateQuestionKey");
               continue;
@@ -677,6 +694,7 @@
               continue;
             }
             roundUsedKeys.add(item.questionKey);
+            roundUsedRowIds.add(rowId);
             if (targetCode) roundUsedCountryCodes.add(targetCode);
             picked.push(item);
           }
@@ -797,9 +815,42 @@
           const fillAny = pickWithDiagnostics(globalPool, needed, { avoidCountries: false });
           questions.push(...fillAny);
         }
+        if (modeKey === MAP_GAME_MODE_LANGUAGE && questions.length < 20) {
+          const needed = 20 - questions.length;
+          const unusedByRowId = allRowsWithCountryCode.filter((item) => !roundUsedRowIds.has(getRowId(item)));
+          const fillLanguageFallback = pickWithDiagnostics(unusedByRowId, needed, {
+            avoidCountries: false,
+            avoidQuestionKeys: false,
+            avoidRowIds: true,
+          });
+          fillFromFallbackCount += fillLanguageFallback.length;
+          questions.push(...fillLanguageFallback);
+        }
+        if (modeKey === MAP_GAME_MODE_LANGUAGE && questions.length < 20) {
+          const uniqueRowIdCount = new Set(allRowsWithCountryCode.map((item) => getRowId(item))).size;
+          if (uniqueRowIdCount < 20) {
+            const needed = 20 - questions.length;
+            const fillAllowRowReuse = pickWithDiagnostics(allRowsWithCountryCode, needed, {
+              avoidCountries: false,
+              avoidQuestionKeys: false,
+              avoidRowIds: false,
+            });
+            fillFromFallbackCount += fillAllowRowReuse.length;
+            questions.push(...fillAllowRowReuse);
+          }
+        }
         const builtQuestions = questions
           .map((item) => buildPlayableQuestion(item))
           .filter(Boolean);
+
+        console.info("[MapGame] Built questions count", {
+          mode: modeKey,
+          finalPoolLength: allRowsWithCountryCode.length,
+          builtQuestionsLength: builtQuestions.length,
+          firstFailedBuildRows: buildFailureSamples,
+          failureReasonCounts: buildFailureReasonCounts,
+          fillFromFallbackCount,
+        });
 
         if (builtQuestions.length < 20) {
           const selectedKeys = new Set(builtQuestions.map((item) => item.questionKey).filter(Boolean));
@@ -807,13 +858,6 @@
             if (!selectedKeys.has(item.questionKey) && !buildFailureSamples.some((entry) => entry.rowId === String(item.id || item.sourceId || item.questionKey || item.targetCountryCode || "").trim())) {
               trackBuildFailure(item, "notSelectedByDistribution");
             }
-          });
-          console.error("[MapGame] Built questions count", {
-            mode: modeKey,
-            finalPoolLength: allRowsWithCountryCode.length,
-            builtQuestionsLength: builtQuestions.length,
-            firstFailedBuildRows: buildFailureSamples,
-            failureReasonCounts: buildFailureReasonCounts,
           });
           console.error("[MapGame] Final build pool", {
             mode: modeKey,
