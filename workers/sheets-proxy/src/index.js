@@ -380,17 +380,19 @@ function buildMapLanguageModeQuestions(rows, countryCoordinates = new Map()) {
   const [headers, ...dataRows] = rows;
   const headerMap = headers.map(normalizeHeader);
 
-  const requiredHeaders = [
-    'source_id',
-    'audio_url',
-    'target_country_code',
-    'target_country_name_ar',
-    'target_country_name_en',
-    'difficulty',
-    'points',
-    'status',
+  const requiredHeaderGroups = [
+    ['source_id', 'sourceid', 'id'],
+    ['audio_url', 'audiourl'],
+    ['target_country_code', 'targetcountrycode', 'country_code', 'countrycode'],
+    ['target_country_name_ar', 'targetcountrynamear', 'country_name_ar', 'countrynamear'],
+    ['target_country_name_en', 'targetcountrynameen', 'country_name_en', 'countrynameen'],
+    ['difficulty'],
+    ['points'],
+    ['status'],
   ];
-  const missingHeaders = requiredHeaders.filter((header) => !headerMap.includes(header));
+  const missingHeaders = requiredHeaderGroups
+    .filter((group) => !group.some((header) => headerMap.includes(header)))
+    .map((group) => group[0]);
   if (missingHeaders.length) {
     throw new Error(`CSV headers are missing required columns: ${missingHeaders.join(', ')}`);
   }
@@ -404,13 +406,13 @@ function buildMapLanguageModeQuestions(rows, countryCoordinates = new Map()) {
 
       if (!isApprovedV1Status(raw.status)) return null;
 
-      const countryCode = normalizeMapCountryCode(raw.target_country_code);
-      const countryNameAr = normalizeCell(raw.target_country_name_ar);
-      const countryNameEn = normalizeCell(raw.target_country_name_en);
+      const countryCode = normalizeMapCountryCode(firstNonEmpty(raw.target_country_code, raw.targetcountrycode, raw.country_code, raw.countrycode));
+      const countryNameAr = normalizeCell(firstNonEmpty(raw.target_country_name_ar, raw.targetcountrynamear, raw.country_name_ar, raw.countrynamear));
+      const countryNameEn = normalizeCell(firstNonEmpty(raw.target_country_name_en, raw.targetcountrynameen, raw.country_name_en, raw.countrynameen));
       const { difficulty, points } = resolveMapDifficultyAndPoints(raw.difficulty, raw.points);
-      const audioUrl = normalizeCell(raw.audio_url);
-      const id = firstNonEmpty(raw.source_id, raw.id, `language-row-${index + 1}`);
-      const sourceLanguageAnswer = normalizeCell(raw.source_language_answer);
+      const audioUrl = normalizeCell(firstNonEmpty(raw.audio_url, raw.audiourl));
+      const id = firstNonEmpty(raw.source_id, raw.sourceid, raw.id, `language-row-${index + 1}`);
+      const sourceLanguageAnswer = normalizeCell(firstNonEmpty(raw.source_language_answer, raw.sourcelanguageanswer));
       const coords = countryCoordinates.get(countryCode);
 
       if (!countryCode || !countryNameAr || !countryNameEn) return null;
