@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.7";
+      : null) || "1.2.9";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -542,6 +542,7 @@
           withCountryCode: 0,
           withMapFeature: 0,
           withLatLng: 0,
+          withAudioUrl: 0,
           validRows: 0,
           rejectedRows: 0,
           rejectedReasons: {
@@ -580,6 +581,7 @@
 
           if (hasMapFeature) diagnostics.withMapFeature += 1;
           if (hasLatLng) diagnostics.withLatLng += 1;
+          if (hasAudioUrl) diagnostics.withAudioUrl += 1;
           const diff = normalizeQuestionDifficulty(item.difficulty);
           if (diff) diagnostics.byDifficulty[diff] += 1;
           else diagnostics.byDifficulty.unknown += 1;
@@ -588,8 +590,11 @@
           const diffPointsKey = `${diff || "unknown"}:${pointsKey}`;
           diagnostics.byDifficultyPoints[diffPointsKey] = (diagnostics.byDifficultyPoints[diffPointsKey] || 0) + 1;
 
-          if (modeKey === MAP_GAME_MODE_LANGUAGE) {
-            const languageRowValid = hasCountryCode && hasCountryNameAr && hasAudioUrl && hasLatLng && hasValidPoints && hasDifficulty;
+          const isLanguageMode = modeKey === MAP_GAME_MODE_LANGUAGE;
+          const languageRowValid = hasCountryCode && hasCountryNameAr && hasAudioUrl && hasLatLng && hasValidPoints && hasDifficulty;
+          const nonLanguageRowValid = hasCountryCode && hasMapFeature;
+
+          if (isLanguageMode) {
             if (!languageRowValid) {
               diagnostics.rejectedRows += 1;
               if (!hasCountryNameAr) diagnostics.rejectedReasons.missingCountryNameAr += 1;
@@ -600,7 +605,7 @@
               return false;
             }
           } else {
-            if (!hasMapFeature) {
+            if (!nonLanguageRowValid) {
               diagnostics.rejectedRows += 1;
               diagnostics.rejectedReasons.missingMapFeature += 1;
               return false;
