@@ -2,14 +2,16 @@
       const auctionRuntimeHost = document.getElementById("auctionRuntimeHost");
       const AUCTION_RUNTIME_FRAGMENT_URL = "/games/auction/runtime-fragment.html";
       const AUCTION_DEPENDENCY_LOAD_ERROR = "تعذر تجهيز اللعبة. حاول تحديث الصفحة أو فتحها مرة أخرى.";
-      const AUCTION_DEPENDENCY_SCRIPTS = [
+      const AUCTION_LOCAL_DEPENDENCY_SCRIPTS = [
         "/games/auction/data.js",
+        "/games/shared/recent-history.js",
+      ];
+      const AUCTION_ONLINE_DEPENDENCY_SCRIPTS = [
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js",
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js",
         "/firebase-config.js",
         "/games/shared/game-rooms.js",
-        "/games/shared/recent-history.js",
       ];
       const scriptLoadPromises = new Map();
       let auctionRuntimeMounted = false;
@@ -63,10 +65,23 @@
         return promise;
       }
 
-      async function loadAuctionDependencies() {
-        for (const src of AUCTION_DEPENDENCY_SCRIPTS) {
-          await loadScriptOnce(src);
+      async function loadDependencyChain(sources, label) {
+        for (const src of sources) {
+          try {
+            await loadScriptOnce(src);
+          } catch (error) {
+            console.error(`[auction] Failed loading ${label} dependency: ${src}`, error);
+            throw error;
+          }
         }
+      }
+
+      async function loadAuctionLocalDependencies() {
+        await loadDependencyChain(AUCTION_LOCAL_DEPENDENCY_SCRIPTS, "local");
+      }
+
+      async function loadAuctionOnlineDependencies() {
+        await loadDependencyChain(AUCTION_ONLINE_DEPENDENCY_SCRIPTS, "online");
       }
 
       document.getElementById("enterAuctionSetupBtn").addEventListener("click", async () => {
@@ -75,7 +90,7 @@
         try {
           await mountAuctionRuntime();
           if (!auctionRuntimeMounted) throw new Error("AUCTION_RUNTIME_MOUNT_ABORTED");
-          await loadAuctionDependencies();
+          await loadAuctionLocalDependencies();
           auctionIntro.classList.add("hidden");
           const runtimeRoot = document.getElementById("auctionRuntime");
           if (!runtimeRoot) throw new Error("AUCTION_RUNTIME_ROOT_MISSING");
@@ -92,6 +107,32 @@
         if (auctionAppInitialized) return;
         auctionAppInitialized = true;
 
+      let gameRooms = window.TasleyaGameRooms || null;
+      const recentHistory = window.TasleyaRecentHistory || null;
+      let onlineDependenciesReady = Boolean(gameRooms);
+
+      function setOnlineDependencyMessage(text) {
+        setMessage(el.onlineDepsMessage, text || "");
+      }
+
+      async function ensureOnlineDependencies() {
+        if (onlineDependenciesReady && gameRooms) return true;
+        try {
+          await loadAuctionOnlineDependencies();
+          gameRooms = window.TasleyaGameRooms || null;
+          if (!gameRooms) throw new Error("AUCTION_ONLINE_GAME_ROOMS_MISSING");
+          onlineDependenciesReady = true;
+          setOnlineDependencyMessage("");
+          return true;
+        } catch (error) {
+          onlineDependenciesReady = false;
+          const detail = error?.message || "تعذر تحميل خدمة اللعب الجماعي.";
+          setOnlineDependencyMessage(`اللعب على أجهزة مختلفة غير متاح مؤقتًا. أعد المحاولة. (${detail})`);
+          console.error("[auction] Online mode unavailable due to dependency failure", error);
+          return false;
+        }
+      }
+
       const TOTAL_QUESTIONS = 10;
       const DEFAULT_TEAMS = ["الفريق الأول", "الفريق الثاني"];
       const GAME_KEY = "auction";
@@ -101,8 +142,6 @@
       const EXHAUSTION_NOTICE_TEXT = "أعدنا خلط الأسئلة بعد استخدام معظم الأسئلة المتاحة، وقد تظهر بعض الأسئلة مرة أخرى.";
       const BID_WINDOW_MS = 5000;
       const ATTEMPT_WINDOW_MS = 60000;
-      const gameRooms = window.TasleyaGameRooms || null;
-      const recentHistory = window.TasleyaRecentHistory || null;
 
       const state = {
         mode: null,
@@ -152,6 +191,7 @@
         roomCodeInput: document.getElementById("roomCodeInput"),
         joinRoomBtn: document.getElementById("joinRoomBtn"),
         onlineRoomMessage: document.getElementById("onlineRoomMessage"),
+        onlineDepsMessage: document.getElementById("onlineDepsMessage"),
         onlineLobbyScreen: document.getElementById("onlineLobbyScreen"),
         roomCodeLabel: document.getElementById("roomCodeLabel"),
         playersList: document.getElementById("playersList"),
@@ -1445,7 +1485,11 @@
         showScreen("game");
         resetGame();
       });
-      el.onlineModeBtn.addEventListener("click", () => {
+      el.onlineModeBtn.addEventListener("click", async () => {
+        el.onlineModeBtn.disabled = true;
+        const ready = await ensureOnlineDependencies();
+        el.onlineModeBtn.disabled = false;
+        if (!ready) return;
         state.mode = "online";
         state.teamNames = [...DEFAULT_TEAMS];
         applyTeamNamesToUi();
@@ -1505,7 +1549,8 @@
           showScreen("mode");
         }
         if (state.mode === "local") return;
-        if (!gameRooms) return;
+        const onlineReady = await ensureOnlineDependencies();
+        if (!onlineReady || !gameRooms) return;
         const restored = gameRooms.restoreGameRoomSession();
         if (!restored || restored.gameType !== GAME_KEY) return;
         state.mode = "online";
