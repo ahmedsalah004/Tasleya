@@ -631,6 +631,11 @@
           hideCancelNotice();
         }, 1800);
       }
+      function showOnlineStatus(message, isError = false) {
+        elements.cancelNotice.classList.remove("hidden");
+        elements.cancelNotice.textContent = message;
+        elements.cancelNotice.classList.toggle("error", Boolean(isError));
+      }
 
       function switchTurn() {
         state.currentTurnTeamIndex = state.currentTurnTeamIndex === 0 ? 1 : 0;
@@ -684,8 +689,13 @@
         if (state.playMode === "online") {
           const myTeamId = getOnlineMyTeamId();
           const isMyTurn = canOnlineTeamAct();
-          if (state.gameStatus !== "playing" || !isMyTurn || state.selectedSquare || state.boardCells[row][col]) return;
-          submitOnlineAction("select_cell", { row, col, teamId: myTeamId, expectedRevision: Number(state.online.revision || 0) }).catch(() => {});
+          if (state.gameStatus !== "playing") return showOnlineStatus("اللعبة غير نشطة حالياً.", true);
+          if (!isMyTurn) return showOnlineStatus("بانتظار دور الفريق الآخر.", true);
+          if (state.selectedSquare) return showOnlineStatus("بانتظار تثبيت إجابة الفريق الحالي.", true);
+          if (state.boardCells[row][col]) return showOnlineStatus("هذه الخانة محجوزة مسبقاً.", true);
+          submitOnlineAction("select_cell", { row, col, teamId: myTeamId, expectedRevision: Number(state.online.revision || 0) })
+            .then(() => showOnlineStatus("تم إرسال اختيار الخانة للمزامنة."))
+            .catch(() => showOnlineStatus("تعذر إرسال اختيار الخانة. حاول مرة أخرى.", true));
           return;
         }
         if (state.gameStatus !== "playing") return;
@@ -1297,7 +1307,7 @@
               workingGameState = next;
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
             } else if (action.type === "mark_correct" || action.type === "mark_incorrect") {
-              if (!gs.selectedSquare || senderTeamId !== Number(gs.currentTurnTeamIndex || 0) || senderTeamId !== Number(gs.selectedSquare.byTeamId)) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "active_team_only" }); continue; }
+              if (!gs.selectedSquare || senderTeamId !== Number(gs.currentTurnTeamIndex || 0) || senderTeamId !== Number(gs.selectedSquare.byTeamId) || action.fromUid !== gs.selectedSquare.byUid) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "active_team_only" }); continue; }
               const next = { ...gs, boardCells: gs.boardCells.map((r)=>r.slice()), selectedSquare: null, winningLineCells: Array.isArray(gs.winningLineCells) ? gs.winningLineCells : [] };
               if (action.type === "mark_correct") {
                 const sq = gs.selectedSquare; next.boardCells[sq.row][sq.col] = getSymbolByTeamIndex(Number(gs.currentTurnTeamIndex || 0));
@@ -1417,7 +1427,7 @@
 
         elements.confirmCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { if (!canOnlineTeamAct()) return; submitOnlineAction("mark_correct", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("بانتظار دور فريقك.", true); submitOnlineAction("mark_correct", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال تثبيت الخانة.")).catch(()=>showOnlineStatus("تعذر إرسال تثبيت الخانة.", true)); return; }
           const { row, col } = state.selectedSquare;
           state.boardCells[row][col] = getSymbolByTeamIndex(state.currentTurnTeamIndex);
           state.selectedSquare = null;
@@ -1437,7 +1447,7 @@
 
         elements.cancelCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { if (!canOnlineTeamAct()) return; submitOnlineAction("mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("بانتظار دور فريقك.", true); submitOnlineAction("mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال إلغاء الخانة.")).catch(()=>showOnlineStatus("تعذر إرسال إلغاء الخانة.", true)); return; }
           state.selectedSquare = null;
           switchTurn();
           showCancelNotice();
