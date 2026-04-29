@@ -1268,8 +1268,9 @@
             const players = Object.entries(roomData.players || {}).map(([uid, p]) => ({ uid, teamId: Number(p?.teamId) }));
             const hasTeam0 = players.some((p) => p.teamId === 0);
             const hasTeam1 = players.some((p) => p.teamId === 1);
-            if(!(hasTeam0 && hasTeam1)){
-              elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام لاعب لكل فريق.";
+            const distinctTeamUids = new Set(players.filter((p) => p.teamId === 0 || p.teamId === 1).map((p) => p.uid));
+            if(!(hasTeam0 && hasTeam1 && distinctTeamUids.size >= 2)){
+              elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام لاعب آخر من جهاز أو متصفح مختلف.";
               return;
             }
             elements.onlineLobbyMessage.textContent = "جارٍ بدء اللعبة...";
@@ -1292,11 +1293,13 @@
           elements.unassignedPlayers.innerHTML=players.filter(p=>p.teamId!==0&&p.teamId!==1).map(p=>`<li>${p.name}</li>`).join("")||"<li>—</li>";
           const hasTeam0 = players.some((p) => p.teamId === 0);
           const hasTeam1 = players.some((p) => p.teamId === 1);
+          const distinctTeamUids = new Set(players.filter((p) => p.teamId === 0 || p.teamId === 1).map((p) => p.uid));
+          const canStart = hasTeam0 && hasTeam1 && distinctTeamUids.size >= 2;
           const isHost = roomData.meta?.hostUid===state.online.session.uid;
           elements.hostStartOnlineBtn.classList.toggle("hidden", !isHost);
-          elements.hostStartOnlineBtn.disabled = !hasTeam0 || !hasTeam1;
-          if (isHost && (!hasTeam0 || !hasTeam1)) {
-            elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام لاعب لكل فريق.";
+          elements.hostStartOnlineBtn.disabled = !canStart;
+          if (isHost && !canStart) {
+            elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام لاعب آخر من جهاز أو متصفح مختلف.";
           } else if (isHost) {
             elements.onlineLobbyMessage.textContent = "جاهز للبدء.";
           }

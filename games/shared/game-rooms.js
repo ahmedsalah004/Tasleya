@@ -200,9 +200,50 @@
     const sessionId = createSessionId();
     const rootRef = roomRef(normalizedRoomCode);
 
-    const metaSnapshot = await rootRef.child("meta").once("value");
-    if (!metaSnapshot.exists()) {
+    const roomSnapshot = await rootRef.once("value");
+    if (!roomSnapshot.exists()) {
       throw new Error("Room not found.");
+    }
+
+    const roomData = roomSnapshot.val() || {};
+    const hostUid = normalizeText(roomData?.meta?.hostUid);
+    const players = roomData?.players && typeof roomData.players === "object" ? roomData.players : {};
+    const existingPlayer = players[uid] && typeof players[uid] === "object" ? players[uid] : null;
+    const restoredSession = restoreGameRoomSession();
+    const canResumeExistingPlayer = !!(
+      existingPlayer &&
+      restoredSession &&
+      restoredSession.roomCode === normalizedRoomCode &&
+      restoredSession.uid === uid
+    );
+
+    if (existingPlayer) {
+      if (canResumeExistingPlayer) {
+        await rootRef.update({
+          [`players/${uid}/lastSeenAt`]: getServerTimestamp(),
+          [`players/${uid}/isConnected`]: true,
+          [`players/${uid}/sessionId`]: sessionId,
+        });
+
+        const resumedRole = normalizeText(existingPlayer.role) || (uid === hostUid ? "host" : "player");
+        const resumedName = toDisplayName(existingPlayer.name, normalizedPlayerName);
+        const resumedSession = {
+          roomCode: normalizedRoomCode,
+          uid,
+          role: resumedRole,
+          sessionId,
+          playerName: resumedName,
+          savedAt: Date.now(),
+        };
+
+        saveGameRoomSession(resumedSession);
+        return resumedSession;
+      }
+
+      if (uid === hostUid) {
+        throw new Error("هذا نفس اللاعب الحالي. للعب من جهازين، افتح الرابط في نافذة خفية أو جهاز آخر.");
+      }
+      throw new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر.");
     }
 
     const updates = {
