@@ -2,6 +2,7 @@
   const intro = document.getElementById("introScreen");
   const host = document.getElementById("filmsRuntimeHost");
   const enterBtn = document.getElementById("introStartBtn");
+  const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
   let mounted = false;
   let mounting = false;
   let initialized = false;
@@ -31,6 +32,7 @@
     try {
       const response = await fetch('/films/runtime-fragment.html', { cache: 'no-store' });
       if (!response.ok) throw new Error(`FILMS_RUNTIME_LOAD_FAILED_${response.status}`);
+      if (!host) throw new Error("FILMS_RUNTIME_HOST_MISSING");
       host.innerHTML = await response.text();
       mounted = true;
     } finally {
@@ -699,6 +701,11 @@
       }
   }
 
+  if (!enterBtn) {
+    console.error("[films] Missing #introStartBtn");
+    showLoaderError(RUNTIME_UI_LOAD_ERROR);
+    return;
+  }
   enterBtn.addEventListener('click', async () => {
     enterBtn.disabled = true;
     try {
@@ -710,7 +717,21 @@
       if (setupScreen) setupScreen.classList.add('active');
     } catch (error) {
       console.error('[films] failed to mount runtime', error);
+      showLoaderError(RUNTIME_UI_LOAD_ERROR);
       enterBtn.disabled = false;
     }
   });
+  function showLoaderError(message) {
+    const boxHost = intro || host || document.body;
+    if (!boxHost) return;
+    let box = document.getElementById("filmsLoaderError");
+    if (!box) {
+      box = document.createElement("p");
+      box.id = "filmsLoaderError";
+      box.style.color = "#ffd7d7";
+      box.style.fontWeight = "700";
+      boxHost.appendChild(box);
+    }
+    box.textContent = message || RUNTIME_UI_LOAD_ERROR;
+  }
 })();

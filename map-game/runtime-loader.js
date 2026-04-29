@@ -7,6 +7,7 @@
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
   const enterBtn = document.getElementById('enterSetupBtn');
+  const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
   let mounted = false;
   let mounting = false;
   let initialized = false;
@@ -36,6 +37,7 @@
     try {
       const response = await fetch(runtimeFragmentUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error(`MAP_RUNTIME_LOAD_FAILED_${response.status}`);
+      if (!host) throw new Error("MAP_RUNTIME_HOST_MISSING");
       host.innerHTML = await response.text();
       mounted = true;
     } finally {
@@ -2551,6 +2553,11 @@
       initializeMapGame();
   }
 
+  if (!enterBtn) {
+    console.error("[map-game] Missing #enterSetupBtn");
+    showLoaderError(RUNTIME_UI_LOAD_ERROR);
+    return;
+  }
   enterBtn.addEventListener('click', async () => {
     enterBtn.disabled = true;
     try {
@@ -2562,7 +2569,21 @@
       initRuntime();
     } catch (error) {
       console.error('[map-game] failed to mount runtime', error);
+      showLoaderError(RUNTIME_UI_LOAD_ERROR);
       enterBtn.disabled = false;
     }
   });
+  function showLoaderError(message) {
+    const hostEl = intro || host || document.body;
+    if (!hostEl) return;
+    let box = document.getElementById("mapGameLoaderError");
+    if (!box) {
+      box = document.createElement("p");
+      box.id = "mapGameLoaderError";
+      box.style.color = "#ffd7d7";
+      box.style.fontWeight = "700";
+      hostEl.appendChild(box);
+    }
+    box.textContent = message || RUNTIME_UI_LOAD_ERROR;
+  }
 })();

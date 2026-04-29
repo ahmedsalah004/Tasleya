@@ -4,6 +4,7 @@
   const backToIntroBtn = document.getElementById('backToForbiddenWordsIntroBtn');
   const host = document.getElementById('forbiddenRuntimeHost');
   const enterBtn = document.getElementById('enterForbiddenSetupBtn');
+  const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
   let mounted = false;
   let mounting = false;
   let initialized = false;
@@ -24,6 +25,7 @@
     try {
       const response = await fetch('/games/forbidden-words/runtime-fragment.html', { cache: 'no-store' });
       if (!response.ok) throw new Error(`FORBIDDEN_RUNTIME_LOAD_FAILED_${response.status}`);
+      if (!host) throw new Error("FORBIDDEN_RUNTIME_HOST_MISSING");
       host.innerHTML = await response.text();
       mounted = true;
     } finally {
@@ -931,6 +933,11 @@
       });
   }
 
+  if (!enterBtn) {
+    console.error("[forbidden-words] Missing #enterForbiddenSetupBtn");
+    showLoaderError(RUNTIME_UI_LOAD_ERROR);
+    return;
+  }
   enterBtn.addEventListener('click', async () => {
     enterBtn.disabled = true;
     try {
@@ -941,6 +948,7 @@
       if (setupScreen) setupScreen.classList.remove('hidden');
     } catch (error) {
       console.error('[forbidden-words] failed to mount runtime', error);
+      showLoaderError(RUNTIME_UI_LOAD_ERROR);
       enterBtn.disabled = false;
       showContentView();
     }
@@ -950,5 +958,18 @@
     backToIntroBtn.addEventListener('click', () => {
       showContentView();
     });
+  }
+  function showLoaderError(message) {
+    const hostEl = contentView || host || document.body;
+    if (!hostEl) return;
+    let box = document.getElementById("forbiddenLoaderError");
+    if (!box) {
+      box = document.createElement("p");
+      box.id = "forbiddenLoaderError";
+      box.style.color = "#ffd7d7";
+      box.style.fontWeight = "700";
+      hostEl.appendChild(box);
+    }
+    box.textContent = message || RUNTIME_UI_LOAD_ERROR;
   }
 })();
