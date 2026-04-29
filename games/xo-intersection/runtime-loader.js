@@ -46,7 +46,7 @@
       const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
       const XO_GAME_KEY = "xo-intersection";
-      const XO_ONLINE_BLOCKED_TEXT = "اللعب الأونلاين قيد الاختبار، وسيتم تفعيل اختيار الخانات في الخطوة التالية.";
+      const XO_ONLINE_WAIT_HOST_TEXT = "بانتظار حكم المضيف على الإجابة";
 
       const state = {
         currentScreen: "setup",
@@ -620,10 +620,21 @@
         state.currentTurnTeamIndex = state.currentTurnTeamIndex === 0 ? 1 : 0;
       }
 
+      function getOnlineMyTeamId() {
+        const teamId = Number(state.online.roomData?.players?.[state.online.session?.uid || ""]?.teamId);
+        return teamId === 0 || teamId === 1 ? teamId : null;
+      }
+
       function renderTurnBanner() {
         const teamName = getTeamNameByIndex(state.currentTurnTeamIndex);
         const symbol = getSymbolByTeamIndex(state.currentTurnTeamIndex);
-        elements.turnTeamText.textContent = `الدور الآن: ${teamName}`;
+        if (state.playMode === "online") {
+          const myTeamId = getOnlineMyTeamId();
+          const isMyTurn = myTeamId !== null && myTeamId === state.currentTurnTeamIndex;
+          elements.turnTeamText.textContent = state.selectedSquare ? XO_ONLINE_WAIT_HOST_TEXT : (isMyTurn ? "دور فريقك" : "بانتظار دور الفريق الآخر");
+        } else {
+          elements.turnTeamText.textContent = `الدور الآن: ${teamName}`;
+        }
         elements.turnSymbolText.textContent = `الرمز الحالي: ${symbol} · ${teamName}`;
       }
 
@@ -641,10 +652,21 @@
         return state.winningLineCells.some(([winRow, winCol]) => winRow === row && winCol === col);
       }
 
+      async function submitOnlineAction(type, payload) {
+        const gameRooms = await ensureGameRooms();
+        return gameRooms.submitGameRoomAction(state.online.session.roomCode, {
+          type,
+          payload,
+          clientRequestId: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        });
+      }
+
       function onCellSelect(row, col) {
         if (state.playMode === "online") {
-          elements.cancelNotice.classList.remove("hidden");
-          elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT;
+          const myTeamId = getOnlineMyTeamId();
+          const isMyTurn = myTeamId !== null && myTeamId === state.currentTurnTeamIndex;
+          if (state.gameStatus !== "playing" || !isMyTurn || state.selectedSquare || state.boardCells[row][col]) return;
+          submitOnlineAction("select_cell", { row, col, teamId: myTeamId, expectedRevision: Number(state.online.revision || 0) }).catch(() => {});
           return;
         }
         if (state.gameStatus !== "playing") return;
@@ -1154,7 +1176,7 @@
             elements.onlineInviteWrap.classList.remove("hidden");
             elements.onlineJoinForm.classList.add("hidden");
             setScreen("onlineLobby");
-            state.online.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} });
+            state.online.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} });
           } catch (error) {
             elements.onlineLobbyMessage.textContent = `تعذر إنشاء الغرفة: ${error?.message || "حاول مرة أخرى."}`;
           } finally {
@@ -1164,7 +1186,7 @@
 
         elements.onlineJoinFlowBtn?.addEventListener("click", () => { setScreen("onlineLobby"); elements.onlineRoleBadge.textContent = "أنت لاعب منضم"; elements.onlineJoinForm.classList.remove("hidden"); });
         elements.backToSetupFromOnlineChoiceBtn?.addEventListener("click", ()=>setScreen("setup"));
-        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"Player")}); state.online.enabled=true; state.online.session=session; elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} }); });
+        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"Player")}); state.online.enabled=true; state.online.session=session; elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); });
         elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
         async function setMyTeam(teamIndex){
           try {
@@ -1226,7 +1248,48 @@
             elements.onlineLobbyMessage.textContent = "جاهز للبدء.";
           }
         }
-        function applyOnlineGameState(gs){ state.playMode="online"; state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.remove("hidden"); elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT; }
+        async function processPendingRoomActions(roomData) {
+          const gameRooms = await ensureGameRooms();
+          if (roomData?.meta?.hostUid !== state.online.session?.uid) return;
+          const pending = Object.values(roomData?.actions || {}).filter((action) => action?.status === "pending");
+          for (const action of pending) {
+            const gs = roomData?.public?.gameState;
+            const expectedRevision = Number(action?.payload?.expectedRevision);
+            if (!gs || !Number.isInteger(expectedRevision) || expectedRevision !== Number(gs.revision || 0) || gs.phase !== "playing" || gs.gameStatus !== "playing") {
+              await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "stale_or_invalid" });
+              continue;
+            }
+            const teams = gs.teams?.teamAssignments || {};
+            const senderTeamId = Number(teams[action.fromUid]);
+            if (action.type === "select_cell") {
+              const row = Number(action.payload?.row); const col = Number(action.payload?.col);
+              if (gs.selectedSquare || senderTeamId !== Number(gs.currentTurnTeamIndex || 0) || !Number.isInteger(row) || !Number.isInteger(col) || row < 0 || row > 2 || col < 0 || col > 2 || gs.boardCells?.[row]?.[col]) {
+                await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "invalid_select" }); continue;
+              }
+              const next = { ...gs, selectedSquare: { row, col, byTeamId: senderTeamId, byUid: action.fromUid }, revision: Number(gs.revision || 0) + 1 };
+              await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, { gameState: next });
+              await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
+            } else if (action.type === "host_mark_correct" || action.type === "host_mark_incorrect") {
+              if (action.fromUid !== roomData.meta?.hostUid || !gs.selectedSquare) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "host_only" }); continue; }
+              const next = { ...gs, boardCells: gs.boardCells.map((r)=>r.slice()), selectedSquare: null, winningLineCells: Array.isArray(gs.winningLineCells) ? gs.winningLineCells : [] };
+              if (action.type === "host_mark_correct") {
+                const sq = gs.selectedSquare; next.boardCells[sq.row][sq.col] = getSymbolByTeamIndex(Number(gs.currentTurnTeamIndex || 0));
+                const win = getWinningLine(next.boardCells);
+                if (win) { next.winningLineCells = win; next.gameStatus = "won"; next.phase = "finished"; }
+                else if (isBoardFull(next.boardCells)) { next.winningLineCells = []; next.gameStatus = "draw"; next.phase = "finished"; }
+                else { next.currentTurnTeamIndex = Number(gs.currentTurnTeamIndex || 0) === 0 ? 1 : 0; next.gameStatus = "playing"; next.phase = "playing"; next.winningLineCells = []; }
+              } else {
+                next.currentTurnTeamIndex = Number(gs.currentTurnTeamIndex || 0) === 0 ? 1 : 0;
+              }
+              next.revision = Number(gs.revision || 0) + 1;
+              await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, { gameState: next });
+              await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
+            } else {
+              await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "unsupported" });
+            }
+          }
+        }
+        function applyOnlineGameState(gs){ state.playMode="online"; state.online.revision=Number(gs.revision||0); state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; state.selectedSquare=gs.selectedSquare||null; state.winningLineCells=Array.isArray(gs.winningLineCells)?gs.winningLineCells:[]; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.add("hidden"); }
 
         elements.startBtn.addEventListener("click", () => {
           if (state.loadingStatus !== "success") {
@@ -1326,6 +1389,7 @@
 
         elements.confirmCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
+          if (state.playMode === "online") { submitOnlineAction("host_mark_correct", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
           const { row, col } = state.selectedSquare;
           state.boardCells[row][col] = getSymbolByTeamIndex(state.currentTurnTeamIndex);
           state.selectedSquare = null;
@@ -1345,6 +1409,7 @@
 
         elements.cancelCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
+          if (state.playMode === "online") { submitOnlineAction("host_mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
           state.selectedSquare = null;
           switchTurn();
           showCancelNotice();
