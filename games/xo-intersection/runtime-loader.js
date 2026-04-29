@@ -45,7 +45,9 @@
       const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
       const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
-      const XO_ONLINE_DEV_FLAG = new URLSearchParams(window.location.search).get("xoOnlineDev") === "1" || window.location.hash === "#xo-online-dev";
+      const xoUrlParams = new URLSearchParams(window.location.search);
+      const XO_ONLINE_DEV_FLAG = xoUrlParams.get("xoOnlineDev") === "1" || window.location.hash.includes("xo-online-dev");
+      const XO_INVITE_ROOM_CODE = normalizeInviteRoomCode(xoUrlParams.get("room"));
       const XO_ONLINE_DEPENDENCY_SCRIPTS = [
         "https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js",
         "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js",
@@ -184,6 +186,10 @@
       function normalizeCell(value) {
         return String(value || "").trim();
       }
+      function normalizeInviteRoomCode(rawCode) {
+        const value = normalizeCell(rawCode).toUpperCase();
+        return /^[A-Z0-9]{4,12}$/.test(value) ? value : "";
+      }
       function setText(el, value) { if (el) el.textContent = value || ""; }
       function showOnlineFallback(message) {
         elements.xoOnlineFallback.classList.remove("hidden");
@@ -220,28 +226,41 @@
 
       function getConfiguredApiBaseUrl() {
         const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
-        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
-          return DEFAULT_WORKER_API_BASE_URL;
-        }
+        if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) return "";
         return configuredBaseUrl.replace(/\/+$/, "");
       }
 
-      function buildApiUrl(path) {
-        return new URL(`${getConfiguredApiBaseUrl()}${path}`, window.location.origin);
+      function buildApiCandidates(path) {
+        const configured = getConfiguredApiBaseUrl();
+        const candidates = [
+          new URL(path, window.location.origin),
+        ];
+        if (configured) candidates.push(new URL(`${configured}${path}`, window.location.origin));
+        candidates.push(new URL(`${DEFAULT_WORKER_API_BASE_URL}${path}`, window.location.origin));
+        return candidates.filter((url, index, arr) => arr.findIndex((item) => item.href === url.href) === index);
       }
 
       async function apiFetchJson(path) {
-        const response = await fetch(buildApiUrl(path), {
-          method: "GET",
-          headers: { Accept: "application/json" },
-          cache: "no-store"
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          const message = normalizeCell(payload && payload.error) || "تعذر تحميل بيانات اللعبة.";
-          throw new Error(message);
+        const candidates = buildApiCandidates(path);
+        let lastError = null;
+        for (const endpointUrl of candidates) {
+          try {
+            const response = await fetch(endpointUrl, {
+              method: "GET",
+              headers: { Accept: "application/json" },
+              cache: "no-store"
+            });
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+              const message = normalizeCell(payload && payload.error) || `HTTP_${response.status}`;
+              throw new Error(message);
+            }
+            return payload;
+          } catch (error) {
+            lastError = error;
+          }
         }
-        return payload;
+        throw new Error(normalizeCell(lastError && lastError.message) || "تعذر تحميل بيانات اللعبة.");
       }
 
       function normalizeBoardRow(raw) {
@@ -1136,7 +1155,7 @@
           const session = await onlineState.gameRooms.createGameRoom({ gameType: "xo-intersection", hostName: playerName, maxTeams: 2 });
           onlineState.session = session;
           setText(elements.xoRoomCodeLabel, session.roomCode);
-          setText(elements.xoRoomLinkLabel, `${window.location.origin}${window.location.pathname}?xoOnlineDev=1#xo-online-dev&room=${session.roomCode}`);
+          setText(elements.xoRoomLinkLabel, `${window.location.origin}${window.location.pathname}?xoOnlineDev=1&room=${session.roomCode}#xo-online-dev`);
           elements.xoOnlineLobbyPanel.classList.remove("hidden");
           bindOnlineRoomListener(session.roomCode);
         });
@@ -1168,6 +1187,14 @@
           };
           await onlineState.gameRooms.updateGameRoomPublicState(onlineState.session.roomCode, { gameState });
         });
+        if (XO_ONLINE_DEV_FLAG && XO_INVITE_ROOM_CODE) {
+          state.gameMode = "online";
+          elements.startBtn.classList.add("hidden");
+          elements.xoOnlineRoomPanel.classList.remove("hidden");
+          elements.xoJoinRoomPanel.classList.remove("hidden");
+          elements.xoRoomCodeInput.value = XO_INVITE_ROOM_CODE;
+          setText(elements.xoOnlineRoomMessage, "تم تعبئة كود الغرفة من الرابط. أدخل اسمك ثم اضغط انضمام.");
+        }
 
         elements.team1Input.addEventListener("input", () => {
           applyTeamNames();
