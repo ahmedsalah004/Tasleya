@@ -137,6 +137,16 @@
     return uid;
   }
 
+
+  async function getGameRoomSnapshot(roomCode) {
+    if (!runtime.initialized) {
+      assertFirebaseReady();
+    }
+
+    const normalizedRoomCode = requireRoomCode(roomCode);
+    return roomRef(normalizedRoomCode).once("value");
+  }
+
   async function createGameRoom({ gameType, hostName, maxTeams } = {}) {
     const uid = await ensureGameRoomAuth();
     const normalizedGameType = normalizeText(gameType) || "guess-from-hint";
@@ -503,6 +513,7 @@
     ensureGameRoomAuth,
     createGameRoom,
     joinGameRoom,
+    getGameRoomSnapshot,
     listenToGameRoom,
     detachGameRoomListener,
     updateGameRoomPublicState,
