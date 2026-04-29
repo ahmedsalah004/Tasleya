@@ -1069,30 +1069,41 @@
         return params.get("xoOnlineDev") === "1" || hash.includes("xo-online-dev");
       }
 
+      const xoScriptLoadPromises = new Map();
+      function loadScriptOnce(src) {
+        if (xoScriptLoadPromises.has(src)) return xoScriptLoadPromises.get(src);
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing && existing.dataset.loaded === "true") return Promise.resolve();
+        const script = existing || document.createElement("script");
+        const promise = new Promise((resolve, reject) => {
+          const done = () => {
+            script.dataset.loaded = "true";
+            xoScriptLoadPromises.delete(src);
+            resolve();
+          };
+          const fail = () => {
+            xoScriptLoadPromises.delete(src);
+            reject(new Error(`تعذر تحميل الاعتماد: ${src}`));
+          };
+          script.addEventListener("load", done, { once: true });
+          script.addEventListener("error", fail, { once: true });
+          if (!existing) {
+            script.src = src;
+            script.async = false;
+            document.head.appendChild(script);
+          }
+        });
+        xoScriptLoadPromises.set(src, promise);
+        return promise;
+      }
+
       async function ensureGameRooms() {
         if (window.TasleyaGameRooms) return window.TasleyaGameRooms;
-        if (!window.firebase) {
-          await new Promise((resolve, reject) => {
-            const sc = document.createElement('script');
-            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
-            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
-          });
-          await new Promise((resolve, reject) => {
-            const sc = document.createElement('script');
-            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
-            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
-          });
-          await new Promise((resolve, reject) => {
-            const sc = document.createElement('script');
-            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
-            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
-          });
-        }
-        await new Promise((resolve, reject) => {
-          const sc = document.createElement('script');
-          sc.src = '/games/shared/game-rooms.js';
-          sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
-        });
+        await loadScriptOnce("https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js");
+        await loadScriptOnce("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js");
+        await loadScriptOnce("https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js");
+        await loadScriptOnce("/firebase-config.js");
+        await loadScriptOnce("/games/shared/game-rooms.js");
         return window.TasleyaGameRooms;
       }
 
@@ -1119,17 +1130,28 @@
         });
 
         elements.onlineCreateFlowBtn?.addEventListener("click", async () => {
-          const gameRooms = await ensureGameRooms();
-          const session = await gameRooms.createGameRoom({ gameType: XO_GAME_KEY, hostName: "Host", maxTeams: 2 });
-          state.online.enabled = true; state.online.session = session;
-          const gs = { phase:"lobby", teams:{ teamAssignments:{} } };
-          await gameRooms.updateGameRoomPublicState(session.roomCode, { gameState: gs });
-          elements.onlineRoleBadge.textContent = "أنت المضيف";
-          elements.onlineLobbyMessage.textContent = "شارك الكود أو الرابط مع اللاعب الآخر، ثم اختر فريقك وانتظر انضمامه.";
-          elements.onlineRoomCodeText.textContent = session.roomCode;
-          elements.onlineInviteLinkText.textContent = buildInvite(session.roomCode);
-          setScreen("onlineLobby");
-          state.online.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} });
+          elements.onlineCreateFlowBtn.disabled = true;
+          elements.onlineLobbyMessage.textContent = "جارِ إنشاء الغرفة...";
+          try {
+            const gameRooms = await ensureGameRooms();
+            const hostName = (elements.onlinePlayerNameInput.value || elements.team1Input.value || "المضيف").trim();
+            const session = await gameRooms.createGameRoom({ gameType: XO_GAME_KEY, hostName, maxTeams: 2 });
+            state.online.enabled = true; state.online.session = session;
+            const gs = { phase:"lobby", teams:{ teamAssignments:{} } };
+            await gameRooms.updateGameRoomPublicState(session.roomCode, { gameState: gs });
+            elements.onlineRoleBadge.textContent = "أنت المضيف";
+            elements.onlineLobbyMessage.textContent = "شارك الكود أو الرابط مع اللاعب الآخر، ثم اختر فريقك وانتظر انضمامه.";
+            elements.onlineRoomCodeText.textContent = session.roomCode;
+            elements.onlineInviteLinkText.textContent = buildInvite(session.roomCode);
+            elements.onlineInviteWrap.classList.remove("hidden");
+            elements.onlineJoinForm.classList.add("hidden");
+            setScreen("onlineLobby");
+            state.online.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} });
+          } catch (error) {
+            elements.onlineLobbyMessage.textContent = `تعذر إنشاء الغرفة: ${error?.message || "حاول مرة أخرى."}`;
+          } finally {
+            elements.onlineCreateFlowBtn.disabled = false;
+          }
         });
 
         elements.onlineJoinFlowBtn?.addEventListener("click", () => { setScreen("onlineLobby"); elements.onlineRoleBadge.textContent = "أنت لاعب منضم"; elements.onlineJoinForm.classList.remove("hidden"); });
