@@ -1,17 +1,27 @@
       const auctionIntro = document.getElementById("auctionIntro");
       const auctionRuntimeHost = document.getElementById("auctionRuntimeHost");
+      const AUCTION_RUNTIME_VERSION = "auction-runtime-2026-04-29a";
+      const withAuctionVersion = (src) => {
+        if (typeof src !== "string" || !src) return src;
+        if (!src.startsWith("/games/auction/") && !src.startsWith("/games/shared/")) return src;
+        const divider = src.includes("?") ? "&" : "?";
+        return `${src}${divider}v=${encodeURIComponent(AUCTION_RUNTIME_VERSION)}`;
+      };
+      window.__AUCTION_BUILD__ = AUCTION_RUNTIME_VERSION;
+      window.__AUCTION_ASSET_VERSION__ = AUCTION_RUNTIME_VERSION;
+      console.info("[Tasleya Auction]", AUCTION_RUNTIME_VERSION);
       const AUCTION_RUNTIME_FRAGMENT_URL = "/games/auction/runtime-fragment.html";
       const AUCTION_DEPENDENCY_LOAD_ERROR = "تعذر تجهيز اللعبة. حاول تحديث الصفحة أو فتحها مرة أخرى.";
       const AUCTION_LOCAL_DEPENDENCY_SCRIPTS = [
-        "/games/auction/data.js",
-        "/games/shared/recent-history.js",
+        withAuctionVersion("/games/auction/data.js"),
+        withAuctionVersion("/games/shared/recent-history.js"),
       ];
       const AUCTION_ONLINE_DEPENDENCY_SCRIPTS = [
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js",
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js",
         "https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js",
         "/firebase-config.js",
-        "/games/shared/game-rooms.js",
+        withAuctionVersion("/games/shared/game-rooms.js"),
       ];
       const scriptLoadPromises = new Map();
       let auctionRuntimeMounted = false;
