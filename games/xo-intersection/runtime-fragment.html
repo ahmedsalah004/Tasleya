@@ -1,8 +1,8 @@
 <section class="panel screen hidden" data-screen="setup">
         <div class="panel-head">
           <h1>XO | خمن الرابط</h1>
-          <p class="subtitle">اختر فريقين، ثم العبوا على نفس الجهاز</p>
-          <p class="helper">اتفقوا على صحة الإجابة بينكم، ثم ثبّتوا الخانة</p>
+          <p class="subtitle">اختر طريقة اللعب ثم أكمل إعداد الفريقين</p>
+          <p class="helper">يمكنك اللعب على نفس الجهاز أو مع صديق من جهاز آخر</p>
         </div>
 
         <div class="form-stack">
@@ -20,7 +20,7 @@
 
         <div class="buttons-stack" style="margin-top: 0.9rem">
           <button id="chooseSameDeviceBtn" class="btn btn-secondary hidden" type="button">العب على نفس الجهاز</button>
-          <button id="chooseOnlineBtn" class="btn btn-secondary hidden" type="button">العب من أجهزة مختلفة (تجريبي)</button>
+          <button id="chooseOnlineBtn" class="btn btn-secondary hidden" type="button">العب من أجهزة مختلفة</button>
           <button id="startBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
           <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
           <button id="retryBtn" class="btn btn-secondary hidden" type="button">إعادة المحاولة</button>
@@ -28,7 +28,7 @@
       </section>
 
       <section class="panel screen" data-screen="onlineChoice">
-        <h2>اللعب الأونلاين (تجريبي)</h2>
+        <h2>اللعب من أجهزة مختلفة</h2>
         <div class="buttons-stack">
           <button id="onlineCreateFlowBtn" class="btn btn-primary" type="button">أنا المضيف: إنشاء غرفة جديدة</button>
           <button id="onlineJoinFlowBtn" class="btn btn-secondary" type="button">أنا لاعب: الانضمام بكود غرفة</button>
@@ -44,7 +44,7 @@
         <p class="helper" id="onlineInviteWrap">رابط الدعوة: <span id="onlineInviteLinkText"></span></p>
         <button id="copyInviteBtn" class="btn btn-secondary" type="button">نسخ رابط الدعوة</button>
         <div id="onlineJoinForm" class="form-stack" style="margin-top:0.8rem">
-          <div class="field"><label for="onlineRoomCodeInput">أدخل كود الغرفة</label><input id="onlineRoomCodeInput" type="text" /></div>
+          <div class="field"><label for="onlineRoomCodeInput">كود الغرفة</label><input id="onlineRoomCodeInput" type="text" /></div>
           <div class="field"><label for="onlinePlayerNameInput">اسم اللاعب</label><input id="onlinePlayerNameInput" type="text" /></div>
           <button id="onlineJoinSubmitBtn" class="btn btn-primary" type="button">انضمام</button>
         </div>
