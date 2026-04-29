@@ -63,7 +63,7 @@
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
       const XO_GAME_KEY = "xo-intersection";
       const XO_ONLINE_WAIT_TEAM_CONFIRM_TEXT = "بانتظار تثبيت إجابة الفريق الحالي";
-      const XO_RUNTIME_BUILD = "xo-runtime-2026-04-29d";
+      const XO_RUNTIME_BUILD = "xo-runtime-2026-04-29e";
 
       const state = {
         currentScreen: "setup",
@@ -1184,12 +1184,37 @@
         await loadScriptOnce("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js");
         await loadScriptOnce("https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js");
         await loadScriptOnce("/firebase-config.js");
-        await loadScriptOnce("/games/shared/game-rooms.js");
+        await loadScriptOnce("/games/shared/game-rooms.js?v=xo-online-2026-04-29e");
         return window.TasleyaGameRooms;
       }
 
       function buildInvite(roomCode) {
         return `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+      }
+
+      function normalizeRoomCode(roomCode) {
+        const normalized = String(roomCode || "").trim().toUpperCase();
+        if (!/^[A-Z0-9]{4,12}$/.test(normalized)) {
+          throw new Error("رمز الغرفة غير صالح.");
+        }
+        return normalized;
+      }
+
+      async function getRoomSnapshotSafe(roomCode) {
+        const code = normalizeRoomCode(roomCode);
+        const gameRooms = window.TasleyaGameRooms;
+
+        if (gameRooms && typeof gameRooms.getGameRoomSnapshot === "function") {
+          const snapshot = await gameRooms.getGameRoomSnapshot(code);
+          return snapshot?.val?.() || null;
+        }
+
+        if (!window.firebase || !window.firebase.database) {
+          throw new Error("تعذر تحميل قاعدة بيانات الغرفة.");
+        }
+
+        const snapshot = await window.firebase.database().ref(`gameRooms/${code}`).once("value");
+        return snapshot.val() || null;
       }
 
       function getOnlineStartBoard() {
@@ -1257,7 +1282,7 @@
         elements.backToSetupFromOnlineChoiceBtn?.addEventListener("click", ()=>setScreen("setup"));
         elements.backToOnlineChoiceFromHostCreateBtn?.addEventListener("click", ()=>setScreen("onlineChoice"));
         elements.backToOnlineChoiceFromJoinBtn?.addEventListener("click", ()=>setScreen("onlineChoice"));
-        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ try { const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const playerName=(elements.onlinePlayerNameInput.value||"لاعب"); const uid = await gameRooms.ensureGameRoomAuth(); const roomSnapshot = await gameRooms.getGameRoomSnapshot(code); const roomData = roomSnapshot?.val?.() || {}; const hostUid = String(roomData?.meta?.hostUid || ""); const players = roomData?.players && typeof roomData.players === "object" ? roomData.players : {}; const existingPlayer = players[uid] && typeof players[uid] === "object" ? players[uid] : null; const existingRole = String(existingPlayer?.role || "").trim().toLowerCase(); const existingTeamId = Number(existingPlayer?.teamId); const isHostLike = uid === hostUid || existingRole === "host" || existingTeamId === 0; const isGuestResume = !!existingPlayer && existingRole !== "host" && existingTeamId === 1; console.info("[xo-online][guest-preflight]", { build: XO_RUNTIME_BUILD, roomCode: code, uid, hostUid, hasExistingPlayer: !!existingPlayer, existingRole, existingTeamId, isHostLike, isGuestResume }); if (existingPlayer && !isGuestResume) { throw Object.assign(new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."), { code: "SELF_JOIN_BLOCKED", reason: isHostLike ? "preflight_host_or_team0" : "preflight_invalid_existing_player" }); } const session=await gameRooms.joinGameRoom({roomCode:code, playerName, joinIntent:"guest", expectedRole:"guest"}); const resumedRole = String(session?.role || ""); const resumedTeamId = Number(session?.existingPlayer?.teamId); const isValidGuestResume = !!session?.resumedExistingPlayer && resumedRole !== "host" && resumedTeamId === 1; console.info("[xo-online][guest-join-result]", { build: XO_RUNTIME_BUILD, roomCode: code, uid: session?.uid, hostUid, createdNewPlayer: !!session?.createdNewPlayer, resumedExistingPlayer: !!session?.resumedExistingPlayer, hasExistingPlayer: !!session?.existingPlayer, resumedRole, resumedTeamId, willAssignTeam1: !!session?.createdNewPlayer }); state.online.enabled=true; state.online.session=session; if (session?.createdNewPlayer) { await assignMyTeam(1); } else if (isValidGuestResume) { await gameRooms.setGameRoomPresence(code, {}); } else if (session?.resumedExistingPlayer) { throw Object.assign(new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."), { code: "SELF_JOIN_BLOCKED", reason: "resume_mismatch_after_join" }); } elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); elements.onlineJoinForm.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); } catch (error) { if (error?.code === "SELF_JOIN_BLOCKED" || String(error?.message || "").includes("نفس المتصفح")) { elements.onlineLobbyMessage.textContent = "لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."; return; } elements.onlineLobbyMessage.textContent = `تعذر الانضمام: ${error?.message || "حاول مرة أخرى."}`; } });
+        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ try { const gameRooms=await ensureGameRooms(); const code=normalizeRoomCode(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||""); const playerName=(elements.onlinePlayerNameInput.value||"لاعب"); const uid = await gameRooms.ensureGameRoomAuth(); const roomData = await getRoomSnapshotSafe(code) || {}; const hostUid = String(roomData?.meta?.hostUid || ""); const players = roomData?.players && typeof roomData.players === "object" ? roomData.players : {}; const existingPlayer = players[uid] && typeof players[uid] === "object" ? players[uid] : null; const existingRole = String(existingPlayer?.role || "").trim().toLowerCase(); const existingTeamId = Number(existingPlayer?.teamId); const isHostLike = uid === hostUid || existingRole === "host" || existingTeamId === 0; const isGuestResume = !!existingPlayer && existingRole !== "host" && existingTeamId === 1; console.info("[xo-online][guest-preflight]", { build: XO_RUNTIME_BUILD, roomCode: code, uid, hostUid, hasExistingPlayer: !!existingPlayer, existingRole, existingTeamId, isHostLike, isGuestResume }); if (existingPlayer && !isGuestResume) { throw Object.assign(new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."), { code: "SELF_JOIN_BLOCKED", reason: isHostLike ? "preflight_host_or_team0" : "preflight_invalid_existing_player" }); } const session=await gameRooms.joinGameRoom({roomCode:code, playerName, joinIntent:"guest", expectedRole:"guest"}); const resumedRole = String(session?.role || ""); const resumedTeamId = Number(session?.existingPlayer?.teamId); const isValidGuestResume = !!session?.resumedExistingPlayer && resumedRole !== "host" && resumedTeamId === 1; console.info("[xo-online][guest-join-result]", { build: XO_RUNTIME_BUILD, roomCode: code, uid: session?.uid, hostUid, createdNewPlayer: !!session?.createdNewPlayer, resumedExistingPlayer: !!session?.resumedExistingPlayer, hasExistingPlayer: !!session?.existingPlayer, resumedRole, resumedTeamId, willAssignTeam1: !!session?.createdNewPlayer }); state.online.enabled=true; state.online.session=session; if (session?.createdNewPlayer) { await assignMyTeam(1); } else if (isValidGuestResume) { await gameRooms.setGameRoomPresence(code, {}); } else if (session?.resumedExistingPlayer) { throw Object.assign(new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."), { code: "SELF_JOIN_BLOCKED", reason: "resume_mismatch_after_join" }); } elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); elements.onlineJoinForm.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); } catch (error) { if (error?.code === "SELF_JOIN_BLOCKED" || String(error?.message || "").includes("نفس المتصفح")) { elements.onlineLobbyMessage.textContent = "لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."; return; } elements.onlineLobbyMessage.textContent = `تعذر الانضمام: ${error?.message || "حاول مرة أخرى."}`; } });
         elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
         elements.onlineStarterTeam0Btn?.addEventListener("click", () => selectOnlineStarterTeam(0));
         elements.onlineStarterTeam1Btn?.addEventListener("click", () => selectOnlineStarterTeam(1));
