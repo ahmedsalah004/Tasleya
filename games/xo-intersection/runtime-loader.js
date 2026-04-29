@@ -91,7 +91,7 @@
         isAwaitingResumeChoice: false,
         isOnlineDevEnabled: false,
         playMode: "local",
-        online: { enabled:false, session:null, roomData:null, unsubscribeRoom:null, unsubscribePresence:null, pendingActionIds:{} }
+        online: { enabled:false, session:null, roomData:null, unsubscribeRoom:null, unsubscribePresence:null, pendingActionIds:{}, selectedStarterTeamIndex:null }
       };
       console.info("[xo-intersection]", XO_RUNTIME_BUILD);
 
@@ -176,7 +176,11 @@
         onlineJoinSubmitBtn: document.getElementById("onlineJoinSubmitBtn"),
         team0Players: document.getElementById("team0Players"),
         team1Players: document.getElementById("team1Players"),
-        hostStartOnlineBtn: document.getElementById("hostStartOnlineBtn")
+        hostStartOnlineBtn: document.getElementById("hostStartOnlineBtn"),
+        onlineStarterSelectorWrap: document.getElementById("onlineStarterSelectorWrap"),
+        onlineStarterTeam0Btn: document.getElementById("onlineStarterTeam0Btn"),
+        onlineStarterTeam1Btn: document.getElementById("onlineStarterTeam1Btn"),
+        onlineStarterSummaryText: document.getElementById("onlineStarterSummaryText")
       };
       elements.boardCellButtons = Array.from({ length: 3 }, (_, rowIndex) =>
         Array.from({ length: 3 }, (_, colIndex) => document.getElementById(`cell-${rowIndex}-${colIndex}`))
@@ -1255,6 +1259,8 @@
         elements.backToOnlineChoiceFromJoinBtn?.addEventListener("click", ()=>setScreen("onlineChoice"));
         elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ try { const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"لاعب")}); state.online.enabled=true; state.online.session=session; await assignMyTeam(1); elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); elements.onlineJoinForm.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); } catch (error) { if (String(error?.message || "").includes("same browser")) { elements.onlineLobbyMessage.textContent = "لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."; return; } elements.onlineLobbyMessage.textContent = `تعذر الانضمام: ${error?.message || "حاول مرة أخرى."}`; } });
         elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
+        elements.onlineStarterTeam0Btn?.addEventListener("click", () => selectOnlineStarterTeam(0));
+        elements.onlineStarterTeam1Btn?.addEventListener("click", () => selectOnlineStarterTeam(1));
         elements.hostStartOnlineBtn?.addEventListener("click", async ()=>{
           try {
             const gameRooms=await ensureGameRooms();
@@ -1276,10 +1282,15 @@
               elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام اللاعب الثاني.";
               return;
             }
+            const selectedStarterTeamIndex = getSelectedStarterTeamIndex(roomData);
+            if (selectedStarterTeamIndex !== 0 && selectedStarterTeamIndex !== 1) {
+              elements.onlineLobbyMessage.textContent = "اختر من يبدأ الجولة أولاً.";
+              return;
+            }
             elements.onlineLobbyMessage.textContent = "جارٍ بدء اللعبة...";
             const assign = {};
             players.forEach((p) => { if (p.teamId === 0 || p.teamId === 1) assign[p.uid] = p.teamId; });
-            const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:startBoard.board_id,rowLabels:[startBoard.row_1,startBoard.row_2,startBoard.row_3],colLabels:[startBoard.column_1,startBoard.column_2,startBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] };
+            const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:startBoard.board_id,rowLabels:[startBoard.row_1,startBoard.row_2,startBoard.row_3],colLabels:[startBoard.column_1,startBoard.column_2,startBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:selectedStarterTeamIndex,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] };
             await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState});
             elements.onlineLobbyMessage.textContent = "تم بدء اللعبة.";
           } catch (error) {
@@ -1287,6 +1298,29 @@
           }
         });
 
+        function getSelectedStarterTeamIndex(roomData) {
+          const publicStarter = Number(roomData?.public?.gameState?.starterTeamIndex);
+          if (publicStarter === 0 || publicStarter === 1) return publicStarter;
+          return state.online.selectedStarterTeamIndex === 0 || state.online.selectedStarterTeamIndex === 1
+            ? state.online.selectedStarterTeamIndex
+            : null;
+        }
+        async function selectOnlineStarterTeam(teamIndex) {
+          const roomData = state.online.roomData;
+          const isHost = roomData?.meta?.hostUid === state.online.session?.uid;
+          if (!isHost || (teamIndex !== 0 && teamIndex !== 1)) return;
+          state.online.selectedStarterTeamIndex = teamIndex;
+          renderOnlineLobby();
+          try {
+            const gameRooms = await ensureGameRooms();
+            const gameState = roomData?.public?.gameState || { phase: "lobby", teams: { teamAssignments: {} } };
+            await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, {
+              gameState: { ...gameState, starterTeamIndex: teamIndex }
+            });
+          } catch (error) {
+            elements.onlineLobbyMessage.textContent = `تعذر حفظ اختيار البداية: ${error?.message || "حاول مرة أخرى."}`;
+          }
+        }
         function renderOnlineLobby(){
           const roomData=state.online.roomData; if(!roomData) return;
           const players=Object.entries(roomData.players||{}).map(([uid,p])=>({uid,name:p.name||"لاعب",teamId:Number(p?.teamId)}));
@@ -1296,8 +1330,23 @@
           const hasTeam0 = players.some((p) => p.teamId === 0);
           const hasTeam1 = players.some((p) => p.teamId === 1);
           const distinctTeamUids = new Set(players.filter((p) => p.teamId === 0 || p.teamId === 1).map((p) => p.uid));
-          const canStart = hasTeam0 && hasTeam1 && distinctTeamUids.size >= 2;
+          const canChooseStarter = hasTeam0 && hasTeam1 && distinctTeamUids.size >= 2;
+          const selectedStarterTeamIndex = getSelectedStarterTeamIndex(roomData);
+          const canStart = canChooseStarter && (selectedStarterTeamIndex === 0 || selectedStarterTeamIndex === 1);
           const isHost = roomData.meta?.hostUid===state.online.session.uid;
+          const team0Name = players.find((p) => p.teamId === 0)?.name || "الفريق الأول";
+          const team1Name = players.find((p) => p.teamId === 1)?.name || "الفريق الثاني";
+          elements.onlineStarterTeam0Btn.textContent = `يبدأ: ${team0Name} — الفريق الأول`;
+          elements.onlineStarterTeam1Btn.textContent = `يبدأ: ${team1Name} — الفريق الثاني`;
+          elements.onlineStarterTeam0Btn.classList.toggle("btn-primary", selectedStarterTeamIndex === 0);
+          elements.onlineStarterTeam0Btn.classList.toggle("btn-secondary", selectedStarterTeamIndex !== 0);
+          elements.onlineStarterTeam1Btn.classList.toggle("btn-primary", selectedStarterTeamIndex === 1);
+          elements.onlineStarterTeam1Btn.classList.toggle("btn-secondary", selectedStarterTeamIndex !== 1);
+          elements.onlineStarterTeam0Btn.disabled = !isHost || !canChooseStarter;
+          elements.onlineStarterTeam1Btn.disabled = !isHost || !canChooseStarter;
+          elements.onlineStarterSelectorWrap.classList.toggle("hidden", !canChooseStarter);
+          const starterName = selectedStarterTeamIndex === 0 ? team0Name : selectedStarterTeamIndex === 1 ? team1Name : "";
+          elements.onlineStarterSummaryText.textContent = starterName ? `البداية: ${starterName}` : "اختر من يبدأ الجولة أولاً.";
           elements.hostStartOnlineBtn.classList.toggle("hidden", !isHost);
           elements.hostStartOnlineBtn.disabled = !canStart;
           const myTeamId = Number(roomData.players?.[state.online.session?.uid || ""]?.teamId);
@@ -1311,6 +1360,10 @@
           }
           if (isHost && canStart) {
             elements.onlineLobbyMessage.textContent = "جاهز للبدء.";
+          } else if (isHost && canChooseStarter && !canStart) {
+            elements.onlineLobbyMessage.textContent = "اختر من يبدأ الجولة أولاً.";
+          } else if (!isHost && canChooseStarter && starterName) {
+            elements.onlineLobbyMessage.textContent = `البداية: ${starterName}`;
           }
         }
         async function processPendingRoomActions(roomData) {
