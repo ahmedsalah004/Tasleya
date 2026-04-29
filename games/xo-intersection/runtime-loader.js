@@ -1111,6 +1111,14 @@
         return `${window.location.origin}${window.location.pathname}?xoOnlineDev=1&room=${roomCode}#xo-online-dev`;
       }
 
+      function getOnlineStartBoard() {
+        if (state.selectedBoard) return state.selectedBoard;
+        if (Array.isArray(state.allValidLoadedBoards) && state.allValidLoadedBoards.length > 0) {
+          return state.allValidLoadedBoards[0];
+        }
+        return null;
+      }
+
       function setupEvents() {
         state.isOnlineDevEnabled = isOnlineDevEnabled();
         if (state.isOnlineDevEnabled) {
@@ -1173,8 +1181,13 @@
           try {
             const gameRooms=await ensureGameRooms();
             const roomData=state.online.roomData;
-            if(!roomData || roomData.meta?.hostUid!==state.online.session.uid || !state.selectedBoard) {
+            if(!roomData || roomData.meta?.hostUid!==state.online.session.uid) {
               elements.onlineLobbyMessage.textContent = "لا يمكن بدء اللعبة الآن.";
+              return;
+            }
+            const startBoard = getOnlineStartBoard();
+            if (!startBoard) {
+              elements.onlineLobbyMessage.textContent = "تعذر تحميل اللوحات، لا يمكن بدء اللعبة الآن.";
               return;
             }
             const players = Object.entries(roomData.players || {}).map(([uid, p]) => ({ uid, teamId: Number(p?.teamId) }));
@@ -1184,10 +1197,12 @@
               elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام لاعب لكل فريق.";
               return;
             }
+            elements.onlineLobbyMessage.textContent = "جارٍ بدء اللعبة...";
             const assign = {};
             players.forEach((p) => { if (p.teamId === 0 || p.teamId === 1) assign[p.uid] = p.teamId; });
-            const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:state.selectedBoard.board_id,rowLabels:[state.selectedBoard.row_1,state.selectedBoard.row_2,state.selectedBoard.row_3],colLabels:[state.selectedBoard.column_1,state.selectedBoard.column_2,state.selectedBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] };
+            const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:startBoard.board_id,rowLabels:[startBoard.row_1,startBoard.row_2,startBoard.row_3],colLabels:[startBoard.column_1,startBoard.column_2,startBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] };
             await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState});
+            elements.onlineLobbyMessage.textContent = "تم بدء اللعبة.";
           } catch (error) {
             elements.onlineLobbyMessage.textContent = `تعذر بدء اللعبة: ${error?.message || "حاول مرة أخرى."}`;
           }
@@ -1207,6 +1222,8 @@
           elements.hostStartOnlineBtn.disabled = !hasTeam0 || !hasTeam1;
           if (isHost && (!hasTeam0 || !hasTeam1)) {
             elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام لاعب لكل فريق.";
+          } else if (isHost) {
+            elements.onlineLobbyMessage.textContent = "جاهز للبدء.";
           }
         }
         function applyOnlineGameState(gs){ state.playMode="online"; state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.remove("hidden"); elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT; }
