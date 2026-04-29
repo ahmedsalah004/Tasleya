@@ -26,7 +26,7 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: Tahoma, Arial, sans-serif;
+        font-family: "Cairo", "Tajawal", "Noto Sans Arabic", "Segoe UI", Tahoma, Arial, sans-serif;
         color: var(--text-main);
         background:
           radial-gradient(circle at 15% 10%, rgba(255, 219, 118, 0.12), transparent 40%),
@@ -36,7 +36,7 @@
         overflow-x: hidden;
       }
 
-      .shell { width: min(980px, 100%); margin: 0 auto; }
+      .shell { width: min(1120px, 100%); margin: 0 auto; }
       .hidden { display: none !important; }
       .gameplay-view {
         display: grid;
@@ -48,13 +48,13 @@
       }
       .back-to-intro {
         border: 1px solid rgba(244, 206, 108, 0.42);
-        border-radius: 999px;
+        border-radius: 12px;
         background: rgba(10, 20, 52, 0.65);
-        color: var(--gold-300);
+        color: var(--text-main);
         font-family: inherit;
         font-size: 0.93rem;
-        font-weight: 700;
-        padding: 0.45rem 0.85rem;
+        font-weight: 800;
+        padding: 0.58rem 0.95rem;
         cursor: pointer;
       }
       .mode-actions {
@@ -91,11 +91,11 @@
         align-items: center;
         gap: 0.45rem;
         text-decoration: none;
-        color: var(--gold-300);
-        border: 1px solid rgba(244, 206, 108, 0.45);
-        border-radius: 999px;
-        padding: 0.45rem 0.85rem;
-        background: rgba(14, 27, 67, 0.38);
+        color: var(--text-main);
+        border: 1px solid rgba(160, 184, 241, 0.42);
+        border-radius: 12px;
+        padding: 0.58rem 0.95rem;
+        background: rgba(14, 27, 67, 0.56);
       }
 
       .shell.gameplay-active .top-nav,
@@ -125,7 +125,7 @@
         color: var(--gold-400);
       }
 
-      .subtitle { margin: 0 0 1rem; color: var(--text-muted); line-height: 1.8; }
+      .subtitle { margin: 0 0 1rem; color: var(--text-muted); line-height: 1.9; }
 
       .panel {
         border-radius: 24px;
@@ -181,7 +181,7 @@
 
       .detail-card a,
       .detail-card a:visited {
-        color: var(--gold-300);
+        color: var(--text-main);
         text-decoration: underline;
         text-underline-offset: 0.16em;
         text-decoration-thickness: 1.5px;
@@ -193,7 +193,7 @@
       }
       .stack { display: grid; gap: 0.85rem; }
 
-      label { font-weight: 700; color: #fff2c3; }
+      label { font-weight: 800; color: #fff2c3; }
       input {
         width: 100%; min-height: 52px; border-radius: 12px; border: 1px solid rgba(255,225,140,.4);
         background: rgba(8, 19, 50, 0.9); color: #fff; padding: .7rem .9rem; font-size: 1.05rem;
@@ -250,12 +250,12 @@
       }
 
       .pill {
-        border-radius: 999px;
+        border-radius: 12px;
         border: 1px solid rgba(255,225,140,.38);
         background: rgba(3, 12, 35, 0.78);
         padding: .55rem .8rem;
         color: #fff;
-        font-weight: 700;
+        font-weight: 800;
       }
 
       .hint-box {
@@ -266,7 +266,7 @@
         padding: 1rem;
       }
       .hint-label { margin: 0 0 .45rem; color: #fff2c3; font-weight: 800; }
-      .hint-text { margin: 0; line-height: 1.8; font-size: clamp(1.1rem, 2.8vw, 1.3rem); }
+      .hint-text { margin: 0; line-height: 1.9; font-size: clamp(1.1rem, 2.8vw, 1.3rem); }
 
       .teams-actions {
         display: grid;
@@ -328,7 +328,7 @@
       .team-status-chip {
         display: inline-flex;
         align-items: center;
-        border-radius: 999px;
+        border-radius: 12px;
         border: 1px solid rgba(255, 225, 140, 0.36);
         background: rgba(8, 20, 52, 0.92);
         padding: 0.34rem 0.65rem;
@@ -449,7 +449,7 @@
         }
 
         #modeScreen {
-          width: min(980px, 100%);
+          width: min(1120px, 100%);
           margin-inline: auto;
           padding: clamp(1.6rem, 2.4vw, 2.3rem);
           border-radius: 30px;
@@ -459,7 +459,7 @@
 
         #modeScreen > .subtitle {
           font-size: 1.2rem;
-          line-height: 1.85;
+          line-height: 1.95;
           color: rgba(239, 245, 255, 0.9);
         }
 
