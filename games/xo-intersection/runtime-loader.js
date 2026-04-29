@@ -624,14 +624,17 @@
         const teamId = Number(state.online.roomData?.players?.[state.online.session?.uid || ""]?.teamId);
         return teamId === 0 || teamId === 1 ? teamId : null;
       }
+      function canOnlineTeamAct() {
+        const myTeamId = getOnlineMyTeamId();
+        return myTeamId !== null && myTeamId === state.currentTurnTeamIndex;
+      }
 
       function renderTurnBanner() {
         const teamName = getTeamNameByIndex(state.currentTurnTeamIndex);
         const symbol = getSymbolByTeamIndex(state.currentTurnTeamIndex);
         if (state.playMode === "online") {
-          const myTeamId = getOnlineMyTeamId();
-          const isMyTurn = myTeamId !== null && myTeamId === state.currentTurnTeamIndex;
-          elements.turnTeamText.textContent = state.selectedSquare ? XO_ONLINE_WAIT_HOST_TEXT : (isMyTurn ? "دور فريقك" : "بانتظار دور الفريق الآخر");
+          const isMyTurn = canOnlineTeamAct();
+          elements.turnTeamText.textContent = state.selectedSquare ? (isMyTurn ? XO_ONLINE_WAIT_HOST_TEXT : "بانتظار تثبيت إجابة الفريق الآخر") : (isMyTurn ? "دور فريقك" : "بانتظار دور الفريق الآخر");
         } else {
           elements.turnTeamText.textContent = `الدور الآن: ${teamName}`;
         }
@@ -664,7 +667,7 @@
       function onCellSelect(row, col) {
         if (state.playMode === "online") {
           const myTeamId = getOnlineMyTeamId();
-          const isMyTurn = myTeamId !== null && myTeamId === state.currentTurnTeamIndex;
+          const isMyTurn = canOnlineTeamAct();
           if (state.gameStatus !== "playing" || !isMyTurn || state.selectedSquare || state.boardCells[row][col]) return;
           submitOnlineAction("select_cell", { row, col, teamId: myTeamId, expectedRevision: Number(state.online.revision || 0) }).catch(() => {});
           return;
@@ -701,6 +704,10 @@
 
       function renderSelectionPanel() {
         if (!state.selectedSquare || state.gameStatus !== "playing") {
+          elements.selectionPanel.classList.add("hidden");
+          return;
+        }
+        if (state.playMode === "online" && !canOnlineTeamAct()) {
           elements.selectionPanel.classList.add("hidden");
           return;
         }
@@ -1269,10 +1276,10 @@
               const next = { ...gs, selectedSquare: { row, col, byTeamId: senderTeamId, byUid: action.fromUid }, revision: Number(gs.revision || 0) + 1 };
               await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, { gameState: next });
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
-            } else if (action.type === "host_mark_correct" || action.type === "host_mark_incorrect") {
-              if (action.fromUid !== roomData.meta?.hostUid || !gs.selectedSquare) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "host_only" }); continue; }
+            } else if (action.type === "mark_correct" || action.type === "mark_incorrect") {
+              if (!gs.selectedSquare || senderTeamId !== Number(gs.currentTurnTeamIndex || 0) || senderTeamId !== Number(gs.selectedSquare.byTeamId)) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "active_team_only" }); continue; }
               const next = { ...gs, boardCells: gs.boardCells.map((r)=>r.slice()), selectedSquare: null, winningLineCells: Array.isArray(gs.winningLineCells) ? gs.winningLineCells : [] };
-              if (action.type === "host_mark_correct") {
+              if (action.type === "mark_correct") {
                 const sq = gs.selectedSquare; next.boardCells[sq.row][sq.col] = getSymbolByTeamIndex(Number(gs.currentTurnTeamIndex || 0));
                 const win = getWinningLine(next.boardCells);
                 if (win) { next.winningLineCells = win; next.gameStatus = "won"; next.phase = "finished"; }
@@ -1389,7 +1396,7 @@
 
         elements.confirmCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { submitOnlineAction("host_mark_correct", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return; submitOnlineAction("mark_correct", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
           const { row, col } = state.selectedSquare;
           state.boardCells[row][col] = getSymbolByTeamIndex(state.currentTurnTeamIndex);
           state.selectedSquare = null;
@@ -1409,7 +1416,7 @@
 
         elements.cancelCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { submitOnlineAction("host_mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return; submitOnlineAction("mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).catch(() => {}); return; }
           state.selectedSquare = null;
           switchTurn();
           showCancelNotice();
