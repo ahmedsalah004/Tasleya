@@ -193,7 +193,7 @@
     return session;
   }
 
-  async function joinGameRoom({ roomCode, playerName } = {}) {
+  async function joinGameRoom({ roomCode, playerName, joinIntent, expectedRole } = {}) {
     const uid = await ensureGameRoomAuth();
     const normalizedRoomCode = requireRoomCode(roomCode);
     const normalizedPlayerName = toDisplayName(playerName, "Player");
@@ -210,6 +210,12 @@
     const players = roomData?.players && typeof roomData.players === "object" ? roomData.players : {};
     const existingPlayer = players[uid] && typeof players[uid] === "object" ? players[uid] : null;
     const restoredSession = restoreGameRoomSession();
+    const normalizedJoinIntent = normalizeText(joinIntent).toLowerCase();
+    const normalizedExpectedRole = normalizeText(expectedRole).toLowerCase();
+    const isGuestJoinIntent = normalizedJoinIntent === "guest" || normalizedExpectedRole === "guest";
+    const existingRole = normalizeText(existingPlayer?.role).toLowerCase();
+    const existingTeamId = Number(existingPlayer?.teamId);
+    const isHostLikeExistingPlayer = uid === hostUid || existingRole === "host" || existingTeamId === 0;
     const canResumeExistingPlayer = !!(
       existingPlayer &&
       restoredSession &&
@@ -218,6 +224,14 @@
     );
 
     if (existingPlayer) {
+      if (isGuestJoinIntent && isHostLikeExistingPlayer) {
+        const duplicateJoinError = new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر.");
+        duplicateJoinError.code = "SELF_JOIN_BLOCKED";
+        duplicateJoinError.hostUidCollision = uid === hostUid;
+        duplicateJoinError.reason = "existing_host_or_team0";
+        throw duplicateJoinError;
+      }
+
       if (canResumeExistingPlayer) {
         await rootRef.update({
           [`players/${uid}/lastSeenAt`]: getServerTimestamp(),
@@ -226,6 +240,13 @@
         });
 
         const resumedRole = normalizeText(existingPlayer.role) || (uid === hostUid ? "host" : "player");
+        if (isGuestJoinIntent && (resumedRole === "host" || existingTeamId !== 1)) {
+          const duplicateJoinError = new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر.");
+          duplicateJoinError.code = "SELF_JOIN_BLOCKED";
+          duplicateJoinError.hostUidCollision = uid === hostUid;
+          duplicateJoinError.reason = "guest_resume_role_mismatch";
+          throw duplicateJoinError;
+        }
         const resumedName = toDisplayName(existingPlayer.name, normalizedPlayerName);
         const resumedSession = {
           roomCode: normalizedRoomCode,
