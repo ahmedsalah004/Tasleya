@@ -62,7 +62,7 @@
       const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
       const XO_GAME_KEY = "xo-intersection";
-      const XO_ONLINE_WAIT_HOST_TEXT = "بانتظار حكم المضيف على الإجابة";
+      const XO_ONLINE_WAIT_TEAM_CONFIRM_TEXT = "بانتظار تثبيت إجابة الفريق الحالي";
 
       const state = {
         currentScreen: "setup",
@@ -650,7 +650,7 @@
         const symbol = getSymbolByTeamIndex(state.currentTurnTeamIndex);
         if (state.playMode === "online") {
           const isMyTurn = canOnlineTeamAct();
-          elements.turnTeamText.textContent = state.selectedSquare ? (isMyTurn ? XO_ONLINE_WAIT_HOST_TEXT : "بانتظار تثبيت إجابة الفريق الآخر") : (isMyTurn ? "دور فريقك" : "بانتظار دور الفريق الآخر");
+          elements.turnTeamText.textContent = state.selectedSquare ? (isMyTurn ? XO_ONLINE_WAIT_TEAM_CONFIRM_TEXT : "بانتظار تثبيت إجابة الفريق الآخر") : (isMyTurn ? "دور فريقك" : "بانتظار دور الفريق الآخر");
         } else {
           elements.turnTeamText.textContent = `الدور الآن: ${teamName}`;
         }
@@ -1274,9 +1274,12 @@
         async function processPendingRoomActions(roomData) {
           const gameRooms = await ensureGameRooms();
           if (roomData?.meta?.hostUid !== state.online.session?.uid) return;
-          const pending = Object.values(roomData?.actions || {}).filter((action) => action?.status === "pending");
+          const pending = Object.values(roomData?.actions || {})
+            .filter((action) => action?.status === "pending")
+            .sort((a, b) => Number(a?.createdAt || 0) - Number(b?.createdAt || 0));
+          let workingGameState = roomData?.public?.gameState;
           for (const action of pending) {
-            const gs = roomData?.public?.gameState;
+            const gs = workingGameState;
             const expectedRevision = Number(action?.payload?.expectedRevision);
             if (!gs || !Number.isInteger(expectedRevision) || expectedRevision !== Number(gs.revision || 0) || gs.phase !== "playing" || gs.gameStatus !== "playing") {
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "stale_or_invalid" });
@@ -1291,6 +1294,7 @@
               }
               const next = { ...gs, selectedSquare: { row, col, byTeamId: senderTeamId, byUid: action.fromUid }, revision: Number(gs.revision || 0) + 1 };
               await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, { gameState: next });
+              workingGameState = next;
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
             } else if (action.type === "mark_correct" || action.type === "mark_incorrect") {
               if (!gs.selectedSquare || senderTeamId !== Number(gs.currentTurnTeamIndex || 0) || senderTeamId !== Number(gs.selectedSquare.byTeamId)) { await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "active_team_only" }); continue; }
@@ -1306,6 +1310,7 @@
               }
               next.revision = Number(gs.revision || 0) + 1;
               await gameRooms.updateGameRoomPublicState(state.online.session.roomCode, { gameState: next });
+              workingGameState = next;
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: true });
             } else {
               await gameRooms.markGameRoomActionProcessed(state.online.session.roomCode, action.actionId, { ok: false, reason: "unsupported" });
