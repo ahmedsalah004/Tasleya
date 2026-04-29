@@ -234,16 +234,19 @@
           sessionId,
           playerName: resumedName,
           savedAt: Date.now(),
+          createdNewPlayer: false,
+          resumedExistingPlayer: true,
+          existingPlayer,
         };
 
         saveGameRoomSession(resumedSession);
         return resumedSession;
       }
 
-      if (uid === hostUid) {
-        throw new Error("هذا نفس اللاعب الحالي. للعب من جهازين، افتح الرابط في نافذة خفية أو جهاز آخر.");
-      }
-      throw new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر.");
+      const duplicateJoinError = new Error("لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر.");
+      duplicateJoinError.code = "SELF_JOIN_BLOCKED";
+      duplicateJoinError.hostUidCollision = uid === hostUid;
+      throw duplicateJoinError;
     }
 
     const updates = {
@@ -264,6 +267,9 @@
       sessionId,
       playerName: normalizedPlayerName,
       savedAt: Date.now(),
+      createdNewPlayer: true,
+      resumedExistingPlayer: false,
+      existingPlayer: null,
     };
 
     saveGameRoomSession(session);
