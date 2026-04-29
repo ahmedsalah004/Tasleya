@@ -23,6 +23,41 @@
           <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
           <button id="retryBtn" class="btn btn-secondary hidden" type="button">إعادة المحاولة</button>
         </div>
+        <div id="xoOnlineDevWrap" class="hidden" style="margin-top:1rem;border-top:1px solid #ddd;padding-top:1rem">
+          <h3>وضع الأونلاين (تجريبي)</h3>
+          <div class="buttons-stack">
+            <button id="xoLocalModeBtn" class="btn btn-secondary" type="button">العب على نفس الجهاز</button>
+            <button id="xoOnlineModeBtn" class="btn btn-secondary" type="button">العب من أجهزة مختلفة (تجريبي)</button>
+          </div>
+          <div id="xoOnlineChoice" class="hidden" style="margin-top:.8rem">
+            <div class="buttons-stack">
+              <button id="xoHostCreateBtn" class="btn btn-primary" type="button">أنا المضيف: إنشاء غرفة جديدة</button>
+            </div>
+            <div class="form-stack" style="margin-top:.6rem">
+              <div class="field"><label for="xoJoinRoomCodeInput">أدخل كود الغرفة</label><input id="xoJoinRoomCodeInput" type="text" autocomplete="off"/></div>
+              <div class="field"><label for="xoJoinNameInput">اسم اللاعب</label><input id="xoJoinNameInput" type="text" autocomplete="off"/></div>
+              <button id="xoJoinRoomBtn" class="btn btn-secondary" type="button">أنا لاعب: الانضمام بكود غرفة</button>
+            </div>
+          </div>
+          <div id="xoLobbyWrap" class="hidden" style="margin-top:.8rem">
+            <p id="xoLobbyRoleBadge"></p>
+            <p id="xoRoomCodeText"></p>
+            <p id="xoInviteLinkText"></p>
+            <button id="xoCopyInviteBtn" class="btn btn-secondary" type="button">نسخ الرابط</button>
+            <p>شارك الكود أو الرابط مع اللاعب الآخر، ثم اختر فريقك وانتظر انضمامه.</p>
+            <div class="buttons-stack">
+              <button id="xoJoinTeam1Btn" class="btn btn-secondary" type="button">انضم للفريق الأول</button>
+              <button id="xoJoinTeam2Btn" class="btn btn-secondary" type="button">انضم للفريق الثاني</button>
+              <button id="xoClearLobbyBtn" class="btn btn-secondary" type="button">مسح اللوبي</button>
+            </div>
+            <p><strong>الفريق الأول</strong></p><ul id="xoTeam1Players"></ul>
+            <p><strong>الفريق الثاني</strong></p><ul id="xoTeam2Players"></ul>
+            <p><strong>بدون فريق</strong></p><ul id="xoNoTeamPlayers"></ul>
+            <p id="xoLobbyHint"></p>
+            <button id="xoHostStartBtn" class="btn btn-primary" type="button">بدء اللعبة — للمضيف فقط</button>
+            <p id="xoOnlineStatus"></p>
+          </div>
+        </div>
       </section>
 
       <section class="panel screen" data-screen="categories">
