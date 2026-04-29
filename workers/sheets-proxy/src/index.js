@@ -962,10 +962,13 @@ function buildCorsHeaders(request, env) {
   const allowedOrigins = normalizeCell(env.ALLOWED_ORIGIN || '*');
   const allowedOriginList = splitCsvParam(allowedOrigins);
   const requestOrigin = request.headers.get('Origin');
+  const isPagesPreviewOrigin = typeof requestOrigin === 'string' && /^https:\/\/[a-z0-9-]+\.tasleya-git\.pages\.dev$/i.test(requestOrigin);
   const allowOrigin = allowedOrigins === '*'
     ? '*'
     : allowedOriginList.includes(requestOrigin)
       ? requestOrigin
+      : isPagesPreviewOrigin
+        ? requestOrigin
       : allowedOriginList[0] || '*';
 
   return {
