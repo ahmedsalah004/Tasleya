@@ -99,6 +99,7 @@
         screens: document.querySelectorAll("[data-screen]"),
         team1Input: document.getElementById("team1Input"),
         team2Input: document.getElementById("team2Input"),
+        localSetupFields: document.getElementById("localSetupFields"),
         startBtn: document.getElementById("startBtn"),
         howToBtn: document.getElementById("howToBtn"),
         loadStatus: document.getElementById("loadStatus"),
@@ -158,6 +159,10 @@
         chooseOnlineBtn: document.getElementById("chooseOnlineBtn"),
         onlineCreateFlowBtn: document.getElementById("onlineCreateFlowBtn"),
         onlineJoinFlowBtn: document.getElementById("onlineJoinFlowBtn"),
+        onlineHostNameInput: document.getElementById("onlineHostNameInput"),
+        onlineHostCreateSubmitBtn: document.getElementById("onlineHostCreateSubmitBtn"),
+        backToOnlineChoiceFromHostCreateBtn: document.getElementById("backToOnlineChoiceFromHostCreateBtn"),
+        backToOnlineChoiceFromJoinBtn: document.getElementById("backToOnlineChoiceFromJoinBtn"),
         backToSetupFromOnlineChoiceBtn: document.getElementById("backToSetupFromOnlineChoiceBtn"),
         onlineRoleBadge: document.getElementById("onlineRoleBadge"),
         onlineLobbyMessage: document.getElementById("onlineLobbyMessage"),
@@ -169,11 +174,8 @@
         onlineRoomCodeInput: document.getElementById("onlineRoomCodeInput"),
         onlinePlayerNameInput: document.getElementById("onlinePlayerNameInput"),
         onlineJoinSubmitBtn: document.getElementById("onlineJoinSubmitBtn"),
-        joinTeam0Btn: document.getElementById("joinTeam0Btn"),
-        joinTeam1Btn: document.getElementById("joinTeam1Btn"),
         team0Players: document.getElementById("team0Players"),
         team1Players: document.getElementById("team1Players"),
-        unassignedPlayers: document.getElementById("unassignedPlayers"),
         hostStartOnlineBtn: document.getElementById("hostStartOnlineBtn")
       };
       elements.boardCellButtons = Array.from({ length: 3 }, (_, rowIndex) =>
@@ -1202,6 +1204,8 @@
 
         elements.chooseSameDeviceBtn?.addEventListener("click", () => {
           state.playMode = "local";
+          elements.localSetupFields.classList.remove("hidden");
+          elements.startBtn.classList.remove("hidden");
           applyTeamNames();
           renderCategories();
           setScreen("categories");
@@ -1212,18 +1216,26 @@
           setScreen("onlineChoice");
         });
 
-        elements.onlineCreateFlowBtn?.addEventListener("click", async () => {
-          elements.onlineCreateFlowBtn.disabled = true;
+        async function assignMyTeam(teamId) {
+          const gameRooms = await ensureGameRooms();
+          await gameRooms.setGameRoomPresence(state.online.session.roomCode, { teamId });
+        }
+        elements.onlineCreateFlowBtn?.addEventListener("click", () => {
+          setScreen("onlineHostCreate");
+        });
+        elements.onlineHostCreateSubmitBtn?.addEventListener("click", async () => {
+          elements.onlineHostCreateSubmitBtn.disabled = true;
           elements.onlineLobbyMessage.textContent = "جارِ إنشاء الغرفة...";
           try {
             const gameRooms = await ensureGameRooms();
-            const hostName = (elements.onlinePlayerNameInput.value || elements.team1Input.value || "المضيف").trim();
+            const hostName = (elements.onlineHostNameInput.value || "المضيف").trim();
             const session = await gameRooms.createGameRoom({ gameType: XO_GAME_KEY, hostName, maxTeams: 2 });
             state.online.enabled = true; state.online.session = session;
+            await assignMyTeam(0);
             const gs = { phase:"lobby", teams:{ teamAssignments:{} } };
             await gameRooms.updateGameRoomPublicState(session.roomCode, { gameState: gs });
             elements.onlineRoleBadge.textContent = "أنت المضيف";
-            elements.onlineLobbyMessage.textContent = "شارك الكود أو الرابط مع اللاعب الآخر، ثم اختر فريقك وانتظر انضمامه.";
+            elements.onlineLobbyMessage.textContent = "شارك الرابط أو الكود مع اللاعب الآخر. سيتم وضعه في الفريق الثاني تلقائياً.";
             elements.onlineRoomCodeText.textContent = session.roomCode;
             elements.onlineInviteLinkText.textContent = buildInvite(session.roomCode);
             elements.onlineInviteWrap.classList.remove("hidden");
@@ -1233,25 +1245,16 @@
           } catch (error) {
             elements.onlineLobbyMessage.textContent = `تعذر إنشاء الغرفة: ${error?.message || "حاول مرة أخرى."}`;
           } finally {
-            elements.onlineCreateFlowBtn.disabled = false;
+            elements.onlineHostCreateSubmitBtn.disabled = false;
           }
         });
 
-        elements.onlineJoinFlowBtn?.addEventListener("click", () => { setScreen("onlineLobby"); elements.onlineRoleBadge.textContent = "أنت لاعب منضم"; elements.onlineJoinForm.classList.remove("hidden"); });
+        elements.onlineJoinFlowBtn?.addEventListener("click", () => { setScreen("onlineLobby"); elements.onlineRoleBadge.textContent = "أنت لاعب منضم"; elements.onlineJoinForm.classList.remove("hidden"); elements.onlineLobbyMessage.textContent = "في انتظار الانضمام للغرفة..."; elements.onlineInviteWrap.classList.add("hidden"); });
         elements.backToSetupFromOnlineChoiceBtn?.addEventListener("click", ()=>setScreen("setup"));
-        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ try { const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"لاعب")}); state.online.enabled=true; state.online.session=session; elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); } catch (error) { elements.onlineLobbyMessage.textContent = `تعذر الانضمام: ${error?.message || "حاول مرة أخرى."}`; } });
+        elements.backToOnlineChoiceFromHostCreateBtn?.addEventListener("click", ()=>setScreen("onlineChoice"));
+        elements.backToOnlineChoiceFromJoinBtn?.addEventListener("click", ()=>setScreen("onlineChoice"));
+        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ try { const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"لاعب")}); state.online.enabled=true; state.online.session=session; await assignMyTeam(1); elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); elements.onlineJoinForm.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); processPendingRoomActions(roomData).catch(()=>{}); if(roomData?.public?.gameState?.phase==="playing"||roomData?.public?.gameState?.phase==="finished"){applyOnlineGameState(roomData.public.gameState);} }); } catch (error) { if (String(error?.message || "").includes("same browser")) { elements.onlineLobbyMessage.textContent = "لا يمكن الانضمام كلاعب ثانٍ من نفس المتصفح. افتح رابط الدعوة في نافذة خفية أو متصفح آخر أو جهاز آخر."; return; } elements.onlineLobbyMessage.textContent = `تعذر الانضمام: ${error?.message || "حاول مرة أخرى."}`; } });
         elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
-        async function setMyTeam(teamIndex){
-          try {
-            const gameRooms = await ensureGameRooms();
-            await gameRooms.setGameRoomPresence(state.online.session.roomCode, { teamId: teamIndex });
-            elements.onlineLobbyMessage.textContent = "تم تحديث الفريق بنجاح.";
-          } catch (error) {
-            elements.onlineLobbyMessage.textContent = `تعذر تحديث الفريق: ${error?.message || "حاول مرة أخرى."}`;
-          }
-        }
-        elements.joinTeam0Btn?.addEventListener("click", ()=>setMyTeam(0));
-        elements.joinTeam1Btn?.addEventListener("click", ()=>setMyTeam(1));
         elements.hostStartOnlineBtn?.addEventListener("click", async ()=>{
           try {
             const gameRooms=await ensureGameRooms();
@@ -1270,7 +1273,7 @@
             const hasTeam1 = players.some((p) => p.teamId === 1);
             const distinctTeamUids = new Set(players.filter((p) => p.teamId === 0 || p.teamId === 1).map((p) => p.uid));
             if(!(hasTeam0 && hasTeam1 && distinctTeamUids.size >= 2)){
-              elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام لاعب آخر من جهاز أو متصفح مختلف.";
+              elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام اللاعب الثاني.";
               return;
             }
             elements.onlineLobbyMessage.textContent = "جارٍ بدء اللعبة...";
@@ -1290,7 +1293,6 @@
           const render=(el,idx)=>{el.innerHTML=players.filter(p=>p.teamId===idx).map(p=>`<li>${p.name}${p.uid===roomData.meta?.hostUid?" (المضيف)":""}</li>`).join("")||"<li>—</li>"};
           render(elements.team0Players,0);
           render(elements.team1Players,1);
-          elements.unassignedPlayers.innerHTML=players.filter(p=>p.teamId!==0&&p.teamId!==1).map(p=>`<li>${p.name}</li>`).join("")||"<li>—</li>";
           const hasTeam0 = players.some((p) => p.teamId === 0);
           const hasTeam1 = players.some((p) => p.teamId === 1);
           const distinctTeamUids = new Set(players.filter((p) => p.teamId === 0 || p.teamId === 1).map((p) => p.uid));
@@ -1298,9 +1300,16 @@
           const isHost = roomData.meta?.hostUid===state.online.session.uid;
           elements.hostStartOnlineBtn.classList.toggle("hidden", !isHost);
           elements.hostStartOnlineBtn.disabled = !canStart;
-          if (isHost && !canStart) {
-            elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام لاعب آخر من جهاز أو متصفح مختلف.";
-          } else if (isHost) {
+          const myTeamId = Number(roomData.players?.[state.online.session?.uid || ""]?.teamId);
+          if (isHost) {
+            elements.onlineRoleBadge.textContent = "أنت المضيف";
+            elements.onlineLobbyMessage.textContent = canStart ? "أنت في الفريق الأول" : "أنت في الفريق الأول — في انتظار اللاعب الثاني";
+            if (!canStart) elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام اللاعب الثاني.";
+          } else {
+            elements.onlineRoleBadge.textContent = "أنت لاعب منضم";
+            elements.onlineLobbyMessage.textContent = myTeamId === 1 ? "أنت في الفريق الثاني — في انتظار المضيف لبدء اللعبة" : "في انتظار المضيف لبدء اللعبة";
+          }
+          if (isHost && canStart) {
             elements.onlineLobbyMessage.textContent = "جاهز للبدء.";
           }
         }
@@ -1353,7 +1362,10 @@
         function applyOnlineGameState(gs){ state.playMode="online"; state.online.revision=Number(gs.revision||0); state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; state.selectedSquare=gs.selectedSquare||null; state.winningLineCells=Array.isArray(gs.winningLineCells)?gs.winningLineCells:[]; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.add("hidden");  }
 
         elements.startBtn.addEventListener("click", () => {
-          setScreen("onlineChoice");
+          state.playMode = "local";
+          applyTeamNames();
+          renderCategories();
+          setScreen("categories");
         });
 
         elements.team1Input.addEventListener("input", () => {
@@ -1373,6 +1385,9 @@
         setScreen("onlineLobby");
         elements.onlineRoleBadge.textContent = "أنت لاعب منضم";
         elements.onlineRoomCodeInput.value = new URLSearchParams(window.location.search).get("room") || "";
+        elements.onlineJoinForm.classList.remove("hidden");
+        elements.onlineInviteWrap.classList.add("hidden");
+        elements.onlineLobbyMessage.textContent = "أدخل اسمك ثم انضمام.";
       }
           persistResumeState();
         });

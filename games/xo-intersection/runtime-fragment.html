@@ -1,11 +1,11 @@
 <section class="panel screen hidden" data-screen="setup">
         <div class="panel-head">
           <h1>XO | خمن الرابط</h1>
-          <p class="subtitle">اختر طريقة اللعب ثم أكمل إعداد الفريقين</p>
+          <p class="subtitle">اختر طريقة اللعب ثم أكمل الإعداد</p>
           <p class="helper">يمكنك اللعب على نفس الجهاز أو مع صديق من جهاز آخر</p>
         </div>
 
-        <div class="form-stack">
+        <div id="localSetupFields" class="form-stack hidden">
           <div class="field">
             <label for="team1Input">اسم الفريق الأول</label>
             <input id="team1Input" type="text" autocomplete="off" />
@@ -21,7 +21,7 @@
         <div class="buttons-stack" style="margin-top: 0.9rem">
           <button id="chooseSameDeviceBtn" class="btn btn-secondary hidden" type="button">العب على نفس الجهاز</button>
           <button id="chooseOnlineBtn" class="btn btn-secondary hidden" type="button">العب من أجهزة مختلفة</button>
-          <button id="startBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
+          <button id="startBtn" class="btn btn-primary hidden" type="button">ابدأ اللعبة</button>
           <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
           <button id="retryBtn" class="btn btn-secondary hidden" type="button">إعادة المحاولة</button>
         </div>
@@ -36,6 +36,17 @@
         </div>
       </section>
 
+      <section class="panel screen" data-screen="onlineHostCreate">
+        <h2>إنشاء غرفة XO</h2>
+        <div class="form-stack">
+          <div class="field"><label for="onlineHostNameInput">اسمك</label><input id="onlineHostNameInput" type="text" autocomplete="off" /></div>
+        </div>
+        <div class="buttons-stack" style="margin-top:0.8rem">
+          <button id="onlineHostCreateSubmitBtn" class="btn btn-primary" type="button">إنشاء الغرفة</button>
+          <button id="backToOnlineChoiceFromHostCreateBtn" class="btn btn-secondary" type="button">رجوع</button>
+        </div>
+      </section>
+
       <section class="panel screen" data-screen="onlineLobby">
         <h2>غرفة XO الأونلاين</h2>
         <p id="onlineRoleBadge" class="helper"></p>
@@ -44,19 +55,15 @@
         <p class="helper" id="onlineInviteWrap">رابط الدعوة: <span id="onlineInviteLinkText"></span></p>
         <p class="helper">اختبر اللاعب الثاني من نافذة خفية أو جهاز آخر، وليس من نفس تبويب المتصفح.</p>
         <button id="copyInviteBtn" class="btn btn-secondary" type="button">نسخ رابط الدعوة</button>
-        <div id="onlineJoinForm" class="form-stack" style="margin-top:0.8rem">
+        <div id="onlineJoinForm" class="form-stack hidden" style="margin-top:0.8rem">
           <div class="field"><label for="onlineRoomCodeInput">كود الغرفة</label><input id="onlineRoomCodeInput" type="text" /></div>
-          <div class="field"><label for="onlinePlayerNameInput">اسم اللاعب</label><input id="onlinePlayerNameInput" type="text" /></div>
+          <div class="field"><label for="onlinePlayerNameInput">اسمك</label><input id="onlinePlayerNameInput" type="text" /></div>
           <button id="onlineJoinSubmitBtn" class="btn btn-primary" type="button">انضمام</button>
-        </div>
-        <div class="buttons-stack" style="margin-top:0.8rem">
-          <button id="joinTeam0Btn" class="btn btn-secondary" type="button">انضم للفريق الأول</button>
-          <button id="joinTeam1Btn" class="btn btn-secondary" type="button">انضم للفريق الثاني</button>
+          <button id="backToOnlineChoiceFromJoinBtn" class="btn btn-secondary" type="button">رجوع</button>
         </div>
         <div class="form-stack" style="margin-top:0.8rem">
           <div><h3>الفريق الأول</h3><ul id="team0Players"></ul></div>
           <div><h3>الفريق الثاني</h3><ul id="team1Players"></ul></div>
-          <div><h3>بدون فريق</h3><ul id="unassignedPlayers"></ul></div>
         </div>
         <button id="hostStartOnlineBtn" class="btn btn-primary" type="button">بدء اللعبة — للمضيف فقط</button>
       </section>
