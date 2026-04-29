@@ -18,6 +18,36 @@
 
         <div id="loadStatus" class="status" aria-live="polite">جارِ تحميل اللوحات...</div>
 
+        <div id="xoDevModeChoice" class="buttons-stack hidden" style="margin-top: 0.9rem">
+          <button id="xoLocalModeBtn" class="btn btn-secondary" type="button">العب على نفس الجهاز</button>
+          <button id="xoOnlineModeBtn" class="btn btn-secondary" type="button">العب من أجهزة مختلفة (تجريبي)</button>
+          <p id="xoOnlineFallback" class="status error hidden" aria-live="polite"></p>
+        </div>
+
+        <div id="xoOnlineRoomPanel" class="form-stack hidden" style="margin-top:0.9rem">
+          <div class="field"><label for="xoOnlinePlayerNameInput">اسم اللاعب</label><input id="xoOnlinePlayerNameInput" type="text" autocomplete="off" /></div>
+          <button id="xoCreateRoomBtn" class="btn btn-primary" type="button">إنشاء غرفة</button>
+          <button id="xoShowJoinRoomBtn" class="btn btn-secondary" type="button">لديك كود؟ انضمام</button>
+          <div id="xoJoinRoomPanel" class="hidden">
+            <div class="field"><label for="xoRoomCodeInput">كود الغرفة</label><input id="xoRoomCodeInput" type="text" autocomplete="off" /></div>
+            <button id="xoJoinRoomBtn" class="btn btn-secondary" type="button">انضمام</button>
+          </div>
+          <p id="xoOnlineRoomMessage" class="status" aria-live="polite"></p>
+        </div>
+
+        <div id="xoOnlineLobbyPanel" class="hidden" style="margin-top:0.9rem">
+          <p class="helper">كود الغرفة: <strong id="xoRoomCodeLabel">—</strong></p>
+          <p class="helper">رابط الدعوة: <span id="xoRoomLinkLabel"></span></p>
+          <div id="xoPlayersList" class="helper"></div>
+          <p id="xoLobbyMessage" class="status" aria-live="polite"></p>
+          <div class="buttons-stack">
+            <button id="xoJoinTeam1Btn" class="btn btn-secondary" type="button">انضم للفريق الأول</button>
+            <button id="xoJoinTeam2Btn" class="btn btn-secondary" type="button">انضم للفريق الثاني</button>
+            <button id="xoStartOnlineBtn" class="btn btn-primary" type="button">بدء اللعبة (للمضيف)</button>
+          </div>
+        </div>
+
+
         <div class="buttons-stack" style="margin-top: 0.9rem">
           <button id="startBtn" class="btn btn-primary" type="button">ابدأ اللعبة</button>
           <button id="howToBtn" class="btn btn-secondary" type="button">طريقة اللعب</button>
