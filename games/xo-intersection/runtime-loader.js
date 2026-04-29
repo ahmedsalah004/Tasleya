@@ -63,7 +63,7 @@
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
       const XO_GAME_KEY = "xo-intersection";
       const XO_ONLINE_WAIT_TEAM_CONFIRM_TEXT = "بانتظار تثبيت إجابة الفريق الحالي";
-      const XO_RUNTIME_BUILD = "xo-runtime-2026-04-29b";
+      const XO_RUNTIME_BUILD = "xo-runtime-2026-04-29c";
 
       const state = {
         currentScreen: "setup",
