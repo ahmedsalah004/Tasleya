@@ -45,6 +45,8 @@
       const XO_INTERSECTION_BOARDS_PATH = "/xo-intersection/boards";
       const XO_INTERSECTION_RESUME_STORAGE_KEY = "tasleya.xoIntersection.resume.v1";
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
+      const XO_GAME_KEY = "xo-intersection";
+      const XO_ONLINE_BLOCKED_TEXT = "اللعب الأونلاين قيد الاختبار، وسيتم تفعيل اختيار الخانات في الخطوة التالية.";
 
       const state = {
         currentScreen: "setup",
@@ -69,7 +71,10 @@
         selectedSquare: null,
         gameStatus: "playing",
         winningLineCells: [],
-        isAwaitingResumeChoice: false
+        isAwaitingResumeChoice: false,
+        isOnlineDevEnabled: false,
+        playMode: "local",
+        online: { enabled:false, session:null, roomData:null, unsubscribeRoom:null, unsubscribePresence:null }
       };
 
       const elements = {
@@ -130,7 +135,28 @@
         resumeDialog: document.getElementById("resumeDialog"),
         resumeContinueBtn: document.getElementById("resumeContinueBtn"),
         resumeNewGameBtn: document.getElementById("resumeNewGameBtn"),
-        resumeLoadingHint: document.getElementById("resumeLoadingHint")
+        resumeLoadingHint: document.getElementById("resumeLoadingHint"),
+        chooseSameDeviceBtn: document.getElementById("chooseSameDeviceBtn"),
+        chooseOnlineBtn: document.getElementById("chooseOnlineBtn"),
+        onlineCreateFlowBtn: document.getElementById("onlineCreateFlowBtn"),
+        onlineJoinFlowBtn: document.getElementById("onlineJoinFlowBtn"),
+        backToSetupFromOnlineChoiceBtn: document.getElementById("backToSetupFromOnlineChoiceBtn"),
+        onlineRoleBadge: document.getElementById("onlineRoleBadge"),
+        onlineLobbyMessage: document.getElementById("onlineLobbyMessage"),
+        onlineRoomCodeText: document.getElementById("onlineRoomCodeText"),
+        onlineInviteLinkText: document.getElementById("onlineInviteLinkText"),
+        onlineInviteWrap: document.getElementById("onlineInviteWrap"),
+        copyInviteBtn: document.getElementById("copyInviteBtn"),
+        onlineJoinForm: document.getElementById("onlineJoinForm"),
+        onlineRoomCodeInput: document.getElementById("onlineRoomCodeInput"),
+        onlinePlayerNameInput: document.getElementById("onlinePlayerNameInput"),
+        onlineJoinSubmitBtn: document.getElementById("onlineJoinSubmitBtn"),
+        joinTeam0Btn: document.getElementById("joinTeam0Btn"),
+        joinTeam1Btn: document.getElementById("joinTeam1Btn"),
+        team0Players: document.getElementById("team0Players"),
+        team1Players: document.getElementById("team1Players"),
+        unassignedPlayers: document.getElementById("unassignedPlayers"),
+        hostStartOnlineBtn: document.getElementById("hostStartOnlineBtn")
       };
       elements.boardCellButtons = Array.from({ length: 3 }, (_, rowIndex) =>
         Array.from({ length: 3 }, (_, colIndex) => document.getElementById(`cell-${rowIndex}-${colIndex}`))
@@ -616,6 +642,11 @@
       }
 
       function onCellSelect(row, col) {
+        if (state.playMode === "online") {
+          elements.cancelNotice.classList.remove("hidden");
+          elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT;
+          return;
+        }
         if (state.gameStatus !== "playing") return;
         if (state.selectedSquare) return;
         if (state.boardCells[row][col]) return;
@@ -1031,7 +1062,88 @@
         persistResumeState();
       }
 
+
+      function isOnlineDevEnabled() {
+        const params = new URLSearchParams(window.location.search || "");
+        const hash = String(window.location.hash || "").toLowerCase();
+        return params.get("xoOnlineDev") === "1" || hash.includes("xo-online-dev");
+      }
+
+      async function ensureGameRooms() {
+        if (window.TasleyaGameRooms) return window.TasleyaGameRooms;
+        if (!window.firebase) {
+          await new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
+          });
+          await new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
+            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
+          });
+          await new Promise((resolve, reject) => {
+            const sc = document.createElement('script');
+            sc.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
+            sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
+          });
+        }
+        await new Promise((resolve, reject) => {
+          const sc = document.createElement('script');
+          sc.src = '/games/shared/game-rooms.js';
+          sc.onload = resolve; sc.onerror = reject; document.head.appendChild(sc);
+        });
+        return window.TasleyaGameRooms;
+      }
+
+      function buildInvite(roomCode) {
+        return `${window.location.origin}${window.location.pathname}?xoOnlineDev=1&room=${roomCode}#xo-online-dev`;
+      }
+
       function setupEvents() {
+        state.isOnlineDevEnabled = isOnlineDevEnabled();
+        if (state.isOnlineDevEnabled) {
+          elements.startBtn.classList.add("hidden");
+          elements.chooseSameDeviceBtn.classList.remove("hidden");
+          elements.chooseOnlineBtn.classList.remove("hidden");
+        }
+
+        elements.chooseSameDeviceBtn?.addEventListener("click", () => {
+          state.playMode = "local";
+          elements.startBtn.classList.remove("hidden");
+        });
+
+        elements.chooseOnlineBtn?.addEventListener("click", () => {
+          state.playMode = "online";
+          setScreen("onlineChoice");
+        });
+
+        elements.onlineCreateFlowBtn?.addEventListener("click", async () => {
+          const gameRooms = await ensureGameRooms();
+          const session = await gameRooms.createGameRoom({ gameType: XO_GAME_KEY, hostName: "Host", maxTeams: 2 });
+          state.online.enabled = true; state.online.session = session;
+          const gs = { phase:"lobby", teams:{ teamAssignments:{} } };
+          await gameRooms.updateGameRoomPublicState(session.roomCode, { gameState: gs });
+          elements.onlineRoleBadge.textContent = "أنت المضيف";
+          elements.onlineLobbyMessage.textContent = "شارك الكود أو الرابط مع اللاعب الآخر، ثم اختر فريقك وانتظر انضمامه.";
+          elements.onlineRoomCodeText.textContent = session.roomCode;
+          elements.onlineInviteLinkText.textContent = buildInvite(session.roomCode);
+          setScreen("onlineLobby");
+          state.online.unsubscribeRoom = gameRooms.listenToGameRoom(session.roomCode, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} });
+        });
+
+        elements.onlineJoinFlowBtn?.addEventListener("click", () => { setScreen("onlineLobby"); elements.onlineRoleBadge.textContent = "أنت لاعب منضم"; elements.onlineJoinForm.classList.remove("hidden"); });
+        elements.backToSetupFromOnlineChoiceBtn?.addEventListener("click", ()=>setScreen("setup"));
+        elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"Player")}); state.online.enabled=true; state.online.session=session; elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} }); });
+        elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
+        async function setMyTeam(teamIndex){ const gameRooms=await ensureGameRooms(); const gs=(state.online.roomData?.public?.gameState)||{teams:{teamAssignments:{}}}; gs.teams=gs.teams||{}; gs.teams.teamAssignments=gs.teams.teamAssignments||{}; gs.teams.teamAssignments[state.online.session.uid]=teamIndex; await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState:gs}); }
+        elements.joinTeam0Btn?.addEventListener("click", ()=>setMyTeam(0));
+        elements.joinTeam1Btn?.addEventListener("click", ()=>setMyTeam(1));
+        elements.hostStartOnlineBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const roomData=state.online.roomData; if(!roomData || roomData.meta?.hostUid!==state.online.session.uid || !state.selectedBoard) return; const assign=roomData.public?.gameState?.teams?.teamAssignments||{}; const teamVals=Object.values(assign); if(!(teamVals.includes(0)&&teamVals.includes(1))){ elements.onlineLobbyMessage.textContent="يجب وجود لاعب واحد على الأقل في كل فريق."; return; } const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:state.selectedBoard.board_id,rowLabels:[state.selectedBoard.row_1,state.selectedBoard.row_2,state.selectedBoard.row_3],colLabels:[state.selectedBoard.column_1,state.selectedBoard.column_2,state.selectedBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] }; await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState}); });
+
+        function renderOnlineLobby(){ const roomData=state.online.roomData; if(!roomData) return; const players=Object.entries(roomData.players||{}).map(([uid,p])=>({uid,name:p.name||"لاعب"})); const assign=roomData.public?.gameState?.teams?.teamAssignments||{}; const render=(el,idx)=>{el.innerHTML=players.filter(p=>assign[p.uid]===idx).map(p=>`<li>${p.name}${p.uid===roomData.meta?.hostUid?" (المضيف)":""}</li>`).join("")||"<li>—</li>"}; render(elements.team0Players,0); render(elements.team1Players,1); elements.unassignedPlayers.innerHTML=players.filter(p=>assign[p.uid]!==0&&assign[p.uid]!==1).map(p=>`<li>${p.name}</li>`).join("")||"<li>—</li>"; elements.hostStartOnlineBtn.classList.toggle("hidden", roomData.meta?.hostUid!==state.online.session.uid); }
+        function applyOnlineGameState(gs){ state.playMode="online"; state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.remove("hidden"); elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT; }
+
         elements.startBtn.addEventListener("click", () => {
           if (state.loadingStatus !== "success") {
             return;
@@ -1054,6 +1166,11 @@
           state.filteredBoardsForSelectedMode = [];
           state.selectedBoard = null;
           fetchBoardsData();
+      if (isOnlineDevEnabled() && new URLSearchParams(window.location.search).get("room")) {
+        setScreen("onlineLobby");
+        elements.onlineRoleBadge.textContent = "أنت لاعب منضم";
+        elements.onlineRoomCodeInput.value = new URLSearchParams(window.location.search).get("room") || "";
+      }
           persistResumeState();
         });
 
@@ -1224,4 +1341,9 @@
         openResumeDialog();
       }
       fetchBoardsData();
+      if (isOnlineDevEnabled() && new URLSearchParams(window.location.search).get("room")) {
+        setScreen("onlineLobby");
+        elements.onlineRoleBadge.textContent = "أنت لاعب منضم";
+        elements.onlineRoomCodeInput.value = new URLSearchParams(window.location.search).get("room") || "";
+      }
       }
