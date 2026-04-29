@@ -18,6 +18,20 @@
   let mounted = false;
   let mounting = false;
   let initialized = false;
+  const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
+  function showLoaderError(message) {
+    const hostEl = contentView || runtimeHost || document.body;
+    if (!hostEl) return;
+    let box = document.getElementById("guessHintLoaderError");
+    if (!box) {
+      box = document.createElement("p");
+      box.id = "guessHintLoaderError";
+      box.style.color = "#ffd7d7";
+      box.style.fontWeight = "700";
+      hostEl.appendChild(box);
+    }
+    box.textContent = message || RUNTIME_UI_LOAD_ERROR;
+  }
 
   function showContentView() {
     if (contentView) contentView.classList.remove("hidden");
@@ -56,6 +70,7 @@
     try {
       const response = await fetch(runtimeUrl, { cache: "no-store" });
       if (!response.ok) throw new Error(`RUNTIME_LOAD_FAILED_${response.status}`);
+      if (!runtimeHost) throw new Error("GUESS_HINT_RUNTIME_HOST_MISSING");
       runtimeHost.innerHTML = await response.text();
       mounted = true;
     } finally {
@@ -1244,6 +1259,11 @@
       })();
   }
 
+  if (!enterBtn) {
+    console.error("[guess-from-hint] Missing #enterModeScreenBtn");
+    showLoaderError(RUNTIME_UI_LOAD_ERROR);
+    return;
+  }
   enterBtn.addEventListener("click", async () => {
     enterBtn.disabled = true;
     try {
@@ -1255,6 +1275,7 @@
       if (modeScreen) modeScreen.classList.remove("hidden");
     } catch (error) {
       console.error("[guess-from-hint] Failed to start runtime", error);
+      showLoaderError(RUNTIME_UI_LOAD_ERROR);
       enterBtn.disabled = false;
     }
   });

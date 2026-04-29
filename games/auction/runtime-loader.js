@@ -12,6 +12,8 @@
       console.info("[Tasleya Auction]", AUCTION_RUNTIME_VERSION);
       const AUCTION_RUNTIME_FRAGMENT_URL = "/games/auction/runtime-fragment.html";
       const AUCTION_DEPENDENCY_LOAD_ERROR = "تعذر تجهيز اللعبة. حاول تحديث الصفحة أو فتحها مرة أخرى.";
+      const AUCTION_QUESTIONS_LOAD_ERROR = "تعذر تحميل أسئلة المزاد. تأكد من الاتصال بالإنترنت ثم حاول مرة أخرى.";
+      const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
       const AUCTION_LOCAL_DEPENDENCY_SCRIPTS = [
         withAuctionVersion("/games/auction/data.js"),
         withAuctionVersion("/games/shared/recent-history.js"),
@@ -28,12 +30,49 @@
       let auctionRuntimeMounting = false;
       let auctionAppInitialized = false;
 
+      function setInlineLoaderError(message, { showRetry = false } = {}) {
+        const container = auctionIntro || auctionRuntimeHost || document.body;
+        if (!container) return;
+        let box = document.getElementById("auctionLoaderError");
+        if (!box) {
+          box = document.createElement("div");
+          box.id = "auctionLoaderError";
+          box.style.marginTop = "0.8rem";
+          box.style.padding = "0.75rem";
+          box.style.borderRadius = "12px";
+          box.style.border = "1px solid rgba(255, 160, 160, 0.45)";
+          box.style.background = "rgba(120, 20, 20, 0.22)";
+          box.style.color = "#ffe3e3";
+          box.style.fontWeight = "700";
+          container.appendChild(box);
+        }
+        box.innerHTML = `<div>${message || RUNTIME_UI_LOAD_ERROR}</div>`;
+        if (showRetry) {
+          const retryBtn = document.createElement("button");
+          retryBtn.type = "button";
+          retryBtn.textContent = "إعادة المحاولة";
+          retryBtn.style.marginTop = "0.55rem";
+          retryBtn.style.borderRadius = "10px";
+          retryBtn.style.border = "1px solid rgba(255, 216, 140, 0.6)";
+          retryBtn.style.background = "rgba(20, 38, 83, 0.88)";
+          retryBtn.style.color = "#ffe7a7";
+          retryBtn.style.padding = "0.45rem 0.7rem";
+          retryBtn.addEventListener("click", () => window.location.reload(), { once: true });
+          box.appendChild(retryBtn);
+        }
+      }
+
+      function clearInlineLoaderError() {
+        document.getElementById("auctionLoaderError")?.remove();
+      }
+
       async function mountAuctionRuntime() {
         if (auctionRuntimeMounted || auctionRuntimeMounting) return;
         auctionRuntimeMounting = true;
         try {
           const response = await fetch(AUCTION_RUNTIME_FRAGMENT_URL, { cache: "no-store" });
           if (!response.ok) throw new Error(`AUCTION_RUNTIME_LOAD_FAILED_${response.status}`);
+          if (!auctionRuntimeHost) throw new Error("AUCTION_RUNTIME_HOST_MISSING");
           auctionRuntimeHost.innerHTML = await response.text();
           auctionRuntimeMounted = true;
         } finally {
@@ -94,8 +133,14 @@
         await loadDependencyChain(AUCTION_ONLINE_DEPENDENCY_SCRIPTS, "online");
       }
 
-      document.getElementById("enterAuctionSetupBtn").addEventListener("click", async () => {
-        const cta = document.getElementById("enterAuctionSetupBtn");
+      const auctionEnterBtn = document.getElementById("enterAuctionSetupBtn");
+      if (!auctionEnterBtn) {
+        console.error("[auction] Missing #enterAuctionSetupBtn");
+        setInlineLoaderError(RUNTIME_UI_LOAD_ERROR, { showRetry: true });
+      } else {
+      auctionEnterBtn.addEventListener("click", async () => {
+        const cta = auctionEnterBtn;
+        clearInlineLoaderError();
         cta.disabled = true;
         try {
           await mountAuctionRuntime();
@@ -108,10 +153,14 @@
           initAuctionApp();
         } catch (error) {
           console.error("[auction] Failed to prepare auction runtime", error);
+          const lowerMessage = String(error?.message || "").toLowerCase();
+          const isDataFailure = lowerMessage.includes("question") || lowerMessage.includes("data") || lowerMessage.includes("fetch");
+          setInlineLoaderError(isDataFailure ? AUCTION_QUESTIONS_LOAD_ERROR : RUNTIME_UI_LOAD_ERROR, { showRetry: true });
           window.alert(AUCTION_DEPENDENCY_LOAD_ERROR);
           cta.disabled = false;
         }
       });
+      }
 
       function initAuctionApp() {
         if (auctionAppInitialized) return;

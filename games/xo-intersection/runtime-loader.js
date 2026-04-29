@@ -3,9 +3,24 @@
       const xoRuntimeNav = document.getElementById("xoRuntimeNav");
       const returnToIntroBtn = document.getElementById("returnToIntroBtn");
       const XO_RUNTIME_FRAGMENT_URL = "/games/xo-intersection/runtime-fragment.html";
+      const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
       let xoRuntimeMounted = false;
       let xoRuntimeMounting = false;
       let xoAppInitialized = false;
+
+      function showLoaderError(message) {
+        const hostEl = xoIntroScreen || xoRuntimeHost || document.body;
+        if (!hostEl) return;
+        let box = document.getElementById("xoLoaderError");
+        if (!box) {
+          box = document.createElement("p");
+          box.id = "xoLoaderError";
+          box.style.color = "#ffd7d7";
+          box.style.fontWeight = "700";
+          hostEl.appendChild(box);
+        }
+        box.textContent = message || RUNTIME_UI_LOAD_ERROR;
+      }
 
       async function mountXoRuntime() {
         if (xoRuntimeMounted || xoRuntimeMounting) return;
@@ -13,6 +28,7 @@
         try {
           const response = await fetch(XO_RUNTIME_FRAGMENT_URL, { cache: "no-store" });
           if (!response.ok) throw new Error(`XO_RUNTIME_LOAD_FAILED_${response.status}`);
+          if (!xoRuntimeHost) throw new Error("XO_RUNTIME_HOST_MISSING");
           xoRuntimeHost.innerHTML = await response.text();
           xoRuntimeMounted = true;
         } finally {
@@ -20,8 +36,14 @@
         }
       }
 
-      document.getElementById("enterXoSetupBtn").addEventListener("click", async () => {
-        const cta = document.getElementById("enterXoSetupBtn");
+      const enterXoSetupBtn = document.getElementById("enterXoSetupBtn");
+      if (!enterXoSetupBtn) {
+        console.error("[xo-intersection] Missing #enterXoSetupBtn");
+        showLoaderError(RUNTIME_UI_LOAD_ERROR);
+        return;
+      }
+      enterXoSetupBtn.addEventListener("click", async () => {
+        const cta = enterXoSetupBtn;
         cta.disabled = true;
         try {
           await mountXoRuntime();
@@ -41,6 +63,7 @@
           initXoIntersectionApp();
         } catch (error) {
           console.error("[xo-intersection] Failed to mount runtime UI", error);
+          showLoaderError(RUNTIME_UI_LOAD_ERROR);
           cta.disabled = false;
         }
       });
