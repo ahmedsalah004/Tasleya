@@ -1,5 +1,7 @@
       const xoIntroScreen = document.getElementById("xoIntroScreen");
       const xoRuntimeHost = document.getElementById("xoRuntimeHost");
+      const xoRuntimeNav = document.getElementById("xoRuntimeNav");
+      const returnToIntroBtn = document.getElementById("returnToIntroBtn");
       const XO_RUNTIME_FRAGMENT_URL = "/games/xo-intersection/runtime-fragment.html";
       let xoRuntimeMounted = false;
       let xoRuntimeMounting = false;
@@ -25,15 +27,29 @@
           await mountXoRuntime();
           if (!xoRuntimeMounted) throw new Error("XO_RUNTIME_MOUNT_ABORTED");
           xoIntroScreen.classList.add("hidden");
+          document.body.classList.add("runtime-active");
+          xoRuntimeNav?.classList.remove("hidden");
           const setupScreen = document.querySelector('[data-screen="setup"]');
           if (!setupScreen) throw new Error("XO_SETUP_SCREEN_MISSING");
           setupScreen.classList.remove("hidden");
           setupScreen.classList.add("active");
+          setupScreen.scrollIntoView({ behavior: "smooth", block: "start" });
+          window.setTimeout(() => {
+            const teamInput = document.getElementById("team1Input");
+            teamInput?.focus();
+          }, 220);
           initXoIntersectionApp();
         } catch (error) {
           console.error("[xo-intersection] Failed to mount runtime UI", error);
           cta.disabled = false;
         }
+      });
+
+      returnToIntroBtn?.addEventListener("click", () => {
+        document.body.classList.remove("runtime-active");
+        xoIntroScreen.classList.remove("hidden");
+        xoRuntimeNav?.classList.add("hidden");
+        xoIntroScreen.scrollIntoView({ behavior: "smooth", block: "start" });
       });
 
       function initXoIntersectionApp() {

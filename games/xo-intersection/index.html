@@ -585,6 +585,22 @@
       .hidden {
         display: none;
       }
+
+      body.runtime-active #xoIntroScreen {
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        margin: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        border-width: 0;
+        pointer-events: none;
+        transition: opacity 220ms ease;
+      }
+
+      #returnToIntroBtn {
+        margin-top: 0.8rem;
+      }
     </style>
       <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"الرئيسية","item":"https://tasleya.online/"},{"@type":"ListItem","position":2,"name":"الألعاب","item":"https://tasleya.online/games/"},{"@type":"ListItem","position":3,"name":"XO | خمن الرابط","item":"https://tasleya.online/games/xo-intersection/"}]}</script>
   </head>
@@ -669,6 +685,9 @@
       </section>
 
       <div id="xoRuntimeHost"></div>
+      <div id="xoRuntimeNav" class="hidden">
+        <button id="returnToIntroBtn" class="btn btn-secondary" type="button">العودة للمقدمة</button>
+      </div>
 
     </main>
 
