@@ -63,6 +63,7 @@
       const XO_CYCLE_RESET_NOTICE_TEXT = "أعدنا خلط اللوحات بعد استخدام معظم اللوحات المتاحة، وقد تظهر بعض اللوحات مرة أخرى.";
       const XO_GAME_KEY = "xo-intersection";
       const XO_ONLINE_WAIT_TEAM_CONFIRM_TEXT = "بانتظار تثبيت إجابة الفريق الحالي";
+      const XO_RUNTIME_BUILD = "xo-runtime-2026-04-29b";
 
       const state = {
         currentScreen: "setup",
@@ -90,8 +91,9 @@
         isAwaitingResumeChoice: false,
         isOnlineDevEnabled: false,
         playMode: "local",
-        online: { enabled:false, session:null, roomData:null, unsubscribeRoom:null, unsubscribePresence:null }
+        online: { enabled:false, session:null, roomData:null, unsubscribeRoom:null, unsubscribePresence:null, pendingActionIds:{} }
       };
+      console.info("[xo-intersection]", XO_RUNTIME_BUILD);
 
       const elements = {
         screens: document.querySelectorAll("[data-screen]"),
@@ -678,10 +680,25 @@
 
       async function submitOnlineAction(type, payload) {
         const gameRooms = await ensureGameRooms();
-        return gameRooms.submitGameRoomAction(state.online.session.roomCode, {
+        const action = await gameRooms.submitGameRoomAction(state.online.session.roomCode, {
           type,
           payload,
           clientRequestId: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        });
+        if (action?.actionId) {
+          state.online.pendingActionIds[action.actionId] = type;
+        }
+        return action;
+      }
+      function renderOnlineActionDiagnostics() {
+        const actions = state.online.roomData?.actions || {};
+        Object.entries(state.online.pendingActionIds || {}).forEach(([actionId, type]) => {
+          const action = actions[actionId];
+          if (!action || action.status !== "processed") return;
+          const ok = Boolean(action.result?.ok);
+          if (ok) showOnlineStatus("تمت مزامنة الإجراء بنجاح.");
+          else showOnlineStatus(`تعذر تنفيذ الإجراء: ${action.result?.reason || "سبب غير معروف"}`, true);
+          delete state.online.pendingActionIds[actionId];
         });
       }
 
@@ -1327,7 +1344,7 @@
             }
           }
         }
-        function applyOnlineGameState(gs){ state.playMode="online"; state.online.revision=Number(gs.revision||0); state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; state.selectedSquare=gs.selectedSquare||null; state.winningLineCells=Array.isArray(gs.winningLineCells)?gs.winningLineCells:[]; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.add("hidden"); }
+        function applyOnlineGameState(gs){ state.playMode="online"; state.online.revision=Number(gs.revision||0); state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; state.selectedSquare=gs.selectedSquare||null; state.winningLineCells=Array.isArray(gs.winningLineCells)?gs.winningLineCells:[]; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.add("hidden"); renderOnlineActionDiagnostics(); }
 
         elements.startBtn.addEventListener("click", () => {
           if (state.loadingStatus !== "success") {
@@ -1427,7 +1444,7 @@
 
         elements.confirmCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("بانتظار دور فريقك.", true); submitOnlineAction("mark_correct", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال تثبيت الخانة.")).catch(()=>showOnlineStatus("تعذر إرسال تثبيت الخانة.", true)); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("تعذر تثبيت الخانة: بانتظار دور فريقك.", true); showOnlineStatus("جارٍ إرسال تثبيت الخانة..."); submitOnlineAction("mark_correct", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال تثبيت الخانة، بانتظار المزامنة...")).catch((error)=>showOnlineStatus(`تعذر إرسال الإجراء: ${error?.message || "فشل غير معروف"}`, true)); return; }
           const { row, col } = state.selectedSquare;
           state.boardCells[row][col] = getSymbolByTeamIndex(state.currentTurnTeamIndex);
           state.selectedSquare = null;
@@ -1447,7 +1464,7 @@
 
         elements.cancelCellBtn.addEventListener("click", () => {
           if (!state.selectedSquare || state.gameStatus !== "playing") return;
-          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("بانتظار دور فريقك.", true); submitOnlineAction("mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال إلغاء الخانة.")).catch(()=>showOnlineStatus("تعذر إرسال إلغاء الخانة.", true)); return; }
+          if (state.playMode === "online") { if (!canOnlineTeamAct()) return showOnlineStatus("تعذر إلغاء الخانة: بانتظار دور فريقك.", true); showOnlineStatus("جارٍ إرسال إلغاء الخانة..."); submitOnlineAction("mark_incorrect", { expectedRevision: Number(state.online.revision || 0) }).then(()=>showOnlineStatus("تم إرسال إلغاء الخانة، بانتظار المزامنة...")).catch((error)=>showOnlineStatus(`تعذر إرسال الإجراء: ${error?.message || "فشل غير معروف"}`, true)); return; }
           state.selectedSquare = null;
           switchTurn();
           showCancelNotice();
