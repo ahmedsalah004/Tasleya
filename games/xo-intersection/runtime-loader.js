@@ -1158,12 +1158,57 @@
         elements.backToSetupFromOnlineChoiceBtn?.addEventListener("click", ()=>setScreen("setup"));
         elements.onlineJoinSubmitBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const code=(elements.onlineRoomCodeInput.value||new URLSearchParams(location.search).get("room")||"").trim().toUpperCase(); const session=await gameRooms.joinGameRoom({roomCode:code, playerName:(elements.onlinePlayerNameInput.value||"Player")}); state.online.enabled=true; state.online.session=session; elements.onlineRoleBadge.textContent="أنت لاعب منضم"; elements.onlineRoomCodeText.textContent=code; elements.onlineInviteWrap.classList.add("hidden"); state.online.unsubscribeRoom = gameRooms.listenToGameRoom(code, (roomData)=>{ state.online.roomData=roomData; renderOnlineLobby(); if(roomData?.public?.gameState?.phase==="playing"){applyOnlineGameState(roomData.public.gameState);} }); });
         elements.copyInviteBtn?.addEventListener("click", ()=>navigator.clipboard?.writeText(elements.onlineInviteLinkText.textContent||""));
-        async function setMyTeam(teamIndex){ const gameRooms=await ensureGameRooms(); const gs=(state.online.roomData?.public?.gameState)||{teams:{teamAssignments:{}}}; gs.teams=gs.teams||{}; gs.teams.teamAssignments=gs.teams.teamAssignments||{}; gs.teams.teamAssignments[state.online.session.uid]=teamIndex; await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState:gs}); }
+        async function setMyTeam(teamIndex){
+          try {
+            const gameRooms = await ensureGameRooms();
+            await gameRooms.setGameRoomPresence(state.online.session.roomCode, { teamId: teamIndex });
+            elements.onlineLobbyMessage.textContent = "تم تحديث الفريق بنجاح.";
+          } catch (error) {
+            elements.onlineLobbyMessage.textContent = `تعذر تحديث الفريق: ${error?.message || "حاول مرة أخرى."}`;
+          }
+        }
         elements.joinTeam0Btn?.addEventListener("click", ()=>setMyTeam(0));
         elements.joinTeam1Btn?.addEventListener("click", ()=>setMyTeam(1));
-        elements.hostStartOnlineBtn?.addEventListener("click", async ()=>{ const gameRooms=await ensureGameRooms(); const roomData=state.online.roomData; if(!roomData || roomData.meta?.hostUid!==state.online.session.uid || !state.selectedBoard) return; const assign=roomData.public?.gameState?.teams?.teamAssignments||{}; const teamVals=Object.values(assign); if(!(teamVals.includes(0)&&teamVals.includes(1))){ elements.onlineLobbyMessage.textContent="يجب وجود لاعب واحد على الأقل في كل فريق."; return; } const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:state.selectedBoard.board_id,rowLabels:[state.selectedBoard.row_1,state.selectedBoard.row_2,state.selectedBoard.row_3],colLabels:[state.selectedBoard.column_1,state.selectedBoard.column_2,state.selectedBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] }; await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState}); });
+        elements.hostStartOnlineBtn?.addEventListener("click", async ()=>{
+          try {
+            const gameRooms=await ensureGameRooms();
+            const roomData=state.online.roomData;
+            if(!roomData || roomData.meta?.hostUid!==state.online.session.uid || !state.selectedBoard) {
+              elements.onlineLobbyMessage.textContent = "لا يمكن بدء اللعبة الآن.";
+              return;
+            }
+            const players = Object.entries(roomData.players || {}).map(([uid, p]) => ({ uid, teamId: Number(p?.teamId) }));
+            const hasTeam0 = players.some((p) => p.teamId === 0);
+            const hasTeam1 = players.some((p) => p.teamId === 1);
+            if(!(hasTeam0 && hasTeam1)){
+              elements.onlineLobbyMessage.textContent="لا يمكن البدء قبل انضمام لاعب لكل فريق.";
+              return;
+            }
+            const assign = {};
+            players.forEach((p) => { if (p.teamId === 0 || p.teamId === 1) assign[p.uid] = p.teamId; });
+            const gameState={ gameKey:XO_GAME_KEY, phase:"playing", revision:0, board:{boardId:state.selectedBoard.board_id,rowLabels:[state.selectedBoard.row_1,state.selectedBoard.row_2,state.selectedBoard.row_3],colLabels:[state.selectedBoard.column_1,state.selectedBoard.column_2,state.selectedBoard.column_3]}, boardCells:[["","",""] ,["","",""] ,["","",""]], selectedSquare:null,currentTurnTeamIndex:0,teams:{teamAssignments:assign},gameStatus:"playing",winningLineCells:[] };
+            await gameRooms.updateGameRoomPublicState(state.online.session.roomCode,{gameState});
+          } catch (error) {
+            elements.onlineLobbyMessage.textContent = `تعذر بدء اللعبة: ${error?.message || "حاول مرة أخرى."}`;
+          }
+        });
 
-        function renderOnlineLobby(){ const roomData=state.online.roomData; if(!roomData) return; const players=Object.entries(roomData.players||{}).map(([uid,p])=>({uid,name:p.name||"لاعب"})); const assign=roomData.public?.gameState?.teams?.teamAssignments||{}; const render=(el,idx)=>{el.innerHTML=players.filter(p=>assign[p.uid]===idx).map(p=>`<li>${p.name}${p.uid===roomData.meta?.hostUid?" (المضيف)":""}</li>`).join("")||"<li>—</li>"}; render(elements.team0Players,0); render(elements.team1Players,1); elements.unassignedPlayers.innerHTML=players.filter(p=>assign[p.uid]!==0&&assign[p.uid]!==1).map(p=>`<li>${p.name}</li>`).join("")||"<li>—</li>"; elements.hostStartOnlineBtn.classList.toggle("hidden", roomData.meta?.hostUid!==state.online.session.uid); }
+        function renderOnlineLobby(){
+          const roomData=state.online.roomData; if(!roomData) return;
+          const players=Object.entries(roomData.players||{}).map(([uid,p])=>({uid,name:p.name||"لاعب",teamId:Number(p?.teamId)}));
+          const render=(el,idx)=>{el.innerHTML=players.filter(p=>p.teamId===idx).map(p=>`<li>${p.name}${p.uid===roomData.meta?.hostUid?" (المضيف)":""}</li>`).join("")||"<li>—</li>"};
+          render(elements.team0Players,0);
+          render(elements.team1Players,1);
+          elements.unassignedPlayers.innerHTML=players.filter(p=>p.teamId!==0&&p.teamId!==1).map(p=>`<li>${p.name}</li>`).join("")||"<li>—</li>";
+          const hasTeam0 = players.some((p) => p.teamId === 0);
+          const hasTeam1 = players.some((p) => p.teamId === 1);
+          const isHost = roomData.meta?.hostUid===state.online.session.uid;
+          elements.hostStartOnlineBtn.classList.toggle("hidden", !isHost);
+          elements.hostStartOnlineBtn.disabled = !hasTeam0 || !hasTeam1;
+          if (isHost && (!hasTeam0 || !hasTeam1)) {
+            elements.onlineLobbyMessage.textContent = "لا يمكن البدء قبل انضمام لاعب لكل فريق.";
+          }
+        }
         function applyOnlineGameState(gs){ state.playMode="online"; state.selectedBoard={board_id:gs.board.boardId,row_1:gs.board.rowLabels[0],row_2:gs.board.rowLabels[1],row_3:gs.board.rowLabels[2],column_1:gs.board.colLabels[0],column_2:gs.board.colLabels[1],column_3:gs.board.colLabels[2]}; state.boardCells=gs.boardCells; state.currentTurnTeamIndex=Number(gs.currentTurnTeamIndex)||0; state.gameStatus=gs.gameStatus||"playing"; setScreen("gameplay"); renderGameplay(); elements.cancelNotice.classList.remove("hidden"); elements.cancelNotice.textContent = XO_ONLINE_BLOCKED_TEXT; }
 
         elements.startBtn.addEventListener("click", () => {
