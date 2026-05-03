@@ -28,26 +28,51 @@
         "@context": "https://schema.org",
         "@graph": [
           {
-            "@type": "WebSite",
+            "@type": "Organization",
+            "@id": "https://tasleya.online/#organization",
             "name": "تسلية",
+            "alternateName": "Tasleya",
             "url": "https://tasleya.online/",
-            "inLanguage": "ar",
-            "description": "تسلية لعبة أسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتوفر جولات فردية وجماعية مع فئات متنوعة."
+            "logo": "https://tasleya.online/apple-touch-icon.png",
+            "description": "تسلية منصة ألعاب وأسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتقدم جولات فردية وجماعية بفئات متنوعة.",
+            "contactPoint": [
+              {
+                "@type": "ContactPoint",
+                "contactType": "customer support",
+                "url": "https://tasleya.online/contact/",
+                "availableLanguage": ["ar", "en"]
+              }
+            ]
           },
           {
-            "@type": "Organization",
+            "@type": "WebSite",
+            "@id": "https://tasleya.online/#website",
             "name": "تسلية",
+            "alternateName": "Tasleya",
             "url": "https://tasleya.online/",
-            "description": "تسلية لعبة أسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتوفر جولات فردية وجماعية مع فئات متنوعة."
+            "inLanguage": "ar",
+            "publisher": {
+              "@id": "https://tasleya.online/#organization"
+            },
+            "description": "تسلية منصة ألعاب وأسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتقدم جولات فردية وجماعية بفئات متنوعة."
           },
           {
             "@type": "WebApplication",
+            "@id": "https://tasleya.online/#webapp",
             "name": "تسلية",
+            "alternateName": "Tasleya",
             "url": "https://tasleya.online/",
             "applicationCategory": "GameApplication",
             "operatingSystem": "Web",
             "inLanguage": "ar",
-            "description": "تسلية لعبة أسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتوفر جولات فردية وجماعية مع فئات متنوعة."
+            "browserRequirements": "Requires JavaScript and a modern browser",
+            "isPartOf": {
+              "@id": "https://tasleya.online/#website"
+            },
+            "publisher": {
+              "@id": "https://tasleya.online/#organization"
+            },
+            "description": "تسلية منصة ألعاب وأسئلة عربية تعمل عبر المتصفح على الجوال والكمبيوتر، وتقدم جولات فردية وجماعية بفئات متنوعة."
           }
         ]
       }
@@ -102,6 +127,14 @@
             </div>
           </div>
         </div>
+        <nav class="hero-quick-links" aria-label="روابط تسلية الأساسية">
+          <a href="/games/">الألعاب</a>
+          <a href="/play/">ابدأ اللعب</a>
+          <a href="/how-to-play/">كيف تلعب؟</a>
+          <a href="/categories/">الفئات</a>
+          <a href="/about/">من نحن</a>
+          <a href="/contact/">تواصل معنا</a>
+        </nav>
         <p class="scroll-hint">↓ اكتشف المزيد</p>
       </section>
 
