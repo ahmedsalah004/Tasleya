@@ -604,6 +604,34 @@
         cursor: pointer;
         transition: fill 120ms ease;
       }
+      .country.unavailable {
+        fill: #5f6f95;
+        opacity: 0.5;
+        cursor: default;
+      }
+      .country.unavailable:hover {
+        fill: #5f6f95;
+      }
+      .map-zoom-controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: grid;
+        gap: 6px;
+        z-index: 3;
+      }
+      .zoom-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid rgba(183, 208, 255, 0.45);
+        background: rgba(10, 24, 55, 0.92);
+        color: #f0f6ff;
+        font-size: 1.25rem;
+        font-weight: 900;
+        cursor: pointer;
+      }
+      .zoom-reset-btn { font-size: 1rem; }
 
       .country:focus,
       .country:focus-visible {
