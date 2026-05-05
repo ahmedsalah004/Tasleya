@@ -57,8 +57,8 @@
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const MAP_MIN_ZOOM = 1;
-      const MAP_MAX_ZOOM_DESKTOP = 8;
-      const MAP_MAX_ZOOM_MOBILE = 20;
+      const MAP_MAX_ZOOM_DESKTOP = 28;
+      const MAP_MAX_ZOOM_MOBILE = 36;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -236,6 +236,9 @@
         playAudioBtn: document.getElementById("playAudioBtn"),
         audioHelperText: document.getElementById("audioHelperText"),
         audioStatusText: document.getElementById("audioStatusText"),
+        zoomInBtn: document.getElementById("zoomInBtn"),
+        zoomOutBtn: document.getElementById("zoomOutBtn"),
+        zoomResetBtn: document.getElementById("zoomResetBtn"),
         imagePromptWrap: document.getElementById("imagePromptWrap"),
         imageQuestionText: document.getElementById("imageQuestionText"),
         imageLoading: document.getElementById("imageLoading"),
@@ -348,6 +351,26 @@
         ["EGY", "EG"],
         ["FRA", "FR"],
         ["UAE", "AE"],
+        ["FSM", "FM"],
+        ["MHL", "MH"],
+        ["KIR", "KI"],
+        ["TUV", "TV"],
+        ["PLW", "PW"],
+        ["NRU", "NR"],
+        ["MDV", "MV"],
+        ["SYC", "SC"],
+        ["MUS", "MU"],
+        ["COM", "KM"],
+        ["BHR", "BH"],
+        ["SGP", "SG"],
+        ["MLT", "MT"],
+      ]);
+      const ALPHA3_TO_ALPHA2 = new Map([
+        ["USA", "US"], ["GBR", "GB"], ["RUS", "RU"], ["KOR", "KR"], ["PRK", "KP"], ["IRN", "IR"], ["SYR", "SY"], ["TZA", "TZ"],
+        ["BOL", "BO"], ["VEN", "VE"], ["MDA", "MD"], ["LAO", "LA"], ["VNM", "VN"], ["CZE", "CZ"], ["SWZ", "SZ"], ["CPV", "CV"],
+        ["CIV", "CI"], ["PSE", "PS"], ["FSM", "FM"], ["KNA", "KN"], ["VCT", "VC"], ["ATG", "AG"], ["LCA", "LC"], ["GRD", "GD"],
+        ["MDV", "MV"], ["SYC", "SC"], ["MUS", "MU"], ["COM", "KM"], ["MLT", "MT"], ["BHR", "BH"], ["SGP", "SG"], ["KIR", "KI"],
+        ["TUV", "TV"], ["PLW", "PW"], ["NRU", "NR"], ["MHL", "MH"], ["TON", "TO"], ["WSM", "WS"], ["VUT", "VU"], ["TLS", "TL"]
       ]);
 
       function normalizeQuestionCountryCode(value) {
@@ -361,7 +384,14 @@
         if (SELECTION_COUNTRY_CODE_ALIASES.has(code)) {
           return SELECTION_COUNTRY_CODE_ALIASES.get(code);
         }
+        if (ALPHA3_TO_ALPHA2.has(code)) return ALPHA3_TO_ALPHA2.get(code);
         return COUNTRY_CODE_ALIASES.get(code) || code;
+      }
+      function remapMapFeatureCountryCode(rawCode, rawFeatureName = "") {
+        const code = normalizeSelectionCountryCode(rawCode);
+        const normalizedFeatureName = normalizeName(rawFeatureName);
+        if (code === "IL" || normalizedFeatureName === "israel") return "PS";
+        return code;
       }
 
       function normalizeQuestionDifficulty(value) {
@@ -1297,7 +1327,7 @@
           currentQuestionMode === MAP_GAME_MODE_IMAGE ||
           currentQuestionPromptType === MAP_GAME_MODE_IMAGE;
 
-        const candidateCodes = [
+        const rawCandidateCodes = [
           countryCode,
           diagnostics?.featureCodes?.countryCode,
           diagnostics?.featureCodes?.country_code,
@@ -1305,8 +1335,11 @@
           diagnostics?.featureCodes?.iso_a3,
           diagnostics?.featureCodes?.iso2,
           diagnostics?.featureCodes?.id,
-        ]
+          state.countryCodeByNormalizedNameAllModes.get(normalizeName(diagnostics?.featureName || "")),
+        ];
+        const candidateCodes = rawCandidateCodes
           .map((value) => normalizeSelectionCountryCode(value))
+          .map((value) => remapMapFeatureCountryCode(value, diagnostics?.featureName || ""))
           .filter(Boolean);
         const normalizedCountryCode = candidateCodes.find((code) => state.mapFeaturesByCode.has(code))
           || candidateCodes.find((code) => state.mapCentroids.has(code))
@@ -1328,7 +1361,7 @@
           currentQuestionMode,
           currentQuestionPromptType,
           featureName: diagnostics?.featureName || "",
-          resolvedCountryCode: normalizeCountryCode(countryCode),
+          resolvedCountryCode: remapMapFeatureCountryCode(normalizeCountryCode(countryCode), diagnostics?.featureName || ""),
           normalizedCountryCode,
           hasMapFeature,
           hasMapCentroid,
@@ -1469,13 +1502,16 @@
         countryNodes.forEach((node) => {
           const code = node.dataset.countryCode;
           node.classList.remove("team1", "team2", "correct");
-          if (state.teamPicks[0]?.countryCode === code) node.classList.add("team1");
-          if (state.teamPicks[1]?.countryCode === code) node.classList.add("team2");
-          if (state.pendingPick === code) {
+          const canonicalCode = remapMapFeatureCountryCode(code, node.dataset.name || "");
+          const selectable = isLanguageMode() || isImageMode() || state.questionByCountryCode.has(canonicalCode);
+          node.classList.toggle("unavailable", !selectable);
+          if (state.teamPicks[0]?.countryCode === canonicalCode) node.classList.add("team1");
+          if (state.teamPicks[1]?.countryCode === canonicalCode) node.classList.add("team2");
+          if (state.pendingPick === canonicalCode) {
             if (state.pendingTeamIndex === 0) node.classList.add("team1");
             if (state.pendingTeamIndex === 1) node.classList.add("team2");
           }
-          if (state.phase === "revealed" && targetCode === code) node.classList.add("correct");
+          if (state.phase === "revealed" && targetCode === canonicalCode) node.classList.add("correct");
         });
       }
 
@@ -1740,7 +1776,9 @@
         }
         if (!selectionValidation.selectable) {
           console.info("[MapGame] Country rejected", selectionValidation);
-          showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          if (isLanguageMode() || isImageMode()) {
+            showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
+          }
           return;
         }
         countryCode = selectionValidation.normalizedCountryCode;
@@ -1824,6 +1862,7 @@
           const path = d3.geoPath(projection);
           const mapLayer = svg.append("g");
           const countriesLayer = mapLayer.append("g").attr("class", "countries-layer");
+          const helperLayer = mapLayer.append("g").attr("class", "small-country-helper-layer");
 
           const clearActivePointer = () => {
             state.activePointer = null;
@@ -1878,11 +1917,17 @@
                 if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(raw)) {
                   variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(raw));
                 }
+                if (ALPHA3_TO_ALPHA2.has(raw)) {
+                  variants.push(ALPHA3_TO_ALPHA2.get(raw));
+                }
                 const splitTokens = raw.split(/[^A-Z0-9]+/).filter(Boolean);
                 splitTokens.forEach((token) => {
                   variants.push(token);
                   if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(token)) {
                     variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(token));
+                  }
+                  if (ALPHA3_TO_ALPHA2.has(token)) {
+                    variants.push(ALPHA3_TO_ALPHA2.get(token));
                   }
                 });
                 return variants;
@@ -2028,11 +2073,43 @@
               }
               trySelectCountryFromEvent(event);
             });
+          const tinyCountryFeatures = geojson.features.filter((feature) => {
+            const area = d3.geoArea(feature);
+            return feature.properties.countryCode && Number.isFinite(area) && area > 0 && area < 0.00018;
+          });
+          helperLayer
+            .selectAll("circle")
+            .data(tinyCountryFeatures)
+            .enter()
+            .append("circle")
+            .attr("class", "country helper-dot")
+            .attr("data-country-code", (d) => d.properties.countryCode)
+            .attr("r", 5.5)
+            .attr("transform", (d) => {
+              const p = projection(d3.geoCentroid(d));
+              return p ? `translate(${p[0]},${p[1]})` : null;
+            })
+            .on("click", (event, d) => {
+              event.stopPropagation();
+              handleCountrySelection(remapMapFeatureCountryCode(d.properties.countryCode, d.properties.name), { featureName: d.properties.name, hasClickedFeature: true, featureCodes: { countryCode: d.properties.countryCode } });
+            });
 
           state.mapDiagnostics.smallCountryCodes = [];
 
           const zoomMax = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches ? MAP_MAX_ZOOM_MOBILE : MAP_MAX_ZOOM_DESKTOP;
 
+          const mapBounds = path.bounds(geojson);
+          const constrainTransform = (transform) => {
+            const dx = mapBounds[1][0] - mapBounds[0][0];
+            const dy = mapBounds[1][1] - mapBounds[0][1];
+            const minX = Math.min(0, mapWidth - dx * transform.k);
+            const minY = Math.min(0, mapHeight - dy * transform.k);
+            const maxX = Math.max(0, mapWidth - dx * transform.k);
+            const maxY = Math.max(0, mapHeight - dy * transform.k);
+            transform.x = Math.max(minX - 60, Math.min(maxX + 60, transform.x));
+            transform.y = Math.max(minY - 60, Math.min(maxY + 60, transform.y));
+            return transform;
+          };
           const zoomBehavior = d3
             .zoom()
             .scaleExtent([MAP_MIN_ZOOM, zoomMax])
@@ -2046,11 +2123,16 @@
               return true;
             })
             .on("zoom", (event) => {
-              mapLayer.attr("transform", event.transform);
+              const safeTransform = constrainTransform(event.transform);
+              mapLayer.attr("transform", safeTransform);
             })
             .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
+          const resetZoom = () => svg.transition().duration(260).call(zoomBehavior.transform, d3.zoomIdentity);
+          el.zoomInBtn?.addEventListener("click", () => svg.transition().duration(180).call(zoomBehavior.scaleBy, 1.45));
+          el.zoomOutBtn?.addEventListener("click", () => svg.transition().duration(180).call(zoomBehavior.scaleBy, 1 / 1.45));
+          el.zoomResetBtn?.addEventListener("click", resetZoom);
 
           if (!el.mapStage.querySelector(".map-svg")) {
             el.mapStage.appendChild(svg.node());

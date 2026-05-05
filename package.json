@@ -1,0 +1,7 @@
+{
+  "name": "tasleya",
+  "private": true,
+  "scripts": {
+    "audit:map-countries": "node tools/map-game-country-audit.mjs"
+  }
+}
