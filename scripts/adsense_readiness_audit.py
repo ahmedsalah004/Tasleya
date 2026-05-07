@@ -2,7 +2,7 @@
 import os,re
 from html.parser import HTMLParser
 
-ROUTES=["/","/games/","/play/","/categories/","/about/","/faq/","/contact/","/privacy/","/terms/","/map-game/","/films/","/games/auction/","/games/guess-from-hint/","/games/emoji-movies/","/games/forbidden-words/","/games/xo-intersection/"]
+ROUTES=["/","/games/","/play/","/categories/","/about/","/faq/","/contact/","/privacy/","/terms/","/map-game/","/films/","/games/auction/","/games/guess-from-hint/","/games/emoji-movies/","/games/forbidden-words/","/games/xo-intersection/","/articles/","/articles/perfect-game-night/","/articles/host-guide-game-modes/","/articles/trivia-memory-benefits/","/articles/arabic-trivia-history/","/articles/auction-strategy-guide/","/articles/team-play-tips/"]
 UNKNOWN=["/nonexistent","/random-test-page-adsense-check","/games/nonexistent"]
 
 class P(HTMLParser):
@@ -19,6 +19,16 @@ class P(HTMLParser):
         if not t:return
         self.text.append(t)
         if self.in_h1: self.h1.append(t)
+
+
+TEXT_EXTENSIONS={".html",".js",".mjs",".css",".xml",".txt",".md",".json",".toml",".yml",".yaml",".py"}
+
+def iter_text_files(base="."):
+    for root,_,files in os.walk(base):
+        for f in files:
+            ext=os.path.splitext(f)[1].lower()
+            if ext in TEXT_EXTENSIONS:
+                yield os.path.join(root,f)
 
 def route_to_file(route):
     return "index.html" if route=="/" else route.strip("/")+"/index.html"

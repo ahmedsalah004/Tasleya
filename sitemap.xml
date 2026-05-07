@@ -163,4 +163,18 @@
     <priority>0.7</priority>
   </url>
 
+
+  <url>
+    <loc>https://tasleya.online/articles/</loc>
+    <lastmod>2026-05-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url><loc>https://tasleya.online/articles/perfect-game-night/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/host-guide-game-modes/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/trivia-memory-benefits/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/arabic-trivia-history/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/auction-strategy-guide/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/team-play-tips/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
 </urlset>
