@@ -12,8 +12,10 @@
   const primaryLinks = [
     { href: '/', label: 'الرئيسية' },
     { href: '/games/', label: 'الألعاب' },
+    { href: '/play/', label: 'ابدأ اللعب' },
     { href: '/how-to-play/', label: 'كيف تلعب؟' },
     { href: '/categories/', label: 'الفئات' },
+    { href: '/articles/', label: 'أدلة ومقالات' },
     { href: '/faq/', label: 'الأسئلة الشائعة' },
     { href: '/about/', label: 'من نحن' }
   ];
