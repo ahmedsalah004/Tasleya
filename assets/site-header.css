@@ -277,9 +277,15 @@
   border: 1px solid var(--site-header-accent-border);
 }
 
+.site-header__link[aria-current="page"],
+.site-header__link[aria-current="page"]:link,
+.site-header__link[aria-current="page"]:visited,
 .site-header__link[aria-current="page"]:hover,
 .site-header__link[aria-current="page"]:focus-visible,
 .site-header__link[aria-current="page"]:active,
+.site-header__cta,
+.site-header__cta:link,
+.site-header__cta:visited,
 .site-header__cta:hover,
 .site-header__cta:focus-visible,
 .site-header__cta:active {
