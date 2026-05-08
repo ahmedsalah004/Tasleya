@@ -3,7 +3,7 @@
   --site-header-border: rgba(255, 220, 128, 0.24);
   --site-header-text: #eaf1ff;
   --site-header-text-muted: rgba(228, 238, 255, 0.86);
-  --site-header-accent: #f4ce6c;
+  --site-header-accent: var(--accent, #ffd166);
 }
 
 .site-header {
