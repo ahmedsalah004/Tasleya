@@ -4224,9 +4224,9 @@ body.local-three-teams .category-team-inputs {
 }
 
 /* Articles polish + link color consistency */
-.articles-page-shell a,
-.articles-page-shell a:link,
-.articles-page-shell a:visited {
+.articles-page-shell a:not(.site-header__cta),
+.articles-page-shell a:not(.site-header__cta):link,
+.articles-page-shell a:not(.site-header__cta):visited {
   color: rgba(232, 240, 255, 0.92);
 }
 
@@ -4240,8 +4240,8 @@ body.local-three-teams .category-team-inputs {
   text-decoration-color: rgba(232, 240, 255, 0.4);
 }
 
-.articles-page-shell a:hover,
-.articles-page-shell a:focus-visible,
+.articles-page-shell a:not(.site-header__cta):hover,
+.articles-page-shell a:not(.site-header__cta):focus-visible,
 .articles-page-shell .inline-email-link:hover,
 .articles-page-shell .footer-link:hover {
   color: #f4ce6c;
