@@ -552,9 +552,46 @@ html {
   word-break: break-word;
 }
 
+.inline-email-link:link,
+.inline-email-link:visited {
+  color: rgba(255, 225, 142, 0.95);
+  text-decoration-color: rgba(255, 215, 120, 0.75);
+}
+
 .inline-email-link:hover,
 .inline-email-link:focus-visible {
   color: #ffe9ab;
+}
+
+.inline-email-link:active {
+  color: #f4ce6c;
+}
+
+.hero-quick-links {
+  width: min(100%, 900px);
+  margin: 0.42rem auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 0.65rem;
+}
+
+.hero-quick-links a:link,
+.hero-quick-links a:visited {
+  color: rgba(255, 225, 142, 0.95);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 215, 120, 0.34);
+  line-height: 1.35;
+}
+
+.hero-quick-links a:hover,
+.hero-quick-links a:focus-visible {
+  color: #ffe9ab;
+  border-bottom-color: rgba(255, 215, 120, 0.74);
+}
+
+.hero-quick-links a:active {
+  color: #f4ce6c;
 }
 
 .play-lobby-actions {
@@ -654,6 +691,11 @@ html {
   transition: color 0.16s ease, opacity 0.16s ease;
 }
 
+.footer-link:link,
+.footer-link:visited {
+  color: rgba(211, 224, 248, 0.84);
+}
+
 .footer-link + .footer-link {
   position: relative;
 }
@@ -668,6 +710,10 @@ html {
 .footer-link:hover,
 .footer-link:focus-visible {
   color: rgba(255, 231, 169, 0.92);
+}
+
+.footer-link:active {
+  color: #f4ce6c;
 }
 
 .secondary-button {
@@ -4091,6 +4137,7 @@ body.local-three-teams .category-team-inputs {
 
 /* Articles polish + link color consistency */
 .articles-page-shell a,
+.articles-page-shell a:link,
 .articles-page-shell a:visited {
   color: rgba(232, 240, 255, 0.92);
 }
