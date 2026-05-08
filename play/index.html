@@ -11,48 +11,54 @@
     <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"الرئيسية","item":"https://tasleya.online/"},{"@type":"ListItem","position":2,"name":"ابدأ اللعب","item":"https://tasleya.online/play/"}]}</script>
   </head>
   <body>
-    <div class="info-page-shell">
+    <div class="info-page-shell play-page-shell">
       <div class="home-page-overlay" aria-hidden="true"></div>
-      <main class="home-sections info-page-content" aria-label="لوبي اللعب">
-        <section class="home-panel info-page-header">
+      <main class="home-sections info-page-content play-page-content" aria-label="لوبي اللعب">
+        <section class="home-panel info-page-header info-page-hero" aria-labelledby="playLobbyPageTitle">
           <nav class="section-body-text" aria-label="مسار التنقل"><a href="/" class="inline-email-link">الرئيسية</a> ← <span>ابدأ اللعب</span></nav>
-          <h1>لوبي بدء اللعب في تسلية</h1>
-          <p class="section-body-text">هذه الصفحة تجمع أسرع نقاط البداية في تسلية. اختر المسار المناسب لك: اللعبة الأصلية، مركز الألعاب، أو صفحة التعليمات قبل بدء الجولة.</p>
+          <h1 id="playLobbyPageTitle">لوبي بدء اللعب في تسلية</h1>
+          <p class="section-body-text">هذا اللوبي يساعدك على اختيار أفضل بداية بحسب أسلوب جلستك: لعب سريع في تسلية الأصلية، لعب جماعي عبر مركز الألعاب، أو تعلّم القواعد أولاً قبل بدء التحدي.</p>
         </section>
+
         <section class="home-panel info-page-card" aria-labelledby="playLobbyActionsTitle">
           <h2 id="playLobbyActionsTitle">اختيارات سريعة</h2>
           <div class="card-grid play-lobby-actions">
             <article class="mode-card">
               <h3><a href="/" class="inline-email-link">ابدأ تسلية الأصلية</a></h3>
-              <p>ابدأ جولة أسئلة عربية مباشرة واختر الفئات والفرق.</p>
+              <p>ادخل مباشرة إلى مسار البدء الأساسي للعبة تسلية واختر الفئات ونمط الجولة بسرعة.</p>
             </article>
             <article class="mode-card">
               <h3><a href="/games/" class="inline-email-link">مركز الألعاب</a></h3>
-              <p>استكشف ألعاب تسلية المختلفة مثل المزاد، التلميح، الإيموجي، وممنوع تقولها.</p>
-            </article>
-            <article class="mode-card">
-              <h3><a href="/how-to-play/" class="inline-email-link">كيف تلعب؟</a></h3>
-              <p>راجع طريقة اللعب، نظام النقاط، وطريقة اختيار الفئات قبل البداية.</p>
+              <p>بوابتك لكل أنماط اللعب: المزاد، التلميح، الإيموجي، ومنوعات تناسب الجلسات الجماعية.</p>
             </article>
             <article class="mode-card">
               <h3><a href="/games/guess-from-hint/" class="inline-email-link">خمنها من التلميح</a></h3>
-              <p>ابدأ لعبة تخمين تدريجية مناسبة للجولات السريعة.</p>
+              <p>جولات سريعة تعتمد على تلميحات متدرجة تساعدك على كسر الجمود ورفع الحماس.</p>
             </article>
             <article class="mode-card">
-              <h3><a href="/games/auction/" class="inline-email-link">المزاد</a></h3>
-              <p>جولة جماعية تعتمد على التحدي والثقة وعدد الإجابات الصحيحة.</p>
+              <h3><a href="/games/auction/" class="inline-email-link">المزاد المعرفي</a></h3>
+              <p>تحدّي جماعي للمراهنة على المعرفة: متى تزايد ومتى تمرر لتحافظ على النقاط.</p>
+            </article>
+            <article class="mode-card">
+              <h3><a href="/map-game/" class="inline-email-link">خمن الدولة</a></h3>
+              <p>اختبر معلوماتك الجغرافية في تجربة تفاعلية تركّز على الخرائط والدول.</p>
+            </article>
+            <article class="mode-card">
+              <h3><a href="/how-to-play/" class="inline-email-link">كيف تلعب؟</a></h3>
+              <p>راجع طريقة اللعب ونظام النقاط وخطوات تجهيز الجولة قبل بدء اللعب الفعلي.</p>
             </article>
           </div>
         </section>
+
         <section class="home-panel info-page-card" aria-labelledby="playLobbyGuidanceTitle">
           <h2 id="playLobbyGuidanceTitle">اختر المسار المناسب</h2>
           <ul class="info-list">
-            <li>للعب السريع: <a href="/" class="inline-email-link">ابدأ تسلية الأصلية</a>.</li>
-            <li>لتجربة ألعاب مختلفة: <a href="/games/" class="inline-email-link">افتح مركز الألعاب</a>.</li>
-            <li>إذا كنت جديداً: اقرأ <a href="/how-to-play/" class="inline-email-link">كيف تلعب؟</a> أولاً.</li>
-            <li>لجلسة جماعية حماسية: جرّب <a href="/games/auction/" class="inline-email-link">المزاد</a> أو <a href="/games/guess-from-hint/" class="inline-email-link">خمنها من التلميح</a>.</li>
+            <li><strong>زائر جديد:</strong> ابدأ من <a href="/how-to-play/" class="inline-email-link">كيف تلعب؟</a> لفهم القواعد خلال دقائق.</li>
+            <li><strong>جاهز للعب الآن:</strong> انتقل إلى <a href="/" class="inline-email-link">تسلية الأصلية</a> وابدأ الجولة مباشرة.</li>
+            <li><strong>تريد أنماطاً مختلفة:</strong> ادخل <a href="/games/" class="inline-email-link">مركز الألعاب</a> لاختيار نمط يناسب المجموعة.</li>
+            <li><strong>تبحث عن نصائح:</strong> تصفّح <a href="/articles/" class="inline-email-link">المقالات</a> للحصول على أفكار واستراتيجيات مفيدة.</li>
           </ul>
-          <p class="section-body-note">روابط مفيدة إضافية: <a href="/categories/" class="inline-email-link">الفئات</a>، <a href="/how-to-play/" class="inline-email-link">التعليمات</a>، <a href="/games/" class="inline-email-link">الألعاب</a>.</p>
+          <p class="section-body-note">روابط داخلية مفيدة: <a href="/categories/" class="inline-email-link">الفئات</a>، <a href="/games/guess-from-hint/" class="inline-email-link">خمنها من التلميح</a>، <a href="/games/auction/" class="inline-email-link">المزاد المعرفي</a>، <a href="/map-game/" class="inline-email-link">خمن الدولة</a>.</p>
         </section>
       </main>
     </div>
