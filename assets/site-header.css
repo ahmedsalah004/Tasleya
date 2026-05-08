@@ -294,6 +294,17 @@
   border-color: var(--site-header-accent-border);
 }
 
+.site-header a.site-header__cta[href="/"],
+.site-header a.site-header__cta[href="/"]:link,
+.site-header a.site-header__cta[href="/"]:visited,
+.site-header a.site-header__cta[href="/"]:hover,
+.site-header a.site-header__cta[href="/"]:focus-visible,
+.site-header a.site-header__cta[href="/"]:active,
+.site-header a.site-header__cta[href="/"] *,
+.site-header a.site-header__cta[href="/"]:visited * {
+  color: #15110a !important;
+}
+
 .site-header__toggle {
   display: none;
   border: 1px solid rgba(244, 206, 108, 0.45);
