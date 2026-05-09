@@ -166,7 +166,7 @@
 
   <url>
     <loc>https://tasleya.online/articles/</loc>
-    <lastmod>2026-05-07</lastmod>
+    <lastmod>2026-05-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -176,5 +176,10 @@
   <url><loc>https://tasleya.online/articles/arabic-trivia-history/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://tasleya.online/articles/auction-strategy-guide/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
   <url><loc>https://tasleya.online/articles/team-play-tips/</loc><lastmod>2026-05-07</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+
+  <url><loc>https://tasleya.online/articles/best-arabic-group-games-family-friends/</loc><lastmod>2026-05-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/choose-right-question-category-group/</loc><lastmod>2026-05-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/family-games-ideas-ramadan-holidays/</loc><lastmod>2026-05-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://tasleya.online/articles/why-trivia-works-arab-gatherings/</loc><lastmod>2026-05-09</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
 
 </urlset>
