@@ -1,7 +1,7 @@
 // Manual update strategy:
 // 1) Bump CACHE_NAME (v1 -> v2) on every deployment.
 // 2) Bump ASSET_VERSION in index.html and here when CSS/JS files change.
-const DEPLOY_VERSION = "1.2.7";
+const DEPLOY_VERSION = "1.2.8";
 const CACHE_NAME = `tasleya-cache-${DEPLOY_VERSION}`;
 const ASSET_VERSION = DEPLOY_VERSION;
 
@@ -11,10 +11,14 @@ const CORE_FILES = [
   `script.js?v=${ASSET_VERSION}`,
   `firebase-config.js?v=${ASSET_VERSION}`,
   `game-config.js?v=${ASSET_VERSION}`,
+  "site.webmanifest",
   "manifest.json",
   "assets/start-bg-v2.webp",
   "assets/icons/icon-192.svg",
-  "assets/icons/icon-512.svg"
+  "assets/icons/icon-512.svg",
+  "assets/icons/icon-192.png",
+  "assets/icons/icon-512.png",
+  "assets/icons/icon-512-maskable.png"
 ];
 
 const RELIABLE_UPDATE_FILES = new Set([
