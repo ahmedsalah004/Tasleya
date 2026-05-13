@@ -637,6 +637,10 @@ const analyticsState = {
   analytics: null,
   warnedUnsupported: false,
 };
+const analyticsRuntime = {
+  gameStartedAtMs: 0,
+  playedCategoryEventKeys: new Set(),
+};
 
 const questionBankCache = {
   categories: null,
@@ -2199,11 +2203,17 @@ function showPodiumModal() {
 }
 function checkEndOfGame() {
   if (state.boardTiles.length > 0 && !hasPlayableTiles()) {
-    logAnalyticsEvent("game_finished", {
+    const categoryContext = resolveCategoryAnalyticsContext();
+    const roundsPlayed = state.boardTiles.filter((tile) => tile.used).length;
+    const durationSeconds = analyticsRuntime.gameStartedAtMs > 0
+      ? Math.max(0, Math.round((Date.now() - analyticsRuntime.gameStartedAtMs) / 1000))
+      : 0;
+    trackTasleyaEvent("game_finished", {
+      game_type: resolveGameType(),
       mode: online.mode,
-      team1_score: state.scores[1],
-      team2_score: state.scores[2],
-      team3_score: state.teamCount === 3 ? state.scores[3] : 0,
+      ...categoryContext,
+      rounds_played: roundsPlayed,
+      duration_seconds: durationSeconds,
       teams_count: state.teamCount,
     });
     showPodiumModal();
@@ -2776,6 +2786,21 @@ async function openQuestion(tileId, {
     }
     state.activeQuestion = q;
     state.loadingQuestion = false;
+    const categoryContext = resolveCategoryAnalyticsContext(q, tile);
+    const categoryEventKey = [
+      resolveGameType(),
+      online.mode || "local",
+      categoryContext.category_id || "",
+      categoryContext.category_name || "",
+    ].join("::");
+    if (categoryEventKey && !analyticsRuntime.playedCategoryEventKeys.has(categoryEventKey)) {
+      analyticsRuntime.playedCategoryEventKeys.add(categoryEventKey);
+      trackTasleyaEvent("category_played", {
+        game_type: resolveGameType(),
+        mode: online.mode,
+        ...categoryContext,
+      });
+    }
     console.log("[Tasleya][openQuestion] active question assigned", {
       activeTileId: state.activeTile?.id || null,
       activeQuestionId: state.activeQuestion?.id || null,
@@ -3381,10 +3406,11 @@ async function useHintLifeline({ skipHostGuard = false, skipTurnGuard = false } 
     if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
     return;
   }
-  logAnalyticsEvent("hint_used", {
+  const categoryContext = resolveCategoryAnalyticsContext(question);
+  trackTasleyaEvent("hint_used", {
+    game_type: resolveGameType(),
     mode: online.mode,
-    team: currentTeam,
-    has_hint: true,
+    ...categoryContext,
   });
   state.currentHintText = hintText;
   el.hintText.textContent = state.currentHintText;
@@ -4612,6 +4638,104 @@ function logAnalyticsEvent(eventName, params = {}) {
   }
 }
 
+const ANALYTICS_BLOCKED_PARAM_KEYS = new Set([
+  "room_code",
+  "roomcode",
+  "room_id",
+  "roomid",
+  "player_name",
+  "playername",
+  "team_name",
+  "teamname",
+  "email",
+  "ip",
+]);
+const ANALYTICS_MAX_STRING_LENGTH = 80;
+
+function sanitizeAnalyticsParams(params = {}) {
+  const safe = {};
+  if (!params || typeof params !== "object") return safe;
+  Object.entries(params).forEach(([rawKey, rawValue]) => {
+    const key = normalizeCell(rawKey);
+    if (!key) return;
+    const keyLower = key.toLowerCase();
+    if (ANALYTICS_BLOCKED_PARAM_KEYS.has(keyLower)) return;
+    if (rawValue === null || rawValue === undefined) return;
+    if (typeof rawValue === "string") {
+      const trimmed = rawValue.trim();
+      if (!trimmed) return;
+      safe[key] = trimmed.slice(0, ANALYTICS_MAX_STRING_LENGTH);
+      return;
+    }
+    if (typeof rawValue === "number") {
+      if (!Number.isFinite(rawValue)) return;
+      safe[key] = rawValue;
+      return;
+    }
+    if (typeof rawValue === "boolean") {
+      safe[key] = rawValue;
+      return;
+    }
+  });
+  return safe;
+}
+
+function resolveGameType() {
+  return "original_tasleya";
+}
+
+function resolveDifficulty(question = null) {
+  const normalized = normalizeCell(firstNonEmpty(
+    question?.difficulty,
+    question?.level,
+    question?.["الصعوبة"],
+    state.activeQuestion?.difficulty,
+    state.activeQuestion?.level,
+    state.activeQuestion?.["الصعوبة"],
+  )).toLowerCase();
+  if (!normalized) return "";
+  const difficultyMap = {
+    easy: "easy",
+    medium: "medium",
+    hard: "hard",
+    سهل: "easy",
+    متوسط: "medium",
+    صعب: "hard",
+  };
+  return difficultyMap[normalized] || normalized.slice(0, 20);
+}
+
+function resolveCategoryAnalyticsContext(question = null, tile = null) {
+  const activeTile = tile || state.activeTile || null;
+  const activeQuestion = question || state.activeQuestion || null;
+  const categoryName = normalizeCell(firstNonEmpty(
+    activeTile?.category,
+    activeQuestion?.category,
+    activeQuestion?.category_name,
+    activeQuestion?.["التصنيف"],
+  ));
+  const categoryId = normalizeCell(firstNonEmpty(
+    activeQuestion?.category_id,
+    activeQuestion?.categoryId,
+    activeQuestion?.category_slug,
+    categoryName ? categoryName.toLowerCase().replace(/\s+/g, "_") : "",
+  ));
+  return {
+    category_id: categoryId,
+    category_name: categoryName,
+    difficulty: resolveDifficulty(activeQuestion),
+  };
+}
+
+function trackTasleyaEvent(eventName, params = {}) {
+  try {
+    const safeParams = sanitizeAnalyticsParams(params);
+    logAnalyticsEvent(eventName, safeParams);
+  } catch (error) {
+    console.warn("[Tasleya] trackTasleyaEvent failed safely", { eventName, error });
+  }
+}
+
 
 function roomRefByCode(code) { return online.db.ref(`${FIREBASE_ROOMS_PATH}/${code}`); }
 function randomRoomCode() {
@@ -4665,7 +4789,11 @@ async function createOnlineRoom() {
     };
     await ref.set(roomPayload);
     await connectToRoom(code, 1);
-    logAnalyticsEvent("room_created", { room_code: code });
+    trackTasleyaEvent("room_created", {
+      game_type: resolveGameType(),
+      mode: "online",
+      teams_count: state.teamCount,
+    });
     el.createdRoomCode.textContent = code;
     el.joinLinkInput.value = getJoinLink(code);
     el.onlineCreatePanel.classList.remove("hidden");
@@ -4773,7 +4901,11 @@ async function joinOnlineRoomInternal(codeInput, { preferredTeamSlot = null, sup
     setLocalTeamCount(roomTeamCount);
     updateTeamModeUI();
     await connectToRoom(code, mySlot);
-    logAnalyticsEvent("room_joined", { room_code: code, team_slot: mySlot });
+    trackTasleyaEvent("room_joined", {
+      game_type: resolveGameType(),
+      mode: "online",
+      team_slot: mySlot,
+    });
     if (!suppressSuccessFeedback) {
       setOnlineFeedback("تم الانضمام بنجاح. جارٍ الدخول إلى الغرفة...", "success");
     }
@@ -5118,8 +5250,13 @@ async function startGameFromSelection() {
   prefetchLikelyNextQuestion();
   checkEndOfGame();
   persistLocalProgress();
-  logAnalyticsEvent("game_started", {
+  analyticsRuntime.gameStartedAtMs = Date.now();
+  analyticsRuntime.playedCategoryEventKeys.clear();
+  const categoryContext = resolveCategoryAnalyticsContext();
+  trackTasleyaEvent("game_started", {
+    game_type: resolveGameType(),
     mode: online.mode,
+    ...categoryContext,
     categories_count: state.selectedCategories.length,
     teams_count: state.teamCount,
   });
@@ -5929,7 +6066,7 @@ function initializeApp() {
     event.preventDefault();
     event.stopPropagation();
     console.log("[Tasleya] Start solo button clicked");
-    logAnalyticsEvent("local_game_started", { mode: "solo" });
+    trackTasleyaEvent("local_game_started", { game_type: resolveGameType(), mode: "solo" });
     startSoloFromHomepage();
   }, "startLocalBtn");
   bindEvent(el.resumeGameBtn, "click", async () => {
@@ -6024,19 +6161,19 @@ function initializeApp() {
   }, "gamesHubBtn");
   bindEvent(el.homeGroupTwoTeamsBtn, "click", async () => {
     if (pendingHomepageGroupMode === "single-device") {
-      logAnalyticsEvent("local_game_started", { mode: "single_device_group", teams: 2 });
+      trackTasleyaEvent("local_game_started", { game_type: resolveGameType(), mode: "single_device_group", teams_count: 2 });
     }
     if (pendingHomepageGroupMode === "multi-device") {
-      logAnalyticsEvent("online_game_started", { mode: "multi_device_group", teams: 2 });
+      trackTasleyaEvent("online_game_started", { game_type: resolveGameType(), mode: "multi_device_group", teams_count: 2 });
     }
     await chooseHomepageGroupTeamCount(2);
   }, "homeGroupTwoTeamsBtn");
   bindEvent(el.homeGroupThreeTeamsBtn, "click", async () => {
     if (pendingHomepageGroupMode === "single-device") {
-      logAnalyticsEvent("local_game_started", { mode: "single_device_group", teams: 3 });
+      trackTasleyaEvent("local_game_started", { game_type: resolveGameType(), mode: "single_device_group", teams_count: 3 });
     }
     if (pendingHomepageGroupMode === "multi-device") {
-      logAnalyticsEvent("online_game_started", { mode: "multi_device_group", teams: 3 });
+      trackTasleyaEvent("online_game_started", { game_type: resolveGameType(), mode: "multi_device_group", teams_count: 3 });
     }
     await chooseHomepageGroupTeamCount(3);
   }, "homeGroupThreeTeamsBtn");
@@ -6054,12 +6191,12 @@ function initializeApp() {
   }, "gamesPromoPopupCtaBtn");
   bindEvent(el.groupOneDeviceBtn, "click", () => {
     closeGroupModeModal();
-    logAnalyticsEvent("local_game_started", { mode: "single_device_group" });
+    trackTasleyaEvent("local_game_started", { game_type: resolveGameType(), mode: "single_device_group" });
     enterGame("local");
   }, "groupOneDeviceBtn");
   bindEvent(el.groupMultiDeviceBtn, "click", () => {
     closeGroupModeModal();
-    logAnalyticsEvent("online_game_started", { mode: "multi_device_group" });
+    trackTasleyaEvent("online_game_started", { game_type: resolveGameType(), mode: "multi_device_group" });
     enterGame("online");
   }, "groupMultiDeviceBtn");
   bindEvent(el.cancelGroupModeBtn, "click", closeGroupModeModal, "cancelGroupModeBtn");
@@ -6257,7 +6394,11 @@ function initializeApp() {
   });
 
   initAnalytics();
-  logAnalyticsEvent("page_view", { page_title: document.title, page_location: window.location.href });
+  trackTasleyaEvent("page_view", {
+    game_type: resolveGameType(),
+    page_title: document.title,
+    page_location: window.location.href,
+  });
 
   preloadQuestionBank().catch(() => {});
 
