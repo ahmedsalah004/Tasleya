@@ -640,6 +640,8 @@ const analyticsState = {
 const analyticsRuntime = {
   gameStartedAtMs: 0,
   playedCategoryEventKeys: new Set(),
+  debugMode: false,
+  blockedReasonLogged: false,
 };
 
 const questionBankCache = {
@@ -4627,12 +4629,42 @@ function initAnalytics() {
   }
 }
 
+function resolveAnalyticsDebugMode() {
+  try {
+    const url = new URL(window.location.href);
+    const flag = normalizeCell(url.searchParams.get("analyticsDebug"));
+    if (flag === "1") {
+      safeStorageSet(sessionStorage, "tasleya_analytics_debug", "1");
+      return true;
+    }
+    if (flag === "0") {
+      safeStorageRemove(sessionStorage, "tasleya_analytics_debug");
+      return false;
+    }
+    return safeStorageGet(sessionStorage, "tasleya_analytics_debug") === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function appendAnalyticsDebugParam(params = {}) {
+  if (!analyticsRuntime.debugMode) return params;
+  return { ...params, debug_mode: true };
+}
+
 function logAnalyticsEvent(eventName, params = {}) {
   const analytics = initAnalytics();
-  if (!analytics) return;
+  if (!analytics) {
+    if (!analyticsRuntime.blockedReasonLogged) {
+      analyticsRuntime.blockedReasonLogged = true;
+      console.warn("[Tasleya] Analytics event skipped: analytics instance unavailable. This is commonly caused by blocked gtag/firebase analytics script.");
+    }
+    return;
+  }
   try {
-    analytics.logEvent(eventName, params);
-    console.log("[Tasleya] Analytics event sent", { eventName, params });
+    const eventParams = appendAnalyticsDebugParam(params);
+    analytics.logEvent(eventName, eventParams);
+    console.log("[Tasleya] Analytics event sent", { eventName, params: eventParams });
   } catch (error) {
     console.warn("[Tasleya] Analytics event failed", { eventName, error });
   }
@@ -5961,6 +5993,10 @@ function bindEvent(element, eventName, handler, elementName) {
 function initializeApp() {
   if (appInitialized) return;
   appInitialized = true;
+  analyticsRuntime.debugMode = resolveAnalyticsDebugMode();
+  if (analyticsRuntime.debugMode) {
+    console.log("[Tasleya] Analytics debug mode enabled via ?analyticsDebug=1");
+  }
   cacheElements();
   ensureHomepageFlowModals();
   cacheElements();
