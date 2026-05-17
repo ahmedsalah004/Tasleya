@@ -529,14 +529,17 @@
         }
       }
       .map-debug-overlay {
-        position: absolute;
-        inset: auto 10px 10px 10px;
-        z-index: 4;
+        position: fixed;
+        top: 80px;
+        left: 12px;
+        z-index: 999999;
         margin: 0;
-        padding: 8px 10px;
-        border-radius: 10px;
-        background: rgba(5, 16, 42, 0.92);
-        color: #dbe7ff;
+        padding: 10px;
+        border: 1px solid #facc15;
+        background: rgba(0, 0, 0, 0.85);
+        color: #facc15;
+        direction: ltr;
+        text-align: left;
         font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         white-space: pre-wrap;
         pointer-events: none;
@@ -633,12 +636,12 @@
         pointer-events: all;
       }
 
-      .map-debug .country.helper-hit {
-        fill: rgba(92, 159, 255, 0.35);
-        fill-opacity: 0.55;
-        stroke: rgba(178, 216, 255, 0.95);
-        stroke-width: 0.6;
-        stroke-opacity: 0.95;
+      .map-debug-hits .country.helper-hit {
+        fill: rgba(92, 159, 255, 0.18);
+        fill-opacity: 0.22;
+        stroke: rgba(178, 216, 255, 0.55);
+        stroke-width: 0.45;
+        stroke-opacity: 0.6;
       }
 
       .country:focus,
@@ -1434,7 +1437,7 @@
         }
       })();
     </script>
-    <script src="/map-game/runtime-loader.js?v=1.2.20"></script>
+    <script src="/map-game/runtime-loader.js?v=1.2.21"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
 </html>

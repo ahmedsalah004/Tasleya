@@ -1,8 +1,11 @@
 (function () {
-  window.TASLEYA_MAP_BUILD_VERSION = "1.2.20-pinch-debug";
-  const mapDebugEnabled = new URLSearchParams(window.location.search).get("mapDebug") === "1";
+  window.TASLEYA_MAP_BUILD_VERSION = "1.2.21-pinch-debug";
+  const mapSearchParams = new URLSearchParams(window.location.search);
+  const mapDebugEnabled = mapSearchParams.get("mapDebug") === "1";
+  const mapDebugHitsEnabled = mapSearchParams.get("mapDebugHits") === "1";
   if (mapDebugEnabled) {
     document.documentElement.classList.add("map-debug");
+    if (mapDebugHitsEnabled) document.documentElement.classList.add("map-debug-hits");
     const ensureMapDebugOverlay = () => {
       if (document.getElementById("map-debug-overlay")) return;
       const overlay = document.createElement("div");
@@ -89,10 +92,11 @@
       const MAP_MIN_ZOOM = 1;
       const MAP_MAX_ZOOM_DESKTOP = 60;
       const MAP_MAX_ZOOM_MOBILE = 100;
-      const MAP_BUILD_VERSION = "1.2.20-pinch-debug";
+      const MAP_BUILD_VERSION = "1.2.21-pinch-debug";
       window.TASLEYA_MAP_BUILD_VERSION = MAP_BUILD_VERSION;
       const HELPER_HIT_BASE_RADIUS_DESKTOP = 18;
       const HELPER_HIT_BASE_RADIUS_MOBILE = 20;
+      const TINY_COUNTRY_HELPER_CODES = new Set(["AD", "AG", "BB", "BH", "DM", "GD", "KN", "LC", "LI", "MC", "MH", "MT", "MV", "NR", "PW", "SC", "SG", "SM", "ST", "TO", "TV", "VC", "VA", "WS"]);
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -229,6 +233,8 @@
           activeTouches: 0,
           isPinching: false,
           helperSource: "unknown",
+          lastTouchEvent: "none",
+          lastZoomSource: "none",
         },
       };
 
@@ -2146,7 +2152,7 @@
           questionCoordsByCode.forEach((lngLat, code) => {
             const area = featureAreaByCode.get(code);
             const hasPolygon = state.mapFeaturesByCode.has(code);
-            if (!hasPolygon || (Number.isFinite(area) && area < 0.00024)) {
+            if (!hasPolygon || TINY_COUNTRY_HELPER_CODES.has(code) || (Number.isFinite(area) && area < 0.00003)) {
               helperEligible.set(code, {
                 code,
                 lngLat,
@@ -2242,6 +2248,7 @@
               const safeTransform = constrainTransform(event.transform);
               mapLayer.attr("transform", safeTransform);
               refreshHelperHitRadius(safeTransform.k);
+              state.mapDebug.lastZoomSource = event?.sourceEvent?.type === "wheel" ? "ctrlwheel" : (event?.sourceEvent?.type === "dblclick" ? "doubletap" : (state.mapDebug.isPinching ? "pinch" : "d3"));
             })
             .on("end", clearActivePointer);
 
@@ -2271,6 +2278,7 @@
             };
             svgNode.addEventListener("touchstart", (event) => {
               state.mapDebug.touchstartFired = true;
+              state.mapDebug.lastTouchEvent = "touchstart";
               state.mapDebug.activeTouches = event.touches?.length || 0;
               if (event.touches?.length === 2) {
                 const metrics = getTouchMetrics(event.touches[0], event.touches[1]);
@@ -2284,6 +2292,7 @@
             }, { passive: true });
             svgNode.addEventListener("touchmove", (event) => {
               state.mapDebug.touchmoveFired = true;
+              state.mapDebug.lastTouchEvent = "touchmove";
               state.mapDebug.activeTouches = event.touches?.length || 0;
               if (!(event.touches?.length === 2 && pinchState)) return;
               event.preventDefault();
@@ -2298,9 +2307,11 @@
                   )
                   .scale(nextK)
               );
+              state.mapDebug.lastZoomSource = "pinch";
               svg.call(zoomBehavior.transform, nextTransform);
             }, { passive: false });
             const endPinch = (event) => {
+              state.mapDebug.lastTouchEvent = "touchend";
               state.mapDebug.activeTouches = event.touches?.length || 0;
               if (!event.touches?.length || event.touches.length < 2) {
                 pinchState = null;
@@ -2324,6 +2335,7 @@
               const point = [touch.clientX - rect.left, touch.clientY - rect.top];
               const current = d3.zoomTransform(svg.node());
               const nextK = Math.min(zoomMax, current.k * 1.55);
+              state.mapDebug.lastZoomSource = "doubletap";
               svg.transition().duration(200).call(zoomBehavior.scaleTo, nextK, point);
             }, { passive: true });
           }
@@ -2331,13 +2343,30 @@
             const poolCodes = new Set(Array.from(state.countryCatalogByCode.keys()));
             const selectable = new Set([...state.mapFeaturesByCode.keys(), ...helperFeatures.map((entry) => entry.code)]);
             const missing = [...poolCodes].filter((code) => !selectable.has(code));
-            const debugNode = document.getElementById("mapDebugOverlay");
-            if (debugNode) {
+            const debugNode = document.getElementById("mapDebugOverlay") || document.getElementById("map-debug-overlay");
+            const updateDebugOverlay = () => {
+              if (!debugNode) return;
               const build = window.TASLEYA_MAP_BUILD_VERSION || runtimeVersion;
-              debugNode.style.display = "block";
               const k = d3.zoomTransform(svg.node()).k.toFixed(3);
-              debugNode.textContent = `build=${build} | k=${k} | touchstart=${state.mapDebug.touchstartFired} | touchmove=${state.mapDebug.touchmoveFired} | touches=${state.mapDebug.activeTouches} | pinching=${state.mapDebug.isPinching} | expected=${poolCodes.size} | selectable=${selectable.size} | helperSource=fullCatalog | missing=${missing.join(",") || "[]"}`;
-            }
+              debugNode.style.display = "block";
+              debugNode.textContent = [
+                `build: ${build}`,
+                `zoom k: ${k}`,
+                `active touches: ${state.mapDebug.activeTouches}`,
+                `pinch active: ${state.mapDebug.isPinching}`,
+                `expected countries: ${poolCodes.size}`,
+                `selectable countries: ${selectable.size}`,
+                `missing: [${missing.join(",")}]`,
+                `helper targets: ${helperFeatures.length}`,
+                `last touch event: ${state.mapDebug.lastTouchEvent}`,
+                `last zoom source: ${state.mapDebug.lastZoomSource}`,
+                `helpers from full 196-country catalogue: ${poolCodes.size === 196}`,
+              ].join("\n");
+            };
+            updateDebugOverlay();
+            svg.on("touchstart.debugOverlay touchmove.debugOverlay touchend.debugOverlay", updateDebugOverlay);
+            svg.on("wheel.debugOverlay dblclick.debugOverlay", updateDebugOverlay);
+            svg.on("pointermove.debugOverlay", updateDebugOverlay);
             console.info("[MapGame][debug] selectable country coverage", {
               expectedCount: poolCodes.size,
               selectableCount: selectable.size,
