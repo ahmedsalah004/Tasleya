@@ -59,8 +59,10 @@
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const MAP_MIN_ZOOM = 1;
-      const MAP_MAX_ZOOM_DESKTOP = 50;
-      const MAP_MAX_ZOOM_MOBILE = 70;
+      const MAP_MAX_ZOOM_DESKTOP = 60;
+      const MAP_MAX_ZOOM_MOBILE = 100;
+      const MAP_BUILD_VERSION = "1.2.19-pinch-debug";
+      window.TASLEYA_MAP_BUILD_VERSION = MAP_BUILD_VERSION;
       const HELPER_HIT_BASE_RADIUS_DESKTOP = 18;
       const HELPER_HIT_BASE_RADIUS_MOBILE = 20;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
@@ -192,6 +194,14 @@
         imageLoadTimeoutId: null,
         currentImageRequestId: 0,
         imagePreloader: null,
+        countryCatalogByCode: new Map(),
+        mapDebug: {
+          touchstartFired: false,
+          touchmoveFired: false,
+          activeTouches: 0,
+          isPinching: false,
+          helperSource: "unknown",
+        },
       };
 
       const el = {
@@ -261,6 +271,22 @@
         if (raw.startsWith("/")) return raw;
         if (raw.startsWith("assets/")) return `/${raw}`;
         return "";
+      }
+      function upsertCountryCatalog(questions = []) {
+        questions.forEach((q) => {
+          const code = normalizeQuestionCountryCode(q?.targetCountryCode || q?.countryCode);
+          if (!code) return;
+          const existing = state.countryCatalogByCode.get(code) || {};
+          const lat = Number(q?.lat);
+          const lng = Number(q?.lng);
+          state.countryCatalogByCode.set(code, {
+            code,
+            countryNameAr: normalizeCell(q?.targetCountryNameAr || q?.countryNameAr || existing.countryNameAr),
+            countryNameEn: normalizeCell(q?.targetCountryNameEn || q?.countryNameEn || existing.countryNameEn),
+            lat: Number.isFinite(lat) ? lat : existing.lat,
+            lng: Number.isFinite(lng) ? lng : existing.lng,
+          });
+        });
       }
 
       function normalizeAudioUrl(value) {
@@ -2084,9 +2110,9 @@
             if (!Number.isFinite(existing) || area > existing) featureAreaByCode.set(code, area);
           });
           const questionCoordsByCode = new Map(
-            state.questionPool
-              .filter((item) => item?.targetCountryCode && Number.isFinite(item.lat) && Number.isFinite(item.lng))
-              .map((item) => [item.targetCountryCode, [item.lng, item.lat]])
+            Array.from(state.countryCatalogByCode.values())
+              .filter((item) => item?.code && Number.isFinite(item.lat) && Number.isFinite(item.lng))
+              .map((item) => [item.code, [item.lng, item.lat]])
           );
           const helperEligible = new Map();
           questionCoordsByCode.forEach((lngLat, code) => {
@@ -2203,11 +2229,58 @@
           });
           const svgNode = svg.node();
           if (svgNode) {
-            const handleTwoFingerTouch = (event) => {
-              if (event.touches && event.touches.length >= 2) event.preventDefault();
+            let pinchState = null;
+            const getTouchMetrics = (touchA, touchB) => {
+              const rect = svgNode.getBoundingClientRect();
+              const x1 = touchA.clientX - rect.left;
+              const y1 = touchA.clientY - rect.top;
+              const x2 = touchB.clientX - rect.left;
+              const y2 = touchB.clientY - rect.top;
+              return {
+                midpoint: [(x1 + x2) / 2, (y1 + y2) / 2],
+                distance: Math.hypot(x2 - x1, y2 - y1),
+              };
             };
-            svgNode.addEventListener("touchstart", handleTwoFingerTouch, { passive: false });
-            svgNode.addEventListener("touchmove", handleTwoFingerTouch, { passive: false });
+            svgNode.addEventListener("touchstart", (event) => {
+              state.mapDebug.touchstartFired = true;
+              state.mapDebug.activeTouches = event.touches?.length || 0;
+              if (event.touches?.length === 2) {
+                const metrics = getTouchMetrics(event.touches[0], event.touches[1]);
+                pinchState = {
+                  initialDistance: Math.max(metrics.distance, 1),
+                  initialMidpoint: metrics.midpoint,
+                  initialTransform: d3.zoomTransform(svg.node()),
+                };
+                state.mapDebug.isPinching = true;
+              }
+            }, { passive: true });
+            svgNode.addEventListener("touchmove", (event) => {
+              state.mapDebug.touchmoveFired = true;
+              state.mapDebug.activeTouches = event.touches?.length || 0;
+              if (!(event.touches?.length === 2 && pinchState)) return;
+              event.preventDefault();
+              const metrics = getTouchMetrics(event.touches[0], event.touches[1]);
+              const ratio = metrics.distance / pinchState.initialDistance;
+              const nextK = Math.max(MAP_MIN_ZOOM, Math.min(zoomMax, pinchState.initialTransform.k * ratio));
+              const nextTransform = constrainTransform(
+                d3.zoomIdentity
+                  .translate(
+                    metrics.midpoint[0] - (pinchState.initialMidpoint[0] - pinchState.initialTransform.x) * (nextK / pinchState.initialTransform.k),
+                    metrics.midpoint[1] - (pinchState.initialMidpoint[1] - pinchState.initialTransform.y) * (nextK / pinchState.initialTransform.k)
+                  )
+                  .scale(nextK)
+              );
+              svg.call(zoomBehavior.transform, nextTransform);
+            }, { passive: false });
+            const endPinch = (event) => {
+              state.mapDebug.activeTouches = event.touches?.length || 0;
+              if (!event.touches?.length || event.touches.length < 2) {
+                pinchState = null;
+                state.mapDebug.isPinching = false;
+              }
+            };
+            svgNode.addEventListener("touchend", endPinch, { passive: true });
+            svgNode.addEventListener("touchcancel", endPinch, { passive: true });
             let lastTapTs = 0;
             svgNode.addEventListener("touchend", (event) => {
               if (event.touches?.length) return;
@@ -2227,9 +2300,16 @@
             }, { passive: true });
           }
           if (mapDebugEnabled) {
-            const poolCodes = new Set(state.questionPool.map((item) => item.targetCountryCode).filter(Boolean));
+            const poolCodes = new Set(Array.from(state.countryCatalogByCode.keys()));
             const selectable = new Set([...state.mapFeaturesByCode.keys(), ...helperFeatures.map((entry) => entry.code)]);
             const missing = [...poolCodes].filter((code) => !selectable.has(code));
+            const debugNode = document.getElementById("mapDebugOverlay");
+            if (debugNode) {
+              const build = window.TASLEYA_MAP_BUILD_VERSION || runtimeVersion;
+              debugNode.style.display = "block";
+              const k = d3.zoomTransform(svg.node()).k.toFixed(3);
+              debugNode.textContent = `build=${build} | k=${k} | touchstart=${state.mapDebug.touchstartFired} | touchmove=${state.mapDebug.touchmoveFired} | touches=${state.mapDebug.activeTouches} | pinching=${state.mapDebug.isPinching} | expected=${poolCodes.size} | selectable=${selectable.size} | helperSource=fullCatalog | missing=${missing.join(",") || "[]"}`;
+            }
             console.info("[MapGame][debug] selectable country coverage", {
               expectedCount: poolCodes.size,
               selectableCount: selectable.size,
@@ -2657,6 +2737,7 @@
           console.info("[MapGame][mode-load] mode questions loaded", loadDiagnostics);
 
           state.questionPoolByMode[modeKey] = questions;
+          upsertCountryCatalog(questions);
           state.questionsReadyByMode[modeKey] = questions.length >= 20;
           state.modeLoadErrorByMode[modeKey] = "";
           questions.forEach((item) => {
