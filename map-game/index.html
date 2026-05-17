@@ -512,7 +512,7 @@
       .map-stage {
         position: relative;
         flex: 1;
-        min-height: clamp(420px, 58vh, 620px);
+        min-height: clamp(480px, 65vh, 700px);
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
@@ -524,9 +524,22 @@
 
       @media (min-width: 841px) and (pointer: fine) {
         .map-stage {
-          min-height: clamp(520px, 65vh, 760px);
+          min-height: clamp(560px, 68vh, 800px);
           overscroll-behavior-y: auto;
         }
+      }
+      .map-debug-overlay {
+        position: absolute;
+        inset: auto 10px 10px 10px;
+        z-index: 4;
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(5, 16, 42, 0.92);
+        color: #dbe7ff;
+        font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        white-space: pre-wrap;
+        pointer-events: none;
       }
 
       .image-prompt {
@@ -1421,7 +1434,7 @@
         }
       })();
     </script>
-    <script src="/map-game/runtime-loader.js?v=1.2.18"></script>
+    <script src="/map-game/runtime-loader.js?v=1.2.19"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
 </html>
