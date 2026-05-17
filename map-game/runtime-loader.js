@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.16";
+      : null) || "1.2.17";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -48,6 +48,8 @@
   function initRuntime() {
     if (initialized) return;
     initialized = true;
+      const mapDebugEnabled = new URLSearchParams(window.location.search).get("mapDebug") === "1";
+      if (mapDebugEnabled) document.documentElement.classList.add("map-debug");
       const POINTS = { easy: 100, medium: 300, hard: 500 };
       const DIFFICULTY_AR = { easy: "سهل", medium: "متوسط", hard: "صعب" };
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
@@ -57,8 +59,10 @@
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const MAP_MIN_ZOOM = 1;
-      const MAP_MAX_ZOOM_DESKTOP = 28;
-      const MAP_MAX_ZOOM_MOBILE = 36;
+      const MAP_MAX_ZOOM_DESKTOP = 45;
+      const MAP_MAX_ZOOM_MOBILE = 60;
+      const HELPER_HIT_BASE_RADIUS_DESKTOP = 11;
+      const HELPER_HIT_BASE_RADIUS_MOBILE = 14;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -2074,6 +2078,7 @@
             const area = d3.geoArea(feature);
             return feature.properties.countryCode && Number.isFinite(area) && area > 0 && area < 0.00018;
           });
+          const helperRadiusByCode = new Map();
           helperLayer
             .selectAll("circle")
             .data(tinyCountryFeatures)
@@ -2083,9 +2088,15 @@
             .attr("data-country-code", (d) => d.properties.countryCode)
             .attr("r", (d) => {
               const area = d3.geoArea(d);
-              if (area < 0.00004) return 13;
-              if (area < 0.00008) return 11.5;
-              return 10;
+              const baseRadius = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
+                ? HELPER_HIT_BASE_RADIUS_MOBILE
+                : HELPER_HIT_BASE_RADIUS_DESKTOP;
+              let adjusted = baseRadius;
+              if (area < 0.00004) adjusted = baseRadius * 1.05;
+              else if (area > 0.00012) adjusted = baseRadius * 0.84;
+              if (["MT", "BH", "SG"].includes(d.properties.countryCode)) adjusted *= 0.82;
+              helperRadiusByCode.set(d.properties.countryCode, adjusted);
+              return adjusted;
             })
             .attr("transform", (d) => {
               const p = projection(d3.geoCentroid(d));
@@ -2102,6 +2113,16 @@
             .on("click", (event) => {
               event.preventDefault();
             });
+          const refreshHelperHitRadius = (zoomScale) => {
+            helperLayer.selectAll(".helper-hit").attr("r", (d) => {
+              const baseRadius = helperRadiusByCode.get(d.properties.countryCode)
+                || (window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
+                  ? HELPER_HIT_BASE_RADIUS_MOBILE
+                  : HELPER_HIT_BASE_RADIUS_DESKTOP);
+              return Math.max(2.8, baseRadius / Math.max(zoomScale, MAP_MIN_ZOOM));
+            });
+          };
+          refreshHelperHitRadius(MAP_MIN_ZOOM);
 
           state.mapDiagnostics.smallCountryCodes = [];
 
@@ -2123,7 +2144,6 @@
             .zoom()
             .scaleExtent([MAP_MIN_ZOOM, zoomMax])
             .filter((event) => {
-              if (event.type === "dblclick") return false;
               if (state.isRevealingAnswer) return false;
               if (el.overlay.classList.contains("active")) return false;
               if (event.type === "wheel") {
@@ -2134,10 +2154,19 @@
             .on("zoom", (event) => {
               const safeTransform = constrainTransform(event.transform);
               mapLayer.attr("transform", safeTransform);
+              refreshHelperHitRadius(safeTransform.k);
             })
             .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
+          const svgNode = svg.node();
+          if (svgNode) {
+            const handleTwoFingerTouch = (event) => {
+              if (event.touches && event.touches.length >= 2) event.preventDefault();
+            };
+            svgNode.addEventListener("touchstart", handleTwoFingerTouch, { passive: false });
+            svgNode.addEventListener("touchmove", handleTwoFingerTouch, { passive: false });
+          }
 
           if (!el.mapStage.querySelector(".map-svg")) {
             el.mapStage.appendChild(svg.node());
