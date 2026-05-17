@@ -655,14 +655,54 @@ const questionBankCache = {
   loadPromise: null,
 };
 
+const MAX_AUDIO_WARMUPS = 3;
+
 const mediaWarmupCache = {
   images: new Map(),
+  audioMetadataByUrl: new Map(),
+  audioWarmOrder: [],
   preconnectedOrigins: new Set(),
 };
+
+let activeQuestionPerfTrace = null;
 
 function normalizeCell(value) {
   return String(value ?? "").replace(/^\uFEFF/, "").trim();
 }
+function isQuestionPerfDebugEnabled() {
+  const search = new URLSearchParams(window.location.search || "");
+  if (search.get("perfDebug") === "1") return true;
+  return safeStorageGet(localStorage, "tasleya_perf_debug") === "1";
+}
+
+function createQuestionPerfTrace({ tile = null, mode = "local", cacheHit = false } = {}) {
+  if (!isQuestionPerfDebugEnabled()) return null;
+  const startedAt = performance.now();
+  return {
+    startedAt,
+    tileId: normalizeCell(tile?.id),
+    category: normalizeCell(tile?.category),
+    points: Number(tile?.points) || null,
+    mode: normalizeCell(mode) || "local",
+    cacheHit: !!cacheHit,
+    type: "TEXT",
+    mark(stage, extra = {}) {
+      const elapsedMs = Number((performance.now() - startedAt).toFixed(1));
+      console.log("[Tasleya][Perf]", {
+        stage,
+        elapsedMs,
+        type: this.type,
+        mode: this.mode,
+        category: this.category,
+        points: this.points,
+        tileId: this.tileId,
+        cacheHit: this.cacheHit,
+        ...extra,
+      });
+    },
+  };
+}
+
 function getConfiguredApiBaseUrl() {
   const configuredBaseUrl = normalizeCell(window.TASLEYA_API_BASE_URL);
   if (!configuredBaseUrl || configuredBaseUrl === WORKER_URL_PLACEHOLDER) {
@@ -2029,6 +2069,7 @@ function setTeamName(team, value, { commit = false } = {}) {
   updateScoreboard();
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  activeQuestionPerfTrace = null;
 }
 function setTeamNamesFromCategoryModal() {
   const fallbackByTeam = { 1: "الفريق الأول", 2: "الفريق الثاني", 3: "الفريق الثالث" };
@@ -2047,6 +2088,7 @@ function setTeamNamesFromCategoryModal() {
   updateScoreboard();
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  activeQuestionPerfTrace = null;
 }
 
 function hasPlayableTiles() { return state.boardTiles.some((tile) => !tile.used && !tile.missing); }
@@ -2309,11 +2351,36 @@ function warmImageResource(mediaUrl, { highPriority = false } = {}) {
   mediaWarmupCache.images.set(normalizedUrl, image);
   return image;
 }
+function warmAudioResource(mediaUrl) {
+  const normalizedUrl = normalizeCell(mediaUrl);
+  if (!normalizedUrl) return null;
+  ensureMediaOriginPreconnect(normalizedUrl);
+  const cachedAudio = mediaWarmupCache.audioMetadataByUrl.get(normalizedUrl);
+  if (cachedAudio) return cachedAudio;
+  const audio = document.createElement("audio");
+  audio.preload = "metadata";
+  audio.src = normalizedUrl;
+  mediaWarmupCache.audioMetadataByUrl.set(normalizedUrl, audio);
+  mediaWarmupCache.audioWarmOrder.push(normalizedUrl);
+  while (mediaWarmupCache.audioWarmOrder.length > MAX_AUDIO_WARMUPS) {
+    const droppedUrl = mediaWarmupCache.audioWarmOrder.shift();
+    if (!droppedUrl || droppedUrl === normalizedUrl) continue;
+    const droppedAudio = mediaWarmupCache.audioMetadataByUrl.get(droppedUrl);
+    if (droppedAudio) {
+      droppedAudio.removeAttribute("src");
+      droppedAudio.load();
+    }
+    mediaWarmupCache.audioMetadataByUrl.delete(droppedUrl);
+  }
+  return audio;
+}
+
 function warmQuestionMedia(question, { highPriority = false } = {}) {
   if (!question) return;
   const mediaUrl = toMediaUrl(question.image_url);
   if (!mediaUrl) return;
   if (question.type === "image") warmImageResource(mediaUrl, { highPriority });
+  if (question.type === "audio") warmAudioResource(mediaUrl);
 }
 function preloadLikelyNextQuestionMedia() {
   const nextTile = getNextPlayableTile();
@@ -2369,8 +2436,12 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   }
   showQuestionStatus("");
   updateLateOtherTeamPrompt();
-  if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question);
-  if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url);
+  if (activeQuestionPerfTrace) {
+    activeQuestionPerfTrace.type = (question.type || "text").toString().toUpperCase();
+    activeQuestionPerfTrace.mark("text_rendered", { questionId: normalizeCell(question.id) || null });
+  }
+  if (question.type === "image" && question.image_url) renderQuestionImage(question.image_url, question, activeQuestionPerfTrace);
+  if (question.type === "audio" && question.image_url) renderQuestionAudio(question.image_url, activeQuestionPerfTrace);
   if (isVideoQuestion) renderQuestionVideo(question.image_url, question);
   el.lifelineBtn.disabled = hasUsedLifeline(state.currentTeam, "mcq") || (online.mode === "online" && !canCurrentClientAct());
   el.hintLifelineBtn.disabled = hasUsedLifeline(state.currentTeam, "hint") || (online.mode === "online" && !canCurrentClientAct());
@@ -2379,7 +2450,7 @@ function renderQuestionContent(question, { resetLifecycleState = true } = {}) {
   updateQuestionActionLock();
 }
 
-function renderQuestionImage(imagePath, question = null) {
+function renderQuestionImage(imagePath, question = null, perfTrace = null) {
   const imageSrc = toMediaUrl(imagePath); if (!imageSrc) return;
   const warmedImage = warmImageResource(imageSrc, { highPriority: true });
   lockGameplayPageScroll();
@@ -2389,11 +2460,18 @@ function renderQuestionImage(imagePath, question = null) {
 
   const { viewport, image } = createQuestionImageZoomViewport(imageSrc);
   viewport.classList.add("is-loading");
-  const onImageReady = () => viewport.classList.remove("is-loading");
-  image.addEventListener("load", onImageReady, { once: true });
-  image.addEventListener("error", onImageReady, { once: true });
+  const onImageLoad = () => {
+    viewport.classList.remove("is-loading");
+    perfTrace?.mark("image_load_complete", { mediaUrl: imageSrc });
+  };
+  const onImageError = () => {
+    viewport.classList.remove("is-loading");
+    perfTrace?.mark("image_error", { mediaUrl: imageSrc });
+  };
+  image.addEventListener("load", onImageLoad, { once: true });
+  image.addEventListener("error", onImageError, { once: true });
   if ((warmedImage && warmedImage.complete && warmedImage.naturalWidth > 0) || (image.complete && image.naturalWidth > 0)) {
-    onImageReady();
+    onImageLoad();
   }
   if (normalizeCell(question?.category) === MAP_QUESTION_CATEGORY) {
     el.questionMedia.classList.add("map-question-media");
@@ -2402,11 +2480,39 @@ function renderQuestionImage(imagePath, question = null) {
   el.questionMedia.appendChild(viewport);
 
 }
-function renderQuestionAudio(audioPath) {
+function renderQuestionAudio(audioPath, perfTrace = null) {
   const audioSrc = toMediaUrl(audioPath); if (!audioSrc) return;
-  const audio = document.createElement("audio"); audio.id = "questionAudio"; audio.controls = true; audio.preload = "metadata"; audio.setAttribute("aria-label", "مشغل صوت السؤال");
-  audio.innerHTML = `<source src="${audioSrc}" type="audio/mpeg">`; el.questionMedia.appendChild(audio);
+  const status = document.createElement("p");
+  status.className = "question-media-status";
+  status.textContent = "جارٍ تجهيز المقطع الصوتي...";
+
+  const audio = document.createElement("audio");
+  audio.id = "questionAudio";
+  audio.controls = false;
+  audio.preload = "metadata";
+  audio.setAttribute("aria-label", "مشغل صوت السؤال");
+  audio.src = audioSrc;
+
+  const markReady = (stage) => {
+    audio.controls = true;
+    if (status.parentNode) status.remove();
+    perfTrace?.mark(stage, { mediaUrl: audioSrc });
+  };
+
+  audio.addEventListener("loadedmetadata", () => markReady("audio_loadedmetadata"), { once: true });
+  audio.addEventListener("canplay", () => markReady("audio_canplay"), { once: true });
+  audio.addEventListener("canplaythrough", () => markReady("audio_canplaythrough"), { once: true });
+  audio.addEventListener("error", () => {
+    audio.controls = false;
+    status.textContent = "تعذر تحميل المقطع الصوتي. جرّب السؤال التالي أو تحقق من الاتصال.";
+    perfTrace?.mark("audio_error", { mediaUrl: audioSrc });
+  }, { once: true });
+
+  el.questionMedia.appendChild(status);
+  el.questionMedia.appendChild(audio);
+  perfTrace?.mark("audio_element_inserted", { mediaUrl: audioSrc });
 }
+
 function revealVideoQuestionAfterPlayback(question) {
   if (!state.videoQuestionPending || !question) return;
   state.videoQuestionPending = false;
@@ -2425,6 +2531,7 @@ function revealVideoQuestionAfterPlayback(question) {
   updateQuestionActionLock();
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  activeQuestionPerfTrace = null;
 }
 function renderQuestionVideo(videoPath, question) {
   const videoSrc = toMediaUrl(videoPath);
@@ -2743,8 +2850,10 @@ async function openQuestion(tileId, {
   closeOtherTeamSelector();
   state.resolvingOtherTeam = false;
   updateCloseButtonLock();
+  const prefetched = questionBankCache.nextQuestionByTileId.get(tile.id);
+  activeQuestionPerfTrace = createQuestionPerfTrace({ tile, mode: online.mode, cacheHit: !!prefetched });
+  activeQuestionPerfTrace?.mark("open_tile_start", { restored: !!restored });
   try {
-    const prefetched = questionBankCache.nextQuestionByTileId.get(tile.id);
     let q = prefetched || null;
     if (!q) {
       q = await fetchQuestionPayload({
@@ -2763,6 +2872,7 @@ async function openQuestion(tileId, {
         reason: "question-not-found",
         activeTileId: state.activeTile?.id || null,
       });
+      activeQuestionPerfTrace?.mark("question_open_failed", { error: "question-not-found" });
       closeModal({ silentSync: true, force: true });
       state.activeTile = null;
       state.activeQuestion = null;
@@ -2771,9 +2881,15 @@ async function openQuestion(tileId, {
       renderBoard();
       persistLocalProgress();
       showError("لا يوجد سؤال متاح لهذه الخانة حالياً.");
+      activeQuestionPerfTrace = null;
       return;
     }
     if (isStaleOpenNonce()) return;
+    activeQuestionPerfTrace?.mark("question_payload_resolved", {
+      questionId: normalizeCell(q?.id) || null,
+      fromCache: !!prefetched,
+      questionType: normalizeCell(q?.type).toUpperCase() || "TEXT",
+    });
     const historyQuestionId = getQuestionHistoryId(q, { category: tile.category, points: tile.points });
     const normalizedApiQuestionId = normalizeCell(q.id);
     tile.questionId = normalizedApiQuestionId || tile.questionId;
@@ -2815,6 +2931,7 @@ async function openQuestion(tileId, {
     clearError();
     console.log("[Tasleya] Opening question", { id: q.id, type: q.type, hint: q.hint });
     renderQuestionContent(q);
+    activeQuestionPerfTrace?.mark("question_render_pipeline_done");
     if (doubleAnswerLifelineActive && Number(doubleAnswerAttemptsRemaining) > 0) {
       state.doubleAnswerLifelineActive = true;
       state.doubleAnswerAttemptsRemaining = Math.max(0, Number(doubleAnswerAttemptsRemaining) || 0);
@@ -2841,6 +2958,7 @@ async function openQuestion(tileId, {
       showQuestionStatus("تعذر تحميل السؤال مؤقتًا.");
       updateCloseButtonLock();
       showError(error.message);
+      activeQuestionPerfTrace = null;
       return;
     }
     console.log("[Tasleya][openQuestion] clearing question state", {
@@ -2848,6 +2966,7 @@ async function openQuestion(tileId, {
       error: error?.message || String(error),
       activeTileId: state.activeTile?.id || null,
     });
+    activeQuestionPerfTrace?.mark("question_open_failed", { error: error?.message || String(error) });
     closeModal({ silentSync: true, force: true });
     state.activeTile = null;
     state.activeQuestion = null;
@@ -2855,9 +2974,11 @@ async function openQuestion(tileId, {
     state.questionSessionId = "";
     if (error?.code === "QUESTION_RESPONSE_SHAPE_INVALID") {
       showError(error.message);
+      activeQuestionPerfTrace = null;
       return;
     }
     showError(`تعذّر تحميل السؤال. ${error instanceof Error ? error.message : "خطأ غير متوقع"}`);
+    activeQuestionPerfTrace = null;
     return;
   }
   if (isStaleOpenNonce()) return;
@@ -2876,6 +2997,7 @@ async function openQuestion(tileId, {
   }
   persistLocalProgress();
   if (online.mode === "online" && !online.applyingRemote) pushOnlineState();
+  activeQuestionPerfTrace = null;
 }
 
 function resolveVideoLifecyclePhaseFromRemote(game, question = null) {
@@ -4319,7 +4441,8 @@ async function applyRemoteGameState(game, { applyNonce = 0 } = {}) {
       state.activeQuestion = null;
       state.loadingQuestion = false;
       state.questionSessionId = "";
-      closeModal({ silentSync: true, force: true });
+      activeQuestionPerfTrace?.mark("question_open_failed", { error: error?.message || String(error) });
+    closeModal({ silentSync: true, force: true });
     }
 
     if (game.finished) showPodiumModal();
