@@ -2,7 +2,7 @@
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.17";
+      : null) || "1.2.18";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
@@ -59,10 +59,10 @@
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const MAP_MIN_ZOOM = 1;
-      const MAP_MAX_ZOOM_DESKTOP = 45;
-      const MAP_MAX_ZOOM_MOBILE = 60;
-      const HELPER_HIT_BASE_RADIUS_DESKTOP = 11;
-      const HELPER_HIT_BASE_RADIUS_MOBILE = 14;
+      const MAP_MAX_ZOOM_DESKTOP = 50;
+      const MAP_MAX_ZOOM_MOBILE = 70;
+      const HELPER_HIT_BASE_RADIUS_DESKTOP = 18;
+      const HELPER_HIT_BASE_RADIUS_MOBILE = 20;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -2074,40 +2074,66 @@
               }
               trySelectCountryFromEvent(event);
             });
-          const tinyCountryFeatures = geojson.features.filter((feature) => {
+          const featureAreaByCode = new Map();
+          geojson.features.forEach((feature) => {
+            const code = feature?.properties?.countryCode;
+            if (!code) return;
             const area = d3.geoArea(feature);
-            return feature.properties.countryCode && Number.isFinite(area) && area > 0 && area < 0.00018;
+            if (!Number.isFinite(area) || area <= 0) return;
+            const existing = featureAreaByCode.get(code);
+            if (!Number.isFinite(existing) || area > existing) featureAreaByCode.set(code, area);
           });
+          const questionCoordsByCode = new Map(
+            state.questionPool
+              .filter((item) => item?.targetCountryCode && Number.isFinite(item.lat) && Number.isFinite(item.lng))
+              .map((item) => [item.targetCountryCode, [item.lng, item.lat]])
+          );
+          const helperEligible = new Map();
+          questionCoordsByCode.forEach((lngLat, code) => {
+            const area = featureAreaByCode.get(code);
+            const hasPolygon = state.mapFeaturesByCode.has(code);
+            if (!hasPolygon || (Number.isFinite(area) && area < 0.00024)) {
+              helperEligible.set(code, {
+                code,
+                lngLat,
+                area: Number.isFinite(area) ? area : 0,
+                source: hasPolygon ? "tiny_polygon" : "missing_polygon",
+                name: state.questionByCountryCode.get(code)?.countryName || code,
+              });
+            }
+          });
+          const helperFeatures = Array.from(helperEligible.values());
           const helperRadiusByCode = new Map();
           helperLayer
             .selectAll("circle")
-            .data(tinyCountryFeatures)
+            .data(helperFeatures)
             .enter()
             .append("circle")
             .attr("class", "country helper-hit")
-            .attr("data-country-code", (d) => d.properties.countryCode)
+            .attr("data-country-code", (d) => d.code)
             .attr("r", (d) => {
-              const area = d3.geoArea(d);
+              const area = d.area;
               const baseRadius = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
                 ? HELPER_HIT_BASE_RADIUS_MOBILE
                 : HELPER_HIT_BASE_RADIUS_DESKTOP;
               let adjusted = baseRadius;
+              if (d.source === "missing_polygon") adjusted = baseRadius * 1.05;
               if (area < 0.00004) adjusted = baseRadius * 1.05;
-              else if (area > 0.00012) adjusted = baseRadius * 0.84;
-              if (["MT", "BH", "SG"].includes(d.properties.countryCode)) adjusted *= 0.82;
-              helperRadiusByCode.set(d.properties.countryCode, adjusted);
+              else if (area > 0.00012) adjusted = baseRadius * 0.8;
+              if (["MT", "BH", "SG"].includes(d.code)) adjusted *= 0.8;
+              helperRadiusByCode.set(d.code, adjusted);
               return adjusted;
             })
             .attr("transform", (d) => {
-              const p = projection(d3.geoCentroid(d));
+              const p = projection(d.lngLat);
               return p ? `translate(${p[0]},${p[1]})` : null;
             })
             .on("pointerup", (event, d) => {
               if (event.pointerType === "mouse" && event.button !== 0) return;
-              handleCountrySelection(remapMapFeatureCountryCode(d.properties.countryCode, d.properties.name), {
-                featureName: d.properties.name,
+              handleCountrySelection(remapMapFeatureCountryCode(d.code, d.name), {
+                featureName: d.name,
                 hasClickedFeature: true,
-                featureCodes: { countryCode: d.properties.countryCode },
+                featureCodes: { countryCode: d.code },
               });
             })
             .on("click", (event) => {
@@ -2115,7 +2141,7 @@
             });
           const refreshHelperHitRadius = (zoomScale) => {
             helperLayer.selectAll(".helper-hit").attr("r", (d) => {
-              const baseRadius = helperRadiusByCode.get(d.properties.countryCode)
+              const baseRadius = helperRadiusByCode.get(d.code)
                 || (window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
                   ? HELPER_HIT_BASE_RADIUS_MOBILE
                   : HELPER_HIT_BASE_RADIUS_DESKTOP);
@@ -2124,7 +2150,7 @@
           };
           refreshHelperHitRadius(MAP_MIN_ZOOM);
 
-          state.mapDiagnostics.smallCountryCodes = [];
+          state.mapDiagnostics.smallCountryCodes = helperFeatures.map((entry) => entry.code);
 
           const zoomMax = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches ? MAP_MAX_ZOOM_MOBILE : MAP_MAX_ZOOM_DESKTOP;
 
@@ -2149,6 +2175,13 @@
               if (event.type === "wheel") {
                 return Boolean(event.ctrlKey);
               }
+              if (event.type === "dblclick") return true;
+              if (event.type === "touchstart" || event.type === "touchmove") {
+                return Boolean(event.touches && event.touches.length >= 2);
+              }
+              if (event.type === "mousedown" || event.type === "mousemove") {
+                return d3.zoomTransform(svg.node()).k > MAP_MIN_ZOOM;
+              }
               return true;
             })
             .on("zoom", (event) => {
@@ -2159,6 +2192,15 @@
             .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
+          svg.on("dblclick.zoom", (event) => {
+            const pointer = d3.pointer(event, svg.node());
+            const current = d3.zoomTransform(svg.node());
+            const nextK = Math.min(zoomMax, current.k * 1.6);
+            svg
+              .transition()
+              .duration(220)
+              .call(zoomBehavior.scaleTo, nextK, pointer);
+          });
           const svgNode = svg.node();
           if (svgNode) {
             const handleTwoFingerTouch = (event) => {
@@ -2166,6 +2208,35 @@
             };
             svgNode.addEventListener("touchstart", handleTwoFingerTouch, { passive: false });
             svgNode.addEventListener("touchmove", handleTwoFingerTouch, { passive: false });
+            let lastTapTs = 0;
+            svgNode.addEventListener("touchend", (event) => {
+              if (event.touches?.length) return;
+              const now = Date.now();
+              if (now - lastTapTs > 320) {
+                lastTapTs = now;
+                return;
+              }
+              lastTapTs = 0;
+              const touch = event.changedTouches && event.changedTouches[0];
+              if (!touch) return;
+              const rect = svgNode.getBoundingClientRect();
+              const point = [touch.clientX - rect.left, touch.clientY - rect.top];
+              const current = d3.zoomTransform(svg.node());
+              const nextK = Math.min(zoomMax, current.k * 1.55);
+              svg.transition().duration(200).call(zoomBehavior.scaleTo, nextK, point);
+            }, { passive: true });
+          }
+          if (mapDebugEnabled) {
+            const poolCodes = new Set(state.questionPool.map((item) => item.targetCountryCode).filter(Boolean));
+            const selectable = new Set([...state.mapFeaturesByCode.keys(), ...helperFeatures.map((entry) => entry.code)]);
+            const missing = [...poolCodes].filter((code) => !selectable.has(code));
+            console.info("[MapGame][debug] selectable country coverage", {
+              expectedCount: poolCodes.size,
+              selectableCount: selectable.size,
+              helperCount: helperFeatures.length,
+              missing,
+              zoom: d3.zoomTransform(svg.node()).k,
+            });
           }
 
           if (!el.mapStage.querySelector(".map-svg")) {
