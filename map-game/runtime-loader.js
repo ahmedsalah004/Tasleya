@@ -236,9 +236,6 @@
         playAudioBtn: document.getElementById("playAudioBtn"),
         audioHelperText: document.getElementById("audioHelperText"),
         audioStatusText: document.getElementById("audioStatusText"),
-        zoomInBtn: document.getElementById("zoomInBtn"),
-        zoomOutBtn: document.getElementById("zoomOutBtn"),
-        zoomResetBtn: document.getElementById("zoomResetBtn"),
         imagePromptWrap: document.getElementById("imagePromptWrap"),
         imageQuestionText: document.getElementById("imageQuestionText"),
         imageLoading: document.getElementById("imageLoading"),
@@ -2082,16 +2079,28 @@
             .data(tinyCountryFeatures)
             .enter()
             .append("circle")
-            .attr("class", "country helper-dot")
+            .attr("class", "country helper-hit")
             .attr("data-country-code", (d) => d.properties.countryCode)
-            .attr("r", 5.5)
+            .attr("r", (d) => {
+              const area = d3.geoArea(d);
+              if (area < 0.00004) return 13;
+              if (area < 0.00008) return 11.5;
+              return 10;
+            })
             .attr("transform", (d) => {
               const p = projection(d3.geoCentroid(d));
               return p ? `translate(${p[0]},${p[1]})` : null;
             })
-            .on("click", (event, d) => {
-              event.stopPropagation();
-              handleCountrySelection(remapMapFeatureCountryCode(d.properties.countryCode, d.properties.name), { featureName: d.properties.name, hasClickedFeature: true, featureCodes: { countryCode: d.properties.countryCode } });
+            .on("pointerup", (event, d) => {
+              if (event.pointerType === "mouse" && event.button !== 0) return;
+              handleCountrySelection(remapMapFeatureCountryCode(d.properties.countryCode, d.properties.name), {
+                featureName: d.properties.name,
+                hasClickedFeature: true,
+                featureCodes: { countryCode: d.properties.countryCode },
+              });
+            })
+            .on("click", (event) => {
+              event.preventDefault();
             });
 
           state.mapDiagnostics.smallCountryCodes = [];
@@ -2117,7 +2126,7 @@
               if (event.type === "dblclick") return false;
               if (state.isRevealingAnswer) return false;
               if (el.overlay.classList.contains("active")) return false;
-              if (event.type === "wheel" && !window.matchMedia(MOBILE_VIEWPORT_QUERY).matches) {
+              if (event.type === "wheel") {
                 return Boolean(event.ctrlKey);
               }
               return true;
@@ -2129,10 +2138,6 @@
             .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
-          const resetZoom = () => svg.transition().duration(260).call(zoomBehavior.transform, d3.zoomIdentity);
-          el.zoomInBtn?.addEventListener("click", () => svg.transition().duration(180).call(zoomBehavior.scaleBy, 1.45));
-          el.zoomOutBtn?.addEventListener("click", () => svg.transition().duration(180).call(zoomBehavior.scaleBy, 1 / 1.45));
-          el.zoomResetBtn?.addEventListener("click", resetZoom);
 
           if (!el.mapStage.querySelector(".map-svg")) {
             el.mapStage.appendChild(svg.node());
