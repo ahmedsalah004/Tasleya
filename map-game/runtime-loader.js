@@ -1,4 +1,34 @@
 (function () {
+  window.TASLEYA_MAP_BUILD_VERSION = "1.2.20-pinch-debug";
+  const mapDebugEnabled = new URLSearchParams(window.location.search).get("mapDebug") === "1";
+  if (mapDebugEnabled) {
+    document.documentElement.classList.add("map-debug");
+    const ensureMapDebugOverlay = () => {
+      if (document.getElementById("map-debug-overlay")) return;
+      const overlay = document.createElement("div");
+      overlay.id = "map-debug-overlay";
+      overlay.style.position = "fixed";
+      overlay.style.top = "80px";
+      overlay.style.left = "12px";
+      overlay.style.zIndex = "999999";
+      overlay.style.background = "rgba(0,0,0,0.85)";
+      overlay.style.color = "#facc15";
+      overlay.style.border = "1px solid #facc15";
+      overlay.style.padding = "10px";
+      overlay.style.direction = "ltr";
+      overlay.style.textAlign = "left";
+      overlay.style.pointerEvents = "none";
+      overlay.textContent = `Map debug active • build ${window.TASLEYA_MAP_BUILD_VERSION}`;
+      const target = document.body || document.documentElement;
+      target.appendChild(overlay);
+    };
+    if (document.body) {
+      ensureMapDebugOverlay();
+    } else {
+      document.addEventListener("DOMContentLoaded", ensureMapDebugOverlay, { once: true });
+    }
+  }
+
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
@@ -48,8 +78,6 @@
   function initRuntime() {
     if (initialized) return;
     initialized = true;
-      const mapDebugEnabled = new URLSearchParams(window.location.search).get("mapDebug") === "1";
-      if (mapDebugEnabled) document.documentElement.classList.add("map-debug");
       const POINTS = { easy: 100, medium: 300, hard: 500 };
       const DIFFICULTY_AR = { easy: "سهل", medium: "متوسط", hard: "صعب" };
       const WORKER_URL_PLACEHOLDER = "https://REPLACE_WITH_YOUR_WORKER_URL";
@@ -61,7 +89,7 @@
       const MAP_MIN_ZOOM = 1;
       const MAP_MAX_ZOOM_DESKTOP = 60;
       const MAP_MAX_ZOOM_MOBILE = 100;
-      const MAP_BUILD_VERSION = "1.2.19-pinch-debug";
+      const MAP_BUILD_VERSION = "1.2.20-pinch-debug";
       window.TASLEYA_MAP_BUILD_VERSION = MAP_BUILD_VERSION;
       const HELPER_HIT_BASE_RADIUS_DESKTOP = 18;
       const HELPER_HIT_BASE_RADIUS_MOBILE = 20;
