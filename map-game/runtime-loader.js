@@ -1,46 +1,12 @@
 (function () {
-  window.TASLEYA_MAP_BUILD_VERSION = "1.2.21-pinch-debug";
-  const mapSearchParams = new URLSearchParams(window.location.search);
-  const mapDebugEnabled = mapSearchParams.get("mapDebug") === "1";
-  const mapDebugHitsEnabled = mapSearchParams.get("mapDebugHits") === "1";
-  if (mapDebugEnabled) {
-    document.documentElement.classList.add("map-debug");
-    if (mapDebugHitsEnabled) document.documentElement.classList.add("map-debug-hits");
-    const ensureMapDebugOverlay = () => {
-      if (document.getElementById("map-debug-overlay")) return;
-      const overlay = document.createElement("div");
-      overlay.id = "map-debug-overlay";
-      overlay.style.position = "fixed";
-      overlay.style.top = "80px";
-      overlay.style.left = "12px";
-      overlay.style.zIndex = "999999";
-      overlay.style.background = "rgba(0,0,0,0.85)";
-      overlay.style.color = "#facc15";
-      overlay.style.border = "1px solid #facc15";
-      overlay.style.padding = "10px";
-      overlay.style.direction = "ltr";
-      overlay.style.textAlign = "left";
-      overlay.style.pointerEvents = "none";
-      overlay.textContent = `Map debug active • build ${window.TASLEYA_MAP_BUILD_VERSION}`;
-      const target = document.body || document.documentElement;
-      target.appendChild(overlay);
-    };
-    if (document.body) {
-      ensureMapDebugOverlay();
-    } else {
-      document.addEventListener("DOMContentLoaded", ensureMapDebugOverlay, { once: true });
-    }
-  }
-
   const runtimeVersion =
     (document.currentScript?.src
       ? new URL(document.currentScript.src, window.location.href).searchParams.get("v")
-      : null) || "1.2.18";
+      : null) || "1.2.16";
   const runtimeFragmentUrl = `/map-game/runtime-fragment.html?v=${encodeURIComponent(runtimeVersion)}`;
   const intro = document.getElementById('introScreen');
   const host = document.getElementById('mapGameRuntimeHost');
   const enterBtn = document.getElementById('enterSetupBtn');
-  const RUNTIME_UI_LOAD_ERROR = "حدث خطأ في تحميل واجهة اللعبة. حدّث الصفحة وحاول مرة أخرى.";
   let mounted = false;
   let mounting = false;
   let initialized = false;
@@ -70,7 +36,6 @@
     try {
       const response = await fetch(runtimeFragmentUrl, { cache: 'no-store' });
       if (!response.ok) throw new Error(`MAP_RUNTIME_LOAD_FAILED_${response.status}`);
-      if (!host) throw new Error("MAP_RUNTIME_HOST_MISSING");
       host.innerHTML = await response.text();
       mounted = true;
     } finally {
@@ -90,13 +55,8 @@
       const MOBILE_RESULT_REVEAL_DELAY_MS = 1700;
       const MOBILE_VIEWPORT_QUERY = "(max-width: 840px)";
       const MAP_MIN_ZOOM = 1;
-      const MAP_MAX_ZOOM_DESKTOP = 60;
-      const MAP_MAX_ZOOM_MOBILE = 100;
-      const MAP_BUILD_VERSION = "1.2.21-pinch-debug";
-      window.TASLEYA_MAP_BUILD_VERSION = MAP_BUILD_VERSION;
-      const HELPER_HIT_BASE_RADIUS_DESKTOP = 18;
-      const HELPER_HIT_BASE_RADIUS_MOBILE = 20;
-      const TINY_COUNTRY_HELPER_CODES = new Set(["AD", "AG", "BB", "BH", "DM", "GD", "KN", "LC", "LI", "MC", "MH", "MT", "MV", "NR", "PW", "SC", "SG", "SM", "ST", "TO", "TV", "VC", "VA", "WS"]);
+      const MAP_MAX_ZOOM_DESKTOP = 8;
+      const MAP_MAX_ZOOM_MOBILE = 20;
       const UNSUPPORTED_COUNTRY_MESSAGE = "هذه الدولة غير متاحة حالياً في أسئلة اللعبة. اختر دولة أخرى.";
       const MAP_GAME_USED_STORAGE_KEY = "tasleya_map_game_used_v1";
       const MAP_GAME_USED_STORAGE_VERSION = 1;
@@ -226,16 +186,6 @@
         imageLoadTimeoutId: null,
         currentImageRequestId: 0,
         imagePreloader: null,
-        countryCatalogByCode: new Map(),
-        mapDebug: {
-          touchstartFired: false,
-          touchmoveFired: false,
-          activeTouches: 0,
-          isPinching: false,
-          helperSource: "unknown",
-          lastTouchEvent: "none",
-          lastZoomSource: "none",
-        },
       };
 
       const el = {
@@ -305,22 +255,6 @@
         if (raw.startsWith("/")) return raw;
         if (raw.startsWith("assets/")) return `/${raw}`;
         return "";
-      }
-      function upsertCountryCatalog(questions = []) {
-        questions.forEach((q) => {
-          const code = normalizeQuestionCountryCode(q?.targetCountryCode || q?.countryCode);
-          if (!code) return;
-          const existing = state.countryCatalogByCode.get(code) || {};
-          const lat = Number(q?.lat);
-          const lng = Number(q?.lng);
-          state.countryCatalogByCode.set(code, {
-            code,
-            countryNameAr: normalizeCell(q?.targetCountryNameAr || q?.countryNameAr || existing.countryNameAr),
-            countryNameEn: normalizeCell(q?.targetCountryNameEn || q?.countryNameEn || existing.countryNameEn),
-            lat: Number.isFinite(lat) ? lat : existing.lat,
-            lng: Number.isFinite(lng) ? lng : existing.lng,
-          });
-        });
       }
 
       function normalizeAudioUrl(value) {
@@ -412,26 +346,6 @@
         ["EGY", "EG"],
         ["FRA", "FR"],
         ["UAE", "AE"],
-        ["FSM", "FM"],
-        ["MHL", "MH"],
-        ["KIR", "KI"],
-        ["TUV", "TV"],
-        ["PLW", "PW"],
-        ["NRU", "NR"],
-        ["MDV", "MV"],
-        ["SYC", "SC"],
-        ["MUS", "MU"],
-        ["COM", "KM"],
-        ["BHR", "BH"],
-        ["SGP", "SG"],
-        ["MLT", "MT"],
-      ]);
-      const ALPHA3_TO_ALPHA2 = new Map([
-        ["USA", "US"], ["GBR", "GB"], ["RUS", "RU"], ["KOR", "KR"], ["PRK", "KP"], ["IRN", "IR"], ["SYR", "SY"], ["TZA", "TZ"],
-        ["BOL", "BO"], ["VEN", "VE"], ["MDA", "MD"], ["LAO", "LA"], ["VNM", "VN"], ["CZE", "CZ"], ["SWZ", "SZ"], ["CPV", "CV"],
-        ["CIV", "CI"], ["PSE", "PS"], ["FSM", "FM"], ["KNA", "KN"], ["VCT", "VC"], ["ATG", "AG"], ["LCA", "LC"], ["GRD", "GD"],
-        ["MDV", "MV"], ["SYC", "SC"], ["MUS", "MU"], ["COM", "KM"], ["MLT", "MT"], ["BHR", "BH"], ["SGP", "SG"], ["KIR", "KI"],
-        ["TUV", "TV"], ["PLW", "PW"], ["NRU", "NR"], ["MHL", "MH"], ["TON", "TO"], ["WSM", "WS"], ["VUT", "VU"], ["TLS", "TL"]
       ]);
 
       function normalizeQuestionCountryCode(value) {
@@ -445,14 +359,7 @@
         if (SELECTION_COUNTRY_CODE_ALIASES.has(code)) {
           return SELECTION_COUNTRY_CODE_ALIASES.get(code);
         }
-        if (ALPHA3_TO_ALPHA2.has(code)) return ALPHA3_TO_ALPHA2.get(code);
         return COUNTRY_CODE_ALIASES.get(code) || code;
-      }
-      function remapMapFeatureCountryCode(rawCode, rawFeatureName = "") {
-        const code = normalizeSelectionCountryCode(rawCode);
-        const normalizedFeatureName = normalizeName(rawFeatureName);
-        if (code === "IL" || normalizedFeatureName === "israel") return "PS";
-        return code;
       }
 
       function normalizeQuestionDifficulty(value) {
@@ -1388,7 +1295,7 @@
           currentQuestionMode === MAP_GAME_MODE_IMAGE ||
           currentQuestionPromptType === MAP_GAME_MODE_IMAGE;
 
-        const rawCandidateCodes = [
+        const candidateCodes = [
           countryCode,
           diagnostics?.featureCodes?.countryCode,
           diagnostics?.featureCodes?.country_code,
@@ -1396,11 +1303,8 @@
           diagnostics?.featureCodes?.iso_a3,
           diagnostics?.featureCodes?.iso2,
           diagnostics?.featureCodes?.id,
-          state.countryCodeByNormalizedNameAllModes.get(normalizeName(diagnostics?.featureName || "")),
-        ];
-        const candidateCodes = rawCandidateCodes
+        ]
           .map((value) => normalizeSelectionCountryCode(value))
-          .map((value) => remapMapFeatureCountryCode(value, diagnostics?.featureName || ""))
           .filter(Boolean);
         const normalizedCountryCode = candidateCodes.find((code) => state.mapFeaturesByCode.has(code))
           || candidateCodes.find((code) => state.mapCentroids.has(code))
@@ -1422,7 +1326,7 @@
           currentQuestionMode,
           currentQuestionPromptType,
           featureName: diagnostics?.featureName || "",
-          resolvedCountryCode: remapMapFeatureCountryCode(normalizeCountryCode(countryCode), diagnostics?.featureName || ""),
+          resolvedCountryCode: normalizeCountryCode(countryCode),
           normalizedCountryCode,
           hasMapFeature,
           hasMapCentroid,
@@ -1563,16 +1467,13 @@
         countryNodes.forEach((node) => {
           const code = node.dataset.countryCode;
           node.classList.remove("team1", "team2", "correct");
-          const canonicalCode = remapMapFeatureCountryCode(code, node.dataset.name || "");
-          const selectable = isLanguageMode() || isImageMode() || state.questionByCountryCode.has(canonicalCode);
-          node.classList.toggle("unavailable", !selectable);
-          if (state.teamPicks[0]?.countryCode === canonicalCode) node.classList.add("team1");
-          if (state.teamPicks[1]?.countryCode === canonicalCode) node.classList.add("team2");
-          if (state.pendingPick === canonicalCode) {
+          if (state.teamPicks[0]?.countryCode === code) node.classList.add("team1");
+          if (state.teamPicks[1]?.countryCode === code) node.classList.add("team2");
+          if (state.pendingPick === code) {
             if (state.pendingTeamIndex === 0) node.classList.add("team1");
             if (state.pendingTeamIndex === 1) node.classList.add("team2");
           }
-          if (state.phase === "revealed" && targetCode === canonicalCode) node.classList.add("correct");
+          if (state.phase === "revealed" && targetCode === code) node.classList.add("correct");
         });
       }
 
@@ -1837,9 +1738,7 @@
         }
         if (!selectionValidation.selectable) {
           console.info("[MapGame] Country rejected", selectionValidation);
-          if (isLanguageMode() || isImageMode()) {
-            showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
-          }
+          showOverlay("تنبيه", UNSUPPORTED_COUNTRY_MESSAGE, [{ label: "حسنًا", kind: "btn-light", onClick: hideOverlay }]);
           return;
         }
         countryCode = selectionValidation.normalizedCountryCode;
@@ -1923,7 +1822,6 @@
           const path = d3.geoPath(projection);
           const mapLayer = svg.append("g");
           const countriesLayer = mapLayer.append("g").attr("class", "countries-layer");
-          const helperLayer = mapLayer.append("g").attr("class", "small-country-helper-layer");
 
           const clearActivePointer = () => {
             state.activePointer = null;
@@ -1978,17 +1876,11 @@
                 if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(raw)) {
                   variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(raw));
                 }
-                if (ALPHA3_TO_ALPHA2.has(raw)) {
-                  variants.push(ALPHA3_TO_ALPHA2.get(raw));
-                }
                 const splitTokens = raw.split(/[^A-Z0-9]+/).filter(Boolean);
                 splitTokens.forEach((token) => {
                   variants.push(token);
                   if (FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.has(token)) {
                     variants.push(FEATURE_ALPHA3_TO_ALPHA2_OVERRIDES.get(token));
-                  }
-                  if (ALPHA3_TO_ALPHA2.has(token)) {
-                    variants.push(ALPHA3_TO_ALPHA2.get(token));
                   }
                 });
                 return variants;
@@ -2134,247 +2026,29 @@
               }
               trySelectCountryFromEvent(event);
             });
-          const featureAreaByCode = new Map();
-          geojson.features.forEach((feature) => {
-            const code = feature?.properties?.countryCode;
-            if (!code) return;
-            const area = d3.geoArea(feature);
-            if (!Number.isFinite(area) || area <= 0) return;
-            const existing = featureAreaByCode.get(code);
-            if (!Number.isFinite(existing) || area > existing) featureAreaByCode.set(code, area);
-          });
-          const questionCoordsByCode = new Map(
-            Array.from(state.countryCatalogByCode.values())
-              .filter((item) => item?.code && Number.isFinite(item.lat) && Number.isFinite(item.lng))
-              .map((item) => [item.code, [item.lng, item.lat]])
-          );
-          const helperEligible = new Map();
-          questionCoordsByCode.forEach((lngLat, code) => {
-            const area = featureAreaByCode.get(code);
-            const hasPolygon = state.mapFeaturesByCode.has(code);
-            if (!hasPolygon || TINY_COUNTRY_HELPER_CODES.has(code) || (Number.isFinite(area) && area < 0.00003)) {
-              helperEligible.set(code, {
-                code,
-                lngLat,
-                area: Number.isFinite(area) ? area : 0,
-                source: hasPolygon ? "tiny_polygon" : "missing_polygon",
-                name: state.questionByCountryCode.get(code)?.countryName || code,
-              });
-            }
-          });
-          const helperFeatures = Array.from(helperEligible.values());
-          const helperRadiusByCode = new Map();
-          helperLayer
-            .selectAll("circle")
-            .data(helperFeatures)
-            .enter()
-            .append("circle")
-            .attr("class", "country helper-hit")
-            .attr("data-country-code", (d) => d.code)
-            .attr("r", (d) => {
-              const area = d.area;
-              const baseRadius = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
-                ? HELPER_HIT_BASE_RADIUS_MOBILE
-                : HELPER_HIT_BASE_RADIUS_DESKTOP;
-              let adjusted = baseRadius;
-              if (d.source === "missing_polygon") adjusted = baseRadius * 1.05;
-              if (area < 0.00004) adjusted = baseRadius * 1.05;
-              else if (area > 0.00012) adjusted = baseRadius * 0.8;
-              if (["MT", "BH", "SG"].includes(d.code)) adjusted *= 0.8;
-              helperRadiusByCode.set(d.code, adjusted);
-              return adjusted;
-            })
-            .attr("transform", (d) => {
-              const p = projection(d.lngLat);
-              return p ? `translate(${p[0]},${p[1]})` : null;
-            })
-            .on("pointerup", (event, d) => {
-              if (event.pointerType === "mouse" && event.button !== 0) return;
-              handleCountrySelection(remapMapFeatureCountryCode(d.code, d.name), {
-                featureName: d.name,
-                hasClickedFeature: true,
-                featureCodes: { countryCode: d.code },
-              });
-            })
-            .on("click", (event) => {
-              event.preventDefault();
-            });
-          const refreshHelperHitRadius = (zoomScale) => {
-            helperLayer.selectAll(".helper-hit").attr("r", (d) => {
-              const baseRadius = helperRadiusByCode.get(d.code)
-                || (window.matchMedia(MOBILE_VIEWPORT_QUERY).matches
-                  ? HELPER_HIT_BASE_RADIUS_MOBILE
-                  : HELPER_HIT_BASE_RADIUS_DESKTOP);
-              return Math.max(2.8, baseRadius / Math.max(zoomScale, MAP_MIN_ZOOM));
-            });
-          };
-          refreshHelperHitRadius(MAP_MIN_ZOOM);
 
-          state.mapDiagnostics.smallCountryCodes = helperFeatures.map((entry) => entry.code);
+          state.mapDiagnostics.smallCountryCodes = [];
 
           const zoomMax = window.matchMedia(MOBILE_VIEWPORT_QUERY).matches ? MAP_MAX_ZOOM_MOBILE : MAP_MAX_ZOOM_DESKTOP;
 
-          const mapBounds = path.bounds(geojson);
-          const constrainTransform = (transform) => {
-            const dx = mapBounds[1][0] - mapBounds[0][0];
-            const dy = mapBounds[1][1] - mapBounds[0][1];
-            const minX = Math.min(0, mapWidth - dx * transform.k);
-            const minY = Math.min(0, mapHeight - dy * transform.k);
-            const maxX = Math.max(0, mapWidth - dx * transform.k);
-            const maxY = Math.max(0, mapHeight - dy * transform.k);
-            transform.x = Math.max(minX - 60, Math.min(maxX + 60, transform.x));
-            transform.y = Math.max(minY - 60, Math.min(maxY + 60, transform.y));
-            return transform;
-          };
           const zoomBehavior = d3
             .zoom()
             .scaleExtent([MAP_MIN_ZOOM, zoomMax])
             .filter((event) => {
+              if (event.type === "dblclick") return false;
               if (state.isRevealingAnswer) return false;
               if (el.overlay.classList.contains("active")) return false;
-              if (event.type === "wheel") {
+              if (event.type === "wheel" && !window.matchMedia(MOBILE_VIEWPORT_QUERY).matches) {
                 return Boolean(event.ctrlKey);
-              }
-              if (event.type === "dblclick") return true;
-              if (event.type === "touchstart" || event.type === "touchmove") {
-                return Boolean(event.touches && event.touches.length >= 2);
-              }
-              if (event.type === "mousedown" || event.type === "mousemove") {
-                return d3.zoomTransform(svg.node()).k > MAP_MIN_ZOOM;
               }
               return true;
             })
             .on("zoom", (event) => {
-              const safeTransform = constrainTransform(event.transform);
-              mapLayer.attr("transform", safeTransform);
-              refreshHelperHitRadius(safeTransform.k);
-              state.mapDebug.lastZoomSource = event?.sourceEvent?.type === "wheel" ? "ctrlwheel" : (event?.sourceEvent?.type === "dblclick" ? "doubletap" : (state.mapDebug.isPinching ? "pinch" : "d3"));
+              mapLayer.attr("transform", event.transform);
             })
             .on("end", clearActivePointer);
 
           svg.call(zoomBehavior);
-          svg.on("dblclick.zoom", (event) => {
-            const pointer = d3.pointer(event, svg.node());
-            const current = d3.zoomTransform(svg.node());
-            const nextK = Math.min(zoomMax, current.k * 1.6);
-            svg
-              .transition()
-              .duration(220)
-              .call(zoomBehavior.scaleTo, nextK, pointer);
-          });
-          const svgNode = svg.node();
-          if (svgNode) {
-            let pinchState = null;
-            const getTouchMetrics = (touchA, touchB) => {
-              const rect = svgNode.getBoundingClientRect();
-              const x1 = touchA.clientX - rect.left;
-              const y1 = touchA.clientY - rect.top;
-              const x2 = touchB.clientX - rect.left;
-              const y2 = touchB.clientY - rect.top;
-              return {
-                midpoint: [(x1 + x2) / 2, (y1 + y2) / 2],
-                distance: Math.hypot(x2 - x1, y2 - y1),
-              };
-            };
-            svgNode.addEventListener("touchstart", (event) => {
-              state.mapDebug.touchstartFired = true;
-              state.mapDebug.lastTouchEvent = "touchstart";
-              state.mapDebug.activeTouches = event.touches?.length || 0;
-              if (event.touches?.length === 2) {
-                const metrics = getTouchMetrics(event.touches[0], event.touches[1]);
-                pinchState = {
-                  initialDistance: Math.max(metrics.distance, 1),
-                  initialMidpoint: metrics.midpoint,
-                  initialTransform: d3.zoomTransform(svg.node()),
-                };
-                state.mapDebug.isPinching = true;
-              }
-            }, { passive: true });
-            svgNode.addEventListener("touchmove", (event) => {
-              state.mapDebug.touchmoveFired = true;
-              state.mapDebug.lastTouchEvent = "touchmove";
-              state.mapDebug.activeTouches = event.touches?.length || 0;
-              if (!(event.touches?.length === 2 && pinchState)) return;
-              event.preventDefault();
-              const metrics = getTouchMetrics(event.touches[0], event.touches[1]);
-              const ratio = metrics.distance / pinchState.initialDistance;
-              const nextK = Math.max(MAP_MIN_ZOOM, Math.min(zoomMax, pinchState.initialTransform.k * ratio));
-              const nextTransform = constrainTransform(
-                d3.zoomIdentity
-                  .translate(
-                    metrics.midpoint[0] - (pinchState.initialMidpoint[0] - pinchState.initialTransform.x) * (nextK / pinchState.initialTransform.k),
-                    metrics.midpoint[1] - (pinchState.initialMidpoint[1] - pinchState.initialTransform.y) * (nextK / pinchState.initialTransform.k)
-                  )
-                  .scale(nextK)
-              );
-              state.mapDebug.lastZoomSource = "pinch";
-              svg.call(zoomBehavior.transform, nextTransform);
-            }, { passive: false });
-            const endPinch = (event) => {
-              state.mapDebug.lastTouchEvent = "touchend";
-              state.mapDebug.activeTouches = event.touches?.length || 0;
-              if (!event.touches?.length || event.touches.length < 2) {
-                pinchState = null;
-                state.mapDebug.isPinching = false;
-              }
-            };
-            svgNode.addEventListener("touchend", endPinch, { passive: true });
-            svgNode.addEventListener("touchcancel", endPinch, { passive: true });
-            let lastTapTs = 0;
-            svgNode.addEventListener("touchend", (event) => {
-              if (event.touches?.length) return;
-              const now = Date.now();
-              if (now - lastTapTs > 320) {
-                lastTapTs = now;
-                return;
-              }
-              lastTapTs = 0;
-              const touch = event.changedTouches && event.changedTouches[0];
-              if (!touch) return;
-              const rect = svgNode.getBoundingClientRect();
-              const point = [touch.clientX - rect.left, touch.clientY - rect.top];
-              const current = d3.zoomTransform(svg.node());
-              const nextK = Math.min(zoomMax, current.k * 1.55);
-              state.mapDebug.lastZoomSource = "doubletap";
-              svg.transition().duration(200).call(zoomBehavior.scaleTo, nextK, point);
-            }, { passive: true });
-          }
-          if (mapDebugEnabled) {
-            const poolCodes = new Set(Array.from(state.countryCatalogByCode.keys()));
-            const selectable = new Set([...state.mapFeaturesByCode.keys(), ...helperFeatures.map((entry) => entry.code)]);
-            const missing = [...poolCodes].filter((code) => !selectable.has(code));
-            const debugNode = document.getElementById("mapDebugOverlay") || document.getElementById("map-debug-overlay");
-            const updateDebugOverlay = () => {
-              if (!debugNode) return;
-              const build = window.TASLEYA_MAP_BUILD_VERSION || runtimeVersion;
-              const k = d3.zoomTransform(svg.node()).k.toFixed(3);
-              debugNode.style.display = "block";
-              debugNode.textContent = [
-                `build: ${build}`,
-                `zoom k: ${k}`,
-                `active touches: ${state.mapDebug.activeTouches}`,
-                `pinch active: ${state.mapDebug.isPinching}`,
-                `expected countries: ${poolCodes.size}`,
-                `selectable countries: ${selectable.size}`,
-                `missing: [${missing.join(",")}]`,
-                `helper targets: ${helperFeatures.length}`,
-                `last touch event: ${state.mapDebug.lastTouchEvent}`,
-                `last zoom source: ${state.mapDebug.lastZoomSource}`,
-                `helpers from full 196-country catalogue: ${poolCodes.size === 196}`,
-              ].join("\n");
-            };
-            updateDebugOverlay();
-            svg.on("touchstart.debugOverlay touchmove.debugOverlay touchend.debugOverlay", updateDebugOverlay);
-            svg.on("wheel.debugOverlay dblclick.debugOverlay", updateDebugOverlay);
-            svg.on("pointermove.debugOverlay", updateDebugOverlay);
-            console.info("[MapGame][debug] selectable country coverage", {
-              expectedCount: poolCodes.size,
-              selectableCount: selectable.size,
-              helperCount: helperFeatures.length,
-              missing,
-              zoom: d3.zoomTransform(svg.node()).k,
-            });
-          }
 
           if (!el.mapStage.querySelector(".map-svg")) {
             el.mapStage.appendChild(svg.node());
@@ -2794,7 +2468,6 @@
           console.info("[MapGame][mode-load] mode questions loaded", loadDiagnostics);
 
           state.questionPoolByMode[modeKey] = questions;
-          upsertCountryCatalog(questions);
           state.questionsReadyByMode[modeKey] = questions.length >= 20;
           state.modeLoadErrorByMode[modeKey] = "";
           questions.forEach((item) => {
@@ -2878,11 +2551,6 @@
       initializeMapGame();
   }
 
-  if (!enterBtn) {
-    console.error("[map-game] Missing #enterSetupBtn");
-    showLoaderError(RUNTIME_UI_LOAD_ERROR);
-    return;
-  }
   enterBtn.addEventListener('click', async () => {
     enterBtn.disabled = true;
     try {
@@ -2894,21 +2562,7 @@
       initRuntime();
     } catch (error) {
       console.error('[map-game] failed to mount runtime', error);
-      showLoaderError(RUNTIME_UI_LOAD_ERROR);
       enterBtn.disabled = false;
     }
   });
-  function showLoaderError(message) {
-    const hostEl = intro || host || document.body;
-    if (!hostEl) return;
-    let box = document.getElementById("mapGameLoaderError");
-    if (!box) {
-      box = document.createElement("p");
-      box.id = "mapGameLoaderError";
-      box.style.color = "#ffd7d7";
-      box.style.fontWeight = "700";
-      hostEl.appendChild(box);
-    }
-    box.textContent = message || RUNTIME_UI_LOAD_ERROR;
-  }
 })();
