@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>خمن الدولة | تسلية</title>
+    <title>خمن الدولة</title>
     <link rel="canonical" href="https://tasleya.online/map-game/" />
     <meta
       name="description"
@@ -512,37 +512,21 @@
       .map-stage {
         position: relative;
         flex: 1;
-        min-height: clamp(480px, 65vh, 700px);
+        min-height: 260px;
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
-        touch-action: pan-y;
-        overscroll-behavior: auto;
+        touch-action: none;
+        overscroll-behavior: contain;
         background:
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
 
       @media (min-width: 841px) and (pointer: fine) {
         .map-stage {
-          min-height: clamp(560px, 68vh, 800px);
+          min-height: clamp(340px, 54vh, 560px);
           overscroll-behavior-y: auto;
         }
-      }
-      .map-debug-overlay {
-        position: fixed;
-        top: 80px;
-        left: 12px;
-        z-index: 999999;
-        margin: 0;
-        padding: 10px;
-        border: 1px solid #facc15;
-        background: rgba(0, 0, 0, 0.85);
-        color: #facc15;
-        direction: ltr;
-        text-align: left;
-        font: 600 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        white-space: pre-wrap;
-        pointer-events: none;
       }
 
       .image-prompt {
@@ -608,40 +592,17 @@
         width: 100%;
         height: 100%;
         display: block;
-        touch-action: pan-y;
+        touch-action: none;
         -webkit-tap-highlight-color: transparent;
       }
 
       .country {
-        fill: #96b0df;
-        stroke: #1c376f;
-        stroke-width: 0.85;
+        fill: #92aad8;
+        stroke: #182f62;
+        stroke-width: 0.7;
         vector-effect: non-scaling-stroke;
         cursor: pointer;
-        transition: fill 120ms ease, stroke 120ms ease;
-      }
-      .country.unavailable {
-        fill: #5f6f95;
-        opacity: 0.5;
-        cursor: default;
-      }
-      .country.unavailable:hover {
-        fill: #5f6f95;
-      }
-      .country.helper-hit {
-        fill: rgba(255, 255, 255, 0.001);
-        fill-opacity: 0.001;
-        stroke: none;
-        stroke-opacity: 0;
-        pointer-events: all;
-      }
-
-      .map-debug-hits .country.helper-hit {
-        fill: rgba(92, 159, 255, 0.18);
-        fill-opacity: 0.22;
-        stroke: rgba(178, 216, 255, 0.55);
-        stroke-width: 0.45;
-        stroke-opacity: 0.6;
+        transition: fill 120ms ease;
       }
 
       .country:focus,
@@ -1247,8 +1208,7 @@
     </style>
       <link rel="stylesheet" href="/assets/shared-contact-modal.css" />
       <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"الرئيسية","item":"https://tasleya.online/"},{"@type":"ListItem","position":2,"name":"خمن الدولة","item":"https://tasleya.online/map-game/"}]}</script>
-      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5060968996643470" crossorigin="anonymous"></script>
-</head>
+  </head>
   <body>
     <main class="shell">
       <a class="back-link" href="/games/">← العودة إلى الألعاب</a>
@@ -1437,7 +1397,7 @@
         }
       })();
     </script>
-    <script src="/map-game/runtime-loader.js?v=1.2.21"></script>
+    <script src="/map-game/runtime-loader.js?v=1.2.16"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
 </html>
