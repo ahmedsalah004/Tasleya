@@ -512,12 +512,12 @@
       .map-stage {
         position: relative;
         flex: 1;
-        min-height: 260px;
+        min-height: clamp(320px, 58vh, 680px);
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
-        touch-action: none;
-        overscroll-behavior: contain;
+        touch-action: pan-y pinch-zoom;
+        overscroll-behavior: auto;
         background:
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
       }
@@ -592,17 +592,17 @@
         width: 100%;
         height: 100%;
         display: block;
-        touch-action: none;
+        touch-action: pan-y pinch-zoom;
         -webkit-tap-highlight-color: transparent;
       }
 
       .country {
-        fill: #92aad8;
-        stroke: #182f62;
-        stroke-width: 0.7;
+        fill: #96b0df;
+        stroke: #1c376f;
+        stroke-width: 0.85;
         vector-effect: non-scaling-stroke;
         cursor: pointer;
-        transition: fill 120ms ease;
+        transition: fill 120ms ease, stroke 120ms ease;
       }
       .country.unavailable {
         fill: #5f6f95;
@@ -612,26 +612,11 @@
       .country.unavailable:hover {
         fill: #5f6f95;
       }
-      .map-zoom-controls {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        display: grid;
-        gap: 6px;
-        z-index: 3;
+      .country.helper-hit {
+        fill: transparent;
+        stroke: transparent;
+        opacity: 0;
       }
-      .zoom-btn {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        border: 1px solid rgba(183, 208, 255, 0.45);
-        background: rgba(10, 24, 55, 0.92);
-        color: #f0f6ff;
-        font-size: 1.25rem;
-        font-weight: 900;
-        cursor: pointer;
-      }
-      .zoom-reset-btn { font-size: 1rem; }
 
       .country:focus,
       .country:focus-visible {
