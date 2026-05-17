@@ -512,11 +512,11 @@
       .map-stage {
         position: relative;
         flex: 1;
-        min-height: clamp(320px, 58vh, 680px);
+        min-height: clamp(420px, 58vh, 620px);
         border: 1px solid var(--line);
         border-radius: 16px;
         overflow: hidden;
-        touch-action: pan-y pinch-zoom;
+        touch-action: pan-y;
         overscroll-behavior: auto;
         background:
           radial-gradient(circle at 48% 35%, #1d3d81 0%, #122858 48%, #091835 75%, #061127 100%);
@@ -524,7 +524,7 @@
 
       @media (min-width: 841px) and (pointer: fine) {
         .map-stage {
-          min-height: clamp(340px, 54vh, 560px);
+          min-height: clamp(520px, 65vh, 760px);
           overscroll-behavior-y: auto;
         }
       }
@@ -1421,7 +1421,7 @@
         }
       })();
     </script>
-    <script src="/map-game/runtime-loader.js?v=1.2.17"></script>
+    <script src="/map-game/runtime-loader.js?v=1.2.18"></script>
       <script src="/assets/shared-contact-modal.js"></script>
   </body>
 </html>
